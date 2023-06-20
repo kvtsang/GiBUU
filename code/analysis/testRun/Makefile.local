@@ -1,0 +1,6 @@
+SUBDIREXCL :=
+FILEEXCL := HiPion_CompOutput.f90  ReSplineFort973.f90 testLowPhotonAnalysis.f90 HiLeptonMix10Runs.f90 HiLeptonCLASrho0.f90 testLowPhotonAnalysis.f90 ReadSigmaWdatBin.f90 IntegrateHist.f90 ReadDileptonEvents.f90 testDileptonOmegaDalitz.f90 IntegrateHist2D.f90 CLASpi0acceptance.f90 HiLeptonMixRuns.f90 HeavyIonMixRuns.f90 PrintHAFT.f90 readPipe.f90
+#EXEFILE := CLASpi0acceptance.f90 HiLeptonMixRuns.f90
+#EXEFILE := HeavyIonMixRuns.f90
+#EXEFILE := PrintHAFT.f90
+EXEFILE := readPipe.f90
