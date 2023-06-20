@@ -985,16 +985,21 @@ contains
   subroutine Root_write_particle(this, part)
     use particleDefinition
     use ID_translation, only: KFfromBUU
-
+    use history, only: history_getGeneration, history_getParents
+    
     class(RootOutputFile), intent(in) :: this
     type(particle), intent(in) :: part
 
     real, dimension(1:3) :: pos
 
     integer :: KF
-
+    integer :: parents(1:3)
+    integer :: gen
+    
     KF = KFfromBUU(part)
-
+    gen = history_getGeneration(part%history)
+    parents = history_getParents(part%history)
+    
     if (useProductionPos) then
        pos = getProductionPos(part)
     else
@@ -1003,7 +1008,7 @@ contains
 
     call rootaddparticle(KF, &
          part%momentum(1),part%momentum(2),part%momentum(3), part%momentum(0), &
-         pos(1),pos(2),pos(3))
+         pos(1),pos(2),pos(3), part%ID, gen, parents(1), parents(2), parents(3))
 
   end subroutine Root_write_particle
 

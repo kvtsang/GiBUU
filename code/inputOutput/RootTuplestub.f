@@ -21,8 +21,13 @@ C-----------------------------------------------------------------------
       subroutine rootclose
       end
 
-      subroutine rootaddparticle(code,px,py,pz,e,x,y,z)
-      integer code
+C      subroutine rootaddparticle(code,px,py,pz,e,x,y,z)
+C      integer code
+C      double precision px,py,pz,e,x,y,z
+C      end
+
+      subroutine rootaddparticle(code,px,py,pz,e,x,y,z,ID,gen,p1,p2,p3)
+      integer code, ID, gen, p1, p2, p3
       double precision px,py,pz,e,x,y,z
       end
 
