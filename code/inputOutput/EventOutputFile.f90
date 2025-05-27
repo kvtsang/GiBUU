@@ -1006,9 +1006,11 @@ contains
        pos = part%position
     end if
 
-    call rootaddparticle(KF, &
-         part%momentum(1),part%momentum(2),part%momentum(3), part%momentum(0), &
-         pos(1),pos(2),pos(3), part%ID, gen, parents(1), parents(2), parents(3))
+    call rootaddparticle(KF, part%ID, part%charge, &
+      part%number, part%history, &
+      part%momentum(1),part%momentum(2),part%momentum(3), part%momentum(0), &
+      pos(1),pos(2),pos(3), &
+      part%event(1),part%event(2),part%firstEvent)
 
   end subroutine Root_write_particle
 
