@@ -1,7 +1,7 @@
 !******************************************************************************
-!****m* /histf90
+!****m* /hist
 ! NAME
-! module histf90
+! module hist
 ! PURPOSE
 ! Encapsulate all routines and datas for 1D Histograms.
 !
@@ -10,17 +10,17 @@
 ! - enable two y-values (y and y2)
 ! - track keeping of under-/over-score the given extreme values of x.
 ! - provide simple-to-understand output routines (cf. WriteHist)
-! - provide simple histogram arithmetic (not yet implemented)
+! - provide simple histogram arithmetic
 ! - many others...
 !
 ! Every Histogram prints his own multicolumn output.
 ! A multicolumn output of many different histograms for the same x-value
-! is not implemented. This is done by the module "histMPf90".
+! is not implemented. This is done by the module "histMP".
 !
 ! INPUTS
 ! ...(This module needs no input)
 !******************************************************************************
-module histf90
+module hist
 
   implicit none
   private
@@ -29,7 +29,7 @@ module histf90
 
 
   !****************************************************************************
-  !****t* histf90/histogram
+  !****t* hist/histogram
   ! NAME
   ! type histogram
   ! PURPOSE
@@ -50,13 +50,14 @@ module histf90
   end type histogram
   !****************************************************************************
 
-  public :: CreateHist, RemoveHist, ClearHist, Addhist
+  public :: CreateHist, RemoveHist, ClearHist, AddHist
+  public :: setNameHist
   public :: WriteHist, ReadHist, FetchHist
   public :: WriteHist_Spline, WriteHist_BSpline
   public :: WriteHist_Gauss, WriteHist_Novo
   public :: WriteHist_Integrated
   public :: SumHist, CopyHist
-
+  public :: GetHist
 
   ! some format specifiers for writing out histograms
   character(60), parameter :: fmt1020 = "('### ',A,', #SubPoints=',i5,/,'###')"
@@ -64,7 +65,7 @@ module histf90
   character(60), parameter :: fmt2001 = "(ES14.6,4ES12.4)"
 
   !****************************************************************************
-  !****s* histf90/AddHist
+  !****s* hist/AddHist
   ! NAME
   ! subroutine AddHist(H, x,y,y2)
   !
@@ -96,7 +97,7 @@ module histf90
 contains
 
   !****************************************************************************
-  !****s* histf90/ClearHist
+  !****s* hist/ClearHist
   ! NAME
   ! subroutine ClearHist(H)
   ! PURPOSE
@@ -117,7 +118,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/CreateHist
+  !****s* hist/CreateHist
   ! NAME
   ! subroutine CreateHist(H, HName, xmin, xmax, bin)
   ! PURPOSE
@@ -156,11 +157,7 @@ contains
     H%xBin = bin
     H%xExtreme(1:2) = (/ 99e9, -99e9 /)
 
-    if (len(HName) > NameLength) then
-       H%Name = HName(1:NameLength)
-    else
-       H%Name = HName
-    end if
+    call setNameHist(H, HName)
 
     if (allocated(H%yVal)) deallocate(H%yVal)
 
@@ -172,9 +169,33 @@ contains
 
   end subroutine CreateHist
 
+  !****************************************************************************
+  !****s* hist/setNameHist
+  ! NAME
+  ! subroutine setNameHist(H, HName)
+  ! PURPOSE
+  ! Set the name of the histogram
+  ! INPUTS
+  ! * type(histogram) :: H          -- Histogram to be created
+  ! * character*(*)   :: HName      -- Name of Histogram
+  ! OUTPUT
+  ! H is changed
+  !****************************************************************************
+  subroutine setNameHist(H, HName)
+
+    type(histogram),intent(inout) :: H
+    character*(*),intent(in) :: HName
+
+    if (len(HName) > NameLength) then
+       H%Name = HName(1:NameLength)
+    else
+       H%Name = HName
+    end if
+
+  end subroutine setNameHist
 
   !****************************************************************************
-  !****s* histf90/RemoveHist
+  !****s* hist/RemoveHist
   ! NAME
   ! subroutine RemoveHist(H)
   ! PURPOSE
@@ -183,8 +204,11 @@ contains
   ! * type(histogram) :: H  -- Histogram to be used
   ! OUTPUT
   ! H is changed
+  ! NOTES
+  ! This function is declared elemental, so you can call it also with
+  ! 1D or 2D arrays of histograms as argument
   !****************************************************************************
-  subroutine RemoveHist(H)
+  elemental subroutine RemoveHist(H)
 
     type(histogram),intent(inout) :: H
 
@@ -244,7 +268,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHeader
+  !****s* hist/WriteHeader
   ! NAME
   ! subroutine WriteHeader(H,iFile,mul)
   !
@@ -329,7 +353,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHist
+  !****s* hist/WriteHist
   ! NAME
   ! subroutine WriteHist(H, iFile, add, mul, DoAve, maxVal, H2, file, dump)
   ! PURPOSE
@@ -496,7 +520,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHist_Integrated
+  !****s* hist/WriteHist_Integrated
   ! NAME
   ! subroutine WriteHist_Integrated(H, file, backward, normalize)
   ! PURPOSE
@@ -554,7 +578,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHist_Spline
+  !****s* hist/WriteHist_Spline
   ! NAME
   ! subroutine WriteHist_Spline(H,file,add,mul,nPoints)
   ! PURPOSE
@@ -651,7 +675,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHist_BSpline
+  !****s* hist/WriteHist_BSpline
   ! NAME
   ! subroutine WriteHist_BSpline(H,file,add,mul,nPoints)
   ! PURPOSE
@@ -746,7 +770,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHist_Gauss
+  !****s* hist/WriteHist_Gauss
   ! NAME
   ! subroutine WriteHist_Gauss(H,file,width_in)
   ! PURPOSE
@@ -810,7 +834,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/WriteHist_Novo
+  !****s* hist/WriteHist_Novo
   ! NAME
   ! subroutine WriteHist_Novo(H,file,w,d)
   ! PURPOSE
@@ -867,7 +891,7 @@ contains
 
 
   !****************************************************************************
-  !****f* histf90/ReadHist
+  !****f* hist/ReadHist
   ! NAME
   ! logical function ReadHist(H, file)
   ! PURPOSE
@@ -958,7 +982,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/SumHist
+  !****s* hist/SumHist
   ! NAME
   ! subroutine SumHist(A, B, w, doCheck)
   ! PURPOSE
@@ -997,7 +1021,7 @@ contains
   end subroutine SumHist
 
   !****************************************************************************
-  !****s* histf90/CopyHist
+  !****s* hist/CopyHist
   ! NAME
   ! subroutine CopyHist(A, B)
   ! PURPOSE
@@ -1027,7 +1051,7 @@ contains
 
 
   !****************************************************************************
-  !****s* histf90/DumpHist
+  !****s* hist/DumpHist
   ! NAME
   ! subroutine DumpHist(H,file,iFile, add,mul)
   ! PURPOSE
@@ -1082,7 +1106,7 @@ contains
   end subroutine DumpHist
 
   !****************************************************************************
-  !****s* histf90/FetchHist
+  !****s* hist/FetchHist
   ! NAME
   ! subroutine FetchHist(H,file,iFile, add,mul,flagOK)
   ! PURPOSE
@@ -1121,7 +1145,7 @@ contains
     iF=121
     if (present(iFile)) iF = iFile
 
-    open(iF,file=file,status='UNKNOWN',form='UNFORMATTED',iostat=ios)
+    open(iF,file=file,status='OLD',form='UNFORMATTED',iostat=ios)
     if (ios.ne.0) then
        close(iF)
        if (present(flagOK)) flagOK=.false.
@@ -1154,6 +1178,8 @@ contains
           write(*,*) 'FetchHist: old file version, no add/mul info!'
           addFak = 0.0
           mulFak = 1.0
+       else
+          mulFak = mulFak*H%xBin
        end if
        if (present(add)) add=addFak
        if (present(mul)) mul=mulFak
@@ -1167,5 +1193,63 @@ contains
   end subroutine FetchHist
 
   !****************************************************************************
+  !****f* hist/GetHist
+  ! NAME
+  ! real function GetHist(H, x, deg)
+  !
+  ! PURPOSE
+  ! return the value of the histogram
+  !
+  ! INPUTS
+  ! * type(histogram) :: H  -- Histogram to be used
+  ! * real :: x -- value to be used
+  ! * integer, OPTIONAL :: deg -- degree of interpolation: 0,1,...
+  !   (default: deg = 0)
+  !****************************************************************************
+  real function GetHist(H, x, deg_in)
+    use CALLSTACK, only: TRACEBACK
 
-end module histf90
+    type(histogram),intent(in) :: H
+    real, intent(in) :: x
+    integer, intent(in), OPTIONAL :: deg_in
+
+    integer :: deg,iBin
+    real :: w,x0
+
+    GetHist = 0.
+    if (x < H%xMin) return
+    if (x > H%xMax) return
+
+    deg = 0
+    if (present(deg_in)) deg = deg_in
+
+    select case (deg)
+    case (0)
+       iBin = int( (x-H%xMin)/H%xBin )+1
+       GetHist = H%yVal(iBin,1)/H%xBin
+    case (1)
+       iBin = nint( (x-H%xMin)/H%xBin ) ! different than above!!!
+       if (iBin <= 0) then
+          GetHist = H%yVal(1,1)/H%xBin
+       else if (iBin >= ubound(H%yVal,dim=1)) then
+          GetHist = H%yVal(ubound(H%yVal,dim=1),1)/H%xBin
+       else
+          x0 = H%xMin+(real(iBin)-0.5)*H%xBin
+          w = (x-x0)/H%xBin
+          GetHist = (1.-w)*H%yVal(iBin,1)/H%xBin + w*H%yVal(iBin+1,1)/H%xBin
+
+!!$          write(*,*) 'new: ',x,x0,x0+H%xBin,w,iBin
+!!$          write(*,*) '     ',GetHist,H%yVal(iBin,1)/H%xBin,H%yVal(iBin+1,1)/H%xBin
+!!$          iBin = int( (x-H%xMin)/H%xBin )+1
+!!$          write(*,*) 'orig:',x,H%xMin+(real(iBin)-1.0)*H%xBin,H%xMin+(real(iBin)-0.0)*H%xBin,H%yVal(iBin,1)/H%xBin,iBin
+
+       end if
+    case default
+       call TRACEBACK("higher polynomial interpolation nyi")
+    end select
+
+  end function GetHist
+
+  !****************************************************************************
+
+end module hist

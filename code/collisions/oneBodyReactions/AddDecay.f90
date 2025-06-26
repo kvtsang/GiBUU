@@ -41,9 +41,8 @@ contains
   ! * type(particle),dimension(:,:) :: PartVec -- particle vector
   !
   ! NOTES
-  ! At the moment we are just decaying kaon and kaonBar (ID=110,111).
-  ! It can be easily expanded to all other particles, if one sets
-  ! the corresponding "stability flag" in array MDCY correctly.
+  ! To include decays for particles, the corresponding "stability flag" in
+  ! array MDCY has to be set accordingly.
   !****************************************************************************
   subroutine PerformAddDecay(PartVec,time)
     use particleDefinition
@@ -57,7 +56,7 @@ contains
     real, intent(in) :: time
 
     integer :: iEns,iPart, ID
-    type(particle),dimension(10) :: outPart
+    type(particle),dimension(20) :: outPart
     logical :: setFlag, NumbersAlreadySet
 
 !!$    write(*,*) '...PerformAddDecay'
@@ -145,8 +144,8 @@ contains
       K(1,2)   = KFfromBUU (Part)
 
       P(1,5)   = Part%mass
-      P(1,4)   = Part%momentum(0)
-      P(1,1:3) = Part%momentum(1:3)
+      P(1,4)   = Part%mom(0)
+      P(1,1:3) = Part%mom(1:3)
 
       !...set PYTHIA parameters for decays:
 
@@ -178,15 +177,15 @@ contains
       useJetSetVec = dummy
 
       do i=1,N
-         outPart(i)%position = Part%position
+         outPart(i)%pos = Part%pos
          outPart(i)%event = Part%event
       end do
 
       outPart(1:N)%scaleCS=1.
-      outPart(1:N)%in_formation=.false.
+      outPart(1:N)%inF=.false.
       outPart(1:N)%firstevent = Part%firstevent
-      outPart(1:N)%perturbative = Part%perturbative
-      outPart(1:N)%lastCollisionTime = time
+      outPart(1:N)%pert = Part%pert
+      outPart(1:N)%lastCollTime = time
       outPart(1:N)%perWeight = Part%perWeight
       call setHistory (Part, outPart(1:N))
 

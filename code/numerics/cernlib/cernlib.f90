@@ -1,18 +1,18 @@
 !******************************************************************************
-!****m* /cern_lib
+!****m* /cernlib
 ! NAME
-! module CERN_Lib
+! module cernlib
 ! PURPOSE
 ! This module is a wrapper for various CERNLIB routines:
 ! * 'DZEROX'
 ! * 'DCAUCH'
 !******************************************************************************
-module cern_lib
+module cernlib
 
   Interface
 
      !*************************************************************************
-     !****f* cern_lib/DZEROX
+     !****f* cernlib/DZEROX
      ! NAME
      ! double precision function DZEROX(A0,B0,EPS,MAXF,F,MODE)
      ! PURPOSE
@@ -46,4 +46,4 @@ module cern_lib
      end FUNCTION DCAUCH
   end interface
 
-end module cern_lib
+end module cernlib

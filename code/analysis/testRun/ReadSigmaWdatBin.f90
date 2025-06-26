@@ -1,6 +1,6 @@
 program ReadSigmaWdatBin
 
-  use histf90
+  use hist
 
   type(histogram) :: h
 

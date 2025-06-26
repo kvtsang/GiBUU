@@ -6,7 +6,7 @@
 !------------------------------------------------------------------------------
 
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =   31
       numEnsembles    =  100
@@ -22,6 +22,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./init/initInABox.f90

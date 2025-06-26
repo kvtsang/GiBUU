@@ -21,7 +21,7 @@ module initNucleus_in_PS
   ! * If this flag is set to .true. then we use the information of the already
   !   initialized nucleons to decide on the position of a nucleon which has to
   !   be initialized.
-  ! * This prescription does only work properly if the smearing with is really
+  ! * This prescription only works properly if the smearing width is really
   !   small. Therefore it is switched off by default.
   !****************************************************************************
 
@@ -156,9 +156,19 @@ module initNucleus_in_PS
   ! the directions of the momenta randomly. The resulting averaged nucleus
   ! momentum is in the order of 10 MeV.
   !
-  ! Whitout that, the average nucleus momentum goes ~0.17GeV*sqrt(A).
+  ! Without that, the average nucleus momentum goes ~0.17GeV*sqrt(A).
   !
   ! (Applies only for A>2.)
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initNucleus_in_PS/printMomDist
+  ! SOURCE
+  !
+  logical, save :: printMomDist = .false.
+  !
+  ! PURPOSE
+  ! Flag to indicate, whether momentum distribution is written to file
   !****************************************************************************
 
   public :: initNucPhaseSpace
@@ -178,11 +188,11 @@ contains
   ! subroutine init
   !
   ! PURPOSE
-  ! initalize the module
+  ! initialize the module
   !****************************************************************************
   subroutine init
     use output, only: Write_ReadingInput
-    use baryonPotentialModule, only: getsymmetryPotFlag_baryon, &
+    use baryonPotentialMain, only: getsymmetryPotFlag_baryon, &
          getPotentialEQSType
     use RMF, only: getRMF_flag, g_rho
 
@@ -202,13 +212,14 @@ contains
     ! * ScaleFactor
     ! * useCdA
     ! * zeroNucleusMomentum
+    ! * printMomDist
     !**************************************************************************
     NAMELIST /initNucleus_in_PS/ &
          improvedMC, improvedMC_speedup, HiTail, &
          determine_Fermi_momentum_by_binding_energy, &
          determine_Fermi_new_NucDLDA, &
          useEnergySF, compressedFlag, ScaleFactor, useCdA, &
-         zeroNucleusMomentum
+         zeroNucleusMomentum, printMomDist
 
     integer :: ios
 
@@ -274,6 +285,8 @@ contains
        write(*,*) 'Nucleus momentum: large as in random walk'
     end if
 
+    write(*,*) 'print mom. distr: ',printMomDist
+
     call Write_ReadingInput('initNucleus_in_PS',1)
 
     initFlag = .false.
@@ -301,7 +314,7 @@ contains
   ! NOTES
   ! * For A>2 it is checked that the radius of the nucleus is properly
   !   initialized.
-  ! * The particles are initialized with %perturbative=.false. since all nuclei
+  ! * The particles are initialized with %pert=.false. since all nuclei
   !   must be in the real particle vector.
   ! * All nucleons in a nucleus get the same "%event" number.
   !   This variable is raised by one after each nucleus-initialization.
@@ -319,12 +332,12 @@ contains
     use particleDefinition
     use IdTable, only: nucleon
     use nucleusDefinition
-    use densityModule, only: densityAt, get_densitySwitch, set_densitySwitch, &
+    use densityModule, only: densityAt, getDensitySwitch, setDensitySwitch, &
          FermiMomAt, updateDensity
     use dichtedefinition
     use random, only: rn, rnOmega
     use deuterium, only: initDeuterium
-    use potentialModule, only: massDetermination
+    use potentialMain, only: massDetermination
     use output, only: Write_InitStatus
     use inputGeneral, only: fullensemble,numTimeSteps,eventtype
     use eventtypes, only: hadron, groundState, HeavyIon
@@ -348,13 +361,13 @@ contains
 
     call Write_InitStatus("Nucleons in Nucleus",0)
 
-    write(*,*) 'Nucleus: charge=',nuc%charge,&
-         ' mass=',nuc%mass, 'FermiMotion=', nuc%fermiMotion, &
-         ' number=',eventNummer
-    if (sum(abs(nuc%velocity))>0.) &
-         write(*,'(A,4g12.5)') ' velocity=', nuc%velocity
-    if (sum(abs(nuc%position))>0.) &
-         write(*,'(A,4g12.5)') ' position=', nuc%position
+    write(*,'(A,i4,A,i4,A,l3,A,i3)') 'Nucleus: charge=',nuc%charge,&
+         ' mass=',nuc%mass, '   FermiMotion=', nuc%fermiMotion, &
+         '  number=',eventNummer
+    if (sum(abs(nuc%vel))>0.) &
+         write(*,'(A,4g12.5)') ' velocity=', nuc%vel
+    if (sum(abs(nuc%pos))>0.) &
+         write(*,'(A,4g12.5)') ' position=', nuc%pos
 
     if (nuc%Mass==1) then
        !=======================================================================
@@ -388,8 +401,14 @@ contains
           pPart%charge=nuc%charge
           pPart%ID=Nucleon
           pPart%mass=mN
-          pPart%momentum=(/mN,0.,0.,0./)
+          pPart%mom=(/mN,0.,0.,0./)
           call boostIt(nuc, pPart)
+
+          if (nuc%anti) then
+             pPart%charge = -pPart%charge
+             pPart%anti = .true.
+          end if
+
        end do
 
     else if (nuc%Mass==2 .and. nuc%charge==1) then
@@ -407,17 +426,17 @@ contains
        !=======================================================================
 
        if (numTimeSteps/=0 &
-            .and. ((get_densitySwitch()==2 .and. nuc%densityswitch_static==0) &
-                   .or. get_densitySwitch()==0)) then
+            .and. ((getDensitySwitch()==2 .and. nuc%densityswitch_static==0) &
+                   .or. getDensitySwitch()==0)) then
           write(*,*) 'zero static density for nuclei makes no sense for runs with FSI (numTimeSteps>0)'
-          write(*,*) '-> STOP', numTimeSteps,get_densitySwitch(), nuc%densityswitch_static
+          write(*,*) '-> STOP', numTimeSteps,getDensitySwitch(), nuc%densityswitch_static
           call TRACEBACK()
        end if
 
        if (improvedMC) then
           call updateDensity(teilchen)
-          densitySwitch_Save=get_densitySwitch()
-          call set_densitySwitch(1)
+          densitySwitch_Save=getDensitySwitch()
+          call setDensitySwitch(1)
           call updateDensity(teilchen)
        end if
 
@@ -466,7 +485,7 @@ contains
                    pPart%charge= chargeSave
                    pPart%number= numberSave
                 end if
-                pPart%position = choosePosition()
+                pPart%pos = choosePosition()
                 if (improvedMC) then
                    if (mod(k*iEns,improvedMC_speedup)==0) &
                         call updateDensity(teilchen)
@@ -502,12 +521,12 @@ contains
                 pPart%event=eventNummer
                 if (eventType==groundState) eventNummer=eventNummer+1
                 pPart%ID=Nucleon
-                pPart%antiparticle=.false.
-                pPart%perturbative=.false.
-                pPart%productionTime=0.
+                pPart%anti=.false.
+                pPart%pert=.false.
+                pPart%prodTime=0.
                 pPart%mass=mN
                 pPart%charge = chooseCharge(k)
-                pPart%position = choosePosition()
+                pPart%pos = choosePosition()
                 if (improvedMC) then
                    if (mod(k*iEns,improvedMC_speedup)==0) &
                         call updateDensity(teilchen)
@@ -559,7 +578,7 @@ contains
           end do
        end do
 
-       if (improvedMC) call set_densitySwitch(densitySwitch_Save)
+       if (improvedMC) call setDensitySwitch(densitySwitch_Save)
        if (useEnergySF) call chooseEnergySF
 
     else
@@ -572,6 +591,8 @@ contains
     ! raise Event number such that the next nucleus which is initialized gets a higher %event :
     eventNummer=eventNummer+1
     if (eventtype==hadron) eventNummer=eventNummer+1 ! here += 2 !
+
+    if (printMomDist) call doPrintMomDist()
 
     call Write_InitStatus("Nucleons in Nucleus",1)
 
@@ -648,27 +669,29 @@ contains
     !**************************************************************************
     subroutine chooseMomentum(part)
       use constants, only: mN
+
       use dichteDefinition
-      use determine_fmbybE, only: Teilchen_Fermi, determine_fermimomentum, determine_fermiNucDLDA
-      use RMF, only: walecka, getRMF_flag
+      use determFermiMom, only: determine_fermimom, determine_fermiNucDLDA
+      use RMF, only: getRMF_flag, mDiracNucleon_Approx
 
       type(particle) :: part
 
       real :: pFermi, pAbs
-      real, dimension(1:3) :: place, p
-      real :: dens, shift
+      real, dimension(1:3) :: pos, p
+      real :: dens, mDirac
       real, parameter :: cutoff=0.8 !momentum cutoff
       type(dichte) :: density
+      type(particle) :: partFermi
 
       if (.not.nuc%fermiMotion) then
          if (getRMF_flag()) call TRACEBACK('RMF and no Fermi not implemented.')
-         part%momentum=(/mN,0.,0.,0./)
-         part%velocity(1:3)= 0.0
+         part%mom=(/mN,0.,0.,0./)
+         part%vel(1:3)= 0.0
          return
       end if
 
-      place=part%position
-      density = densityAt(place)
+      pos=part%pos
+      density = densityAt(pos)
 
       ! Please note, only MomChooseType=2,3 respect the rescaling
       ! of the density, if ReAdjustForConstBinding
@@ -676,17 +699,17 @@ contains
       select case (MomChooseType)
       case (1) ! = by binding energy
          dens=density%baryon(0)
-         call determine_fermimomentum(dens,pFermi)
+         pFermi = determine_fermiMom(dens)
 
       case (2) ! = with isospin asymmetry
-         pFermi = FermiMomAt(place,part%charge)
+         pFermi = FermiMomAt(pos,part%charge)
 
       case (3) ! = without isospin asymmetry
-         pFermi = FermiMomAt(place)
+         pFermi = FermiMomAt(pos)
 
       case (4) ! = without isospin asymmetry, new_NucDLDA
          dens=density%baryon(0)
-         call determine_fermiNucDLDA(place,dens,pFermi)
+         pFermi = determine_fermiNucDLDA(pos,dens)
 
       case (5) ! = parametrization Ciofi degli Atti & Simula
          call ChooseFermiMomCdA(nuc%mass,pAbs)
@@ -702,25 +725,25 @@ contains
       end if
       p(1:3)=pAbs*rnOmega()
 
-      part%momentum(1:3)=p
+      part%mom(1:3)=p
 
       if ( (pAbs > pFermi) .and. (Hitail) ) then
-         Teilchen_Fermi=part
-         Teilchen_Fermi%momentum(1:3)=(/pFermi,0.,0./)
-         call energyDetermination(Teilchen_Fermi)
-         part%momentum(0)=Teilchen_Fermi%momentum(0)
+         partFermi=part
+         partFermi%mom(1:3)=(/pFermi,0.,0./)
+         call energyDetermination(partFermi)
+         part%mom(0)=partFermi%mom(0)
          call massDetermination(part)
       end if
 
 
-      if ( getRMF_flag() ) then ! RMF used
-         call walecka(density%baryon(0),shift)
-         part%momentum(0) = Sqrt(dot_product(p,p)+(mN-shift)**2)
+      if ( getRMF_flag() ) then
+         mDirac = mDiracNucleon_Approx(density%baryon(0))
+         part%mom(0) = Sqrt(dot_product(p,p)+mDirac**2)
       else
-         part%momentum(0) = Sqrt(dot_product(p,p)+mN**2)
+         part%mom(0) = Sqrt(dot_product(p,p)+mN**2)
       end if
 
-      part%velocity(1:3)=part%momentum(1:3)/part%momentum(0)
+      part%vel(1:3)=part%mom(1:3)/part%mom(0)
 
     end subroutine chooseMomentum
 
@@ -762,15 +785,15 @@ contains
       real :: h1, h2
       real :: h,u
 
-      real, dimension(1:3) :: place
+      real, dimension(1:3) :: pos
       type(dichte) :: density
       real :: dens
       if (.not.HiTail) then
          chooseAbsMomentum = rn()**(1./3.)
       else
-         place=Teilchen(iEns,iPart)%position
+         pos=Teilchen(iEns,iPart)%pos
 
-         density=densityAt(place)
+         density=densityAt(pos)
 
          dens=density%baryon(0)
          if (dens .lt. 0.00001) then
@@ -808,39 +831,39 @@ contains
       type(particle) :: part
 
       !Do nothing if nucleus rests in calculation frame :
-      if (sum(abs(nucl%velocity))<0.000001) then
-         ! Write(*,*) 'No boost necessary! Velocity of nucleus:',nucl%velocity
+      if (sum(abs(nucl%vel))<0.000001) then
+         ! Write(*,*) 'No boost necessary! Velocity of nucleus:',nucl%vel
          ! Shift to actual position of center of mass of nucleus
-         part%position(1:3)=part%position(1:3)+nucl%position
+         part%pos(1:3)=part%pos(1:3)+nucl%pos
       else
          ! boost members of nucleus from restframe to calculation frame,
          ! which is moving with -beta seen from the rest frame:
-         call lorentz (-nucl%velocity, part%momentum(0:3))
-         if ((abs(nucl%velocity(1))>0.1).or.(Abs(nucl%velocity(2))>0.1)) then
+         call lorentz (-nucl%vel, part%mom(0:3))
+         if ((abs(nucl%vel(1))>0.1).or.(Abs(nucl%vel(2))>0.1)) then
             write(*,*) 'Error in initNucPhaseSpace'
             write(*,*) 'Velocity of nucleus in transverse direction is not negligible'
-            write(*,*) 'Velocity in x,y:' , nucl%velocity(1:2)
+            write(*,*) 'Velocity in x,y:' , nucl%vel(1:2)
             write(*,*) 'Nucleus: A=', nucl%mass,'Z=', nucl%charge
             write(*,*) 'critical error. Stop program!'
             stop
          end if
          !Length contraction of nucleus in z-direction(linear scaling)
          !Neglect length contraction in transverse direction
-         part%position(3)=part%position(3)*sqrt(1-nucl%velocity(3)**2)
+         part%pos(3)=part%pos(3)*sqrt(1-nucl%vel(3)**2)
          !Shift to actual position of center of mass of nucleus
-         part%position(1:3)=part%position(1:3)+nucl%position
+         part%pos(1:3)=part%pos(1:3)+nucl%pos
       end if
 
       ! shift particles along z-axis to avoid overlapping between projectile & target:
       if (eventType==HeavyIon) then
          if (eventNummer==1) then
-            part%position(3)=part%position(3)+z_shift
+            part%pos(3)=part%pos(3)+z_shift
          else
-            part%position(3)=part%position(3)-z_shift
+            part%pos(3)=part%pos(3)-z_shift
          end if
       end if
 
-      part%velocity(1:3)=part%momentum(1:3)/part%momentum(0)
+      part%vel(1:3)=part%mom(1:3)/part%mom(0)
 
     end subroutine boostIt
 
@@ -862,9 +885,9 @@ contains
     !**************************************************************************
     subroutine chooseEnergySF
       use inputGeneral, only: LRF_equals_CALC_frame
-      use potentialModule, only: potential_LRF
-      use hist2Df90
-      use histf90
+      use potentialMain, only: potential_LRF
+      use hist2D
+      use hist
 
       real :: Erem,pvecsq,V,effmass
       logical :: success
@@ -899,14 +922,14 @@ contains
                end if
 
                V=potential_LRF(Teilchen(iEns,iPart))
-               pvecsq=Dot_Product(Teilchen(iEns,iPart)%momentum(1:3),Teilchen(iEns,iPart)%momentum(1:3))
+               pvecsq=Dot_Product(Teilchen(iEns,iPart)%mom(1:3),Teilchen(iEns,iPart)%mom(1:3))
 
                effmass=sqrt((sqrt(mN**2+pvecsq)+V)**2-pvecsq)
-               Teilchen(iEns,iPart)%momentum(0)=-Erem+effmass-V
+               Teilchen(iEns,iPart)%mom(0)=-Erem+effmass-V
 
                !non-relativistic prescription (equivalent!)
                !effmass=mN-Erem-pvecsq/2./mN
-               !Teilchen(iEns,iPart)%momentum(0)=sqrt(effmass**2+pvecsq)
+               !Teilchen(iEns,iPart)%mom(0)=sqrt(effmass**2+pvecsq)
 
                call massDetermination(Teilchen(iEns,iPart),success=success)
 
@@ -915,7 +938,7 @@ contains
                end if
 
                call AddHist(massspectra,Teilchen(iEns,iPart)%mass, 1.)
-               call AddHist2D(p_E_distri_SF,(/sqrt(pvecsq),Teilchen(iEns,iPart)%momentum(0)/), 1.)
+               call AddHist2D(p_E_distri_SF,(/sqrt(pvecsq),Teilchen(iEns,iPart)%mom(0)/), 1.)
                call AddHist2D(removal,(/sqrt(pvecsq),Erem/),1.)
 
             end if
@@ -1013,7 +1036,7 @@ contains
                if (pPart%ID < 0) exit
                if (pPart%ID/=Nucleon) cycle
                if (pPart%event(1)==eventNummer .or. eventType==groundState) then
-                  Mom0 = Mom0 + pPart%momentum
+                  Mom0 = Mom0 + pPart%mom
                end if
             end do ! iPart
             absMom0 = sum(Mom0(1:3)**2)
@@ -1024,12 +1047,12 @@ contains
                if (pPart%ID/=Nucleon) cycle
                if (pPart%event(1)==eventNummer .or. eventType==groundState) then
                   MomNew(1:3) = absMom(pPart) * rnOmega()
-                  MomNew(0) = pPart%momentum(0)
-                  Mom1 = Mom0 - pPart%momentum + MomNew
+                  MomNew(0) = pPart%mom(0)
+                  Mom1 = Mom0 - pPart%mom + MomNew
                   absMom1 = sum(Mom1(1:3)**2)
 
                   if (absMom1 < absMom0) then
-                     pPart%momentum = MomNew
+                     pPart%mom = MomNew
                      Mom0 = Mom1
                      absMom0 = absMom1
                   end if
@@ -1041,6 +1064,39 @@ contains
 
     end subroutine reduceNucleusMomentum
 
+    !**************************************************************************
+    !****s* initNucPhaseSpace/doPrintMomDist
+    ! NAME
+    ! subroutine doPrintMomDist
+    ! PURPOSE
+    ! write out the momentum distribution
+    !**************************************************************************
+    subroutine doPrintMomDist
+
+      use hist
+
+      type(histogram) :: hMomentum
+      integer :: nPart
+      real :: p
+      real, parameter :: dp=0.005 ! grid spacing for histogram
+
+      nPart = 0
+      call CreateHist(hMomentum, '1/N dN/p^2 dp [GeV^(-3)]',0.,0.5,dp)
+
+      do iEns=1,size(teilchen,dim=1)
+         do iPart=1,size(teilchen,dim=2)
+            pPart => teilchen(iEns,iPart)
+            if (pPart%ID < 0) exit
+            if (pPart%ID/=Nucleon) cycle
+            p = absMom(pPart)
+            call AddHist(hMomentum,p ,1./p**2)
+            nPart = nPart + 1
+         end do
+      end do
+
+      call WriteHist(hMomentum,file="NucPhaseSpace_Mom.dat",mul=1./nPart)
+
+    end subroutine doPrintMomDist
 
   end subroutine initNucPhaseSpace
 
@@ -1165,10 +1221,10 @@ contains
     do i=1,size(teilchen,dim=1)
        do j=1,size(teilchen,dim=2)
           if (Teilchen(i,j)%ID < 0) exit
-          if (Teilchen(i,j)%position(3) > 0.0) then
-             Teilchen(i,j)%position(3) = Teilchen(i,j)%position(3) - z_shift
+          if (Teilchen(i,j)%pos(3) > 0.0) then
+             Teilchen(i,j)%pos(3) = Teilchen(i,j)%pos(3) - z_shift
           else
-             Teilchen(i,j)%position(3) = Teilchen(i,j)%position(3) + z_shift
+             Teilchen(i,j)%pos(3) = Teilchen(i,j)%pos(3) + z_shift
           end if
        end do
     end do

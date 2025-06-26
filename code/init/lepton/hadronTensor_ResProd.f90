@@ -63,8 +63,7 @@ contains
   !****************************************************************************
   !****f* hadronTensor_ResProd/hadronTensor_R
   ! NAME
-  ! function hadronTensor_R(pi,pf,resID,targetCharge,process,matrix)   &
-  !  result(success)
+  ! logical function hadronTensor_R(pi,pf,resID,targetCharge,process,matrix,bare_mass)
   !
   ! PURPOSE
   ! This function returns the hadronic tensor for resonance production of the
@@ -77,6 +76,7 @@ contains
   ! * integer              :: resID         -- ID of resonance
   ! * integer              :: process       -- type of the process (EM, CC, NC)
   ! * integer              :: targetCharge  -- Charge of target nucleon
+  ! * real                 :: bare_mass     -- bare mass of resonance
   !
   ! OUTPUT
   ! * complex, dimension(0:3,0:3) :: matrix -- H^mu nu
@@ -84,7 +84,8 @@ contains
   !   true if resonance has coupling strength to the process;
   !   false if there is no coupling, therefore H^mu nu=0
   ! NOTES
-  ! * We use the Peskin notation where the spin sum(u(p) ubar(p))=slashed(p)+m    !
+  ! * We use the Peskin notation where the spin sum(u(p) ubar(p))=slashed(p)+m
+  !
   !****************************************************************************
   function hadronTensor_R(pi,pf,resID,targetCharge,process,matrix,bare_mass) &
                          &  result(success)
@@ -120,18 +121,18 @@ contains
     if (sp(pf,pf).le.0) return ! ==> failure
 
     processID=process
-    
-  !workaround needed for background contribution
+
+    !workaround needed for background contribution
     ! process = 99,100 set in function dSigmadOmega_fdE_f_resprod_eN in resonanceProduction
     if (process.eq.99) processID=CC !workaround needed for 1 pi background contribution
-    if (process.eq.100) processID=antiCC 
-    
+    if (process.eq.100) processID=antiCC
+
     formfactor=getFormfactor_Res(-SP(pf-pi,pf-pi),bare_mass,resID,   &
                                 & targetCharge,processID,success)
     if (.not.success) return ! ==> failure
 
-    if (process.eq.99 .or. process.eq.100) processID=EM 
-  !workaround needed for background contribution
+    if (process.eq.99 .or. process.eq.100) processID=EM
+    !workaround needed for background contribution
 
 
     parity=(-1)**(1+hadron(resID)%AngularMomentum)
@@ -200,8 +201,8 @@ contains
   ! This function returns the hadronic tensor for spin=1/2 resonances.
   !
   ! INPUTS
-  ! *  real, dimension(1:2) :: F             -- Vector or EM-Form factors
-  ! *  real, dimension(1:2) :: FA            -- Axial form factors
+  ! *  real, dimension(1:2) :: G             -- Vector or EM-Form factors
+  ! *  real, dimension(1:2) :: GA            -- Axial form factors
   ! *  real, dimension(0:3) :: pi            -- 4-momentum of incoming nucleon
   ! *  real, dimension(0:3) :: pf            -- 4-momentum of outgoing resonance
   ! *  integer              :: resID         -- ID of resonance
@@ -219,8 +220,8 @@ contains
     integer, intent(in)            :: parity,process
     integer, intent(in)            :: resID
     real, dimension(0:3),intent(in):: pi,pf
-    real, dimension(1:2),intent(in):: G   ! Vector or EM-Form factors
-    real, dimension(1:2),intent(in):: GA  ! Axial form factors
+    real, dimension(1:2),intent(in):: G
+    real, dimension(1:2),intent(in):: GA
     complex, dimension(0:3,0:3)    :: matrix
 
     complex, dimension(0:3,0:3) :: projector_in,projector_out,j_mu,j_nu, &
@@ -330,10 +331,10 @@ contains
 
       integer, intent(in) :: mu
       complex, dimension(0:3,0:3) :: matrix,sigma4_q
-      real, dimension(0:3),save        :: q
+      real, dimension(0:3), save :: q
       integer :: rho,alpha
-      real ,save   :: mass_mu, QSquared,G1_mass_mu2,G2_mass_mu
-      complex, save,dimension(0:3,0:3) :: slashed_q
+      real, save :: mass_mu, QSquared,G1_mass_mu2,G2_mass_mu
+      complex, dimension(0:3,0:3), save :: slashed_q
 
 
       if (do_once.or.(.not.speedup)) then
@@ -446,7 +447,7 @@ contains
   !****************************************************************************
   !****f* hadronTensor_ResProd/hadronTensor_3_2
   ! NAME
-  ! function   hadronTensor_3_2(pi,pf,parity,formfactor,resID,process) result(matrix)
+  ! function hadronTensor_3_2(pi,pf,parity,FormFactor,resID,process) result(matrix)
   !
   ! PURPOSE
   ! This function returns the hadronic tensor for spin=3/2 resonances.
@@ -462,7 +463,7 @@ contains
   ! OUTPUT
   ! * complex, dimension(0:3,0:3) :: matrix -- H^mu nu
   !****************************************************************************
-  function   hadronTensor_3_2(pi,pf,parity,F,resID,process) result(matrix)
+  function hadronTensor_3_2(pi,pf,parity,F,resID,process) result(matrix)
     use leptonicID, only: EM
     use spinProjector, only: spin32proj,spin32proj_tensor
     use minkowski, only: abs4, gamma0, slashed, metricTensor

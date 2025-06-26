@@ -32,7 +32,7 @@ propagationSwitch=0        ! 0=all resonances with more than 1 star, 1=only delt
 $end
 
 $input
-path_to_input="/home/nucleus/oliver/WC/buuinput"
+path_to_input="~/GiBUU/buuinput"
 $end
 
 $initRandom
@@ -70,7 +70,7 @@ $end
 !************************************************************
 
 $target
-target_Z=20,   
+target_Z=20,
 target_A=40
 densitySwitch_Static=1 	   ! 1=Woods-Saxon, 2=according NPA 554 (Oset)
 $end

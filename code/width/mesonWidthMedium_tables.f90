@@ -4,6 +4,9 @@
 ! module mesonWidthMedium_tables
 ! PURPOSE
 ! Implements the routines for the medium width of the mesons
+!
+! NOTES
+! The corresponding tables are created by inMediumWidth.f90
 !******************************************************************************
 module mesonWidthMedium_tables
 
@@ -12,8 +15,17 @@ module mesonWidthMedium_tables
   implicit none
   private
 
-  public:: get_inMediumWidth,minimalWidth,numSteps_rhoN,numSteps_rhoP,numSteps_absP,numSteps_mass,max_rhoP,max_rhoN
-  public:: getMaxMes,getMinMes,getMaxAbsP,cleanup
+  public :: get_inMediumWidth
+  public :: minimalWidth
+  public :: numSteps_rhoN
+  public :: numSteps_rhoP
+  public :: numSteps_absP
+  public :: numSteps_mass
+  public :: max_rhoP,max_rhoN
+  public :: getMaxMes
+  public :: getMinMes
+  public :: getMaxAbsP
+  public :: cleanup
 
 
   !****************************************************************************
@@ -52,10 +64,13 @@ module mesonWidthMedium_tables
   integer, parameter:: numSteps_rhoP=4
   integer, parameter:: numSteps_absP=75
   integer, parameter:: numSteps_mass=400
-  real, parameter   :: max_rhoP=0.1*0.197**3 ! In GEV**3
-  real, parameter   :: max_rhoN=0.1*0.197**3 ! In GEV**3
+  real, parameter   :: max_rhoP=0.1*0.197**3 ! in GeV**3
+  real, parameter   :: max_rhoN=0.1*0.197**3 ! in GeV**3
   real, save, dimension(pion:pion+nmes-1) :: delta_mass,min_mass,max_mass,delta_absP,max_absP
   real, save ::  delta_rhoN,delta_rhoP
+
+  ! store whether was a data table for the given ID or not:
+  logical, save, dimension(pion:pion+nmes-1) :: isTab
 
   ! the TABLE !
   real(4), save, dimension(:,:,:,:,:) , Allocatable:: widthTable
@@ -75,17 +90,17 @@ contains
 
     use output
 
-    integer :: ios ! checks file behavior
+    integer :: ios
 
     NAMELIST /mesonWidthMedium_tables/ minMes,maxMes
 
     call Write_ReadingInput('mesonWidthMedium_tables',0)
     rewind(5)
-    read(5,nml=mesonWidthMedium_tables,IOSTAT=IOS)
-    call Write_ReadingInput('mesonWidthMedium_tables',0,IOS)
+    read(5,nml=mesonWidthMedium_tables,IOSTAT=ios)
+    call Write_ReadingInput('mesonWidthMedium_tables',0,ios)
 
-    write(*,*) 'maxMes                     ?    ', maxMes
-    write(*,*) 'minMes                     ?    ', minMes
+    write(*,*) 'maxMes =', maxMes
+    write(*,*) 'minMes =', minMes
 
     call Write_ReadingInput('mesonWidthMedium_tables',1)
 
@@ -128,12 +143,14 @@ contains
   !****************************************************************************
   !****f* mesonWidthMedium_tables/get_inMediumWidth
   ! NAME
-  ! function get_inMediumWidth(particleID,absP,mass,rhoN,rhoP) result(width)
+  ! function get_inMediumWidth(particleID,absP,mass,rhoN,rhoP)
   !
   ! PURPOSE
-  ! * Returns the in-medium width of mesons according to  Gamma=Gamma_free+sigma*rho*v
+  ! * Returns the in-medium width of mesons according to
+  !   Gamma=Gamma_free+sigma*rho*v
   ! * An average over the Fermi sea is performed
-  ! * Sigma is given by the actual full collision term, with the incoming particles in the vacuum
+  ! * Sigma is given by the actual full collision term, with the incoming
+  !   particles in the vacuum
   ! * Simplification: An average over the charge of the meson is performed.
   !
   ! INPUTS
@@ -150,7 +167,7 @@ contains
     use idTable, only: pion,nmes
     use mediumDefinition
 !    use particleDefinition, only : particle
-!     use potentialModule, only : potential_LRF
+!     use potentialMain, only : potential_LRF
     use tabulation, only: interpolate4
 
     integer, intent(in)            :: particleID
@@ -181,10 +198,10 @@ contains
 !        ! (2) Get the potential
 !        !    define a particle:
 !        part%ID=particleID
-!        part%momentum(0)=0   ! potential shall not depend on the momentum!!!
-!        part%momentum(1:3)= (/absP,0.,0./)
+!        part%mom(0)=0   ! potential shall not depend on the momentum!!!
+!        part%mom(1:3)= (/absP,0.,0./)
 !        part%mass=mass
-!        part%perturbative=.true.
+!        part%pert=.true.
 !        !    get the potential for that particle
 !        pot= potential_LRF(part,med)
 !        !    remove the potential
@@ -211,6 +228,13 @@ contains
        readTable_flag=.false.
     end if
 
+    ! if there is not table for this particle, width = 0:
+    if (.not.isTab(particleID)) then
+       width = 0.
+       return
+    end if
+
+
     if (first) then
        ! Initialize arrays containing grid information
        minX = (/ 0., min_mass(particleID), 0., 0. /)
@@ -225,7 +249,7 @@ contains
     end if
 
     x(1:4) = (/ absP,mass,rhoN,rhoP /)
-    width = interpolate4(X,minX,maxX,deltaX,widthTable(particleId,:,:,:,:))
+    width = interpolate4(X,minX,maxX,deltaX,widthTable(:,:,:,:,particleID))
 
     width=max(minimalWidth,width)
 
@@ -238,22 +262,24 @@ contains
   ! subroutine readTable
   !
   ! PURPOSE
-  ! * Reads tabulated arrays from files buuinput/inMediumWidth/InMediumWidth."particleID".dat.bz2
+  ! * Reads tabulated arrays from files
+  !   buuinput/inMediumWidth/InMediumWidth."particleID".dat.bz2
   ! OUTPUT
-  ! * Initialized arrays widhtTable, min_mass, max_mass, delta_mass, max_absP, delta_absP
+  ! * Initialized arrays widhtTable, min_mass, max_mass, delta_mass,
+  !   max_absP, delta_absP
   !****************************************************************************
   subroutine readTable
     use inputGeneral, only: path_To_Input
     use output, only: intToChar,Write_ReadingInput
     use bzip
 
-!     character(20) :: format
     character(5) ::raute
     character(1000) :: fileName
     integer :: particleID,index_absP,index_mass,index_rhoN,ios
     logical :: fileFailure
-    integer :: numSteps_absP_in,numSteps_mass_in,numSteps_rhoN_in,numSteps_rhoP_in,num_MonteCarlo_Points_in,&
-               min_charge_loop_in,max_charge_loop_in
+    integer :: numSteps_absP_in,numSteps_mass_in,numSteps_rhoN_in,&
+         numSteps_rhoP_in,num_MonteCarlo_Points_in,&
+         min_charge_loop_in,max_charge_loop_in
     real :: max_absP_in,max_rhoP_in,max_rhoN_in,minMass_in,maxMass_in
     type(bzFile) :: f
     character(len=100) :: buf
@@ -264,31 +290,48 @@ contains
        readInput_flag=.false.
     end if
 
-    allocate(widthTable(max(minMes,pion):min(maxMes,pion+nmes-1),0:numSteps_absP,0:numSteps_mass, &
-             0:numSteps_rhoN,0:numSteps_rhoP))
+    allocate(widthTable(0:numSteps_absP,0:numSteps_mass, &
+         &              0:numSteps_rhoN,0:numSteps_rhoP, &
+         &              max(minMes,pion):min(maxMes,pion+nmes-1)))
     delta_rhoN=max_rhoN/float(numSteps_rhoN)
     delta_rhoP=max_rhoP/float(numSteps_rhoP)
 
-!     format='(' // intToChar(numSteps_rhoP+1) // 'E15.4)'
+    isTab = .true. ! be optimistic...
+
 
     call Write_ReadingInput("InMediumWidth (meson)",0)
 
     fileFailure=.false.
        idLoop: do particleId=max(minMes,pion),min(maxMes,pion+nmes-1)
           fileName=trim(path_to_Input)//'/inMediumWidth/InMediumWidth.'//trim(intToChar(particleID))//'.dat.bz2'
-          f = bzOpenR(trim(fileName))
+          f = bzOpenR(trim(fileName),iostat=ios)
+          select case(ios)
+          case (0) ! everything okay
+             ! nothing to do
+          case (1) ! file not found
+             isTab(particleId) = .false.
+             cycle idLoop
+          case default
+             write(*,*) 'Error in opening input file (1): ',trim(fileName)
+             fileFailure=.true.
+             exit idLoop
+          end select
+
           ll = 0
           call bzReadLine(f,buf,ll)
-          read(buf(1:ll),*,iostat=ios) raute, numSteps_absP_in, numSteps_mass_in , numSteps_rhoN_in,&
-               & numSteps_rhoP_in,num_MonteCarlo_Points_in,min_charge_loop_in,max_charge_loop_in
+          read(buf(1:ll),*,iostat=ios) raute, numSteps_absP_in, &
+               numSteps_mass_in , numSteps_rhoN_in, numSteps_rhoP_in, &
+               num_MonteCarlo_Points_in,min_charge_loop_in,max_charge_loop_in
           if (ios.ne.0) then
              write(*,*) 'Error in opening input file (2): ',trim(fileName)
              fileFailure=.true.
              exit idLoop
           end if
+
           ll = 0
           call bzReadLine(f,buf,ll)
-          read(buf(1:ll),*,iostat=ios) raute, max_absP_in, max_rhoP_in , max_rhoN_in,minMass_in, maxMass_in
+          read(buf(1:ll),*,iostat=ios) raute, max_absP_in, max_rhoP_in, &
+               max_rhoN_in,minMass_in, maxMass_in
           if (ios.ne.0) then
              write(*,*) 'Error in opening input file (3): ',trim(fileName)
              fileFailure=.true.
@@ -300,8 +343,10 @@ contains
           delta_mass(particleID)=(max_mass(particleID)-min_mass(particleID))/float(numSteps_mass)
           max_absP(particleID)=max_absP_in
           delta_absP(particleID)=max_absP(particleID)/float(numSteps_absP)
-          write(*,'(A,I3,A,F8.6,A,F8.6,A,F8.6,A,F8.6,A,F8.6,A,I2,A,I2,A,I4)') 'ID=',particleID, &
-               '   minM=',minMass_in,' maxM=',maxMass_in,' dM=',delta_mass(particleID), &
+          write(*,'(A,I3,A,F8.6,A,F8.6,A,F8.6,A,F8.6,A,F8.6,A,I2,A,I2,A,I4)') &
+               'ID=',particleID, &
+               '   minM=',minMass_in,' maxM=',maxMass_in, &
+               ' dM=',delta_mass(particleID), &
                '   maxP=',max_absP_in,' dP=',delta_absP(particleID), &
                '   minCh=',min_charge_loop_in,' maxCh=',max_charge_loop_in, &
                '   MC_points=',num_MonteCarlo_Points_in
@@ -315,12 +360,18 @@ contains
                & ) then
              write(*,*) 'Error in opening input file: ',trim(fileName)
              write(*,*) 'Grid points differ!'
-             if (numSteps_absP.ne.numSteps_absP_in)  write(*,*) 'absP',numSteps_absP,numSteps_absP_in
-             if (numSteps_rhoP.ne.numSteps_rhoP_in)  write(*,*) 'rhoP',numSteps_rhoP,numSteps_rhoP_in
-             if (numSteps_rhoN.ne.numSteps_rhoN_in)  write(*,*) 'rhoN',numSteps_rhoN,numSteps_rhoN_in
-             if (numSteps_mass.ne.numSteps_mass_in) write(*,*) 'mass',numSteps_mass,numSteps_mass_in
-             if (abs(max_rhoP_in-max_rhoP).gt.0.00001) write(*,*) 'max_rhop', max_rhoP,max_rhoP_in
-             if (abs(max_rhoN_in-max_rhoN).gt.0.00001) write(*,*) 'max_rhon', max_rhoN,max_rhoN_in
+             if (numSteps_absP.ne.numSteps_absP_in) &
+                  write(*,*) 'absP',numSteps_absP,numSteps_absP_in
+             if (numSteps_rhoP.ne.numSteps_rhoP_in) &
+                  write(*,*) 'rhoP',numSteps_rhoP,numSteps_rhoP_in
+             if (numSteps_rhoN.ne.numSteps_rhoN_in) &
+                  write(*,*) 'rhoN',numSteps_rhoN,numSteps_rhoN_in
+             if (numSteps_mass.ne.numSteps_mass_in) &
+                  write(*,*) 'mass',numSteps_mass,numSteps_mass_in
+             if (abs(max_rhoP_in-max_rhoP).gt.0.00001) &
+                  write(*,*) 'max_rhop', max_rhoP,max_rhoP_in
+             if (abs(max_rhoN_in-max_rhoN).gt.0.00001) &
+                  write(*,*) 'max_rhon', max_rhoN,max_rhoN_in
              fileFailure=.true.
              exit idLoop
           end if
@@ -330,7 +381,7 @@ contains
              do index_mass=0,numSteps_mass
                 do index_rhoN=0,numSteps_rhoN
                    call bzReadLine(f,buf,ll)
-                   read(buf(1:ll),*,iostat=ios) widthTable(particleID,index_absP,index_mass,index_rhoN,0:numSteps_rhoP)
+                   read(buf(1:ll),*,iostat=ios) widthTable(index_absP,index_mass,index_rhoN,0:numSteps_rhoP,particleID)
                    if (IOS.ne.0) then
                       write(*,*) 'Error in opening input file: ',fileName
                       write(*,*) 'Error', particleID,ios,index_absP,index_mass,index_rhoN

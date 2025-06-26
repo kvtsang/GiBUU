@@ -9,6 +9,8 @@
 module selfEnergy_mesons
   use tabulation
   use mediumDefinition
+  use CallStack, only: Traceback
+
   implicit none
   private
 
@@ -64,27 +66,26 @@ contains
     call Write_ReadingInput('selfEnergyMesons',0)
     rewind(5)
     read(5,nml=selfEnergyMesons,IOSTAT=IOS)
-
-    write(*,'(A,L8)') 'Dispersion relation             ?', dispersion
-
     call Write_ReadingInput('selfEnergyMesons',0,IOS)
+    write(*,'(A,L8)') 'Dispersion relation =', dispersion
+    call Write_ReadingInput('selfEnergyMesons',1)
 
     ! read tabulation files
     if (dispersion) then
-      do particleID = ID_min, ID_max
-         filename = trim(path_to_input)//'/inMediumWidth/RealPart_'//intToChar(particleID)//'.dat.bz2'
-         if (.not. readTable (realPartTable(particleID), filename)) then
-            write(*,*) "Error reading real part of self energy for ID = ", particleID
-            stop
-         end if
-      end do
+       do particleID = ID_min, ID_max
+          filename = trim(path_to_input)//'/inMediumWidth/RealPart_'//intToChar(particleID)//'.dat.bz2'
+          if (.not. readTable(realPartTable(particleID), filename)) then
+             write(*,*) "Error reading real part of self energy for ID = ", particleID
+             call Traceback()
+          end if
+       end do
     end if
 
     first = .false.
-  end subroutine
+  end subroutine readInput
 
 
-  real function get_imagPart (ID, mass, mediumAtPosition)
+  real function get_imagPart(ID, mass, mediumAtPosition)
     use mesonWidthMedium, only: widthMesonMedium
     integer, intent(in) :: ID
     real, intent(in) :: mass
@@ -94,7 +95,7 @@ contains
   end function
 
 
-  real function get_realPart (ID, mass, mediumAtPosition)
+  real function get_realPart(ID, mass, mediumAtPosition)
     integer, intent(in) :: ID
     real, intent(in) :: mass
     type(medium), intent(in) :: mediumAtPosition

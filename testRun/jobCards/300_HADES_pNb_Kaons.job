@@ -11,7 +11,7 @@
 !------------------------------------------------------------------------------
 
 
-! file: code/inputOutput/input.f90
+! file: code/inputOutput/inputGeneral.f90
 &input
       eventtype       =         300 ! hadron induced
       numEnsembles    =         500
@@ -23,6 +23,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: code/init/initHadron.f90

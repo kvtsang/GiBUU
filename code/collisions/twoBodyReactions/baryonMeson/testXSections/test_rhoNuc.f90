@@ -66,14 +66,14 @@ contains
     teilchenIN(2)%Id=nucleon
     teilchenIN(2)%charge=chargeNuk
     teilchenIN(2)%mass=mN
-    teilchenIN(2)%momentum=(/teilchenIN(2)%mass,0.,0.,0./)
-    teilchenIN(2)%velocity=(/0.,0.,0./)
+    teilchenIN(2)%mom=(/teilchenIN(2)%mass,0.,0.,0./)
+    teilchenIN(2)%vel=(/0.,0.,0./)
 
     ! (1) Test momentum dependence (with all channels)
     Do i=1,300
       plab=i*0.01
-      teilchenIN(1)%momentum=(/sqrt(mass**2+plab**2),plab,0.,0./)
-      teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+      teilchenIN(1)%mom=(/sqrt(mass**2+plab**2),plab,0.,0./)
+      teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
       srts=SQRT((SQRT(mass**2+plab**2)+mN)**2-plab**2)
       momentumLRF=(/SQRT(mass**2+plab**2)+mN,plab,0.,0./)
@@ -89,8 +89,8 @@ contains
       Do j=1,100
         mass=j*0.02
         teilchenIN(1)%mass=mass
-        teilchenIN(1)%momentum=(/sqrt(mass**2+plab**2),plab,0.,0./)
-        teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+        teilchenIN(1)%mom=(/sqrt(mass**2+plab**2),plab,0.,0./)
+        teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
         srts=SQRT((SQRT(mass**2+plab**2)+mN)**2-plab**2)
         momentumLRF=(/SQRT(mass**2+plab**2)+mN,plab,0.,0./)
@@ -111,8 +111,8 @@ contains
     Do i=1,numTries
        plab=0.2
        srts=SQRT((SQRT(hadron(rho)%mass**2+plab**2)+mN)**2-plab**2)
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
        momentumLRF=(/SQRT(hadron(rho)%mass**2+plab**2)+mN ,plab,0.,0./)
        call rhoNuc(srts,teilchenIN,mediumATcollision,momentumLRF,teilchenOUT,sigmaTot,sigmaElast,.true.,2.3,.false.)
@@ -140,17 +140,17 @@ contains
 
     teilchenIN(2)%Id=nucleon
     teilchenIN(2)%charge=-chargeNuk
-    teilchenIN(2)%antiparticle=.true.
+    teilchenIN(2)%anti=.true.
     teilchenIN(2)%mass=mN
-    teilchenIN(2)%momentum=(/teilchenIN(2)%mass,0.,0.,0./)
-    teilchenIN(2)%velocity=(/0.,0.,0./)
+    teilchenIN(2)%mom=(/teilchenIN(2)%mass,0.,0.,0./)
+    teilchenIN(2)%vel=(/0.,0.,0./)
 
     Open(301,file='RhoNucleonXsections_anti.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
     Do i=1,250
        plab=i*0.01
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
        srts=SQRT((SQRT(hadron(rho)%mass**2+plab**2)+mN)**2-plab**2)
        momentumLRF=(/SQRT(hadron(rho)%mass**2+plab**2)+mN ,plab,0.,0./)

@@ -252,7 +252,7 @@ module eventGenerator_eN_HiEnergy
   logical,save :: flagTwoJets=.false.
   !
   ! PURPOSE
-  ! If .true. - the events without two jets with large transverse momentum 
+  ! If .true. - the events without two jets with large transverse momentum
   ! are marked with XS_tot=100000 mub.
   !****************************************************************************
 
@@ -361,7 +361,7 @@ contains
        write(*,*)
     end if
 
-    if (flagTwoJets) then       
+    if (flagTwoJets) then
        write(*,*)
        write(*,*) '  !!! Attention: events without two jets with high kt'
        write(*,*) '  !!!            are marked with perturbative weight XS_tot=100000 mub '
@@ -369,7 +369,7 @@ contains
     end if
 
 
-    
+
     call SetPYTHIAthresh(PYTHIAthresh)
     call SetSwitchPythiaHermes(useHermesPythiaPars)
 
@@ -388,23 +388,24 @@ contains
   ! OutPart,channel,FlagOK,XS_tot,XS_Arr,XS_Arr_low)
   !
   ! PURPOSE
-  ! This is the main routine for generating a high energy electron nucleon event.
+  ! This is the main routine for generating high energy electron nucleon events
   !
   ! INPUTS
   ! * type(electronNucleon_event) :: eNev     -- electron nucleon kinematics
   ! * integer                     :: firstevent -- number to give in the outpart vector
   ! * real, dimension(1:4)        :: scaleVMD -- scaling of VMD XS (rho, omega, phi, J/psi)
-  ! * logical :: DoPauli -- if .true., every event is checked for pauli blocking.
+  ! * logical :: DoPauli -- if .true., every event is checked for pauli
+  !   blocking.
   !   if it is blocked, the corresponding cross section will be set to 0 and the
-  !   Monte Carlo decision will neglect this event class. Thus the total cross section
-  !   is reduced. Maybe all channel can be closed.
+  !   Monte Carlo decision will neglect this event class. Thus the total cross
+  !   section is reduced. Maybe all channel can be closed.
   ! * type(particle),dimension(:,:) :: realParticles -- real particle vector,
   !   only needed for pauli blocking
   !
   ! OUTPUT
   ! * integer                       :: channel -- Chosen Channel
   ! * type(particle), dimension(:)  :: OutPart -- Final State particle vector
-  ! * logical                       :: FlagOK  -- .true. if event was successfull
+  ! * logical                       :: FlagOK  -- .true. if event successfull
   ! * real                          :: XS_tot  -- total cross section (in mb)
   ! * real, dimension(0:4),OPTIONAL :: XS_Arr  -- cross sections of different channels
   ! * real, dimension(nc),OPTIONAL  :: XS_Arr_low -- cross sections of different low energy channels
@@ -417,11 +418,11 @@ contains
   !   correspond to their definition of the flux,
   !       \sigma^* = \sigma_T+\epsilon\sigma_L
   !                = \frac{1}{\Gamma} \frac{d\sigma}{dE' d\Omega}
-  !    with
+  !   with
   !       \gamma = \frac{\alpha E (W^2-M^2)}{(2\pi)^2 Q^2 M E (1-\epsilon)}
-  !    Thus, \sigma^* differs by a factor 2\pi from the definitions (C.36)
-  !    in the GiBUU paper. Thus, curves in Fig. C.64 are a factor 2\pi
-  !    too high, if one asumes eq.(C.63) to hold.
+  !   Thus, \sigma^* differs by a factor 2\pi from the definitions (C.36)
+  !   in the GiBUU paper. Thus, curves in Fig. C.64 are a factor 2\pi
+  !   too high, if one asumes eq.(C.63) to hold.
   !****************************************************************************
   subroutine eventGen_eN_HiEnergy(eNev,firstevent,scaleVMD,DoPauli,realparticles, &
        OutPart,channel,FlagOK,XS_tot,XS_Arr,XS_Arr_low)
@@ -435,7 +436,7 @@ contains
     use constants, only: pi
     use PythiaSpecFunc, only: Init_VM_Mass
     use EventAnalysis, only: TwoJets
-    
+
     implicit none
 
     type(electronNucleon_event), intent(inout):: eNev    ! The incoming electron and nucleon
@@ -481,7 +482,7 @@ contains
     ! dsigma/dnudQ2 (in mub/GeV^3)
     ! and to divide by the flux in order to get sigma^{gamma*} (in mub)
     ! we collect this here:
-    fT = fT/ ( 1e3* pi/(eNev%lepton_out%momentum(0)*eNev%lepton_in%momentum(0)))
+    fT = fT/ ( 1e3* pi/(eNev%lepton_out%mom(0)*eNev%lepton_in%mom(0)))
 
     if (DoExclPiModel) then
        call DoColl_gammaN_exclPi(eNev,ExclPiCharge,flagOK,outPart, XS_tot)
@@ -514,8 +515,8 @@ contains
 
        ! Setting formation time, if wished:
        if (UseFormTime_ToyModel_rho) then
-          outPart%formationTime = outPart%momentum(0)
-          outPart%In_Formation = (outPart%momentum(0).gt.0)
+          outPart%formTime = outPart%mom(0)
+          outPart%inF = (outPart%mom(0).gt.0)
           outPart%scaleCS = 0.5 ! should be 0.66 for the baryon !!!
        end if
 
@@ -558,12 +559,12 @@ contains
     !...get Pythia output (this sets also the cross sections)
 
 !    DoColl_gammaN_verbose=.TRUE.
-    call Init_VM_Mass(Wfree,eNev%nucleon%position)
+    call Init_VM_Mass(Wfree,eNev%nucleon%pos)
     call DoColl_gammaN_Py(eNev,outPart,flagOK, scaleVMD, DoDiffr, Cross,EventClass)
 !    call DoColl_gammaN_Py(eNev,outPart,flagOK, scaleVMD, DoDiffr, Cross,EventClass,MinW=5.0)
 
 !    STOP
-    
+
     if (DoPauli) then
        call TRACEBACK("DoPauli not yet implemented")
     end if
@@ -576,7 +577,7 @@ contains
     if(flagTwoJets) then
        if(.not.TwoJets()) XS_tot=100000.
     end if
-    
+
     if (present(XS_Arr)) XS_Arr = Cross
 
     !...if we are above the Pythia threshold: all done
@@ -597,17 +598,17 @@ contains
 
       OutPart%firstEvent = firstEvent
 
-      OutPart%position(1) = eNev%nucleon%position(1)
-      OutPart%position(2) = eNev%nucleon%position(2)
-      OutPart%position(3) = eNev%nucleon%position(3)
+      OutPart%pos(1) = eNev%nucleon%pos(1)
+      OutPart%pos(2) = eNev%nucleon%pos(2)
+      OutPart%pos(3) = eNev%nucleon%pos(3)
 
       number = pert_numbering(eNev%nucleon)
       OutPart%event(1) = number
       OutPart%event(2) = number
 
-      OutPart%perturbative=.true.
-      OutPart%productionTime= 0
-      OutPart%formationTime = -999
+      OutPart%pert=.true.
+      OutPart%prodTime= 0
+      OutPart%formTime = -999
 
     end subroutine SetOutPartDefaults
 
@@ -673,7 +674,7 @@ contains
 !!$
 !!$    use Coll_gammaN
 !!$    use XS_VMD
-!!$    use photonXSections
+!!$    use photonXS
 !!$    use mediumDefinition
 !!$    use Coll_gammaN_low
 !!$    use CallStack
@@ -713,9 +714,9 @@ contains
 !!$
 !!$    if (DoToyModel_pi) then
 !!$       call DoColl_gammaN_toy(eNev,flagOK,outPart)
-!!$       OutPart%perturbative=.true.
-!!$       OutPart%productionTime= 0
-!!$       OutPart%formationTime = -999
+!!$       OutPart%pert=.true.
+!!$       OutPart%prodTime= 0
+!!$       OutPart%formTime = -999
 !!$       HiPhotonEventType = 5000
 !!$       XS_tot = 1.0
 !!$       return
@@ -729,9 +730,9 @@ contains
 !!$       call TRACEBACK("DoColl_gammaN_low not yet reimplemented.")
 !!$!       call DoColl_gammaN_low(inPart,outPart,flagOK, W,Wfree,Q2,eps, pcm,beta, XS_tot)
 !!$
-!!$       OutPart%perturbative=.true.
-!!$       OutPart%productionTime= 0
-!!$       OutPart%formationTime = -999
+!!$       OutPart%pert=.true.
+!!$       OutPart%prodTime= 0
+!!$       OutPart%formTime = -999
 !!$
 !!$       HiPhotonEventType = 5000
 !!$
@@ -993,13 +994,13 @@ contains
 !!$       pair(2)%ID     = 101+2*iTyp ! MESON
 !!$       pair(2)%charge = 0
 !!$
-!!$       pair(2)%momentum(3) = (W**2-pair(1)%mass**2)/(2*W)
-!!$       pair(2)%momentum(0) = pair(2)%momentum(3)
+!!$       pair(2)%mom(3) = (W**2-pair(1)%mass**2)/(2*W)
+!!$       pair(2)%mom(0) = pair(2)%mom(3)
 !!$
 !!$       pair(1) = inPart            ! BARYON
 !!$
-!!$       pair(1)%momentum(1:3) = -pair(2)%momentum(1:3)
-!!$       pair(1)%momentum(0)   = sqrt(pair(1)%mass**2 + pair(1)%momentum(3)**2)
+!!$       pair(1)%mom(1:3) = -pair(2)%mom(1:3)
+!!$       pair(1)%mom(0)   = sqrt(pair(1)%mass**2 + pair(1)%mom(3)**2)
 !!$
 !!$
 !!$       ! (1) Evaluate Sqrt(s)
@@ -1010,10 +1011,10 @@ contains
 !!$
 !!$       betaToLRF=0.
 !!$
-!!$       OutPart%perturbative=.true.
-!!$       OutPart%productionTime= 0
-!!$       OutPart%formationTime = -999
-!!$       OutPart%antiparticle = .false.
+!!$       OutPart%pert=.true.
+!!$       OutPart%prodTime= 0
+!!$       OutPart%formTime = -999
+!!$       OutPart%anti = .false.
 !!$
 !!$       ! (0b) Store Q2 in mass of vector meson
 !!$       pair(2)%mass = -Q2 ! ATTENTION
@@ -1169,14 +1170,14 @@ contains
 !!$       ! (5) set final state information
 !!$
 !!$       call setKinematics(srtS,srtS_vacuum,pcm,betaToLRF,beta,media,pair,OutPart(1:2),eventOK)
-!!$       OutPart%in_Formation= .TRUE.
+!!$       OutPart%inF= .TRUE.
 !!$       OutPart%scaleCS = getTauFormaFak()
 !!$
 !!$       ! (5a) set times and formation flag
 !!$
 !!$       do i=1,2
-!!$          P(i,1:3) = OutPart(i)%momentum(1:3)
-!!$          P(i,4)   = OutPart(i)%momentum(0)
+!!$          P(i,1:3) = OutPart(i)%mom(1:3)
+!!$          P(i,4)   = OutPart(i)%mom(0)
 !!$          P(i,5)   = OutPart(i)%mass
 !!$          EArr(1,i) = 1 ! ok
 !!$          EArr(3,i) = 6 ! "from Doku"
@@ -1188,7 +1189,7 @@ contains
 !!$          call SetJSVFormation(OutPart(i),i, Q2, 99)
 !!$       enddo
 !!$
-!!$!       OutPart%formationTime = 0.0 ! ATTENTION !!!!
+!!$!       OutPart%formTime = 0.0 ! ATTENTION !!!!
 !!$
 !!$
 !!$       call updateVelocity(OutPart)
@@ -1205,7 +1206,7 @@ contains
 !!$       ! (5) set final state information
 !!$
 !!$       call setKinematics(srtS,srtS_vacuum,pcm,betaToLRF,beta,media,pair,OutPart(1:3),eventOK)
-!!$       OutPart%in_Formation= .TRUE.
+!!$       OutPart%inF= .TRUE.
 !!$       OutPart%scaleCS = getTauFormaFak()
 !!$       Outpart(2:3)%scaleCS = 0.5*Outpart(1:2)%scaleCS ! Kaons have only 1 leading quark
 !!$

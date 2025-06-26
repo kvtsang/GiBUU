@@ -1,5 +1,5 @@
 $baryonWidthVacuum
-use_cutOFF=.false.
+use_cutOFF=F
 $end
 
 $inMediumReal
@@ -20,11 +20,14 @@ $baryonWidthMedium_tables
 !num_MonteCarlo_Points=20
 !maxRes=2
 !fullInterpolation=.false.
+!onlyNucleon = T
+!fileNameMask= "aaa"
+!fileNameMask= "InMediumWidth"
 $end
 
 &mesonWidthMedium_tables
    maxMes=107
-/   
+/
 
 $quasiElastic_elec
 width=0.001
@@ -46,7 +49,7 @@ switch=5
 ! 3= just evaluate virtual photon Xsections
 ! 4= dsigma/dOmega_lf/dlf_0/dOmega_pi at one fixed phi
 ! 5= dsigma/dOmega_lf/dlf_0/dOmega_pi for all possible phi angles of the pion in lab frame
-! 6= dsigma/dOmega_lf/dlf_0 by integrating over dOmega_pi 
+! 6= dsigma/dOmega_lf/dlf_0 by integrating over dOmega_pi
 $end
 
 
@@ -84,8 +87,9 @@ $end
 !***************************************************
 
 $initDatabase
-propagationSwitch=0        ! 0=all resonances with more than 1 star, 1=only delta&nucleon 2=only nucleons
-                           ! used to initialize the resonances' database
+propagationSwitch=3        ! 0=all resonances with more than 1 star, 1=only delta&nucleon 2=only nucleons
+                           ! used to initialize the resonances' database, 3= propagate all resonances (default)
+rho_dilep = T
 $end
 
 $input
@@ -127,7 +131,7 @@ $end
 !************************************************************
 
 $target
-target_Z=20,   
+target_Z=20,
 target_A=40
 densitySwitch_Static=1 	   ! 1=Woods-Saxon, 2=according NPA 554 (Oset)
 $end

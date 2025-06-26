@@ -66,7 +66,7 @@ program testNucleusMass
   do iEns=1,numEnsembles
      Mom0 = 0.0
      do iPart=1,lengthReal
-        Mom0 = Mom0 + realparticles(iEns,iPart)%momentum
+        Mom0 = Mom0 + realparticles(iEns,iPart)%mom
         h = absMom(realparticles(iEns,iPart))
         AvePF = AvePF + (/ h,h**2 /)
      end do
@@ -102,19 +102,19 @@ contains
     do iEns=1,numEnsembles
        Mom0 = 0.0
        do iPart=1,lengthReal
-          Mom0 = Mom0 + realparticles(iEns,iPart)%momentum
+          Mom0 = Mom0 + realparticles(iEns,iPart)%mom
        end do
        hMom0 = sum(Mom0(1:3)**2)
 
        do iPart=1,lengthReal
           h = absMom(realparticles(iEns,iPart))
           MomNew(1:3) = h*rnOmega()
-          MomNew(0) = realparticles(iEns,iPart)%momentum(0)
-          Mom1 = Mom0 - realparticles(iEns,iPart)%momentum + MomNew
+          MomNew(0) = realparticles(iEns,iPart)%mom(0)
+          Mom1 = Mom0 - realparticles(iEns,iPart)%mom + MomNew
           hMom1 = sum(Mom1(1:3)**2)
 
           if (hMom1 < hMom0) then
-             realparticles(iEns,iPart)%momentum = MomNew
+             realparticles(iEns,iPart)%mom = MomNew
              Mom0 = Mom1
              hMom0 = hMom1
           end if

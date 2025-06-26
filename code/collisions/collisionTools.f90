@@ -96,8 +96,8 @@ contains
           call WriteParticle(6,1,k,partOut(k))
           write(*,*) 'Charge=',partOut(k)%charge
           write(*,*) 'Id=',partOut(k)%id
-          write(*,*) 'Antiparticle=',partOut(k)%antiparticle
-          write(*,*) 'Momentum=',partOut(k)%momentum
+          write(*,*) 'Antiparticle=',partOut(k)%anti
+          write(*,*) 'Momentum=',partOut(k)%mom
           write(*,*)
           if (present(HiEnergyFlag)) then
              if (HiEnergyFlag) then
@@ -130,7 +130,7 @@ contains
     iB_In = 0
     do k=lbound(partIn,dim=1),ubound(partIn,dim=1)
        if (isBaryon(partIn(k)%Id)) then
-          if (.not.partIn(k)%antiparticle) then
+          if (.not.partIn(k)%anti) then
              iB_In = iB_In + 1
           else
              iB_In = iB_In - 1
@@ -140,7 +140,7 @@ contains
     iB_Out = 0
     do k=lbound(partOut,dim=1),ubound(partOut,dim=1)
        if (isBaryon(partOut(k)%Id)) then
-          if (.not.partOut(k)%antiparticle) then
+          if (.not.partOut(k)%anti) then
              iB_Out = iB_Out + 1
           else
              iB_Out = iB_Out - 1
@@ -169,7 +169,7 @@ contains
     iS_In = 0
     do k=lbound(partIn,dim=1),ubound(partIn,dim=1)
        if (.not. isHadron(partIn(k)%Id)) cycle
-       if (.not. partIn(k)%antiparticle) then
+       if (.not. partIn(k)%anti) then
           iS_In = iS_In + hadron(partIn(k)%Id)%strangeness
        else
           iS_In = iS_In - hadron(partIn(k)%Id)%strangeness
@@ -178,7 +178,7 @@ contains
     iS_Out = 0
     do k=lbound(partOut,dim=1),ubound(partOut,dim=1)
        if (.not. isHadron(partOut(k)%Id)) cycle
-       if (.not. partOut(k)%antiparticle) then
+       if (.not. partOut(k)%anti) then
           iS_Out = iS_Out + hadron(partOut(k)%Id)%strangeness
        else
           iS_Out = iS_Out - hadron(partOut(k)%Id)%strangeness
@@ -199,8 +199,8 @@ contains
        call writeParticle(6,2,partOut)
        !  Check conservation of srts
        do k=0,3
-          mom_In(k) =Sum(partIn%momentum(k))
-          mom_Out(k)=Sum(partOut%momentum(k))
+          mom_In(k) =Sum(partIn%mom(k))
+          mom_Out(k)=Sum(partOut%mom(k))
        end do
        write(*,*) ' (Missing mass)^2 :', &
             (mom_In(0)-mom_Out(0))**2 &
@@ -234,8 +234,8 @@ contains
 
     !  Check conservation of 4-momentum:
     do k=0,3
-       mom_In(k) =Sum(partIn%momentum(k))
-       mom_Out(k)=Sum(partOut%momentum(k))
+       mom_In(k) =Sum(partIn%mom(k))
+       mom_Out(k)=Sum(partOut%mom(k))
     end do
 
     if (any(abs(mom_In-mom_Out).gt.energyCheck)) then
@@ -282,8 +282,8 @@ contains
          else
             write(*,*) 'Outgoing Particle number #', i
          end if
-         density = densityAt(part(i)%position)
-         call writeParticle_debug(part(i),mediumAt(part(i)%position),&
+         density = densityAt(part(i)%pos)
+         call writeParticle_debug(part(i),mediumAt(part(i)%pos),&
               density%baryon)
       end do
       write(*,'(79("*"))')
@@ -298,7 +298,7 @@ contains
       use dichteDefinition
       use densitymodule, only: densityAt
       use lorentzTrafo, only: lorentz
-      use potentialModule, only: potential_LRF
+      use potentialMain, only: potential_LRF
       use coulomb, only: emfoca
 
       integer :: k
@@ -314,32 +314,32 @@ contains
 
       do k=1,size(partIn)
          if (partIn(k)%ID==0) cycle
-         dens = densityAt(partIn(k)%position)
+         dens = densityAt(partIn(k)%pos)
          if (dens%baryon(0)>1E-8) then
             beta = dens%baryon(1:3)/dens%baryon(0)
             partDummy = partIn(k)
-            call lorentz( beta,partDummy%momentum, 'print899(1)')
+            call lorentz( beta,partDummy%mom)
             pot = potential_LRF(partDummy, dens, addCoulomb=.false.)
          else
             pot = 0.
          end if
-         potC = emfoca(partIn(k)%position, partIn(k)%momentum(1:3), &
+         potC = emfoca(partIn(k)%pos, partIn(k)%mom(1:3), &
               partIn(k)%charge, partIn(k)%ID)
          write(899,'(i3,1P,6e13.5)') k,dens%baryon,pot, potC
       end do
 
       do k=1,size(partOut)
          if (partOut(k)%ID==0) cycle
-         dens = densityAt(partOut(k)%position)
+         dens = densityAt(partOut(k)%pos)
          if (dens%baryon(0)>1E-8) then
             beta = dens%baryon(1:3)/dens%baryon(0)
             partDummy = partOut(k)
-            call lorentz( beta,partDummy%momentum, 'print899(2)')
+            call lorentz( beta,partDummy%mom)
             pot = potential_LRF(partDummy, dens, addCoulomb=.false.)
          else
             pot = 0.
          end if
-         potC = emfoca(partOut(k)%position, partOut(k)%momentum(1:3), &
+         potC = emfoca(partOut(k)%pos, partOut(k)%mom(1:3), &
               partOut(k)%charge, partOut(k)%ID)
          write(899,'(i3,1P,6e13.5)') k,dens%baryon,pot,potC
       end do

@@ -111,7 +111,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -120,16 +120,16 @@ contains
        write(*,*) 'Wrong input in SigmaNuc', partIn%ID
     end if
 
-    if (sigma_particle%antiParticle) then
+    if (sigma_particle%anti) then
        ! This case is not considered yet
-       write(*,*) 'sigma is antiparticle in "sigmaNuc"!!!',partIn%ID,partIn%antiparticle
+       write(*,*) 'sigma is antiparticle in "sigmaNuc"!!!',partIn%ID,partIn%anti
        stop
     end if
 
-    if (partNucl%antiParticle) then
+    if (partNucl%anti) then
        ! Invert all particles in antiparticles
        partNucl%Charge        =  -partNucl%Charge
-       partNucl%antiparticle  = .false.
+       partNucl%anti  = .false.
        sigma_particle%Charge          =  -sigma_particle%Charge
        antiParticleInput=.true.
     else
@@ -180,9 +180,9 @@ contains
     subroutine evaluateXsections
       use resonanceCrossSections, only: barMes_R_barMes, barMes2resonance
       use mediumDefinition, only: vacuum
-      !use parametrizationsBarMes, only : golub
+      !use parametrizationBarMes, only : golub
       use idTable, only: nucleon, sigmaMeson
-      use parBarMes_HighEnergy, only: paramBarMesHE
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE
       use clebschGordan, only: clebschSquared
       use particleProperties, only: hadron
       use constants, only: mN, mPi
@@ -201,14 +201,14 @@ contains
       sigmaTotal_HE = 0.
       sigmaElast_HE = 0.
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.
       end if
 
-      momentum_vacuum(1:3)=partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+      momentum_vacuum(1:3)=partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
       momentum_vacuum(0)=FreeEnergy(partIn(1))+FreeEnergy(partIn(2))
 
       !########################################################################

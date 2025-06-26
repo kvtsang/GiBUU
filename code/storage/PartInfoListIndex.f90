@@ -15,6 +15,8 @@
 ! This implementation speeds up getting information at the expense of
 ! inserting new information.
 !
+! Internally, this 'list' is stored in an array.
+!
 ! INPUTS
 ! (none)
 ! NOTES
@@ -60,7 +62,7 @@ contains
   !****************************************************************************
   !****f* PILIndex/PILIndex_PUT
   ! NAME
-  ! integer function PILIndex_PUT(List, number)
+  ! integer function PILIndex_PUT(List, number, CallName)
   ! PURPOSE
   ! find the place, where some information concerning a particle with "number"
   ! should be put into some info vector.
@@ -218,7 +220,7 @@ contains
   ! But you should never (!) try to access some entries at position R==0,
   ! because this undershoots the lower bound of the arrays.
   !****************************************************************************
-  integer function PILIndex_FIND (List, number)
+  integer function PILIndex_FIND(List, number)
 
     type(tIndexList), intent(IN) :: List
     integer,          intent(IN) :: number
@@ -294,17 +296,17 @@ contains
   ! NAME
   ! subroutine PILIndex_Allocate(List)
   ! PURPOSE
-  ! Do all allocation and reallocatiomn stuff connected with "List"
+  ! Do all allocation and reallocation stuff connected with "List"
   !
   ! INPUTS
   ! * type(tIndexList) :: List -- The List
   ! OUTPUT
   ! * if the arrays of "list" were not allocated before, they are allocated with
   !   some default size
-  ! * if the arrays were allocated, they are reallocated with a size 1.3 times larger
-  !   than the original size
+  ! * if the arrays were allocated, they are reallocated with a size 1.3 times
+  ! * larger than the original size
   ! NOTES
-  ! I think to remeber having read that the factor 1.3 is a good compromise
+  ! I think to remember having read that the factor 1.3 is a good compromise
   ! between the effort of copying around all data and how often this happens.
   ! Of course this implies that one starts with some reasonable value.
   ! Maybe one could improve. (Kai)

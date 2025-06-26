@@ -81,21 +81,22 @@ contains
   ! NAME
   ! subroutine lowElectronAnalysisAnalysis(particles,finalFlag)
   ! INPUTS
-  ! * type(particle), intent(in),dimension(:,:)  :: particles        ! Particles which shall be analyzed
-  ! * logical, intent(in) :: finalFlag                               ! if .true. than the final output
-  !   for a series of calls will be done
+  ! * type(particle), dimension(:,:)  :: particles -- Particles to be analyzed
+  ! * logical :: finalFlag  -- if .true. than the final output for a series
+  !   of calls will be done
   ! USES
   ! * AnaEvent
   ! NOTES
   ! * This subroutine produces output for electron-nucleus scattering
   !****************************************************************************
-  subroutine lowElectron_Analyze  (particles,finalFlag)
+  subroutine lowElectron_Analyze(particles,finalFlag)
     use particleDefinition
-    use lowElectron, only: le_get_FirstEventRange,le_get_Energy_li,le_get_Energy_lf,writeOriginXS
+    use initLowElectron, only: le_get_FirstEventRange,le_get_Energy_li,&
+         le_get_Energy_lf,writeOriginXS
     use Electron_origin, only: lE_isResEvent
     use eventTypes, only: RealPhoton, LoLepton
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use degRad_conversion, only: radian
     use output, only: intToChar
     use initLowPhoton, only: energy_gamma
@@ -109,9 +110,9 @@ contains
 
     ! Local variables:
     integer, dimension (1:2) :: firstEvents
-    type(tAnaEvent), Allocatable, dimension(:) :: events ! A list of all events
-    type(tAnaEvent), Allocatable, dimension(:) :: events_res ! A list of resonance induced events
-    type(tAnaEvent), Allocatable, dimension(:) :: events_bg ! A list of background induced events
+    type(tAnaEvent), Allocatable, dimension(:) :: events ! all events
+    type(tAnaEvent), Allocatable, dimension(:) :: events_res ! resonance induced events
+    type(tAnaEvent), Allocatable, dimension(:) :: events_bg ! background induced events
     type(particle)         , POINTER :: particlePointer
     integer :: i,j,first
 
@@ -174,19 +175,25 @@ contains
        ! file lowPhotoEle_sigma.dat
        !
        ! PURPOSE
-       ! The file is produced in the runs with eventtype=3=RealPhoton  and  eventtype=4=LoLepton.
+       ! The file is produced in the runs with eventtype=3=RealPhoton and
+       ! eventtype=4=LoLepton.
        !
-       ! Cross sections (in microbarns) for electron or photon induced events for  preselected  final states
+       ! Cross sections (in microbarns per nucleon) for electron or photon
+       ! induced events for preselected final states
        !
        ! Columns:
        ! * #1: variable which was raised
-       !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQs mode, Elepton for nuXsectionMode=2=dSigmadQsdElepton  and so on)
+       !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQs mode, Elepton for
+       !   nuXsectionMode=2=dSigmadQsdElepton  and so on)
        ! * #2-#99:  xsec for preselected states
-       !   see description in AnaEvent.f90, subroutine event_sigma  OR in the output file sigma.dat
-       !   In each channel the outgoing lepton is presupposed (unless explicitely stated otherwise)
+       !   see description in AnaEvent.f90, subroutine event_sigma
+       !   OR in the output file sigma.dat
+       !   In each channel the outgoing lepton is presupposed
+       !   (unless explicitely stated otherwise)
        !
-       !   The description of some columns is also given in documentation to neutrino_total_Xsection_multiplicities.dat
-      !************************************************************************
+       ! The description of some columns is also given in documentation to
+       ! neutrino_total_Xsection_multiplicities.dat
+       !************************************************************************
        open(111,file='lowPhotoEle_sigma.dat')
        write(111,*) '#'
        write(111,*) '# Columns:'
@@ -215,7 +222,8 @@ contains
        ! PURPOSE
        ! Cross sections for electron or photon induced events.
        ! The same as lowPhotoEle_sigma.dat, but
-       ! Only such Events are included, where the initial scattering event was a resonance excitation.
+       ! Only such Events are included, where the initial scattering event
+       ! was a resonance excitation.
        !***********************************************************************
        open(111,file='lowPhotoEle_sigma.res.dat')
        write(111,*) '#'
@@ -230,7 +238,8 @@ contains
        ! PURPOSE
        ! Cross sections for electron or photon induced events.
        ! The same as lowPhotoEle_sigma.dat, but
-       ! Only such Events  are included, where the initial scattering event was a background event.
+       ! Only such Events  are included, where the initial scattering event
+       ! was a background event.
        !***********************************************************************
        open(111,file='lowPhotoEle_sigma.bg.dat')
        write(111,*) '#'

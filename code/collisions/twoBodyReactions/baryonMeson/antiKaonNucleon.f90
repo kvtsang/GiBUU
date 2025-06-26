@@ -160,7 +160,7 @@ contains
   ! Initialize output
   partOut(:)%ID=0                    ! ID of produced particles
   partOut(:)%charge=0                ! Charge of produced particles
-  partOut(:)%antiParticle=.false.    ! Whether produced particles are
+  partOut(:)%anti=.false.    ! Whether produced particles are
                                          ! particles or antiparticles
   partOut(:)%mass=0.                 ! Mass of produced particles
 
@@ -176,23 +176,23 @@ contains
     stop
   end if
 
-  if (kbar_particle%antiParticle) then
+  if (kbar_particle%anti) then
     ! This must not happen:
     write(*,*) 'kbar is antiparticle in "kaonBarNuc"!!!',&
-               &partIn%ID,partIn%antiparticle
+               &partIn%ID,partIn%anti
     stop
   end if
 
   if ((kbar_particle%Id==kaon.or.kbar_particle%Id==kaonStar)&
-    &.and. partNucl%antiParticle) then
+    &.and. partNucl%anti) then
     ! Invert all particles in antiparticles:
     partNucl%Charge=-partNucl%Charge
-    partNucl%antiparticle=.false.
+    partNucl%anti=.false.
     kbar_particle%Charge=-kbar_particle%Charge
     kbar_particle%Id=kbar_particle%Id+1
     antiParticleInput=.true.
   else if ((kbar_particle%Id==kaon.or.kbar_particle%Id==kaonStar)&
-    &.or. partNucl%antiParticle) then
+    &.or. partNucl%anti) then
     write(*,*) 'In kaonBarNuc: K N and Kbar Nbar collisions must be treated by subroutine kaonNuc !', partIn%ID
     stop
   else
@@ -259,7 +259,7 @@ contains
     !**************************************************************************
 
     subroutine evaluateXsections
-    use parametrizationsBarMes, only: sigma_KbarToXi, kaonbg
+    use parametrizationBarMes, only: sigma_KbarToXi, kaonbg
     use resonanceCrossSections, only: barMes2resonance
     use constants, only: mPi, mK
     use twoBodyTools, only: pCM
@@ -269,8 +269,8 @@ contains
     integer :: i
     real :: p_KN, p_KstarN, ratio
 
-    position=0.5*(partIn(1)%position+partIn(2)%position)
-    if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+    position=0.5*(partIn(1)%pos+partIn(2)%pos)
+    if (partIn(1)%pert.or.partIn(2)%pert) then
       perturbative=.true.
     else
       perturbative=.false.
@@ -418,7 +418,7 @@ contains
     subroutine init
 
     use baryonWidth, only: partialWidthBaryon, fullWidthBaryon
-    use parametrizationsBarMes, only: kaonbg
+    use parametrizationBarMes, only: kaonbg
     use constants, only: pi, mN, mPi, mK
     use clebschGordan, only: ClebschSquared
     use twoBodyPhaseSpace, only: Integrate_2bodyPS_resonance

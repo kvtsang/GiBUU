@@ -32,8 +32,11 @@ module EventInfo_HiLep
      real    :: eps=0.
      integer :: EventType=0     ! cf. module Electron_origin
      real    :: phi_Lepton=0.   ! for lepton induced events only
-     real    :: W               ! the value including fermi mom and potentials
-     real, dimension(3) :: pos
+     real    :: W=0.            ! the value including fermi mom and potentials
+     integer :: charge = 0      ! charge of target nucleon
+     real, dimension(3)   :: pos = 0. ! position of target nucleon
+     real, dimension(0:3) :: mom = 0. ! momentum of traget nucleon
+
   end type tEventInfo_HiLep
   !
   ! PURPOSE
@@ -42,6 +45,8 @@ module EventInfo_HiLep
   !****************************************************************************
 
   type(tEventInfo_HiLep),save,dimension(:,:),allocatable :: ARR_HiLep
+
+  type(tEventInfo_HiLep), parameter :: EventInfo_HiLep0 = tEventInfo_HiLep(0)
 
   !****************************************************************************
   !****g* EventInfo_HiLep/beamEnergy
@@ -83,17 +88,18 @@ contains
        allocate(ARR_HiLep(1:NumEnsembles,-1:MassNum))
        initFlag=.false.
     end if
-    ARR_HiLep%flagOK=.False.
-    ARR_HiLep%Weight=0.
-    ARR_HiLep%nu=0.
-    ARR_HiLep%Q2=0.
-    ARR_HiLep%eps=0.
-    ARR_HiLep%EventType=0
-    ARR_HiLep%phi_Lepton=0.
-    ARR_HiLep%W=0.
-    ARR_HiLep%pos(1)=0.
-    ARR_HiLep%pos(2)=0.
-    ARR_HiLep%pos(3)=0.
+    ARR_HiLep = EventInfo_HiLep0
+!!$    ARR_HiLep%flagOK=.False.
+!!$    ARR_HiLep%Weight=0.
+!!$    ARR_HiLep%nu=0.
+!!$    ARR_HiLep%Q2=0.
+!!$    ARR_HiLep%eps=0.
+!!$    ARR_HiLep%EventType=0
+!!$    ARR_HiLep%phi_Lepton=0.
+!!$    ARR_HiLep%W=0.
+!!$    ARR_HiLep%charge = 0
+!!$    ARR_HiLep%pos = 0.
+!!$    ARR_HiLep%mom = 0.
 
     beamEnergy = 0.
 
@@ -103,7 +109,7 @@ contains
   !****************************************************************************
   !****s* EventInfo_HiLep/EventInfo_HiLep_Store
   ! NAME
-  ! subroutine EventInfo_HiLep_Store(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos)
+  ! subroutine EventInfo_HiLep_Store(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos,mom,charge)
   !
   ! PURPOSE
   ! Store the event info connected with ensemble "i" and nucleon "j":
@@ -120,15 +126,19 @@ contains
   ! * real    :: W            [OPTIONAL] -- the value including fermi
   !   mom and potentials
   ! * real,dimension(3):: pos [OPTIONAL] -- position of the interaction
+  ! * real,dimension(0:3):: mom [OPTIONAL] -- momentum of nucleon
+  ! * integer:: charge [OPTIONAL] -- charge of nucleon
   ! OUTPUT
   ! ---
   !****************************************************************************
-  subroutine EventInfo_HiLep_Store(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos)
+  subroutine EventInfo_HiLep_Store(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos,mom,charge)
     implicit none
     integer,intent(in)          :: i,j,EventType
     real,   intent(in)          :: nu,Q2,eps,Weight
     real,   intent(in),optional :: Ebeam,phi_Lepton,W
     real,dimension(3),intent(in),optional :: pos
+    real,dimension(0:3),intent(in),optional :: mom
+    integer,intent(in),optional :: charge
 
     ARR_HiLep(i,j)%flagOK      =.TRUE.
     ARR_HiLep(i,j)%Weight      = Weight
@@ -143,6 +153,8 @@ contains
     if (present(phi_Lepton))   ARR_HiLep(i,j)%phi_Lepton   = phi_Lepton
     if (present(W))            ARR_HiLep(i,j)%W            = W
     if (present(pos))          ARR_HiLep(i,j)%pos          = pos
+    if (present(mom))          ARR_HiLep(i,j)%mom          = mom
+    if (present(charge))       ARR_HiLep(i,j)%charge       = charge
 
   end subroutine EventInfo_HiLep_Store
 
@@ -150,7 +162,7 @@ contains
   !****************************************************************************
   !****f* EventInfo_HiLep/EventInfo_HiLep_Get
   ! NAME
-  ! logical function EventInfo_HiLep_Get(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos)
+  ! logical function EventInfo_HiLep_Get(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos,mom,charge)
   !
   ! PURPOSE
   ! Get the event info stored connected with ensemble "i" and nucleon "j".
@@ -170,15 +182,19 @@ contains
   ! * real    :: W            [OPTIONAL] -- the value including fermi
   !   mom and potentials
   ! * real,dimension(3):: pos [OPTIONAL] -- position of the interaction
+  ! * real,dimension(0:3):: mom [OPTIONAL] -- momentum of nucleon
+  ! * integer:: charge [OPTIONAL] -- charge of nucleon
   !
   !****************************************************************************
-  logical function EventInfo_HiLep_Get(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos)
+  logical function EventInfo_HiLep_Get(i,j,Weight,nu,Q2,eps,EventType,Ebeam,phi_Lepton,W,pos,mom,charge)
     implicit none
     integer,intent(in)           :: i,j
     integer,intent(out)          :: EventType
     real,   intent(out)          :: nu,Q2,eps,Weight
     real,   intent(out),optional :: Ebeam,phi_Lepton,W
     real,dimension(3),intent(out),optional :: pos
+    real,dimension(0:3),intent(out),optional :: mom
+    integer,intent(out),optional :: charge
 
     integer :: ii,jj
 
@@ -205,6 +221,8 @@ contains
     if (present(phi_Lepton))   phi_Lepton   = ARR_HiLep(ii,jj)%phi_Lepton
     if (present(W))            W            = ARR_HiLep(ii,jj)%W
     if (present(pos))          pos          = ARR_HiLep(ii,jj)%pos
+    if (present(mom))          mom          = ARR_HiLep(ii,jj)%mom
+    if (present(charge))       charge       = ARR_HiLep(ii,jj)%charge
 
     EventInfo_HiLep_Get = ARR_HiLep(ii,jj)%flagOK
 

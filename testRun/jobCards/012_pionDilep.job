@@ -5,7 +5,7 @@
 ! https://gibuu.hepforge.org
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype    = 12         ! 12 = HiPion A
       numEnsembles = 2000	! number of ensembles
@@ -20,6 +20,7 @@
 
 
       path_to_input='~/GiBUU/buuinput/'
+      version = 2025
 /
 
 

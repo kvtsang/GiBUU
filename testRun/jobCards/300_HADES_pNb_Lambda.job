@@ -11,7 +11,7 @@
 !       General Input :
 !******************************************************************************
 
-! file: code/inputOutput/input.f90
+! file: code/inputOutput/inputGeneral.f90
 &input
       eventtype    = 300        ! hadron+nucleus
       numEnsembles = 1000       ! number of ensembles; NEVER GO BELOW !
@@ -23,6 +23,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_to_input = "~/GiBUU/buuinput/"
+      version = 2025
 /
 
 ! file: code/density/nucleus.f90

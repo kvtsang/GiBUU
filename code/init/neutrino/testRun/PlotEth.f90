@@ -31,7 +31,7 @@ program PlotEth
 
   use PILCollected
 
-  use hist2Df90
+  use hist2D
 
   implicit none
 
@@ -115,15 +115,15 @@ program PlotEth
   TargetNuc%ID = 1
   TargetNuc%charge = cTarget
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
   realPart(1,1)%ID = 0
 
   !...Prepare the PreEvents to compare with:
 
   finalstate%ID = 0
-  finalstate%antiparticle = .false.
+  finalstate%anti = .false.
   finalstate(1,(/1:2/))%ID=(/1,101/)
 
   write(*,*) 'FinalStates:'
@@ -162,11 +162,11 @@ program PlotEth
   eNev0%nucleon = TargetNuc
   
   eNev0%QSquared = -abs4Sq(eNev0%photon)
-  eNev0%W = abs4(eNev0%photon+eNev0%nucleon%momentum)
+  eNev0%W = abs4(eNev0%photon+eNev0%nucleon%mom)
   
   eNev0%nucleon_free      = eNev0%nucleon
   
-  eNev0%W_free = abs4(eNev0%photon+eNev0%nucleon_free%momentum)
+  eNev0%W_free = abs4(eNev0%photon+eNev0%nucleon_free%mom)
      
   call write_electronNucleon_event(eNev0,.FALSE.,.TRUE.)
      

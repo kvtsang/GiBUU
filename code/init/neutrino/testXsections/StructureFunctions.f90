@@ -417,13 +417,13 @@ contains
 
     ! Construct particle which is free and has the 3-momentum of the considered nucleon
     call setToDefault(targetNuc)
-    targetNuc%momentum=p_in
+    targetNuc%mom=p_in
     targetNuc%charge=charge_in
     targetNuc%id=nucleon
     targetNuc%mass=mN        ! m=m_0
-    targetNuc%momentum(0)=freeEnergy(targetNuc)! E=sqrt(p(1:3)^2+m_0^2)
-    targetNuc%position(:)=1000.                ! Far away the nucleus
-    targetNuc%perturbative=.true.
+    targetNuc%mom(0)=freeEnergy(targetNuc)! E=sqrt(p(1:3)^2+m_0^2)
+    targetNuc%pos(:)=1000.                ! Far away the nucleus
+    targetNuc%pert=.true.
 
     ! since we know ml_out, we "recalculate" the flavor:
     if (ml_out.gt.1.0) then

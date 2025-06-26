@@ -44,6 +44,12 @@ module TmunuDefinition
          &16: J0 17: J1 18: J2 19: J3 &
          &20: B0 21: S0"
 
+  Interface operator(+) ! "+" for type(tTmunuNmu)
+     module procedure plus
+  end Interface
+
+  public :: operator(+)
+
   PUBLIC :: tTmunuNmu
   PUBLIC :: headTmunu
   PUBLIC :: fillTmunu
@@ -68,32 +74,32 @@ contains
     type(particle), intent(in) :: part
     real, intent(in), optional :: weight
 
-    integer :: qB,qS,qC,qIx2
+    integer :: qB,qS !,qC,qIx2
 
     real :: w, oneE
 
     w = 1.0
     if (present(weight)) w = weight
 
-    oneE = w/part%momentum(0)
+    oneE = w/part%mom(0)
 
-    TmunuNmu%Tmunu(0:3) = TmunuNmu%Tmunu(0:3) + part%momentum(0:3)**2*oneE ! T00,T11,T22,T33
-    TmunuNmu%Tmunu(4:6) = TmunuNmu%Tmunu(4:6) + part%momentum(1:3)*w ! T01,T02,T03
-    TmunuNmu%Tmunu(7)   = TmunuNmu%Tmunu(7)   + part%momentum(2)*part%momentum(1)*oneE ! T21
-    TmunuNmu%Tmunu(8)   = TmunuNmu%Tmunu(8)   + part%momentum(3)*part%momentum(1)*oneE ! T31
-    TmunuNmu%Tmunu(9)   = TmunuNmu%Tmunu(9)   + part%momentum(3)*part%momentum(2)*oneE ! T32
+    TmunuNmu%Tmunu(0:3) = TmunuNmu%Tmunu(0:3) + part%mom(0:3)**2*oneE ! T00,T11,T22,T33
+    TmunuNmu%Tmunu(4:6) = TmunuNmu%Tmunu(4:6) + part%mom(1:3)*w ! T01,T02,T03
+    TmunuNmu%Tmunu(7)   = TmunuNmu%Tmunu(7)   + part%mom(2)*part%mom(1)*oneE ! T21
+    TmunuNmu%Tmunu(8)   = TmunuNmu%Tmunu(8)   + part%mom(3)*part%mom(1)*oneE ! T31
+    TmunuNmu%Tmunu(9)   = TmunuNmu%Tmunu(9)   + part%mom(3)*part%mom(2)*oneE ! T32
 
-    TmunuNmu%Nmu(0:3) = TmunuNmu%Nmu(0:3) + part%momentum(0:3) * oneE
+    TmunuNmu%Nmu(0:3) = TmunuNmu%Nmu(0:3) + part%mom(0:3) * oneE
 
     if (part%charge .ne. 0) then
-       TmunuNmu%Jmu(0:3) = TmunuNmu%Jmu(0:3) + part%momentum(0:3) * part%charge * oneE
+       TmunuNmu%Jmu(0:3) = TmunuNmu%Jmu(0:3) + part%mom(0:3) * part%charge * oneE
     endif
 
     !    call Hagedorn_IDtoBSI(part, qB,qS,qC,qIx2)
     qB = 0
     if (isBaryon(part%ID)) qB = 1
     qS = hadron(part%ID)%strangeness
-    if (part%antiparticle) then
+    if (part%anti) then
        qB = -qB
        qS = -qS
     end if
@@ -102,6 +108,20 @@ contains
     TmunuNmu%S = TmunuNmu%S + qS*w
 
   end subroutine fillTmunu
+
+
+  !***************************************************************************
+  function plus(x,y)
+    type(tTmunuNmu),intent (in) :: x,y
+    type(tTmunuNmu)  :: plus
+
+    plus%Tmunu = x%Tmunu + y%Tmunu
+    plus%Nmu   = x%Nmu   + y%Nmu
+    plus%Jmu   = x%Jmu   + y%Jmu
+    plus%B     = x%B     + y%B
+    plus%S     = x%S     + y%S
+
+  end function plus
 
 
 end module TmunuDefinition

@@ -15,12 +15,13 @@
 !******************************************************************************
 module HiPionAnalysis
 
-  use histf90
-  use hist2Df90
-  use histMPf90
-  use hist2DMPf90
+  use hist
+  use hist2D
+  use histMP
+  use hist2DMP
   use AnaEventDefinition
   use AnaEvent
+  use callstack, only: traceback
 
   implicit none
   private
@@ -92,6 +93,24 @@ module HiPionAnalysis
   !****************************************************************************
 
   !****************************************************************************
+  !****g* HiPionAnalysis/DoDOmega
+  ! SOURCE
+  !
+  logical, save :: DoDOmega = .false.
+  ! PURPOSE
+  ! switch on/off: Analysis for dSigma/dOmega
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* HiPionAnalysis/DoSigmaDetail
+  ! SOURCE
+  !
+  logical, save :: DoSigmaDetail = .true.
+  ! PURPOSE
+  ! switch on/off: print of sigma_abs, sigma_CX, sigma_DCX
+  !****************************************************************************
+
+  !****************************************************************************
   !****ig* HiPionAnalysis/DoEventAdd
   ! SOURCE
   !
@@ -105,6 +124,16 @@ module HiPionAnalysis
   ! * DoEventAdd2 = DoOutChannels.or.DoInvMasses
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* HiPionAnalysis/DoCountParts
+  ! SOURCE
+  !
+  logical, save :: DoCountParts = .false.
+  ! PURPOSE
+  ! switch on/off: print out multiplicities of particles at every timestep
+  ! (cf. HeavyIonAnalysis/countParts and HeavyIonAnalysis/useSet)
+  !****************************************************************************
+
   !************ Histograms for 'DoHarp':
 
   type(histogramMP),   save :: HMP_Harp
@@ -112,6 +141,7 @@ module HiPionAnalysis
   type(histogram2DMP), save :: H2DMP_HarpHi,H2DMP_HarpHi2,H2DMP_HarpHi3
   type(histogram2DMP), save :: H2DMP_HarpHi2a
   type(histogram2DMP), save :: H2DMP_Harp_CDP
+  type(histogram2DMP), save :: H2DMP_NA61
 
   !************ Histograms for 'DoBlobel':
 
@@ -128,6 +158,11 @@ module HiPionAnalysis
   type(histogram2D),save :: H2D_AllPion,H2D_AllOther
   type(histogramMP),save :: HMP_pT
   type(histogramMP),save :: HMP_y2, HMP_y3, HMP_y4, HMP_y5
+
+  !************ Histograms for 'DoDOmega':
+
+  type(histogramMP),save :: HMP_DOmega, HMP_DOmegaCM
+
 
   !****************************************************************************
 
@@ -165,12 +200,16 @@ contains
     ! * DoHarp
     ! * DoBlobel
     ! * DoInvMasses
+    ! * DoDOmega
+    ! * DoSigmaDetail
     ! * DoOutChannels
+    ! * DoCountParts
     !**************************************************************************
 
     integer :: ios
     NAMELIST /HiPion_Analysis/ Enable,EnablePerTime, &
-         & DoSimpleKin,DoHarp,DoBlobel,DoInvMasses,DoOutChannels
+         DoSimpleKin,DoHarp,DoBlobel,DoDOmega,DoInvMasses,DoSigmaDetail, &
+         DoOutChannels, DoCountParts
 
     call Write_ReadingInput('HiPion_Analysis',0)
     rewind(5)
@@ -182,12 +221,15 @@ contains
     write(*,*) 'DoSimpleKin   :',DoSimpleKin
     write(*,*) 'DoHarp        :',DoHarp
     write(*,*) 'DoBlobel      :',DoBlobel
+    write(*,*) 'DoDOmega      :',DoDOmega
     write(*,*) 'DoOutChannels :',DoOutChannels
     write(*,*) 'DoInvMasses   :',DoInvMasses
+    write(*,*) 'DoCountParts  :',DoCountParts
+    write(*,*) 'DoSigmaDetail :',DoSigmaDetail
     write(*,*)
 
-    DoEventAdd  = DoOutChannels.or.DoInvMasses
-    DoEventAdd2 = DoOutChannels.or.DoInvMasses
+    DoEventAdd  = DoOutChannels.or.DoInvMasses.or.DoDOmega.or.DoSigmaDetail
+    DoEventAdd2 = DoOutChannels.or.DoInvMasses.or.DoDOmega.or.DoSigmaDetail
 
     write(*,*) 'DoEventAdd    =',DoEventAdd
     write(*,*) 'DoEventAdd2   =',DoEventAdd2
@@ -222,16 +264,20 @@ contains
 
     use particleDefinition
     use particlePointerListDefinition
+    use particlePointerList, only: PartList_getPart, &
+         PartList_countPart
     use InitHiPion, only: ConfigParticles, GetBetaFak, getTotalPerweight
     use collisionNumbering, only: pert_firstnumbering12
     use collisionReporter, only: CR_write
-    use CollHistory, only: CollHist_ClassifyHist
+    use CollHistory, only: CollHist_ClassifyHist, CollHist_WriteList
     use constants, only: pi
     use preEventDefinition
     use PreEvListDefinition
     use preEvList, only: CreateSortedPreEvent, PreEvList_INSERT, PreEvList_Print
     use InvMassesAnalysis, only: InvMasses_INIT, InvMasses_FillEvent, InvMasses_Write
-    use output, only: DoPR
+    use output, only: DoPR, paragraph
+    use lorentzTrafo, only: lorentz
+    use HeavyIonAnalysis, only: countParts
 
     type(particle), intent(in),dimension(:,:), target  :: pertPart
     logical, intent(in)          :: finalFlag
@@ -244,8 +290,9 @@ contains
     type(particle)          :: Part
     type(particle), pointer :: pPart
 
-    real :: sigmaTot, sigmaAbs
-    real, save:: SumSigmaTot, SumSigmaAbs
+    real :: sigmaTot, sigmaAbs, sigmaCX, sigmaDCX, sigmaQE, sigmaMulti
+    real, save:: SumSigmaTot, SumSigmaAbs, SumSigmaCX, SumSigmaDCX, &
+         SumSigmaQE, sumSigmaMulti
 
     integer,Allocatable,save :: nPertPart(:)
     integer,            save :: nPertPartMax = 0
@@ -257,6 +304,7 @@ contains
 !      vgl Pythia, DoPiN.F
 
     real, save :: betafak
+    real, save, dimension(1:3) :: beta
     real, parameter :: yBin1 = -0.75, yBin2= 0.75
 
     logical :: DoBeforeRUN
@@ -267,6 +315,11 @@ contains
     type(tParticleListNode),Pointer  :: pNode
 
     real, dimension(-1:1,-21:21) :: PionOrigin
+
+    real, dimension(0:3) :: momentum
+    real :: momentumAbs, cosTheta
+
+    integer, parameter :: definitionSigmaAbs = 3
 
 
     if (FlagReadInput) call readInput
@@ -288,6 +341,10 @@ contains
        numberRuns = 0
        SumSigmaTot = 0
        SumSigmaAbs = 0
+       SumSigmaCX  = 0
+       SumSigmaDCX = 0
+       SumSigmaQE  = 0
+       SumSigmaMulti = 0
 
        allocate(nPertPart(size(pertPart,dim=1)))
 
@@ -317,6 +374,8 @@ contains
 
        betafak = GetBetaFak()
        write(*,*) 'betafak=',betafak
+       beta = (exp(betaFak)-1.)/(exp(betaFak)+1.) * (/0.,0.,1./)
+       write(*,*) 'beta=',beta
 
        if (DoHarp) then
           call CreateHistMP(HMP_Harp,"p, forward",0.1,1.0,0.05, 1)
@@ -334,11 +393,19 @@ contains
 
           call CreateHist2DMP(H2DMP_Harp_CDP,"pT vs theta, CDP",&
                &(/0.,0.0/), (/125.,1.5/), (/5.,0.02/) , 1, .true.)
+
+          call CreateHist2DMP(H2DMP_NA61,"p vs theta, NA61",&
+               &(/0.000,0.0/), (/0.420,22.0/), (/0.010,0.100/) , 5, .true.)
        end if
 
        if (DoBlobel) then
           call CreateHist2DMP(H2DMP_Blobel, "pT vs y*",&
                &(/-0.05,-4.05/), (/1.4,4.05/), (/0.1,0.1/) , 1, .true.)
+       end if
+
+       if (DoDOmega) then
+          call CreateHistMP(HMP_DOmega, "cos(theta)", -1.0,1.0,0.01, 1)
+          call CreateHistMP(HMP_DOmegaCM, "cos(theta_cm)", -1.0,1.0,0.01, 1)
        end if
 
        PionOrigin = 0.0
@@ -392,7 +459,7 @@ contains
 
           do i=1,nEventArr
              if (CreateSortedPreEvent(EventArr0(i),PreEvListEntry%preE)) then
-                PreEvListEntry%weight = EventArr0(i)%particleList%first%V%perweight
+                PreEvListEntry%weight = EventArr0(i)%Parts%first%V%perweight
                 if (DoOutChannels) call PreEvList_INSERT(PEList0,PreEvListEntry)
              end if
           end do
@@ -454,20 +521,20 @@ contains
           nPertPart(iEnsemble) =  nPertPart(iEnsemble)+1
 
 
-!          write(*,*) Part%momentum
+!          write(*,*) Part%mom
           ! hadron: pT, y|_Lab
-          pT = sqrt(Part%momentum(1)**2+Part%momentum(2)**2)
-!          yAct = 0.5 * log((Part%momentum(0)+Part%momentum(3))/(Part%momentum(0)-Part%momentum(3)))
+          pT = sqrt(Part%mom(1)**2+Part%mom(2)**2)
+!          yAct = 0.5 * log((Part%mom(0)+Part%mom(3))/(Part%mom(0)-Part%mom(3)))
           yAct = rapidity(Part)
 
-!          write(*,*) 'yAct :', yAct,Part%momentum(3),Part%momentum(3)/Part%momentum(0)
+!          write(*,*) 'yAct :', yAct,Part%mom(3),Part%mom(3)/Part%mom(0)
 
 !          stop
 
           theta = 0.0
           if (DoHarp) then
 
-             theta = atan2(pT,Part%momentum(3))
+             theta = atan2(pT,Part%mom(3))
              ptot = absMom(Part)
              if ((theta.gt.0.350).and.(theta.lt.1.55)) &
                   & call AddHistMP(HMP_Harp, Part, ptot,w)
@@ -479,6 +546,8 @@ contains
              call AddHist2DMP(H2DMP_HarpHi3, Part,(/theta,ptot/), w)
 
              call AddHist2DMP(H2DMP_Harp_CDP, Part,(/theta*180./pi,pT/), w)
+
+             call AddHist2DMP(H2DMP_NA61, Part,(/theta,ptot/), w)
 
 !                if (absMom(Part)<0.150) then
              if ((absMom(Part)>5.0).and.((theta.gt.0.030).and.(theta.lt.0.060))) then
@@ -501,7 +570,7 @@ contains
           end if
 
           if (DoSimpleKin) then
-             call AddHist(hist1,Part%momentum(3),w)
+             call AddHist(hist1,Part%mom(3),w)
 
              if (Part%ID == 101) then
                 call AddHist2D(H2D_AllPion, (/yAct, pT/), w)
@@ -551,52 +620,163 @@ contains
     SumSigmaTot = SumSigmaTot + SigmaTot
 
     SigmaAbs = SigmaTot
+    SigmaCX  = 0.
+    SigmaDCX = 0.
+    SigmaQE  = 0.
+    SigmaMulti = 0.
+
 
     if (DoEventAdd2) then
        do i=1,nEventArr
-          select case (EventArr(i)%particleList%nEntries)
+
+          select case (definitionSigmaAbs)
           case (1)
-             if (EventArr(i)%numberParticles(1,ConfigParticles(1)%Charge)==1) then
-                pNode => EventArr(i)%particleList%first
-                if (associated(pNode)) then
-                   SigmaAbs = SigmaAbs - pNode%V%perweight
-                else
-                   write(*,*) 'OOps, HiPionAnalysis, 339. STOP'
-                   stop
+             ! this definition works only for pion beams
+             ! and only for 1 and 2 outgoing final particles
+
+             select case (EventArr(i)%Parts%nEntries)
+             case (1)
+                if (EventArr(i)%nParts(1,ConfigParticles(1)%Charge)==1) then
+                   pNode => EventArr(i)%Parts%first
+                   if (associated(pNode)) then
+                      SigmaAbs = SigmaAbs - pNode%V%perweight
+                   else
+                      write(*,*) 'OOps, HiPionAnalysis, 339. STOP'
+                      stop
+                   end if
                 end if
-             end if
+             case (2)
+                if ((EventArr(i)%nParts(1,ConfigParticles(1)%Charge)==1).and. &
+                     & (SUM(EventArr(i)%nParts(7,-2:2))==1)) then
+                   pNode => EventArr(i)%Parts%first
+                   if (associated(pNode)) then
+                      SigmaAbs = SigmaAbs - pNode%V%perweight
+                   else
+                      write(*,*) 'OOps, HiPionAnalysis, 350. STOP'
+                      stop
+                   end if
+                end if
+
+             end select
+
           case (2)
-             if ((EventArr(i)%numberParticles(1,ConfigParticles(1)%Charge)==1).and. &
-                  & (SUM(EventArr(i)%numberParticles(7,-2:2))==1)) then
-                pNode => EventArr(i)%particleList%first
-                if (associated(pNode)) then
-                   SigmaAbs = SigmaAbs - pNode%V%perweight
-                else
-                   write(*,*) 'OOps, HiPionAnalysis, 350. STOP'
-                   stop
-                end if
+             ! this definition works for all particle beams;
+             ! 'absorption' is true, if no beam particle with its charge
+             ! is found in the final state
+
+             if (PartList_getPart(EventArr(i)%Parts, &
+                  1, Part, &
+                  ConfigParticles(1)%ID, ConfigParticles(1)%charge, &
+                  ConfigParticles(1)%anti, .true.)) then
+                SigmaAbs = SigmaAbs - Part%perweight
+             end if
+
+          case default
+             ! this definition works for all particle beams;
+             ! * 'absorption' is true, if no beam particle with any charge
+             !   is found in the final state
+             ! * 'QE' if 1 beam particle with the exact charge is found
+             ! * 'charge exchange, if 1 beam particle is found with
+             !   charge +- 1
+             ! * 'double charge exchange, if 1 beam particle is found with
+             !   charge +- 2
+             ! * 'multi particle' if 2 or more beam particles with any charge
+             !   are found
+             ! (maybe kaons/antikaons need to be treated more carefully)
+
+             if (PartList_getPart(EventArr(i)%Parts, 1, Part, &
+                  ID=ConfigParticles(1)%ID,anti=ConfigParticles(1)%anti, &
+                  weightNonZero = .true.)) then
+
+                w = Part%perweight
+
+                ! at least 1 beam particle (any charge),
+                ! i.e. it is no apsorption:
+                SigmaAbs = SigmaAbs - w
+
+                select case(PartList_countPart(EventArr(i)%Parts,&
+                     ID=ConfigParticles(1)%ID, anti=ConfigParticles(1)%anti))
+                case (0)
+                   ! = absorption, should not happen here
+
+                case (1)
+                   select case(Part%charge - ConfigParticles(1)%charge)
+                   case (0)
+                      sigmaQE = sigmaQE + w
+                   case (1,-1)
+                      sigmaCX = sigmaCX + w
+                   case (2,-2)
+                      sigmaDCX = sigmaDCX + w
+                   end select
+
+                case default ! = multi
+                   sigmaMulti = sigmaMulti + w
+
+                end select
              end if
 
           end select
+
+          if (DoDOmega) then
+             pNode => EventArr(i)%Parts%first
+             do
+                if (.not. associated(pNode)) exit
+                w = pNode%V%perweight
+                if (EventArr(i)%Parts%nEntries==2) then
+                   w1 = w
+                else
+                   w1 = 0.
+                end if
+
+                momentum = pNode%V%mom
+                momentumAbs = sqrt(dot_product(momentum(1:3),momentum(1:3)))
+                cosTheta = momentum(3)/momentumAbs
+
+                call AddHistMP(HMP_DOmega,pNode%V,cosTheta,w,w1)
+
+                call lorentz(-beta,momentum)
+                momentumAbs = sqrt(dot_product(momentum(1:3),momentum(1:3)))
+                cosTheta = momentum(3)/momentumAbs
+
+                call AddHistMP(HMP_DOmegaCM,pNode%V,cosTheta,w,w1)
+
+                pNode => pNode%next
+             end do
+          end if
 
        end do
 
     end if
 
     SumSigmaAbs = SumSigmaAbs + SigmaAbs
+    SumSigmaCX  = SumSigmaCX  + SigmaCX
+    SumSigmaDCX = SumSigmaDCX + SigmaDCX
+    SumSigmaQE  = SumSigmaQE  + SigmaQE
+    SumSigmaMulti = SumSigmaMulti  + SigmaMulti
 
     do iEnsemble=1,size(pertPart,dim=1)
       if (nPertPart(iEnsemble)>nPertPartMax) nPertPartMax = nPertPart(iEnsemble)
     end do
-    write(*,'(A,i5,A,i5)') 'Number of pert Particles per Ensemble: ', nPertPartMax,' / ',size(pertPart,dim=2)
+    write(*,'(A,i5,A,i5)') 'Number of pert Particles per Ensemble: ', &
+         nPertPartMax,' / ',size(pertPart,dim=2)
 
     mul0 = 1./numberRuns
 
-    write(*,*) 'sigma_tot = ',SumSigmaTot*mul0
-    if (DoEventAdd2) write(*,*) 'sigma_abs = ',SumSigmaAbs*mul0
+    write(*,*)
+    write(*,paragraph) 'final cross sections'
+    write(*,*) 'sigma_tot   = ',SumSigmaTot*mul0
+    if (DoEventAdd2) then
+       write(*,*) 'sigma_abs   = ',SumSigmaAbs*mul0
+       write(*,*) 'sigma_QE    = ',SumSigmaQE*mul0
+       write(*,*) 'sigma_CX    = ',SumSigmaCX*mul0
+       write(*,*) 'sigma_DCX   = ',SumSigmaDCX*mul0
+       write(*,*) 'sigma_Multi = ',SumSigmaMulti*mul0
+    end if
+    write(*,*)
+    write(*,*)
 
     if (DoSimpleKin) then
-       call WriteHist(hist1,101,mul=mul0,add=1e-20,file="KIN.100")
+       call WriteHist(hist1,101,mul=mul0,add=1e-20,file="KIN.100",dump=.true.)
 
 !       call WriteHist_Spline(hist1,101,mul=mul0,add=1e-20,file="KIN.1100")
 !       call WriteHist_BSpline(hist1,101,mul=mul0,add=1e-20,file="KIN.1101")
@@ -631,6 +811,8 @@ contains
        call WriteHist2DMP_Gnuplot(H2DMP_Harp_CDP,  mul=mul0,add=1e-20,&
                & file='HiPion.Harp.CDP.xxx.dat',dump=.true.)
 
+       call WriteHist2DMP_Gnuplot(H2DMP_NA61,  mul=mul0,add=1e-20,&
+               & file='HiPion.NA61.xxx.dat',dump=.true.)
 
        call WriteHistMP(HMP_Harp, 101, mul=mul0,add=1e-20,&
                & file='HiPion.Harp.AllForward.dat',dump=.true.)
@@ -660,6 +842,18 @@ contains
             & file='HiPion.Blobel.xxx.dat',dump=.true.)
     end if
 
+    if (DoDOmega) then
+       call WriteHistMP(HMP_DOmega, 101, mul=mul0,add=1e-20, &
+            & file='HiPion.dSigmadOmega.dat', dump=.true.)
+       call WriteHistMP(HMP_DOmegaCM, 101, mul=mul0,add=1e-20, &
+            & file='HiPion.dSigmadOmegaCM.dat', dump=.true.)
+
+       call WriteHistMP(HMP_DOmega, 101, iColumn=3,mul=mul0,add=1e-20, &
+            & file='HiPion.dSigmadOmega.excl.dat', dump=.true.)
+       call WriteHistMP(HMP_DOmegaCM, 101, iColumn=3,mul=mul0,add=1e-20, &
+            & file='HiPion.dSigmadOmegaCM.excl.dat', dump=.true.)
+    end if
+
     if (DoInvMasses) then
        do i=1,nEventArr
           call InvMasses_FillEvent(EventArr(i))
@@ -671,7 +865,7 @@ contains
     if (DoEventAdd) then
        do i=1,nEventArr
           if (CreateSortedPreEvent(EventArr(i),PreEvListEntry%preE)) then
-             PreEvListEntry%weight = EventArr(i)%particleList%first%V%perweight
+             PreEvListEntry%weight = EventArr(i)%Parts%first%V%perweight
              if (DoOutChannels) call PreEvList_INSERT(PEList,PreEvListEntry)
           end if
        end do
@@ -692,7 +886,7 @@ contains
           !********************************************************************
           open(141,file='OutChannels.FINAL.dat', status='unknown')
           rewind(141)
-          call PreEvList_Print(141,PEList,mul0)
+          call PreEvList_Print(141,PEList,mul0, n=15)
           close(141)
        end if
     end if
@@ -700,6 +894,9 @@ contains
 
     call cR_Write(numberRuns)
 
+    call CollHist_WriteList(1.0)
+
+    if (doCountParts) call countParts(pertPart,-99.9,"final_")
 
     if (DoPR(0)) write(*,*) 'Histograms written.'
 
@@ -770,10 +967,11 @@ contains
   !****************************************************************************
   subroutine HiPionAnalysisPerTime(iTime, Time, pParts)
     use particleDefinition
-    use hist2Df90
+    use hist2D
     use InitHiPion, only: GetBetaFak
     use Dilepton_Analysis, only: Dilep_Decays
     use inputGeneral, only: numTimeSteps
+    use HeavyIonAnalysis, only: countParts
 
     integer, intent(in)       :: iTime
     real,    intent(in)       :: Time
@@ -815,14 +1013,14 @@ contains
                 w  = pParts(i,j)%perWeight
                 ws = w * pParts(i,j)%ScaleCS
 
-                pZ = pParts(i,j)%momentum(3)
+                pZ = pParts(i,j)%mom(3)
 
                 call AddHist2D(hist_pZ_Time, (/pZ,time/), ws, w)
 
-                pT = sqrt(pParts(i,j)%momentum(1)**2+pParts(i,j)%momentum(2)**2)
+                pT = sqrt(pParts(i,j)%mom(1)**2+pParts(i,j)%mom(2)**2)
 
-                yAct = 0.5 * log((pParts(i,j)%momentum(0)+pParts(i,j)%momentum(3)) &
-                     & / (pParts(i,j)%momentum(0)-pParts(i,j)%momentum(3)))
+                yAct = 0.5 * log((pParts(i,j)%mom(0)+pParts(i,j)%mom(3)) &
+                     & / (pParts(i,j)%mom(0)-pParts(i,j)%mom(3)))
 
                 yCM = yAct + 0.5*betaFak
 
@@ -840,6 +1038,8 @@ contains
     end if
 
     call Dilep_Decays(Time,pParts,iTime/numTimeSteps)   ! do Dilepton analysis
+
+    if (doCountParts) call countParts(pParts,Time,"")
 
   end subroutine HiPionAnalysisPerTime
 
@@ -903,16 +1103,16 @@ contains
 
   subroutine AllocateEventArr()
 
-    use particlePointerList, only: ParticleList_INIT
+    use particlePointerList, only: PartList_INIT
 
     integer :: i
 
     allocate(EventArr(nEventArr))
     allocate(EventArr0(nEventArr))
     do i=1,nEventArr
-       call ParticleList_INIT(EventArr0(i)%particleList)
+       call PartList_INIT(EventArr0(i)%Parts)
        call event_CLEAR(EventArr0(i))
-       call ParticleList_INIT(EventArr(i)%particleList)
+       call PartList_INIT(EventArr(i)%Parts)
        call event_CLEAR(EventArr(i))
     end do
   end subroutine AllocateEventArr

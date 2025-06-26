@@ -91,7 +91,8 @@ module winkelVerteilung
   !
   ! Possible values:
   ! * 0: 'old' parametrisation for gammaN->VN (cf. Effenberger PhD):
-  !   dsigma/dt ~ exp(Bt). Slope paremeter B according ABBHHM collab, PR 175, 1669 (1968).
+  !   dsigma/dt ~ exp(Bt).
+  !   Slope paremeter B according ABBHHM collab, PR 175, 1669 (1968).
   ! * 1: Pythia parametrisation:
   !   Slope parameter B=2*b_p+2*b_V+4*s**eps-4.2
   ! * 2: 'Donnachie, Landshoff'
@@ -156,9 +157,11 @@ contains
     ! * iParam_gammaNVN
     ! * NN_NR_noniso
     !**************************************************************************
-    NAMELIST /angular_distribution/ deltaPWave, rho_pipi_nonIsotropic, NNisotropic, iParam_gammaNVN, &
-                                    pionNucleon_Backward, pionNucleon_backward_exponent, pionNucleon_backward_coeff, &
-                                    NN_NR_noniso
+    NAMELIST /angular_distribution/ deltaPWave, &
+         rho_pipi_nonIsotropic, NNisotropic, iParam_gammaNVN, &
+         pionNucleon_Backward, pionNucleon_backward_exponent, &
+         pionNucleon_backward_coeff, &
+         NN_NR_noniso
 
     integer :: IOS
 
@@ -169,15 +172,14 @@ contains
     call Write_ReadingInput('angular_distribution',0,IOS)
 
     write(*,*) 'Switch for Delta P-Wave decay:',deltaPWave
-    write(*,*) 'Switch to have low energy N pi-> N pi backward peaked:',pionNucleon_Backward
+    write(*,*) 'Switch for low energy N pi-> N pi backward peaked:',pionNucleon_Backward
     if (pionNucleon_Backward) &
-       write(*,'(A,F7.3,A,F7.3,A)') ' Distribution for N pi-> N pi = (',pionNucleon_Backward_coeff, &
+       write(*,'(A,F7.3,A,F7.3,A)') ' Distrib for N pi-> N pi = (',pionNucleon_Backward_coeff, &
                                     '- cos(theta))^(',pionNucleon_Backward_exponent,'(pole-sqrt(s))/pole)'
     write(*,*) 'rho-> pi pi: rho_pipi_nonIsotropic=',rho_pipi_nonIsotropic
-    write(*,*) 'NN -> NN: NNisotropic=',NNisotropic
-
+    write(*,*) 'NN -> NN: NNisotropic     = ',NNisotropic
+    write(*,*) 'NN -> NR: non-isotropic   = ', NN_NR_noniso
     write(*,*) 'gammaN -> VN: Slope-Param = ',iParam_gammaNVN
-    write(*,*) 'NN -> NR: non-isotropic? ', NN_NR_noniso
 
     call Write_ReadingInput('angular_distribution',1)
 
@@ -438,7 +440,7 @@ contains
     use constants, only: pi
     use random, only: rn
     use mediumDefinition
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
 
     type(particle), dimension(1:2), intent(in) :: partIn
     integer, intent(in) :: id3,id4
@@ -494,9 +496,9 @@ contains
 
     ! Rotate according to incoming meson
     if (isMeson(partIn(1)%ID)) then
-      pscatt = rotateTo (partIn(1)%momentum(1:3), pscatt)
+      pscatt = rotateTo (partIn(1)%mom(1:3), pscatt)
     else
-      pscatt = rotateTo (partIn(2)%momentum(1:3), pscatt)
+      pscatt = rotateTo (partIn(2)%mom(1:3), pscatt)
     end if
 
     if (.not. isMeson(id3)) pscatt = -pscatt
@@ -537,7 +539,7 @@ contains
     use rotation, only: rotateTo
     use VecMesWinkel, only: vecmesa
     use mediumDefinition
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
     use minkowski, only: abs4Sq
 
     type(particle), dimension(1:2), intent(in) :: partIn
@@ -563,9 +565,9 @@ contains
 
     ! get cos(Theta) and phi of photon
     if (partIn(1)%ID==photon) then
-      photonMom = partIn(1)%momentum
+      photonMom = partIn(1)%mom
     else
-      photonMom = partIn(2)%momentum
+      photonMom = partIn(2)%mom
     end if
 
     ! get scattering angle
@@ -634,9 +636,9 @@ contains
 
     ! Rotate according to incoming pion
     if (partIn(1)%ID == pion) then
-      pscatt = rotateTo (partIn(1)%momentum(1:3), pscatt)
+      pscatt = rotateTo (partIn(1)%mom(1:3), pscatt)
     else
-      pscatt = rotateTo (partIn(2)%momentum(1:3), pscatt)
+      pscatt = rotateTo (partIn(2)%mom(1:3), pscatt)
     end if
 
   end function pscatt_piN_piN_backward
@@ -704,14 +706,14 @@ contains
     m3=partOut(1)%mass
     m4=partOut(2)%mass
 
-    pcm = partIn(1)%momentum
-    call lorentz(betaToCM,pcm,'winkelVerteilung') ! boost from Lab to CM
+    pcm = partIn(1)%mom
+    call lorentz(betaToCM,pcm) ! boost from Lab to CM
     prcm = sqrt(dot_product(pcm(1:3),pcm(1:3)))
 
     if (prcm==0.) then
        write(*,*) ' In winkel: c.m. momentum of incoming particles = 0'
-       write(*,*) id1,m1,partIn(1)%momentum, &
-                  id2,m2,partIn(2)%momentum
+       write(*,*) id1,m1,partIn(1)%mom, &
+                  id2,m2,partIn(2)%mom
        stop
     end if
 
@@ -726,7 +728,7 @@ contains
 
        ! N N -> N N
 
-       if (NNisotropic .and. .not.(partIn(1)%antiParticle .or. partIn(2)%antiParticle)) then
+       if (NNisotropic .and. .not.(partIn(1)%anti .or. partIn(2)%anti)) then
          ! isotropic N N -> N N scattering
          pscatt = rnOmega()
          return
@@ -737,7 +739,7 @@ contains
        ! write(*,*)'in winkel: s=', s
        ! write(*,*)'in winkel: plab=', plab
 
-       if (partIn(1)%antiParticle.eqv.partIn(2)%antiParticle) then
+       if (partIn(1)%anti.eqv.partIn(2)%anti) then
 
           ! proper NN -> NN or Nbar Nbar -> Nbar Nbar
 
@@ -762,7 +764,7 @@ contains
                 t = rnExp (bb, 0., ta)
              else
                 t = ta - rnExp (bb, 0., ta)
-                ! Uncomment the line below if wish to remove CEX                
+                ! Uncomment the line below if wish to remove CEX
                 ! successflag=.false.
              end if
              c1 = 1. - 2.*t/ta
@@ -794,7 +796,7 @@ contains
           t = rnExp (bb , 0., ta)
           c1 = 1. - 2.*t/ta
 
-          if (partOut(1)%antiParticle.neqv.partIn(1)%antiParticle) c1=-c1
+          if (partOut(1)%anti.neqv.partIn(1)%anti) c1=-c1
 
        end if
 
@@ -838,7 +840,7 @@ contains
           end if
        end if
 
-       if (partIn(1)%antiParticle.eqv.partIn(2)%antiParticle) then
+       if (partIn(1)%anti.eqv.partIn(2)%anti) then
 
          ! proper N N <-> N Delta or Nbar Nbar <-> Nbar Deltabar
 
@@ -908,7 +910,7 @@ contains
              end if
           end do
 
-          if (partOut(1)%antiParticle.neqv.partIn(1)%antiParticle) c1=-c1
+          if (partOut(1)%anti.neqv.partIn(1)%anti) c1=-c1
 
        end if
 
@@ -961,7 +963,7 @@ contains
 
        end if
 
-       if (partOut(1)%antiParticle.neqv.partIn(1)%antiParticle) c1=-c1
+       if (partOut(1)%anti.neqv.partIn(1)%anti) c1=-c1
 
     else
 
@@ -1077,7 +1079,7 @@ contains
   ! * the momentum of Part (=rho0) is given in the system, where the
   !   photon was going in z-direction and the target was moving according
   !   fermi motion.
-  ! * betaToCM = Part%momentum/Part%momentum(0)
+  ! * betaToCM = Part%mom/Part%mom(0)
   !****************************************************************************
   function pscatt_Rho_pipi_Distribution (Part) result (pscatt)
     use particleDefinition
@@ -1139,8 +1141,8 @@ contains
 
        ! (2) Rotate according to (-recoil)
 
-       beta = lorentzCalcBeta (Part%momentum, "pscatt_Rho_pipi")
-       call lorentz(beta,recoil,"pscatt_Rho_pipi")
+       beta = lorentzCalcBeta(Part%mom)
+       call lorentz(beta,recoil)
 
        pScatt = rotateTo (-recoil(1:3), pScatt)
 

@@ -9,10 +9,13 @@
 !
 ! Currently the following formats are supported:
 ! * "Les Houches" event files
-! * "OSCAR 2013" event files, compatible with SMASH output
+! * "OSCAR 2013" event files, compatible with SMASH output, including an
+!   'extended' version
 ! * "Shanghai 2014" even files, used for the code-comparison project at the
 !   Transport2014 workshop in Shanghai
-! * "ROOT" in a simple NTuple format
+! * "ROOT" in a simple NTuple format (via Root and RootTuple libraries)
+! * "HepMC3" event files (asciiv3, via HepMC3 and HEPMC3event libraries)
+! * "NuHepMC" event files (asciiv3)
 !
 ! For a description of the Les Houches format, please refer to:
 ! * http://arxiv.org/abs/hep-ph/0609017
@@ -26,6 +29,12 @@
 !
 ! In order to generate ROOT output we use the library RootTuple by D.Hall, see:
 ! * https://roottuple.hepforge.org/
+!
+! For a description of the HepMC3 format, see:
+! * https://inspirehep.net/literature/1771388
+!
+! For a description of the NuHepMC format, see:
+! * https://arxiv.org/abs/2310.13211
 !
 ! INPUTS
 ! (none)
@@ -75,6 +84,8 @@ module EventOutputAnalysis
   ! * 3 = Shanghai 2014 format
   ! * 4 = ROOT
   ! * 5 = OSCAR 2013 extended format
+  ! * 6 = HepMC3 (asciiv3, via library)
+  ! * 7 = NuHepMC (asciiv3)
   !
   ! NOTES
   ! * For Les Houches, the output will be written to files called
@@ -85,6 +96,10 @@ module EventOutputAnalysis
   !   EventOutput.Real.dat.
   ! * For ROOT, the output files are called EventOutput.Pert.root and
   !   EventOutput.Real.root.
+  ! * For HepMC, the output files are called EventOutput.Pert.hepmc3 and
+  !   EventOutput.Real.hepmc3.
+  ! * For NuHepMC, the output files are called EventOutput.Pert.hepmc3 and
+  !   EventOutput.Real.hepmc3.
   !****************************************************************************
 
   !****************************************************************************
@@ -104,6 +119,7 @@ module EventOutputAnalysis
   integer, save :: nCall = 0
 
   public :: CheckRootLinked
+  public :: CheckHepMC3Linked
   public :: DoEventOutput
 
 contains
@@ -148,7 +164,7 @@ contains
     write(*,*) 'Interval: ', Interval
     call Write_ReadingInput('EventOutput',1)
 
-    if (EventFormat < 1 .or. EventFormat > 5) then
+    if (EventFormat < 1 .or. EventFormat > 7) then
        write(*,*) "Bad EventFormat in EventOutputAnalysis: ", EventFormat
        stop
     end if
@@ -188,6 +204,32 @@ contains
 
   end subroutine CheckRootLinked
 
+  !****************************************************************************
+  !****s* EventOutputAnalysis/CheckHepMC3Linked
+  ! NAME
+  ! subroutine CheckHepMC3Linked()
+  ! PURPOSE
+  ! If needed from the input parameters, calls the subroutine hepmc3init.
+  ! If the program is not linked against HepMC3event, this routine aborts the
+  ! program.
+  ! NOTES
+  ! cf. CheckRootLinked
+  !****************************************************************************
+  subroutine CheckHepMC3Linked()
+
+    use Callstack, only: SYSTEM_COMMAND
+
+    call initInput
+
+    if (EventFormat == 6) then
+       if (WriteRealParticles .or. WritePerturbativeParticles) then
+          call hepmc3eventinit("tmp.hepmc3")
+          call hepmc3eventclose()
+          call SYSTEM_COMMAND("rm -f tmp.hepmc3")
+       end if
+    end if
+
+  end subroutine CheckHepMC3Linked
 
   !****************************************************************************
   !****s* EventOutputAnalysis/DoEventOutput
@@ -221,6 +263,10 @@ contains
           allocate(RootOutputFile :: events_pert, events_real)
        case (5)
           allocate(OscarExtOutputFile :: events_pert, events_real)
+       case (6)
+          allocate(HepMC3OutputFile :: events_pert, events_real)
+       case (7)
+          allocate(NuHepMCOutputFile :: events_pert, events_real)
        case default
           write(*,*) "Bad EventFormat in EventOutputAnalysis: ", EventFormat
           stop
@@ -283,6 +329,18 @@ contains
     ! Can be enabled by the switch WritePerturbativeParticles.
     ! The data from all subsequent runs will be written into different files.
     !**************************************************************************
+    !**************************************************************************
+    !****o* EventOutputAnalysis/EventOutput.Pert.hepmc3
+    ! NAME
+    ! file EventOutput.Pert.hepmc3
+    ! PURPOSE
+    ! Contains all perturbative particles of a given run in HepMC3 (or
+    ! NuHepMC) format.
+    ! Can be enabled by the switch WritePerturbativeParticles.
+    ! The data from all subsequent runs will be written into different files
+    ! (if via EventFormat=6, i.e. via library) or into a single file
+    ! (if via EventFormat=7, for NuHepMC).
+    !**************************************************************************
     if (WritePerturbativeParticles) then
        call events_pert%open(.true., nCall, timestep)
        call events_pert%write_pert(pertPart)
@@ -327,6 +385,15 @@ contains
     ! PURPOSE
     ! Contains all real particles of a given run in ROOT format.
     ! Can be enabled by the switch WriteRealParticles.
+    ! The data from all subsequent runs will be written into different files.
+    !**************************************************************************
+    !**************************************************************************
+    !****o* EventOutputAnalysis/EventOutput.Real.hepmc3
+    ! NAME
+    ! file EventOutput.Real.hepmc3
+    ! PURPOSE
+    ! Contains all real particles of a given run in HepMC3 format.
+    ! Can be enabled by the switch WritePerturbativeParticles.
     ! The data from all subsequent runs will be written into different files.
     !**************************************************************************
     if (WriteRealParticles) then

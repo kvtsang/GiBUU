@@ -189,6 +189,8 @@ contains
           getFluxEnu=T2Konaxisenergy(iFlavor,iProcess)
        case (25)
           getFluxEnu=MINERvAenergy(iFlavor,iProcess)
+       case (26) 
+          getFluxEnu=FASERenergy(iFlavor,iProcess)       
        case (99)
           getFluxEnu=userFlux(FileNameFlux)
        case default
@@ -1138,6 +1140,8 @@ contains
   real function uniformFlux()
     use random, only: rn
     if (initFlag) then
+
+       write(*,*) "Using uniform flux"
        call readInput
        initFlag=.false.
     end if
@@ -1739,6 +1743,72 @@ contains
     T2Konaxisenergy = eneut(NDIM,jmax,sumflux,enu)
 
   end function T2Konaxisenergy
+  
+  !****************************************************************************
+  !****f* expNeutrinofluxes/FASERenergy
+  ! NAME
+  ! real function FASERenergy(iFlavor,iProcess)
+  !
+  ! PURPOSE
+  ! This function returns the sampled neutrino energy for the FASERnu experiment
+  ! at CERN,
+  ! flux is obtained from from simulation first presented in 2105.08270 generated 
+  ! with EPOS-LHC and POWHEG+Pythia8, updated to Run 4
+  ! and with updated charm production from 2309.12793" ,
+  ! Max Fieg, priv. comm, Jan 2024, these flux files have been rebinned
+  !****************************************************************************
+  real function FASERenergy(iFlavor,iProcess)
+    use esample, only: read_fluxfile, eneut
+
+    integer, parameter :: NDIM = 2000          !maximal dimension of fluxfile
+    real, dimension (NDIM), save :: enu,flux
+    real, dimension (0:NDIM), save :: sumflux
+    character(100) :: fluxfilename
+    integer, save :: jmax
+    integer :: nswitch,iFlavor,iProcess
+
+    if (firsttime) then
+
+       nswitch = sign(1,iProcess)
+
+       select case (nswitch)
+       case (+1)
+          select case (iFlavor)
+          case (1)
+             fluxfileName= 'FASER_enu_flux.dat'   ! electron
+          case (2)
+             fluxfileName= 'FASER_munu_flux.dat'   ! muon
+          case (3) 
+             fluxfileName= 'FASER_taunu_flux.dat'   ! tau          
+          case default
+             write(*,*) 'flavor and process IDs not compatible:1'
+             stop
+          end select
+
+       case (-1)
+          select case (iFlavor)
+          case (1)
+             fluxfileName= 'FASER_antienu_flux.dat'   ! anti-electron
+          case (2)
+             fluxfileName= 'FASER_antimunu_flux.dat'   ! anti-muon
+          case (3) 
+             fluxfileName= 'FASER_antitaunu_flux.dat'   ! anti-tau
+          case default
+             write(*,*) 'flavor and process IDs not compatible:2'
+             stop
+          end select
+       case default
+          write(*,*) 'flavor and process IDs not compatible:3'
+       end select
+
+       call read_fluxfile(NDIM,fluxfilename,jmax,enu,flux,sumflux)
+       firsttime=.false.
+    end if
+
+    FASERenergy = eneut(NDIM,jmax,sumflux,enu)
+
+  end function FASERenergy
+
 
   !****************************************************************************
   !****f* expNeutrinofluxes/userFlux

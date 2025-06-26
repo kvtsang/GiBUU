@@ -28,7 +28,7 @@ program Compton
   nuc%ID = nucleon
   nuc%charge = 1
   nuc%mass = mN
-  nuc%momentum = (/mN,0.,0.,0./)
+  nuc%mom = (/mN,0.,0.,0./)
 
   open (80,file="gammaN_R.dat")
   open (81,file="RCS.dat")

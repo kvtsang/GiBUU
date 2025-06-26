@@ -1,6 +1,6 @@
 program testRhoMass
 use PythiaSpecFunc!, only: srtFreeVMMass
-use histf90
+use hist
 use mesonWidth, only : FullWidthMeson
 use particleProperties
 use idTable, only : rho

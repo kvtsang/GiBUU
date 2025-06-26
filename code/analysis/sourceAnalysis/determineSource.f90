@@ -149,8 +149,8 @@ contains
     if (startFlag) then
        rhoCut = rhoNull/rho_cutoff
        if (present(projectileNuc)) then
-          yproj      = 0.5*log((1.+ProjectileNuc%velocity(3))/(1.-ProjectileNuc%velocity(3)))
-          ytarg      = 0.5*log((1.+TargetNuc%velocity(3))/(1.-TargetNuc%velocity(3)))
+          yproj      = 0.5*log((1.+ProjectileNuc%vel(3))/(1.-ProjectileNuc%vel(3)))
+          ytarg      = 0.5*log((1.+TargetNuc%vel(3))/(1.-TargetNuc%vel(3)))
        end if
        startFlag = .false.
     end if
@@ -169,7 +169,7 @@ contains
 
              sourceType(i,j) = 999 !indicates that particle does not belonge to source
 
-             if (ParticleVector(i,j)%Antiparticle) cycle Loop_Particles1
+             if (ParticleVector(i,j)%anti) cycle Loop_Particles1
 
              if (.not.hyperSource) then
                 if (ParticleVector(i,j)%ID .ne. nucleon) cycle Loop_Particles1 !only nucleons!!!!
@@ -181,7 +181,7 @@ contains
                   & .and. ParticleVector(i,j)%charge.ne.0     ) cycle !only nucleons,Lambda's, and Sigma0's
              end if
 
-             place(1:3)   = ParticleVector(i,j)%position(1:3)
+             place(1:3)   = ParticleVector(i,j)%pos(1:3)
              localDensity = DensityAt(place)
              if ( localDensity%baryon(0) < rhoCut ) cycle
 
@@ -213,7 +213,7 @@ contains
 
              sourceType(i,j) = 999 !indicates that particle does not belonge to source(s)
 
-             if (ParticleVector(i,j)%Antiparticle) cycle Loop_Particles2
+             if (ParticleVector(i,j)%anti) cycle Loop_Particles2
 
              if (.not.hyperSource) then
                 if (ParticleVector(i,j)%ID .ne. nucleon) cycle Loop_Particles2 !only nucleons!!!!
@@ -225,14 +225,14 @@ contains
                   & .and. ParticleVector(i,j)%charge.ne.0     ) cycle !only nucleons,Lambda's, and Sigma0's
              end if
 
-             place(1:3)   = ParticleVector(i,j)%position(1:3)
+             place(1:3)   = ParticleVector(i,j)%pos(1:3)
              localDensity = DensityAt(place)
 
              if ( localDensity%baryon(0) < rhoCut ) cycle
 
              StossZahl = history_getGeneration(particleVector(i,j)%history)
 
-             velo(1:3) = particleVector(i,j)%velocity(1:3)
+             velo(1:3) = particleVector(i,j)%vel(1:3)
              ypart = 0.5*log((1+velo(3))/(1-velo(3))) !rapidity along z-axis
 
              call setParticlesToSources(2)
@@ -292,7 +292,7 @@ contains
          if (SelectionMethod==0) then !One source in its rest frame
             sourceType(i,j) = 1
          else !more than one source (valid only at very high energies)
-            veloz = ParticleVector(i,j)%momentum(3)/ParticleVector(i,j)%momentum(0)
+            veloz = ParticleVector(i,j)%mom(3)/ParticleVector(i,j)%mom(0)
             if (veloz > 0.5) then
                sourceType(i,j) = 2 !projectile-like source
             else
@@ -323,8 +323,8 @@ contains
             end if
          else if (SelectionMethod==2) then
             !geometrical selection
-            CutProj = targetNuc%radius     + targetNuc%surface     - stossParameter/2.
-            CutTarg = ProjectileNuc%radius + projectileNuc%surface - stossParameter/2.
+            CutProj = targetNuc%radius(0)     + targetNuc%surface(0)     - stossParameter/2.
+            CutTarg = ProjectileNuc%radius(0) + projectileNuc%surface(0) - stossParameter/2.
             PosX = TeilchenPosX(i,j)
             if ( (abs(PosX) > CutProj) .and. (PosX > 0.) ) then
                sourceType(i,j) = 2 !projectile-source
@@ -348,9 +348,9 @@ contains
 
       use lorentzTrafo, only: lorentz
       use IdTable, only: nucleon
-      use potentialModule, only: trueEnergy !non-relativistic Skyrme
-      use baryonPotentialModule, only: getPotentialEQSType
-      use densitymodule, only: true4Momentum_RMF
+      use potentialMain, only: trueEnergy !non-relativistic Skyrme
+      use baryonPotentialMain, only: getPotentialEQSType
+      use densitymodule, only: true4MomentumRMF
       use coulomb, only: emfoca
       use RMF, only: getRMF_flag
 
@@ -395,13 +395,13 @@ contains
             if (isSource == 999) cycle
 
             Pstar_tot(0:3,isSource) = Pstar_tot(0:3,isSource) + &
-                 &                    ParticleVector(m,l)%momentum(0:3)
+                 &                    ParticleVector(m,l)%mom(0:3)
 
-            Ort(1:3)  = ParticleVector(m,l)%position(1:3)
-            impuls(1:3) = ParticleVector(m,l)%momentum(1:3)
+            Ort(1:3)  = ParticleVector(m,l)%pos(1:3)
+            impuls(1:3) = ParticleVector(m,l)%mom(1:3)
 
             if ( getRMF_Flag() ) then !RMF-mode (relativistic non-linear Walecka)
-               call true4Momentum_RMF(ParticleVector(m,l),trueMomentum,dummyflag)
+               trueMomentum = true4MomentumRMF(ParticleVector(m,l),dummyflag)
                P_tot(0,isSource)   = P_tot(0,isSource) + trueMomentum(0) &
                     + 0.5*emfoca(Ort,impuls,ParticleVector(m,l)%charge,ParticleVector(m,l)%ID)
                P_tot(1:3,isSource) = P_tot(1:3,isSource) + trueMomentum(1:3)
@@ -435,8 +435,8 @@ contains
 
             if (present(projectileNuc)) then !make sence only for HeavyIon-runs.
                if (isSource .le. 2) then !spectators do not experience radial expansion.
-                  teilchenLRF%momentum(1:3) = 0.0 !force it to 0
-                  teilchenLRF%momentum(0) = ParticleVector(m,l)%mass !just to not divide below by 0
+                  teilchenLRF%mom(1:3) = 0.0 !force it to 0
+                  teilchenLRF%mom(0) = ParticleVector(m,l)%mass !just to not divide below by 0
                else
                   teilchenLRF = ParticleVector(m,l)
                end if
@@ -447,8 +447,8 @@ contains
             !average radial flow velocity:
             rsq     = sqrt( dot_product(Ort(1:3),Ort(1:3)) )
             v_rad(isSource) = v_rad(isSource) + &
-                 &   dot_product(Ort(1:3),teilchenLRF%momentum(1:3))&
-                 & / ( teilchenLRF%momentum(0)*rsq )
+                 &   dot_product(Ort(1:3),teilchenLRF%mom(1:3))&
+                 & / ( teilchenLRF%mom(0)*rsq )
 
          end do Loop_Particles3
          !-------------------------------------------------------------------
@@ -469,19 +469,19 @@ contains
 
                !boost parameters
                beta(1:3) = Pstar_tot(1:3,isSource) / Pstar_tot(0,isSource)
-               pin(0:3)  = ParticleVector(m,l)%momentum(0:3)
-               call lorentz(beta,pin,'determineSource-1') !boost to source rest frame (SRF)
+               pin(0:3)  = ParticleVector(m,l)%mom(0:3)
+               call lorentz(beta,pin) !boost to source rest frame (SRF)
                teilchenLRF%ID       = ParticleVector(m,l)%ID
                teilchenLRF%charge   = ParticleVector(m,l)%charge
-               teilchenLRF%position = ParticleVector(m,l)%position
-               teilchenLRF%momentum = pin
+               teilchenLRF%pos = ParticleVector(m,l)%pos
+               teilchenLRF%mom = pin
                teilchenLRF%Mass     = ParticleVector(m,l)%mass
 
                if (getPotentialEQSType()==6) then !Birger's potential(no Coulomb)
                   P_tot(0,isSource)   = P_tot(0,isSource) + &
                        & getEnergyBirger(teilchenLRF)
                else !Skyrme+Coulomb
-                  Ort(1:3)    = ParticleVector(m,l)%position(1:3)
+                  Ort(1:3)    = ParticleVector(m,l)%pos(1:3)
                   impuls(1:3) = pin(1:3)
                   P_tot(0,isSource) = P_tot(0,isSource) + trueEnergy(teilchenLRF) &
                                       + 0.5*emfoca(Ort,impuls,ParticleVector(m,l)%charge,ParticleVector(m,l)%ID)
@@ -513,7 +513,7 @@ contains
                       beta(1:3) = P_tot(1:3,i) / P_tot(0,i)
                   end if
                   pin(0:3)  = P_tot(0:3,i)
-                  call lorentz(beta,pin,'determineSource-2') !boost to rest frame
+                  call lorentz(beta,pin) !boost to rest frame
                   P_tot(:,i) = pin(:)
                end if
 
@@ -532,8 +532,8 @@ contains
                TheSource(m,i)%Charge      = SCharge(i)
                TheSource(m,i)%nLambda     = SLambda(i)
                TheSource(m,i)%nSigma0     = SSigma0(i)
-               TheSource(m,i)%position(:) = (SourcePosition(:,i) / MassNorm(i))
-               TheSource(m,i)%velocity(:) = beta(:)
+               TheSource(m,i)%pos(:) = (SourcePosition(:,i) / MassNorm(i))
+               TheSource(m,i)%vel(:) = beta(:)
                TheSource(m,i)%ExEnergy    = Ex
                TheSource(m,i)%radEnergy   = energy_rad
 
@@ -544,8 +544,8 @@ contains
                TheSource(m,i)%Charge      = 0
                TheSource(m,i)%nLambda     = 0
                TheSource(m,i)%nSigma0     = 0
-               TheSource(m,i)%position(:) = 99999. !undefined
-               TheSource(m,i)%velocity(:) = 99999. !undefined
+               TheSource(m,i)%pos(:) = 99999. !undefined
+               TheSource(m,i)%vel(:) = 99999. !undefined
                TheSource(m,i)%ExEnergy    = 99999. !undefined
                TheSource(m,i)%radEnergy   = 99999. !undefined
 
@@ -591,7 +591,7 @@ contains
     use nucDLDA, only: getEParticleLaplace
     use dichteDefinition
     use densitymodule, only: densityAt,gridSpacing
-    use baryonPotentialModule, only: rhoLaplace
+    use baryonPotentialMain, only: rhoLaplace
 
     implicit none
 
@@ -609,14 +609,14 @@ contains
        stepSize=gridSpacing
        local_init=.false.
     end if
-    rvec=teilchen%position(1:3)
+    rvec=teilchen%pos(1:3)
     pos=densityAt(rvec)
     rhocent=SQRT(pos%baryon(0)**2-Dot_Product(pos%baryon(1:3),pos%baryon(1:3)))
     rhoptemp=0.
     ptemp=0.
     rabstemp=0.
     do l=1,3,1
-       ptemp=ptemp+teilchen%momentum(l)**2
+       ptemp=ptemp+teilchen%mom(l)**2
        rabstemp=rabstemp+rvec(l)**2
     end do
     rabstemp=SQRT(rabstemp)
@@ -699,7 +699,7 @@ contains
 
              flag = .false.
 
-             r1(1:3) = pv(i,j)%position(1:3)
+             r1(1:3) = pv(i,j)%pos(1:3)
              rsq     = sqrt( r1(1)**2 + r1(2)**2 + r1(2)**2 )
 
              if (rsq > rmin .and. rsq <= rmax) then
@@ -845,7 +845,7 @@ contains
     type(particle), dimension(:,:), intent(in) :: teilchen
 
     allocate(teilchenPosX(1:numEns,1:numPart))
-    teilchenPosX(:,:) = teilchen(:,:)%position(1)
+    teilchenPosX(:,:) = teilchen(:,:)%pos(1)
 
     !**************************************************************************
   end subroutine Get_InitialPosX !****************************************

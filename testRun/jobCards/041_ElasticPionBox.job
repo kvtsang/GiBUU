@@ -6,10 +6,10 @@
 !------------------------------------------------------------------------------
 
 
-! file: code/inputOutput/input.f90
+! file: code/inputOutput/inputGeneral.f90
 &input
       eventtype       =          41 ! PionBox
-      numEnsembles    =         10
+      numEnsembles    =         -10
       numTimeSteps    =        2000
       delta_T         =  0.1    ! time step size [fm]
 
@@ -25,6 +25,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: code/init/initBox.f90

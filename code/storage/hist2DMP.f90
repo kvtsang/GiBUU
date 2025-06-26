@@ -1,21 +1,22 @@
 !******************************************************************************
-!****m* /hist2DMPf90
+!****m* /hist2DMP
 ! NAME
-! module hist2DMPf90
+! module hist2DMP
 ! PURPOSE
 ! Provide an array of 2D histogramms (module hist2Df90) according the
 ! multi particle scheme (module histMPf90)
 ! NOTES
 ! This is histogram2D with one additional dimension (=particle, encoded)
 !******************************************************************************
-module hist2DMPf90
-  use histf90, only: NameLength
+module hist2DMP
+  use hist, only: NameLength
+  use CALLSTACK, only: TRACEBACK
   implicit none
 
   public :: histogram2DMP
 
   !****************************************************************************
-  !****t* hist2DMPf90/histogram2DMP
+  !****t* hist2DMP/histogram2DMP
   ! NAME
   ! type histogram2DMP
   ! PURPOSE
@@ -42,11 +43,13 @@ module hist2DMPf90
 
   public :: CreateHist2DMP, AddHist2DMP
   public :: WriteHist2DMP_Gnuplot
+  public :: FetchHist2DMP
+  public :: SumHist2DMP
 
 contains
 
   !****************************************************************************
-  !****s* hist2DMPf90/CreateHist2DMP
+  !****s* hist2DMP/CreateHist2DMP
   ! NAME
   ! subroutine CreateHist2DMP(H, HName,x1,x2,bin, iPartSet,verbose)
   ! PURPOSE
@@ -73,7 +76,7 @@ contains
   ! ---
   !****************************************************************************
   subroutine CreateHist2DMP(H, HName,x1,x2,bin, iPartSet,verbose)
-    use histMPf90
+    use histMP
 
     type(histogram2DMP),intent(inout) :: H
     character*(*),intent(in) :: HName
@@ -95,7 +98,7 @@ contains
     nHist = Map2HistMP_getN(iPartSet)
     if (nHist==0) then
        write(*,*) 'CreateHist2DMP: iPartSet invalid:',iPartSet
-       stop
+       call Traceback()
     end if
     H%iSet = iPartSet
     H%xMin = x1
@@ -133,7 +136,7 @@ contains
   end subroutine CreateHist2DMP
 
   !****************************************************************************
-  !****s* hist2DMPf90/AddHist2DMP
+  !****s* hist2DMP/AddHist2DMP
   ! NAME
   ! subroutine AddHist2DMP(H, Part, x,y,y2)
   ! PURPOSE
@@ -152,7 +155,7 @@ contains
   ! H is changed
   !****************************************************************************
   subroutine AddHist2DMP(H, Part, x,y,y2)
-    use histMPf90
+    use histMP
     use particleDefinition
 
     type(histogram2DMP),intent(inout) :: H
@@ -175,7 +178,7 @@ contains
   end subroutine AddHist2DMP
 
   !****************************************************************************
-  !****s* hist2DMPf90/AddHist2DMP_IH
+  !****s* hist2DMP/AddHist2DMP_IH
   ! NAME
   ! subroutine AddHist2DMP_IH(H, iH, x,y,y2)
   ! PURPOSE
@@ -238,8 +241,9 @@ contains
 
   end subroutine AddHist2DMP_IH
 
+
   !****************************************************************************
-  !****s* hist2DMPf90/WriteHist2DMP_Gnuplot
+  !****s* hist2DMP/WriteHist2DMP_Gnuplot
   ! NAME
   ! subroutine WriteHist2DMP_Gnuplot(H,iFile,add,mul, iColumn,DoAve,MaxVal,file,dump)
   ! PURPOSE
@@ -259,7 +263,7 @@ contains
   ! * logical      :: DoAve -- write also "average" (cf Notes) [OPTIONAL]
   ! * real         :: maxVal -- value used instead "divide by zero" [OPTIONAL]
   ! * character*(*)   :: file  -- name of file to open and close [OPTIONAL]
-  ! * logical         :: dump  -- if true, also dump it binary to file [OPTIONAL]
+  ! * logical      :: dump  -- if true, also dump it binary to file [OPTIONAL]
   ! OUTPUT
   ! write to file number
   ! NOTES
@@ -277,8 +281,8 @@ contains
   !
   !****************************************************************************
   subroutine WriteHist2DMP_Gnuplot(H,iFile_in,add,mul, iColumn,DoAve,MaxVal,H2,file,dump)
-    use histf90
-    use histMPf90
+    use hist
+    use histMP
 
     type(histogram2DMP),intent(in)        :: H
     integer,          intent(in),optional :: iFile_in
@@ -335,7 +339,7 @@ contains
           if (ubound(H2%yVal,dim=1).ne.iBinMax(1)) then
              write(*,*) 'WriteHist2DMP_Gnuplot: ERROR, dim not equal! STOP'
              write(*,*) '  histogram=',H%Name
-             stop
+             call Traceback()
           end if
 
           do iBin1=-1,iBinMax(1)
@@ -353,6 +357,9 @@ contains
           end do
        end if
 
+
+       write(iFile,'(A,A)') '##### ',Map2HistMP_getTit(H%iSet,iH)
+
        do iBin1=1,iBinMax(1)
           do iBin2=1,iBinMax(2)
              if (writeZ) then
@@ -369,16 +376,16 @@ contains
 
              if (present(iColumn)) then
                 if (writeZ) then
-                   write(iFile,1000) H%xMin+((/iBin1,iBin2/)*1.0-0.5)*H%xBin, Z, &
-                        yVal(iBin1,iBin2,iColumn)*MulFak+AddFak
+                   write(iFile,1000) H%xMin+((/iBin1,iBin2/)*1.0-0.5)*H%xBin, &
+                        Z, yVal(iBin1,iBin2,iColumn)*MulFak+AddFak
                 else
                    write(iFile,1000) H%xMin+((/iBin1,iBin2/)*1.0-0.5)*H%xBin, &
                         yVal(iBin1,iBin2,iColumn)*MulFak+AddFak
                 end if
              else
                 if (writeZ) then
-                   write(iFile,1000) H%xMin+((/iBin1,iBin2/)*1.0-0.5)*H%xBin, Z, &
-                        yVal(iBin1,iBin2,1:3)*MulFak+AddFak
+                   write(iFile,1000) H%xMin+((/iBin1,iBin2/)*1.0-0.5)*H%xBin, &
+                        Z, yVal(iBin1,iBin2,1:3)*MulFak+AddFak
                 else
                    write(iFile,1000) H%xMin+((/iBin1,iBin2/)*1.0-0.5)*H%xBin, &
                         yVal(iBin1,iBin2,1:3)*MulFak+AddFak
@@ -399,9 +406,9 @@ contains
     if (present(dump)) then
        if (dump) then
           if (present(file)) then
-             call DumpHist2DMP(H,file//".bin",iFile)
+             call DumpHist2DMP(H,file//".bin",iFile,addFak,mulFak)
           else
-             call DumpHist2DMP(H,"DumpHist2DMP.bin",iFile)
+             call DumpHist2DMP(H,"DumpHist2DMP.bin",iFile,addFak,mulFak)
           end if
        end if
     end if
@@ -410,28 +417,74 @@ contains
 
   end subroutine WriteHist2DMP_Gnuplot
 
+
   !****************************************************************************
-  !****s* hist2DMPf90/DumpHist2DMP
+  !****s* hist2DMP/sumHist2DMP
   ! NAME
-  ! subroutine DumpHist2DMP(H,file,iFile)
+  ! subroutine sumHist2DMP(A, B, w, doCheck)
+  ! PURPOSE
+  ! Perform a summation of two histograms: A = A + B.
+  ! If a weight 'w' is given, do a weighted summation: A = A + w*B
+  ! INPUTS
+  ! * type(histogram2DMP) :: A, B  -- Histograms to be used
+  ! * real, optional    :: w  -- optional weighting factor
+  ! * logical, optional :: doCheck -- check array sizes or not
+  ! OUTPUT
+  ! A is changed.
+  !****************************************************************************
+  subroutine sumHist2DMP(A, B, w, doCheck)
+    use CALLSTACK, only: TRACEBACK
+
+    type(histogram2DMP) :: A
+    type(histogram2DMP), intent(in) :: B
+    real, optional, intent(in) :: w
+    logical, optional, intent(in) :: doCheck
+
+    if (present(doCheck)) then
+       if (doCheck) then
+          ! to be done...
+       end if
+    end if
+
+    if (present(w)) then
+       A%yval = A%yval + w * B%yval
+    else
+       A%yval = A%yval + B%yval
+    end if
+
+    A%xExtreme(:,:,1) = min(A%xExtreme(:,:,1),B%xExtreme(:,:,1))
+    A%xExtreme(:,:,2) = max(A%xExtreme(:,:,2),B%xExtreme(:,:,2))
+
+  end subroutine sumHist2DMP
+
+
+  !****************************************************************************
+  !****s* hist2DMP/DumpHist2DMP
+  ! NAME
+  ! subroutine DumpHist2DMP(H,file,iFile, add,mul)
   ! PURPOSE
   ! Write all the histogram information unformatted (i.e. binary) to a file
   !
   ! INPUTS
   ! * type(histogram2DMP) :: H     -- Histogramm to be used
   ! * character*(*)       :: file  -- name of file to open and close
-  ! * integer,OPTIONAL    :: iFile -- File number output to redirect [OPTIONAL]
+  ! * integer,OPTIONAL    :: iFile -- File number output to redirect
+  ! * real,OPTIONAL       :: add   -- factor to add
+  ! * real,OPTIONAL       :: mul   -- factor to multiply
   ! OUTPUT
   ! H is written UNFORMATTED to the given file
   !
   !****************************************************************************
-  subroutine DumpHist2DMP(H,file,iFile)
+  subroutine DumpHist2DMP(H,file,iFile, add,mul)
 
     type(histogram2DMP),intent(in)          :: H
     character*(*),      intent(in)          :: file
     integer,            intent(in),optional :: iFile
+    real,               intent(in),optional :: add,mul
 
     integer :: iF
+    real :: addFak,mulFak
+    logical :: WriteFaks
 
     iF=121
     if (present(iFile)) iF = iFile
@@ -444,15 +497,29 @@ contains
     write(iF) H%Name
     write(iF) H%yVal
 
+    WriteFaks = .false.
+    addFak = 0.0
+    mulFak = 1.0
+    if (present(mul)) then
+       mulFak = mul
+       WriteFaks = .true.
+    end if
+    if (present(add)) then
+       addFak = add
+       WriteFaks = .true.
+    end if
+
+    if (WriteFaks) write(iF) addFak,mulFak
+
     close(iF)
 
   end subroutine DumpHist2DMP
 
 
   !****************************************************************************
-  !****s* hist2DMPf90/FetchHist2DMP
+  !****s* hist2DMP/FetchHist2DMP
   ! NAME
-  ! subroutine FetchHist2DMP(H,file,iFile)
+  ! subroutine FetchHist2DMP(H,file,iFile, add,mul, flagOK)
   ! PURPOSE
   ! Read in all the histogram information previously dumped unformatted
   ! (i.e. binary) to a file
@@ -462,6 +529,10 @@ contains
   ! * integer,OPTIONAL:: iFile -- File number input to redirect [OPTIONAL]
   ! OUTPUT
   ! * type(histogram2DMP) :: H     -- Histogramm to be used
+  ! * real,OPTIONAL     :: add   -- factor to add
+  ! * real,OPTIONAL     :: mul   -- factor to multiply
+  ! * logical           :: flagOK -- flag, if reading was okay
+  !
   !
   ! H is read UNFORMATTED from the given file. Sizes are calculated as in
   ! CreateHist, also memory is allocated.
@@ -469,54 +540,89 @@ contains
   ! NOTES
   ! No checks about input are performed!
   !****************************************************************************
-!   subroutine FetchHist2DMP(H,file,iFile)
-!     use histMPf90
-!
-!     type(histogram2DMP),intent(inout)       :: H
-!     character*(*),  intent(in)          :: file
-!     integer,        intent(in),optional :: iFile
-!
-!     integer :: iF
-!     integer,dimension(2) :: L
-!     integer :: nHist
-!
-!     if (initFlag) then
-!        call histMPf90_Init
-!        initFlag = .false.
-!     end if
-!
-!     iF=121
-!     if (present(iFile)) iF = iFile
-!
-!     open(iF,file=file,status='UNKNOWN',form='UNFORMATTED')
-!     rewind(iF)
-!
-!     read(iF) H%iSet
-!
-!     nHist = Map2HistMP_getN(H%iSet)
-!     if (nHist==0) then
-!        write(*,*) 'FetchHist2DMP: H%iSet invalid:',H%iSet
-!        stop
-!     endif
-!
-!
-!     if(ALLOCATED(H%xExtreme)) deallocate(H%xExtreme)
-!     if(ALLOCATED(H%yVal)) deallocate(H%yVal)
-!
-!     allocate(H%xExtreme(nHist,2,2))
-!
-!     read(iF) H%xMin,H%xMax,H%xBin,H%xExtreme
-!     read(iF) H%Name
-!
-!     L = ceiling((H%xMax-H%xMin)/H%xBin)
-!     allocate(H%yVal(nHist,-1:L(1),-1:L(2),3))
-!
-!     read(iF) H%yVal
-!
-!     close(iF)
-!
-!   end subroutine FetchHist2DMP
+  subroutine FetchHist2DMP(H,file,iFile, add,mul, flagOK)
+    use histMP
+
+    type(histogram2DMP),intent(inout)       :: H
+    character*(*),  intent(in)          :: file
+    integer,        intent(in),optional :: iFile
+    real,           intent(out),optional:: add,mul
+    logical,        intent(out),optional:: flagOK
+
+    integer :: iF
+    integer,dimension(2) :: L
+    integer :: nHist
+    integer :: ios
+    real :: addFak,mulFak
+    logical, parameter :: verbose = .true.
+
+
+    if (initFlag) then
+       call histMPf90_Init
+       initFlag = .false.
+    end if
+
+    iF=121
+    if (present(iFile)) iF = iFile
+
+    open(iF,file=file,status='OLD',form='UNFORMATTED',iostat=ios)
+    if (ios.ne.0) then
+       close(iF)
+       if (present(flagOK)) flagOK=.false.
+       if (verbose) write(*,*) "ERROR: file '",trim(file),"' not found."
+       return
+    end if
+    rewind(iF)
+
+    read(iF,iostat=ios) H%iSet
+    if (ios.ne.0) then
+       close(iF)
+       if (present(flagOK)) flagOK=.false.
+       if (verbose) write(*,*) 'MESSAGE (2)'
+       return
+    end if
+
+
+    nHist = Map2HistMP_getN(H%iSet)
+    if (nHist==0) then
+       write(*,*) 'FetchHist2DMP: H%iSet invalid:',H%iSet
+       call Traceback()
+    endif
+
+
+    if(ALLOCATED(H%xExtreme)) deallocate(H%xExtreme)
+    if(ALLOCATED(H%yVal)) deallocate(H%yVal)
+
+    allocate(H%xExtreme(nHist,2,2))
+
+    read(iF) H%xMin,H%xMax,H%xBin,H%xExtreme
+    read(iF) H%Name
+
+    L = ceiling((H%xMax-H%xMin)/H%xBin)
+    allocate(H%yVal(nHist,-1:L(1),-1:L(2),3))
+
+    read(iF) H%yVal
+
+    if (present(add).or.present(mul)) then
+       addFak = 0.0
+       mulFak = 1.0
+       read(iF,iostat=ios) addFak,mulFak
+       if (ios.ne.0) then
+          write(*,*) 'FetchHist: old file version, no add/mul info!'
+          addFak = 0.0
+          mulFak = 1.0
+       else
+          mulFak = mulFak*(H%xBin(1)*H%xBin(2))
+       end if
+       if (present(add)) add=addFak
+       if (present(mul)) mul=mulFak
+    end if
+
+    close(iF)
+    if (present(flagOK)) flagOK=.true.
+
+  end subroutine FetchHist2DMP
 
 
 
-end module hist2DMPf90
+end module hist2DMP

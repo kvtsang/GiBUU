@@ -10,14 +10,14 @@
 # with VAR = ...
 #
 # FORT:
-# * FORT = ifort,gfortran,...
-# * FORT = /path/to/intel/compiler/ifort
+# * FORT = ifx,ifort,gfortran,...
+# * FORT = /path/to/compiler/XXX
 #
 # MODE:
-# * MODE = opt0,opt1,opt2,opt3
-# * MODE = opt4
-# * MODE = opt5
-# * MODE = lto
+# * MODE = opt0,opt1,opt2,opt3  (= O0,O1,O2,O3)
+# * MODE = opt4     (= opt3 + tree-vectorize)
+# * MODE = opt5     (= opt3 + auto-parallelization)
+# * MODE = lto      (for all compilers; LTO, IPO, IPA, ...)
 # * MODE = prof
 # * MODE = callGraph
 #
@@ -31,17 +31,18 @@
 # * ARCH = 32
 #
 # ARGS:
-# * ARGS = "..."
+# * ARGS = "..."     (additional arguments to the compiler)
 #
 # withROOT:
-# * withROOT = 1
+# * withROOT=1
+#
+# withHepMC3:
+# * withHEPMC3=1
 #
 # NOTES
 # The most aggresive optimization you can get with:
-# * make FORT=gfortran-... ARGS="-march=native" ...
-# * make FORT=gfortran-... ARGS="-march=native" MODE=lto ...
-# * make FORT=ifort-... ARGS="-xHost" ...
-# * make FORT=ifort-... ARGS="-xHost" MODE=ipo ...
+# * gfortran:  make MODE=lto ARGS="-march=native"
+# * ifx/ifort: make MODE=lto ARGS="-xHost"
 #*******************************************************************************
 
 
@@ -62,8 +63,8 @@ export SHELL = /bin/bash
 export NameOfExe=GiBUU
 
 ### Version of code
-#export VERSION='SVN revision $(shell svnversion -n .)'
-export VERSION='$(shell cat version.txt)'
+export VERSION='SVN revision $(shell svnversion -n .)'
+#export VERSION='$(shell cat version.txt)'
 
 export OS = $(strip $(shell uname))
 export OS_LONG = '$(shell uname -s -r -m)'
@@ -160,11 +161,15 @@ MODE = opt
 
 FPE = 3
 
-### default compiler: Intel
-FORT=ifort
+### default compiler: Intel ifx
+FORT=ifx
 FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
 
-### fallback options if ifort is not available
+### fallback options if ifx is not available
+ifeq ($(FORTPATH),$(EMPTY))
+  FORT=ifort
+  FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
+endif
 ifeq ($(FORTPATH),$(EMPTY))
   FORT=gfortran
   FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
@@ -181,31 +186,28 @@ endif
 
 FORT_NOPATH = $(notdir $(FORT))
 
-
+#
+# Note:
+# * FLAGSF77/90 will only be used if -opt0, for other optimization levels
+#   these vals are redefined
+# * FLAGSFORALL will be used for all optimization values
+#
 
 ######################################################################
-##### FORTRAN COMPILER: Intel (ifort)                               ##
+##### FORTRAN COMPILER: Intel (ifx)                                 ##
 ######################################################################
-ifeq ($(FORT_NOPATH),ifort)
-  FORTVERS=`$(FORT) -V 2>&1|head -1`
-
-#
-# FLAGSF77/90 will only be used if -opt0, for other optimization levels
-# these vals are redefined
-#
-# FLAGSFORALL will be used for all optimization values
-#
-
+ifeq ($(FORT_NOPATH),ifx)
+  FORTVERS=`$(FORT) --version 2>&1|head -1`
 
   FLAGSF90=-check noarg_temp_created
 #  FLAGSF90+= -check all
 
-FLAGSF77=
+  FLAGSF77=
 
   FLAGSFORALL=-align commons -warn noalignments -cpp -noD -msse2
 #  FLAGSFORALL+= -vec-report-0
 
-# for version 12.1:
+# for version 12.1 and above:
   FLAGSFORALL += -diag-disable 8290 -diag-disable 8291
 
   ifeq ($(STATIC),1)
@@ -226,19 +228,70 @@ FLAGSF77=
   FLAGSDOUBLE=-r8
 
   FLAGSFORALL += -traceback
+
+# Link-Time-Optimization:
+  ifeq ($(MODE),lto)
+    FLAGSFORALL += -O3 -ipo
+
+    # community.intel.com/t5/Intel-Fortran-Compiler/Compile-a-static-library-from-IPO-error-adding-symbols-archive/m-p/1638493#M173997
+    ARPATH = $(strip $(shell which llvm-ar 2>/dev/null))
+    ifeq ($(ARPATH),$(EMPTY))
+      ARPATH = $(subst ifx,compiler/llvm-ar, $(FORTPATH))
+    endif
+    AR=$(ARPATH)
+  endif
+
+endif
+######################################################################
+##### FORTRAN COMPILER: Intel (ifort)                               ##
+######################################################################
+ifeq ($(FORT_NOPATH),ifort)
+  FORTVERS=`$(FORT) -V 2>&1|head -1`
+
+  FLAGSF90=-check noarg_temp_created
+#  FLAGSF90+= -check all
+
+  FLAGSF77=
+
+  FLAGSFORALL=-align commons -warn noalignments -cpp -noD -msse2
+#  FLAGSFORALL+= -vec-report-0
+
+# for version 12.1 and above:
+  FLAGSFORALL += -diag-disable 8290 -diag-disable 8291
+# remove deprecated message:
+  FLAGSFORALL += -diag-disable=10448
+
+  ifeq ($(STATIC),1)
+    FLAGSFORALL += -static
+  endif
+  ifeq ($(FPE),3)
+    FLAGSFORALL += -fpe3
+  endif
+  ifeq ($(FPE),2)
+    FLAGSFORALL += -fpe2
+  endif
+  ifeq ($(FPE),1)
+    FLAGSFORALL += -fpe1
+  endif
+  ifeq ($(FPE),0)
+    FLAGSFORALL += -fpe0
+  endif
+  FLAGSDOUBLE=-r8
+
+  FLAGSFORALL += -traceback
+
+# Link-Time-Optimization:
+  ifeq ($(MODE),lto)
+    FLAGSFORALL += -O3 -ipo
+    AR = xiar
+  endif
+
 endif
 ######################################################################
 ##### FORTRAN COMPILER: GCC/gfortran (requires version 4.6+)        ##
 ######################################################################
 ifeq ($(findstring gfortran,$(FORT_NOPATH)),gfortran)
   FORTVERS=`$(FORT) -v 2>&1 | grep -i 'gcc.version'`
-
-#
-# FLAGSF77/90 will only be used if -opt0, for other optimization levels
-# these vals are redefined
-#
-# FLAGSFORALL will be used for all optimization values
-#
 
   FLAGSF77 =-fcheck=all
   FLAGSF77 += -Wall
@@ -289,6 +342,13 @@ ifeq ($(findstring gfortran,$(FORT_NOPATH)),gfortran)
 # standard:
   FLAGSFORALL += -std=legacy
 
+# Link-Time-Optimization:
+  ifeq ($(MODE),lto)
+    FLAGSF90=-O3 -flto=3 -fuse-linker-plugin
+    FLAGSF77=-O3 -flto=3 -fuse-linker-plugin
+    AR = gcc-ar
+  endif
+
 endif
 ######################################################################
 ##### FORTRAN COMPILER: Sun/Oracle (sunf95, sunf90, ...)            ##
@@ -313,16 +373,30 @@ ifeq ($(findstring sunf,$(FORT_NOPATH)),sunf)
 endif
 ######################################################################
 ##### FORTRAN COMPILER: Portland/PGI (pgfortran, pgf95, pgf90, ...) ##
+#####                   NVidia (nvfortran)                          ##
 ######################################################################
+itIsNVidia =
 ifeq ($(findstring pgf,$(FORT_NOPATH)),pgf)
+  itIsNVidia = yes
+endif
+ifeq ($(findstring nvfortran,$(FORT_NOPATH)),nvfortran)
+  itIsNVidia = yes
+endif
+ifdef itIsNVidia
   FORTVERS=`$(FORT) -V 2>&1|head -2`
   FLAGSF90=-g
   FLAGSF77=$(FLAGSF90)
   FLAGSDOUBLE=-r8
-  FLAGSFORALL=-Mextend
+  FLAGSFORALL=-Mextend -traceback
   ifeq ($(STATIC),1)
     FLAGSFORALL += -Bstatic
   endif
+
+#https://www.spec.org/accel2023/flags/nv2023_flags_v2.html
+# -Ktrap=fp für FPEx
+
+## MODE=opt2 ARGS="-Mnovect -Mnoflushz"
+
 endif
 ######################################################################
 ##### FORTRAN COMPILER: LLVM/flang                                  ##
@@ -418,6 +492,8 @@ endif
 #########################################################
 # here in most cases previous values of the variables are
 # replaced! only for opt0, the original values are appended.
+#
+# please note: MODE=lto already treated above...
 
 ifeq ($(MODE),opt)
   FLAGSF90=-O3
@@ -456,20 +532,6 @@ ifeq ($(MODE),opt5)
   endif
 endif
 
-# for gfortran:
-ifeq ($(MODE),lto)
-  FLAGSF90=-O3 -flto=3 -fuse-linker-plugin
-  FLAGSF77=-O3 -flto=3 -fuse-linker-plugin
-  AR = gcc-ar
-endif
-
-#for ifort:
-ifeq ($(MODE),ipo)
-# following 2 lines are connected! if -ipo, then also 'xiar' instead of 'ar'
-  FLAGSFORALL += -O3 -ipo
-  AR = xiar
-endif
-
 #########################################################
 ##### PROFILING FLAGS (for ifort & gfortran)
 #########################################################
@@ -483,9 +545,10 @@ endif
 ifeq ($(MODE),callGraph)
   FLAGSFORALL+=-fdump-rtl-expand
 endif
-#########################################################
 
-### Adding some flags given at the command line
+#########################################################
+##### Adding some flags given at the command line
+#########################################################
 FLAGSFORALL += $(ARGS)
 
 
@@ -858,8 +921,6 @@ MAKEFILEveryclean: MAKEFILEdelete MAKEFILEclean
 #*******************************************************************************
 
 .PHONY : renew
-
-#renew : input MAKEFILEclean Makefiles
 renew : MAKEFILEclean Makefiles
 
 
@@ -987,5 +1048,10 @@ buildRootTuple: printCompiler
 
 buildRootTuple_POS: printCompiler
 	@cd $(LIBDIRSRC)/RootTuple && $(MAKE) LIBROOTTUPLE_POS
+
+.PHONY : buildHEPMC3event
+
+buildHEPMC3event: printCompiler
+	@cd $(LIBDIRSRC)/HEPMC3 && $(MAKE) LIBHEPMC3EVENT
 
 # DO NOT DELETE

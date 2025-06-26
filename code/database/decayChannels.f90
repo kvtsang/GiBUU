@@ -95,7 +95,9 @@ Module DecayChannels
   !****************************************************************************
 
 
-  public :: InitDecayChannels, Print_DecayChannels, get_rhoDelta_is_sigmaDelta
+  public :: InitDecayChannels
+  public :: Print_DecayChannels
+  public :: get_rhoDelta_is_sigmaDelta
 
 
   logical, save :: first = .true.
@@ -338,25 +340,32 @@ contains
   !
   ! NOTES
   ! This is preliminary: Output has to be refined.
+  !
+  ! using 'PartName' for a nicer output of the particle names leads a
+  ! circular dependency!!!
   !****************************************************************************
   subroutine Print_DecayChannels
+
     integer :: i
 
     open(10,file='GiBUU_database_decayChannels.txt',status='unknown')
 
     write(10,*) '2-body decay channels of the hadrons'
-    write(10,'(A)') ' i & final State 1 & final State 2 & 1 is stable & 2 is stable & angular momentum & threshold'
+    write(10,'(A)') '  i & final State 1 & final State 2 & 1 is stable & 2 is stable & angular momentum & threshold'
+    write(10,*)
 
     do i=1,nDecay2bodyMeson
-      write(10,'(3(I3," & "),2(L6," & "),I3," & ",f5.3)') i, Decay2bodyMeson(i)%id, Decay2bodyMeson(i)%stable, &
-                                                          Decay2bodyMeson(i)%angularMomentum, Decay2bodyMeson(i)%threshold
+       write(10,'(I3," & ",2(I3," & "),2(L3," & "),I3," & ",f5.3)') &
+            i, Decay2bodyMeson(i)%id, Decay2bodyMeson(i)%stable, &
+            Decay2bodyMeson(i)%angularMomentum, Decay2bodyMeson(i)%threshold
     end do
 
     write(10,*)
 
     do i=1,nDecay2bodyBaryon
-      write(10,'(3(I3," & "),2(L6," & "),I3," & ",f5.3)') i, Decay2bodyBaryon(i)%id, Decay2bodyBaryon(i)%stable, &
-                                                          Decay2bodyBaryon(i)%angularMomentum, Decay2bodyBaryon(i)%threshold
+       write(10,'(I3," & ",2(I3," & "),2(L3," & "),I3," & ",f5.3)') &
+            i, Decay2bodyBaryon(i)%id, Decay2bodyBaryon(i)%stable, &
+            Decay2bodyBaryon(i)%angularMomentum, Decay2bodyBaryon(i)%threshold
     end do
 
     write(10,*)
@@ -364,13 +373,16 @@ contains
     write(10,'(A)') ' i & final State 1 & final State 2 & final State 3 & charge 1 & charge 2 & charge 3 & threshold'
 
     do i=1,nDecay3bodyMeson
-      write(10,'(6(I3," & "),I3," & ",f5.3)') i,Decay3bodyMeson(i)%id, Decay3bodyMeson(i)%charge, Decay3bodyMeson(i)%threshold
+       write(10,'(I3," & ",3(I3," & ")," & ",3(I2," & ")," & ",f5.3)') &
+            i,Decay3bodyMeson(i)%id, Decay3bodyMeson(i)%charge, Decay3bodyMeson(i)%threshold
+
     end do
 
     write(10,*)
 
     do i=1,nDecay3bodyBaryon
-      write(10,'(6(I3," & "),I3," & ",f5.3)') i,Decay3bodyBaryon(i)%id, Decay3bodyBaryon(i)%charge, Decay3bodyBaryon(i)%threshold
+       write(10,'(I3," & ",3(I3," & ")," & ",3(I2," & ")," & ",f5.3)') &
+            i,Decay3bodyBaryon(i)%id, Decay3bodyBaryon(i)%charge, Decay3bodyBaryon(i)%threshold
     end do
 
     close(10)

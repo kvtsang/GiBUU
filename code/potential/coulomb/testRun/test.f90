@@ -12,13 +12,13 @@ integer :: i !,j
 real, parameter :: elmcon=0.0014398  !=e^2*0.2 Gev fm=1/137*0.2 GeV fm
 
 teilchenVektor(1,1)%Charge=1
-teilchenVektor(1,1)%position=(/0.,0.4,0./)
-teilchenVektor(1,1)%momentum=(/0.14,0.,0.,0./)
+teilchenVektor(1,1)%pos=(/0.,0.4,0./)
+teilchenVektor(1,1)%mom=(/0.14,0.,0.,0./)
 teilchenVektor(1,1)%ID=nucleon
 
 !!$!teilchenVektor(2,1)%Charge=0
-!!$teilchenVektor(2,1)%position=(/100.,0.,0./)
-!!$teilchenVektor(2,1)%momentum=(/0.14,0.,0.,0./)
+!!$teilchenVektor(2,1)%pos=(/100.,0.,0./)
+!!$teilchenVektor(2,1)%mom=(/0.14,0.,0.,0./)
 !!$teilchenVektor(2,1)%ID=1
 
 

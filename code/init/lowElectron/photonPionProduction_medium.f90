@@ -91,12 +91,12 @@ contains
        write(*,'(A)') 'Input:'
        write(*,*)
        write(*,'(A)')       'Initial nucleon'
-       write(*,'(A,4F9.5)') ' * Momentum :',init_nuc%momentum
-       write(*,'(A,3F9.5)') ' * Position :',init_nuc%position
+       write(*,'(A,4F9.5)') ' * Momentum :',init_nuc%mom
+       write(*,'(A,3F9.5)') ' * Position :',init_nuc%pos
        write(*,'(A,I9)')    ' * Charge   :',init_nuc%charge
        write(*,'(A,F9.5)')  ' * Mass     :',init_nuc%mass
        write(*,'(A,I8)')    ' * ID       :',init_nuc%ID
-       write(*,'(A,L8)')    ' * perturbative      :',init_nuc%perturbative
+       write(*,'(A,L8)')    ' * perturbative      :',init_nuc%pert
        write(*,*)
        write(*,'(A)')       'Initial Photon'
        write(*,'(A,4F9.5)') ' * momentum :',q
@@ -119,7 +119,7 @@ contains
 !       write(*,'(A,4E14.5)') 'no success', q
        return
     else
-       pin=init_Nuc%momentum
+       pin=init_Nuc%mom
        ! If W too small, then return:
        ! The value 1.096 is dictated by the MAID input grid which has the lowest point at W=1.1 and dW=0.01
        if (sqrt(pair(pin+q,pin+q)).lt.1.096) then
@@ -268,7 +268,7 @@ contains
           !          write(*,*) 'stop'
           !          stop
        end if
-       pf=q+initNuc%momentum-k
+       pf=q+initNuc%mom-k
     else
        k=0
        pf=0
@@ -314,17 +314,17 @@ contains
 
     ! Transforming everything to CM-Frame of the hadronic vertex:
 
-    betatoCM = lorentzCalcBeta (q_lab+pi_lab, 'matrixElement')
+    betatoCM = lorentzCalcBeta(q_lab+pi_lab)
 
     q =q_lab
     pi=pi_lab
     pf=pf_lab
     k =k_lab
 
-    call lorentz(betaToCM, pi, 'matrixElement')
-    call lorentz(betaToCM, pf, 'matrixElement')
-    call lorentz(betaToCM, q , 'matrixElement')
-    call lorentz(betaToCM, k , 'matrixElement')
+    call lorentz(betaToCM, pi)
+    call lorentz(betaToCM, pf)
+    call lorentz(betaToCM, q )
+    call lorentz(betaToCM, k )
 
     if (debug) then
        write(*,'(A)')'###############################################'

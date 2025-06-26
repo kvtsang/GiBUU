@@ -7,7 +7,7 @@
 !------------------------------------------------------------------------------
 
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =           5 ! neutrino interactions
       numEnsembles    =        1000
@@ -21,6 +21,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: code/density/nucleus.f90
@@ -51,7 +52,7 @@
 
 ! file: code/init/neutrino/initNeutrino.f90
 &neutrino_induced
-      process_ID      =  1      ! 1:EM, 2:CC, 3:NC, -2:antiCC, -3:antiNC
+      process_ID      =  3      ! 1:EM, 2:CC, 3:NC, -2:antiCC, -3:antiNC
       flavor_ID       =  1      ! 1:electron, 2:muon, 3:tau
 
       nuXsectionMode  =  6
@@ -67,9 +68,15 @@
       include2pi      = T
 /
 
+! file: code/init/neutrino/neutrinoParms.f90
+&nl_neweN
+      new_eN = T
+!      new_eNres = T
+/
+
 ! file: code/init/neutrino/esample.f90
 &nl_fluxcuts
-      Enu_loawer_cut =  0.0
+      Enu_lower_cut =  0.0
       Enu_upper_cut = 20.0
       energylimit_for_Qsrec = T   ! using fluxcuts also in Q^2 reconstr.
 /
@@ -106,7 +113,7 @@
 
 ! file: code/numerics/random.f90
 &initRandom
-!      Seed = 45678
+      Seed = 45678
 /
 
 ! file: code/analysis/EventOutputAnalysis.f90

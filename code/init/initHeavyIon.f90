@@ -22,8 +22,10 @@ module initHeavyIon
   ! PURPOSE
   ! Impact parameter b [fm]. There are three options:
   ! * b>=0: The impact parameter is fixed to the given value.
-  ! * -100<b<0: The impact parameter will be chosen randomly in each run between 0 and abs(b).
-  ! * b<=-100: "Minimum bias". The impact parameter will be chosen randomly in each run (maximum = sum of radii plus twice the sum of surfaces).
+  ! * -100<b<0: The impact parameter will be chosen randomly in each run
+  !   between 0 and abs(b).
+  ! * b<=-100: "Minimum bias". The impact parameter will be chosen randomly
+  !   in each run (maximum = sum of radii plus twice the sum of surfaces).
   !****************************************************************************
 
 
@@ -36,15 +38,20 @@ module initHeavyIon
   ! This switch provides impact-parameter distributions for trigger-biased
   ! setups. Only used for impact_parameter < 0.
   ! Possible values:
-  ! * 0: minimum bias (default)
-  ! * 1: HADES C+C    at 1.00 AGeV
-  ! * 2: HADES C+C    at 2.00 AGeV
-  ! * 3: HADES Ar+KCl at 1.76 AGeV
-  ! * 4: HADES Au+Au  at 1.23 AGeV (all)
-  ! * 5: HADES Au+Au  at 1.23 AGeV ( 0-10% central)
-  ! * 6: HADES Au+Au  at 1.23 AGeV (10-20% central)
-  ! * 7: HADES Au+Au  at 1.23 AGeV (20-30% central)
-  ! * 8: HADES Au+Au  at 1.23 AGeV (30-40% central)
+  ! *  0: minimum bias (default)
+  ! *  1: HADES C+C    at 1.00 AGeV
+  ! *  2: HADES C+C    at 2.00 AGeV
+  ! *  3: HADES Ar+KCl at 1.76 AGeV
+  ! *  4: HADES Au+Au  at 1.23 AGeV (all)
+  ! *  5: HADES Au+Au  at 1.23 AGeV ( 0-10% central)
+  ! *  6: HADES Au+Au  at 1.23 AGeV (10-20% central)
+  ! *  7: HADES Au+Au  at 1.23 AGeV (20-30% central)
+  ! *  8: HADES Au+Au  at 1.23 AGeV (30-40% central)
+  ! *  9: HADES Ag+Ag  at 1.58 AGeV ( 0-40% central) [not in release]
+  ! * 10: HADES Ag+Ag  at 1.58 AGeV ( 0-10% central) [not in release]
+  ! * 11: HADES Ag+Ag  at 1.58 AGeV (10-20% central) [not in release]
+  ! * 12: HADES Ag+Ag  at 1.58 AGeV (20-30% central) [not in release]
+  ! * 13: HADES Ag+Ag  at 1.58 AGeV (30-40% central) [not in release]
   !****************************************************************************
 
 
@@ -109,6 +116,14 @@ module initHeavyIon
 
   public :: initHeavyIonCollision
 
+  real, parameter :: b0(1:13) = &
+       (/ 3.705, 4.034, 4.922, &
+       & 10.000, 4.506, 5.67,  7.27,  8.59, &
+       &  9.999, 9.999, 9.999, 9.999, 9.999 /)
+  real, parameter :: db(1:13) = &
+       (/ 0.767, 0.749, 0.601, &
+       &  0.800, 0.578, 0.99,  0.85,  0.79, &
+       &  9.999, 9.999, 9.999, 9.999, 9.999 /)
 
 contains
 
@@ -116,7 +131,7 @@ contains
   !****************************************************************************
   !****s* initHeavyIon/initHeavyIonCollision
   ! NAME
-  ! subroutine initHeavyIonCollision (targetNuc, projectileNuc)
+  ! subroutine initHeavyIonCollision(targetNuc, projectileNuc)
   ! PURPOSE
   ! Provides initial configuration of a heavy ion event in the CM-frame
   ! INPUTS
@@ -126,10 +141,9 @@ contains
   ! * Sets the kinematics of targetNuc and projectileNuc in their CM-frame
   ! * Expects that the masses (A,Z) of the nuclei are already well defined.
   !****************************************************************************
-  subroutine initHeavyIonCollision (targetNuc, projectileNuc)
+  subroutine initHeavyIonCollision(targetNuc, projectileNuc)
     use nucleusDefinition
     use Dilepton_Analysis, only: Dilep_Init
-    use random, only: rn, rnGauss
 
     type(tNucleus), pointer :: targetNuc, projectileNuc
 
@@ -139,41 +153,23 @@ contains
     real :: momentumCM, bmax
     logical, parameter :: debug=.true.
     logical, save :: first = .true.
-    real, parameter :: b0(6:8) = (/ 5.67, 7.27, 8.59 /)
-    real, parameter :: db(6:8) = (/ 0.99, 0.85, 0.79 /)
 
     if (first) call initInput
 
     if (impact_parameter >= 0.) then
-      ! impact parameter is fixed
-      b = impact_Parameter
+       ! impact parameter is fixed
+       b = impact_Parameter
     else
-      ! choose random impact parameter in a given interval
-      if (impact_parameter > -100.) then
-        bmax = abs(impact_parameter)
-      else
-        bmax = targetNuc%radius + projectileNuc%radius + 2*(targetNuc%surface+projectileNuc%surface)
-      end if
+       ! choose random impact parameter in a given interval
+       if (impact_parameter > -100.) then
+          bmax = abs(impact_parameter)
+       else
+          bmax = targetNuc%radius(0) + projectileNuc%radius(0) + 2*(targetNuc%surface(0)+projectileNuc%surface(0))
+       end if
 
-      select case (impact_profile)
-      case (0)
-        ! default: minimum bias
-        b = bmax * sqrt(rn())
-      case (1,2,3,4,5)
-        ! use HADES trigger-biased centrality distributions with Woods-Saxon shape
-        do
-          b = bmax * sqrt(rn())
-          if (rn() < impact_HADES(b,impact_profile)) exit  ! accept
-        end do
-      case (6,7,8)
-        ! use HADES trigger-biased centrality distributions with Gaussian shape
-        b = rnGauss(db(impact_profile), b0(impact_profile))
-      case default
-        write(*,*) 'initHeavyIonCollision: bad value for impact_profile: ', impact_profile
-        stop
-      end select
+       b = select_impact(bmax,impact_profile)
 
-      write(*,*) 'initHeavyIonCollision: Impact Parameter = ',b
+       write(*,*) 'initHeavyIonCollision: Impact Parameter = ',b, bmax
     end if
 
     call setVelocity
@@ -182,7 +178,7 @@ contains
     if (adjustGridFlag) call adjustGrid
     if (coulomb) call coulombCorrect
 
-    call Dilep_Init (ekin_lab_Projectile + ekin_lab_Target, cms=cmsFlag, beta=betaCM2Lab)
+    call Dilep_Init(ekin_lab_Projectile + ekin_lab_Target, cms=cmsFlag, beta=betaCM2Lab)
 
   contains
 
@@ -243,29 +239,6 @@ contains
     end subroutine initInput
 
 
-    real function impact_HADES (b, i)
-      ! profile for the impact parameter distributions fitted to the HADES trigger
-      ! for C+C see:    Agakishiev et al., EPJ A 40 (2009) 45, fig. 6
-      ! for Ar+KCl see: Agakishiev et al., EPJ A 47 (2011) 21, fig. 1
-      ! AuAu: Tetyana Galatyuk, private communications
-      use distributions, only: woods_saxon
-      use CallStack, only: traceBack
-
-      real, intent(in) :: b      ! impact parameter in fm
-      integer, intent(in) :: i   ! select reaction: 1 = CC1, 2 = CC2, 3 = ArKCl, 4 = AuAu (min.bias), 5 = AuAu (central)
-
-      real, parameter :: b0(1:5) = (/ 3.705, 4.034, 4.922, 10.00, 4.506 /)  ! Woods-Saxon parameters for HADES centrality selection
-      real, parameter :: db(1:5) = (/ 0.767, 0.749, 0.601, 0.800, 0.578 /)
-
-      if (i<1 .or. i>5) then
-        write(*,*) "error in impact_HADES: ", i
-        call traceBack()
-      end if
-
-      impact_HADES = woods_saxon (b, 1., b0(i), db(i))
-
-    end function impact_HADES
-
 
     !**************************************************************************
     !****s* initHeavyIon/setVelocity
@@ -287,6 +260,12 @@ contains
            &   - sqrt((mN + ekin_lab_projectile)**2 -mN**2) )**2
       write(*,*) 'sqrt(s)_pp = ', sqrt(s)
 
+      write(*,*) 'Ekin_lab   = ',ekin_lab_projectile, ekin_lab_target
+      write(*,*) 'p_lab      = ',&
+           sqrt((ekin_lab_projectile+mN)**2-mN**2),&
+           sqrt((ekin_lab_target+mN)**2-mN**2)
+
+
 
       massTarget     = float(targetNuc%mass)     * mN
       massProjectile = float(projectileNuc%mass) * mN
@@ -306,8 +285,8 @@ contains
          if (debug) write(*,*) 'Momentum in CM = ', momentumCM
          EnergyTargetCM=SQRT(momentumCM**2+massTarget**2)
          EnergyProjectileCM=SQRT(momentumCM**2+massProjectile**2)
-         targetNuc%velocity     = (/ 0., 0., -momentumCM/EnergyTargetCM     /)
-         projectileNuc%velocity = (/ 0., 0.,  momentumCM/EnergyProjectileCM /)
+         targetNuc%vel     = (/ 0., 0., -momentumCM/EnergyTargetCM     /)
+         projectileNuc%vel = (/ 0., 0.,  momentumCM/EnergyProjectileCM /)
 
       else
 
@@ -315,21 +294,21 @@ contains
             write(*,*) 'Projectile momentum in LAB = ',momentumProjectileLab
             write(*,*) 'Target momentum in LAB     = ',momentumTargetLab
          end if
-         targetNuc%velocity=(/ 0.,0.,-momentumTargetLab/EnergyTargetLab/)
-         projectileNuc%velocity=(/0.,0.,momentumProjectileLab/EnergyProjectileLab/)
+         targetNuc%vel=(/ 0.,0.,-momentumTargetLab/EnergyTargetLab/)
+         projectileNuc%vel=(/0.,0.,momentumProjectileLab/EnergyProjectileLab/)
 
       end if
 
       betaCM2Lab = - (momentumProjectileLab-momentumTargetLab) / (EnergyProjectileLab+EnergyTargetLab) * (/0.,0.,1./)
 
       if (debug) then
-        write(*,'(A,3G15.8)') ' Velocity Target     =', targetNuc%velocity
-        write(*,'(A,3G15.8)') ' Velocity Projectile =', projectileNuc%velocity
+        write(*,'(A,3G15.8)') ' Velocity Target     =', targetNuc%vel
+        write(*,'(A,3G15.8)') ' Velocity Projectile =', projectileNuc%vel
         write(*,'(A,3G15.8)') ' betaCM2Lab          =', betaCM2Lab
       end if
 
-      gammaTarg = 1./sqrt( 1. - targetNuc%velocity(3)**2 )
-      gammaProj = 1./sqrt( 1. - projectileNuc%velocity(3)**2 )
+      gammaTarg = 1./sqrt( 1. - targetNuc%vel(3)**2 )
+      gammaProj = 1./sqrt( 1. - projectileNuc%vel(3)**2 )
 
     end subroutine setVelocity
 
@@ -349,8 +328,8 @@ contains
       real :: distance_touch, vP, vT
 
       ! check whether input distance is reasonable and readjust it if needed:
-      distance_touch = (5.*targetNuc%surface+targetNuc%radius)/gammaTarg &
-                     + (5.*projectileNuc%surface+projectileNuc%radius)/gammaProj + 1.
+      distance_touch = (5.*targetNuc%surface(0)+targetNuc%radius(0))/gammaTarg &
+                     + (5.*projectileNuc%surface(0)+projectileNuc%radius(0))/gammaProj + 1.
 
       write(*,*) 'Distance between centers along z-axis =', distance
       if (distance < distance_touch) then
@@ -363,21 +342,21 @@ contains
          distance = distance_touch
          write(*,*) 'Readjusted distance between centers along z-axis =', distance
       end if
-      write(*,*) 'Overlap at t = ',distance/abs(targetNuc%velocity(3)-projectileNuc%velocity(3)),'fm/c'
+      write(*,*) 'Overlap at t = ',distance/abs(targetNuc%vel(3)-projectileNuc%vel(3)),'fm/c'
 
       if (cmsFlag) then
 
          !Set position such that nuclei collide at center of grid (CM frame):
-         vP = abs(projectileNuc%velocity(3))
-         vT = abs(targetNuc%velocity(3))
-         targetNuc%position     = (/ -b/2., 0.,  distance*vT/(vP+vT) /)
-         projectileNuc%position = (/  b/2., 0., -distance*vP/(vP+vT) /)
+         vP = abs(projectileNuc%vel(3))
+         vT = abs(targetNuc%vel(3))
+         targetNuc%pos     = (/ -b/2., 0.,  distance*vT/(vP+vT) /)
+         projectileNuc%pos = (/  b/2., 0., -distance*vP/(vP+vT) /)
 
       else
 
          !Set position such that target nucleus is at rest (LAB frame):
-         targetNuc%position=(/ 0.,0.,0./)
-         projectileNuc%position=(/ b,0.,-distance/)
+         targetNuc%pos=(/ 0.,0.,0./)
+         projectileNuc%pos=(/ b,0.,-distance/)
 
       end if
 
@@ -398,11 +377,11 @@ contains
 
       real :: Rlong_min, Rtr_min!, Rlong_max, Rtr_max
 
-      Rlong_min = min(targetNuc%radius/gammaTarg,projectileNuc%radius/gammaProj)
-      !Rlong_max = max(targetNuc%radius/gammaTarg,projectileNuc%radius/gammaProj)
+      Rlong_min = min(targetNuc%radius(0)/gammaTarg,projectileNuc%radius(0)/gammaProj)
+      !Rlong_max = max(targetNuc%radius(0)/gammaTarg,projectileNuc%radius(0)/gammaProj)
 
-      Rtr_min = min(targetNuc%radius,projectileNuc%radius)
-      !Rtr_max = max(targetNuc%radius,projectileNuc%radius)
+      Rtr_min = min(targetNuc%radius(0),projectileNuc%radius(0))
+      !Rtr_max = max(targetNuc%radius(0),projectileNuc%radius(0))
 
       call acceptGrid(Rtr_min/6., Rtr_min/6., Rlong_min/6.)
 
@@ -429,11 +408,11 @@ contains
       write(*,*) '**Doing Coulomb correction to velocity and position of target and projectile.'
       write(*,*) ' We propagate them from',coulombdistance,'to', distance
       write(*,*) ' Positions before correction:'
-      write(*,*) ' Target:',targetNuc%position
-      write(*,*) ' Projectile:',projectileNuc%position
+      write(*,*) ' Target:',targetNuc%pos
+      write(*,*) ' Projectile:',projectileNuc%pos
       write(*,*) ' Velocities before correction:'
-      write(*,*) ' Target:',targetNuc%velocity
-      write(*,*) ' Projectile:',projectileNuc%velocity
+      write(*,*) ' Target:',targetNuc%vel
+      write(*,*) ' Projectile:',projectileNuc%vel
 
       massTarget     = float(targetNuc%mass)     * mN
       massProjectile = float(projectileNuc%mass) * mN
@@ -443,33 +422,151 @@ contains
       distance           = Sqrt(distance**2+b**2)
 
       !Set total distance of both nuclei to "coulombDistance"
-      vP = abs(projectileNuc%velocity(3))
-      vT = abs(targetNuc%velocity(3))
-      targetNuc%position     = (/  b/2., 0.,  coulombDistance*vT/(vP+vT) /)
-      projectileNuc%position = (/ -b/2., 0., -coulombDistance*vP/(vP+vT) /)
+      vP = abs(projectileNuc%vel(3))
+      vT = abs(targetNuc%vel(3))
+      targetNuc%pos     = (/  b/2., 0.,  coulombDistance*vT/(vP+vT) /)
+      projectileNuc%pos = (/ -b/2., 0., -coulombDistance*vP/(vP+vT) /)
       !Propagate both nuclei until they reach "distance
-      call CoulpropaTwo (targetNuc%position, momentumTarget, targetNuc%charge, massTarget, &
-                         projectileNuc%position, momentumProjectile, projectileNuc%charge, massProjectile, &
+      call CoulpropaTwo (targetNuc%pos, momentumTarget, targetNuc%charge, massTarget, &
+                         projectileNuc%pos, momentumProjectile, projectileNuc%charge, massProjectile, &
                          distance)
 
       EnergyTargetCM=SQRT(Dot_Product(momentumTarget,momentumTarget)+massTarget**2)
       EnergyProjectileCM=SQRT(Dot_Product(momentumProjectile,momentumProjectile)+massProjectile**2)
-      targetNuc%velocity=momentumTarget/EnergyTargetCM
-      projectileNuc%velocity=momentumProjectile/EnergyProjectileCM
+      targetNuc%vel=momentumTarget/EnergyTargetCM
+      projectileNuc%vel=momentumProjectile/EnergyProjectileCM
 
       write(*,*)
       write(*,*) ' Positions after correction:'
-      write(*,*) ' Target:',targetNuc%position
-      write(*,*) ' Projectile:',projectileNuc%position
+      write(*,*) ' Target:',targetNuc%pos
+      write(*,*) ' Projectile:',projectileNuc%pos
       write(*,*) ' Velocities after correction:'
-      write(*,*) ' Target:',targetNuc%velocity
-      write(*,*) ' Projectile:',projectileNuc%velocity
+      write(*,*) ' Target:',targetNuc%vel
+      write(*,*) ' Projectile:',projectileNuc%vel
 
       write(*,*) '** Finished Coulomb correction to velocity and position of target and projectile.'
 
 
     end subroutine coulombCorrect
 
-end subroutine initHeavyIonCollision
+
+    !**************************************************************************
+    !***if* initHeavyIon/impact_HADES
+    ! NAME
+    ! real function impact_HADES(b, i)
+    ! PURPOSE
+    ! profile for the impact parameter distributions fitted to the HADES:
+    ! * for C+C see:    Agakishiev et al., EPJ A 40 (2009) 45, fig. 6
+    ! * for Ar+KCl see: Agakishiev et al., EPJ A 47 (2011) 21, fig. 1
+    ! * AuAu: Tetyana Galatyuk, private communications,
+    !   Adamczewski-Musch et al., EPJ A 54 (2018), 85
+    ! * AgAg: Jan-Hendrik Otto, private communications
+    !
+    ! INPUTS
+    ! * real :: b      ! impact parameter in fm
+    ! * integer :: i   ! 1,2,3,4,5, 9,10
+    ! OUTPUT
+    ! function value gives the parametrized woods saxon value
+    ! NOTES
+    ! here only the Woods-Saxon like centrality selections are described.
+    ! other selections are given by a simple gaussian
+    !**************************************************************************
+    real function impact_HADES(b, i)
+
+      use distributions, only: woods_saxon
+      use CallStack, only: traceback
+      use output, only: notInRelease
+
+      real, intent(in) :: b
+      integer, intent(in) :: i
+
+      select case (i)
+      case (9,10,11,12,13)
+         call notInRelease("Hades AgAg impact parameter distribution")
+      end select
+
+      select case (i)
+      case (1,2,3,4,5, 9,10)
+         impact_HADES = woods_saxon(b, 1., b0(i), db(i))
+      case default
+         write(*,*) "error in impact_HADES: ", i
+         call traceback()
+      end select
+
+    end function impact_HADES
+
+    !**************************************************************************
+    !***if* initHeavyIon/select_impact
+    ! NAME
+    ! real function select_impact(bmax, i)
+    ! PURPOSE
+    ! select a random value for b according the selected profile
+    !**************************************************************************
+    function select_impact(bmax, i) result(b)
+      use random, only: rn, rnGauss
+      use CallStack, only: traceback
+      use output, only: notInRelease
+
+      real, intent(in) :: bmax
+      integer, intent(in) :: i
+      real :: b
+
+      select case (i)
+      case (9,10,11,12,13)
+         call notInRelease("Hades AgAg impact parameter distribution")
+      end select
+
+      select case (i)
+      case (0)
+         ! default: minimum bias
+         b = bmax * sqrt(rn())
+      case (1,2,3,4,5, 9,10)
+         ! use HADES trigger-biased centrality distributions with Woods-Saxon shape
+         do
+            b = bmax * sqrt(rn())
+            if (rn() < impact_HADES(b,i)) exit  ! ==> accept
+         end do
+      case (6,7,8, 11,12,13)
+         ! use HADES trigger-biased centrality distributions with Gaussian shape
+         b = rnGauss(db(i), b0(i))
+      case default
+         write(*,*) 'initHeavyIonCollision: bad value for impact_profile: ', i
+         call traceback()
+      end select
+
+    end function select_impact
+
+!!$    !**************************************************************************
+!!$    !***is* initHeavyIon/check_select_impact
+!!$    ! NAME
+!!$    ! subroutine check_select_impact
+!!$    ! PURPOSE
+!!$    ! trivial check of the random selection by writing out histograms
+!!$    !**************************************************************************
+!!$    subroutine check_select_impact
+!!$      use hist
+!!$      use CallStack, only: traceback
+!!$
+!!$      real :: b, b0=30.0
+!!$      integer :: i, iMC, nMC=1000000
+!!$      type(histogram) :: h
+!!$
+!!$      call createHist(h,"dN/db",0.0,30.0,0.01)
+!!$
+!!$      do i=1,13
+!!$         call clearHist(h)
+!!$
+!!$         do iMC=1,nMC
+!!$            b = select_impact(b0, i)
+!!$            call addHist(h,b,1.0)
+!!$         end do
+!!$
+!!$         call writeHist(h,1000+i,mul=1.0/nMC)
+!!$      end do
+!!$
+!!$      call traceback("stop the test output")
+!!$    end subroutine check_select_impact
+
+  end subroutine initHeavyIonCollision
 
 end module initHeavyIon

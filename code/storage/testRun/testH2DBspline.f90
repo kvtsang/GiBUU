@@ -1,5 +1,5 @@
 program main
-  use hist2df90
+  use hist2d
   use random
 
   implicit none

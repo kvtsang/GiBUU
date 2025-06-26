@@ -86,8 +86,8 @@ module Electron_origin
   public :: cleanup
 
   public :: origin_singlePi,origin_doublePi,origin_DIS
-  public :: origin_vecmes
-  public :: origin_vecmes_rho,origin_vecmes_omega,origin_vecmes_phi,origin_vecmes_Delta
+  public :: origin_vecmes,origin_vecmes_Delta
+  public :: origin_vecmes_rho,origin_vecmes_omega,origin_vecmes_phi
   public :: origin_pi0eta, origin_fritiof
   public :: origin_2p2hQE, origin_2p2hDelta
 
@@ -110,8 +110,13 @@ contains
   ! USAGE
   ! If switch= ... :
   ! * 0 -- initialize the subroutine
-  ! * 1 -- store the information ("info") of the type of event for  firstEvent=index
-  ! * 2 -- returne the information ("info") of the type of event for  firstEvent=index
+  ! * 1 -- store the information ("info") of the type of event for
+  !   firstEvent=index
+  ! * 2 -- return the information ("info") of the type of event for
+  !   firstEvent=index
+  !
+  ! NOTES
+  ! does a reallocation of the arry, if index is out of bounds for switch==1.
   !****************************************************************************
   subroutine le_whichOrigin(Switch,index,info)
 

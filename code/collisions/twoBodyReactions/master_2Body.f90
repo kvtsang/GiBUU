@@ -118,27 +118,6 @@ module master_2Body
 
 
   !****************************************************************************
-  !****g* master_2Body/coulombCorrect
-  ! SOURCE
-  !
-  logical,save :: coulombCorrect=.false.
-  ! PURPOSE
-  ! Since the new particles are initialized at new positions,
-  ! also the total coulomb energy might change.
-  ! If .true. than this is taken into account and some correction
-  ! to sqrt(s) is done.
-  ! NOTES
-  ! Should only be used if the new finalstate particles are initialized
-  ! in the middle of the two initial state particles!
-  !
-  ! According to OB, this parameter, which switches on/off the usage of
-  ! the routine "CoulombDifference", has more or less some nostalgical
-  ! reasons.
-  ! Better not to use it nowadays anymore!
-  !****************************************************************************
-
-
-  !****************************************************************************
   !****g* master_2Body/usePythia
   ! SOURCE
   !
@@ -490,7 +469,6 @@ contains
     ! * OverideSigma_PiPi
     ! * Overide_PiPi_ResIsElast
     ! * omega_K_factor
-    ! * coulombCorrect
     ! * mesMes_do2to2
     ! * mesMes_useWidth
     ! * doScaleResidue
@@ -508,7 +486,7 @@ contains
          bmax_baryonMeson, bmax_mesonMeson, correctEnergy_message, &
          OverideSigma_PiN, OverideSigma_RhoN, OverideSigma_PiPi,&
          Overide_PiPi_ResIsElast, &
-         omega_K_factor, coulombCorrect, &
+         omega_K_factor, &
          mesMes_do2to2, mesMes_useWidth, doScaleResidue
 
     character(60), dimension(1:3), parameter :: NNe = (/ &
@@ -550,7 +528,7 @@ contains
        call Traceback()
     end if
     write(*,'(A,i3," = ",A)') ' use PYTHIA directly              : ',&
-         usePythia,NNp(usePythia)
+         usePythia,trim(NNp(usePythia))
 
     if (ElastAngDist<1.or.ElastAngDist>3) then
        write(*,'(A,i3," = ",A)') ' Elastic Angular distribution     : ',&
@@ -558,7 +536,7 @@ contains
        call Traceback()
     end if
     write(*,'(A,i3," = ",A)') ' Elastic Angular distribution     : ',&
-         ElastAngDist,NNe(ElastAngDist)
+         ElastAngDist,trim(NNe(ElastAngDist))
 
     if (usePythia_BaB<0 .or. usePythia_BaB>1) then
        write(*,'(A,i3," = ",A)') ' BaB: use PYTHIA directly         : ',&
@@ -566,7 +544,7 @@ contains
        call Traceback()
     end if
     write(*,'(A,i3," = ",A)') ' BaB: use PYTHIA directly         : ',&
-         usePythia_BaB,NNp(usePythia_Bab)
+         usePythia_BaB,trim(NNp(usePythia_Bab))
 
     write(*,*)
     write(*,'(A,3(1x,f5.2))') &
@@ -611,8 +589,6 @@ contains
     end if
 
     write(*,*) 'omega_K_factor = ', omega_K_factor
-    write(*,*)
-    write(*,*) 'CoulombCorrect = ', CoulombCorrect
     write(*,*)
     write(*,*) "meson-meson: do m m' <-> K K~, K K*~ etc.: ",mesMes_do2to2
     write(*,*) "meson-meson: use width                   : ",mesMes_useWidth
@@ -714,9 +690,9 @@ contains
        write(*,*) 'Error in master_2body: sqrtS_vacuum.lt.Sum(partIn%mass): ',&
             'sqrtS_vacuum',  sqrtS_vacuum,Sum(partIn%mass)
        write(*,*) partIn%mass, partIn%ID, partIn%charge
-       write(*,*) partIn%perturbative, partIn%antiParticle
-       write(*,*) partIn(1)%momentum, partIn(1)%velocity
-       write(*,*) partIn(2)%momentum, partIn(2)%velocity
+       write(*,*) partIn%pert, partIn%anti
+       write(*,*) partIn(1)%mom, partIn(1)%vel
+       write(*,*) partIn(2)%mom, partIn(2)%vel
        write(*,*) 'stopping'
        call Traceback()
     else if (sqrtS_vacuum-Sum(partIn%mass) < 1.e-03) then
@@ -740,11 +716,11 @@ contains
 
     ! (3) Evaluate scaling factor for leading hadrons
     stringFactor = 1.
-    if (partIn(1)%in_Formation) stringFactor=stringFactor*partIn(1)%scaleCS
-    if (partIn(2)%in_Formation) stringFactor=stringFactor*partIn(2)%scaleCS
+    if (partIn(1)%inF) stringFactor=stringFactor*partIn(1)%scaleCS
+    if (partIn(2)%inF) stringFactor=stringFactor*partIn(2)%scaleCS
 
     if (doScaleResidue) then ! we abuse stringfactor for the scaling
-       if (partIn(2)%perturbative) then ! particle 1 is always real
+       if (partIn(2)%pert) then ! particle 1 is always real
           if (partIn(1)%ID==1) then
              stringFactor = stringFactor &
                   * ResidueGetScale(partIn(2)%firstEvent,partIn(1)%charge)
@@ -773,11 +749,11 @@ contains
     end if
 
     if (debug) write(*,*) 'Velos in master_2_body=', &
-         partIn(1)%velocity, '##'  ,partIn(2)%velocity
+         partIn(1)%vel, '##'  ,partIn(2)%vel
 
     call generateFinalState(partIn, partOut, stringFactor, numEnsembles, &
          time, collFlag, HiEnergyFlag, HiEnergyType, weightLocal, scenario, &
-         XShelp, PauliIncluded_out=PauliIncluded)
+         XShelp, PauliIncluded_out=PauliIncluded, srtS_vacuum_in=sqrtS_vacuum)
 
     if (present(sigTot_out)) then
        sigTot_out = XShelp
@@ -849,7 +825,7 @@ contains
             +coarse(scenario)**2*stringFactor )
     end if
 
-    dx=partIn(1)%position-partIn(2)%position
+    dx=partIn(1)%pos-partIn(2)%pos
     if (abs(dx(1)) > bmax_coarse) then
        flag=.false.
        return
@@ -958,7 +934,7 @@ contains
   ! NAME
   ! subroutine generateFinalState(partIn, partOut, stringFactor,
   ! numEnsembles, time, collFlag, HiEnergyFlag, HiEnergyType,
-  ! weightLocal, scenario0, sigTot_out, pauliIncluded_out)
+  ! weightLocal, scenario0, sigTot_out, pauliIncluded_out, srts_vacuum_in)
   !
   ! PURPOSE
   ! This is the routine, which really does the collision
@@ -973,6 +949,7 @@ contains
   !   Used for reweighting the probability in the collision criteria.
   !   Not necessary in case of localEnsemble=.false.
   ! * integer, optional   :: scenario0    -- if given : BarBar,BarMes,MesMes
+  ! * real, optional      :: srtS_vacuum_in -- free sqrt(s)
   !
   ! OUTPUT
   ! * type(particle), dimension(:) :: partOut     -- outgoing particles
@@ -987,7 +964,7 @@ contains
   subroutine generateFinalState(partIn, partOut, stringFactor, &
        numEnsembles, time, &
        collFlag, HiEnergyFlag, HiEnergyType, weightLocal, scenario0, &
-       sigTot_out, PauliIncluded_out)
+       sigTot_out, PauliIncluded_out, srts_vacuum_in)
 
     use densitymodule, only: densityAt
     use collisionCriteria, only: kodama_position,localCollisionCriteria
@@ -1006,7 +983,7 @@ contains
     use energyCalc, only: energyCorrection, energyDetermination
     use XsectionRatios, only: getSigmaScreened
     use PIL_mesonMom, only: PIL_mesonMom_PUT
-    use offShellPotential, only: getOffShellParameter
+    use offShellPotential, only: setOffShellParameter
     use mediumModule, only: mediumAt,getMediumCutOff
     use output, only: writeParticle_debug, writeParticle
     use deuterium_PL, only: deuteriumPL_inUse
@@ -1014,7 +991,7 @@ contains
     use Dilepton_Analysis, only: Dilep_Brems
     use constants, only: pi
 
-    type(particle), dimension(1:2) ,intent(in) :: partIn
+    type(particle), dimension(1:2), intent(in) :: partIn
     type(particle), dimension(:), intent(inout) :: partOut
     real, intent(in) :: stringFactor
     integer, intent(in) :: numEnsembles
@@ -1023,10 +1000,11 @@ contains
     logical, intent(out) :: collFlag
     logical, intent(out) :: HiEnergyFlag
     integer, intent(out) :: HiEnergyType
-    integer, optional,intent(in) :: weightLocal
-    integer, optional :: scenario0
-    real, optional,intent(out)    ::     sigTot_out
+    integer, optional, intent(in)  :: weightLocal
+    integer, optional, intent(in)  :: scenario0
+    real, optional, intent(out)    :: sigTot_out
     logical, optional, intent(out) :: pauliIncluded_out
+    real, optional, intent(in)     :: srtS_vacuum_in
 
     logical :: PauliIncluded, success, successFlag, potFailure
     real, dimension(0:3) :: momentum_calc, momentum_LRF
@@ -1038,7 +1016,7 @@ contains
     real, dimension(1:2) :: mstar
     real, dimension(0:7) :: sigs ! holds sigma, cf. isigXXX
     real :: bmax, sigmaTot_screened, sigmaTot_rescal
-    type(preEvent),dimension(1:4) :: chosenEvent
+    type(preEvent), dimension(1:4) :: chosenEvent
     real, dimension(0:3) :: mesonMomentum_CM
 
     if (present(pauliIncluded_out)) then
@@ -1051,18 +1029,22 @@ contains
     collFlag=.false.
 
     ! (1) Evaluate Sqrt(s) using the calculation frame
-    momentum_calc(0:3)=partIn(1)%momentum(0:3)+partIn(2)%momentum(0:3)
+    momentum_calc(0:3)=partIn(1)%mom(0:3)+partIn(2)%mom(0:3)
     srtS = sqrtS(partIn,"generateFinalState, srtS")
 
     ! (2) Define Sqrt(s) in the vacuum
-    srtS_vacuum=sqrtS_free(partIn)
+    if (present(srtS_vacuum_in)) then
+       srtS_vacuum = srtS_vacuum_in
+    else
+       srtS_vacuum = sqrtS_free(partIn)
+    end if
     if (srtS_vacuum.lt.Sum(partIn%mass)) then
        write(*,*) 'Error in master_2body: srtS_vacuum.lt.Sum(partIn%mass): ',&
             'srtS_vacuum',Sum(partIn%mass), srtS_vacuum
        write(*,*) partIn%mass, partIn%ID, partIn%charge
-       write(*,*) partIn%perturbative, partIn%antiParticle
-       write(*,*) partIn(1)%momentum, partIn(1)%velocity
-       write(*,*) partIn(2)%momentum, partIn(2)%velocity
+       write(*,*) partIn%pert, partIn%anti
+       write(*,*) partIn(1)%mom, partIn(1)%vel
+       write(*,*) partIn(2)%mom, partIn(2)%vel
        write(*,*) 'stopping'
        call Traceback()
     else if (srtS_vacuum-Sum(partIn%mass).lt.1.e-03) then
@@ -1070,7 +1052,7 @@ contains
     end if
 
     ! (3) Read out medium at collision point in LRF
-    position=(partIn(1)%position+partIn(2)%position)/2.
+    position=(partIn(1)%pos+partIn(2)%pos)/2.
     density=densityAt(position)
     mediumAtColl=mediumAt(density,position)
     if (deuteriumPL_inUse()) mediumAtColl%useMedium = .true.
@@ -1080,8 +1062,7 @@ contains
     momentum_LRF=momentum_Calc
     if (density%baryon(0).gt.getMediumCutOff()/100.) then
        if(.not.getRMF_flag()) then
-          betaToLRF = lorentzCalcBeta(density%baryon, &
-               'master_2Body:generateFinalState (4)')
+          betaToLRF = lorentzCalcBeta(density%baryon)
        else
           if(abs4Sq(density%baryon).gt.0.) then
              betaToLRF(1:3) = density%baryon(1:3)/density%baryon(0)
@@ -1089,7 +1070,7 @@ contains
              betaToLRF = 0.
           end if
        end if
-       call lorentz(betaToLRF, momentum_LRF, 'master_2Body(1)')
+       call lorentz(betaToLRF, momentum_LRF)
     else
        betaToLRF=0.
     end if
@@ -1143,15 +1124,15 @@ contains
 
     ! (6) Intialize output
     call setToDefault(partOut)
-    partOut%perturbative = (partIn(1)%perturbative.or.partIn(2)%perturbative)
+    partOut%pert = (partIn(1)%pert.or.partIn(2)%pert)
 
     partOut(1:4)%ID=chosenEvent(1:4)%ID
     partOut(1:4)%charge=chosenEvent(1:4)%charge
-    partOut(1:4)%antiParticle=chosenEvent(1:4)%antiParticle
+    partOut(1:4)%anti=chosenEvent(1:4)%anti
     partOut(1:4)%mass=chosenEvent(1:4)%mass
 
-    partOut%productionTime = time
-    partOut%formationTime  = time
+    partOut%prodTime = time
+    partOut%formTime  = time
 
     ! (7) Use exact space-criteria for scattering
     !
@@ -1190,26 +1171,21 @@ contains
     ! (only if dilepton analysis is enabled).
     call Dilep_Brems(partIn, srtS_XS, sigs(isigElast), sigs(isigTot))
 
-    ! (8) Rescale sqrt(s) due to Coulomb effects.
-    if (Sum(partIn%charge)/=0 .and. CoulombCorrect) &
-       srtS = srtS + CoulombDifference(partIn(1)%position,partIn(2)%position, &
-                                      & partIn(1)%charge,partIn(2)%charge)
 
     ! (9) Set positions and kinematics of outgoing particles
 
-    betaToCM = lorentzCalcBeta(momentum_calc, &
-         'master_2Body:generateFinalState (10)')
+    betaToCM = lorentzCalcBeta(momentum_calc)
 
     if (.not.HiEnergyFlag) then  !**** NOT HIGH ENERGY ****
 
        if ( isBaryon(partIn(1)%Id) .and. isBaryon(partIn(2)%Id) .and. &
-            & (partIn(1)%antiParticle.neqv.partIn(2)%antiParticle) .and. &
+            & (partIn(1)%anti.neqv.partIn(2)%anti) .and. &
             & partOut(1)%Id.eq.pion .and. partOut(2)%Id.eq.pion .and.&
             & partOut(3)%Id.eq.pion ) then
 
           ! Simulate annihilation:
 
-          if (partIn(1)%antiParticle) then
+          if (partIn(1)%anti) then
              call annihilate(partIn(1),partIn(2),time,partOut,&
                   collFlag,HiEnergyType)
           else
@@ -1244,14 +1220,14 @@ contains
           if (nAttempts>10) then
              write(*,*) ' In generateFinalState: energy correction FAILED:'
              write(*,*) ' Colliding particles:', &
-                  partIn(1:2)%Id, partIn(1:2)%antiparticle
+                  partIn(1:2)%Id, partIn(1:2)%anti
              if (getRMF_flag()) write(*,*) ' Corrected srtS:', srtS_corr
              write(*,*) ' srtS for XS:   ', srtS_XS
              write(*,*) ' wished srtS:   ', srtS
              write(*,*) ' bare masses:', partIn(1:2)%mass
              if (getRMF_flag()) write(*,*) ' Effective masses:', mstar(1:2)
              write(*,*) ' final particles:', &
-                  partOut(1:maxId)%Id, partOut(1:maxId)%antiparticle
+                  partOut(1:maxId)%Id, partOut(1:maxId)%anti
              write(*,*) ' final bare masses:',  partOut(1:maxId)%mass
              write(*,*) ' sum of final bare masses:', &
                   sum(partOut(1:maxId)%mass)
@@ -1262,11 +1238,6 @@ contains
              collFlag = .false.
              return
           end if
-
-
-          call setToDefault(partOut)
-          partOut%perturbative = &
-               (partIn(1)%perturbative .or. partIn(2)%perturbative)
 
           call setKinematicsHiEnergy(srtS, srtS_XS, sigs, &
                betaToCM, partIn, time, partOut, collFlag, &
@@ -1284,10 +1255,10 @@ contains
           ! This is needed because energyCorrection takes finalState in the
           ! CM frame and returns it in the calculational frame:
           do i=1,maxId
-             call lorentz(betaToCM,partOut(i)%momentum, 'master_2Body(2)')
+             call lorentz(betaToCM,partOut(i)%mom)
           end do
 
-          call energyCorrection(srtS, betaToLRF, betaToCM, mediumAtColl, &
+          call energyCorrection(srtS, betaToCM, &
                partOut(1:maxId), successFlag, potFailure)
 
           if (potFailure) then
@@ -1315,11 +1286,11 @@ contains
             &  (partIn(2)%ID==pion .and. partIn(1)%ID==nucleon)) ) then
 
           if (partIn(1)%ID==pion) then
-             mesonMomentum_CM=partIn(1)%momentum
+             mesonMomentum_CM=partIn(1)%mom
           else
-             mesonMomentum_CM=partIn(2)%momentum
+             mesonMomentum_CM=partIn(2)%mom
           end if
-          call lorentz(betaToCM,mesonMomentum_CM, 'master_2Body /PIL')
+          call lorentz(betaToCM,mesonMomentum_CM)
           call PIL_mesonMom_PUT(partOut(1)%number, mesonMomentum_CM(1:3))
        end if
     end if
@@ -1328,9 +1299,7 @@ contains
     do i = 1,maxId
         if (partOut(i)%id.eq.0) cycle
         if (.not.getRMF_flag()) call energyDetermination(partOut(i))
-        partOut(i)%offshellparameter = getOffShellParameter( &
-               & partOut(i)%ID, partOut(i)%Mass, &
-               & partOut(i)%momentum, partOut(i)%position, success)
+        call setOffShellParameter(partOut(i), success)
         if (.not.success) then
             collFlag = .false.
             return
@@ -1338,7 +1307,7 @@ contains
         if (.not.getRMF_flag()) then
             call updateVelocity(partOut(i),success)
         else
-           partOut(i)%velocity = partOut(i)%momentum(1:3)/partOut(i)%momentum(0)
+           partOut(i)%vel = partOut(i)%mom(1:3)/partOut(i)%mom(0)
            success=checkVelo(partOut(i))
         end if
         if (.not.success) then
@@ -1352,17 +1321,17 @@ contains
     end do
 
     ! (12) set statistical factors
-    partOut(:)%lastCollisionTime=time
+    partOut(:)%lastCollTime=time
 
     if (debug) then
        write(*,*) 'Id1,Id2,Charge1,Charge2:', partIn%ID,partIn%charge
-       write(*,*) 'Antiparticles?:', partIn%antiParticle
+       write(*,*) 'Antiparticles?:', partIn%anti
        write(*,*) 'srtS_vacuum:', srtS_vacuum
 
        do i=1,maxId
           if (partOut(i)%id <= 0) exit
           write(*,*) 'Id, antiparticle?, charge:',&
-               & partOut(i)%Id,partOut(i)%antiparticle,&
+               & partOut(i)%Id,partOut(i)%anti,&
                & partOut(i)%charge
        end do
     end if
@@ -1406,13 +1375,13 @@ contains
          ! For Deuterium it is not the middle but the position of the
          ! old baryon if it's a baryon.
          if (.not. deuteriumPL_inUse()) then
-            partOut(lbound(partOut,dim=1))%position = position
+            partOut(lbound(partOut,dim=1))%pos = position
          else if (isBaryon(partIn(1)%ID) .and. isBaryon(partOut(1)%ID)) then
-            partOut(lbound(partOut,dim=1))%position = partIn(1)%position
+            partOut(lbound(partOut,dim=1))%pos = partIn(1)%pos
          else if (isBaryon(partIn(2)%ID) .and. isBaryon(partOut(1)%ID)) then
-            partOut(lbound(partOut,dim=1))%position = partIn(2)%position
+            partOut(lbound(partOut,dim=1))%pos = partIn(2)%pos
          else
-            partOut(lbound(partOut,dim=1))%position = position
+            partOut(lbound(partOut,dim=1))%pos = position
          end if
          return
       end if
@@ -1422,20 +1391,20 @@ contains
       do k=lbound(partOut,dim=1),maxID
          if ( .not.flag1 .and. &
               ( (isBaryon(partIn(1)%ID) .and. isBaryon(partOut(k)%ID) .and. &
-              (partIn(1)%antiparticle.eqv.partOut(k)%antiparticle))&
+              (partIn(1)%anti.eqv.partOut(k)%anti))&
               .or. &
               (isMeson(partIn(1)%ID) .and. isMeson(partOut(k)%ID)) ) ) then
-            partOut(k)%position = partIn(1)%position
+            partOut(k)%pos = partIn(1)%pos
             flag1= .true.
          else if ( .not.flag2 .and. &
               ( (isBaryon(partIn(2)%ID) .and. isBaryon(partOut(k)%ID) .and. &
-              (partIn(2)%antiparticle.eqv.partOut(k)%antiparticle))&
+              (partIn(2)%anti.eqv.partOut(k)%anti))&
               .or. &
               (isMeson(partIn(2)%ID) .and. isMeson(partOut(k)%ID)) ) ) then
-            partOut(k)%position = partIn(2)%position
+            partOut(k)%pos = partIn(2)%pos
             flag2 = .true.
          else
-            partOut(k)%position = position
+            partOut(k)%pos = position
          end if
       end do
 
@@ -1446,52 +1415,9 @@ contains
 
 
   !****************************************************************************
-  !****f* master_2Body/coulombDifference
-  ! NAME
-  ! real function coulombDifference(pos_1,pos_2,charge_1,charge_2)
-  !
-  ! PURPOSE
-  ! This function evaluates the difference of the sum of Coulomb energy of
-  ! two charges at positions "pos_1" and "pos_2" compared to the
-  ! Coulomb energy of both charges at the point in the middle:
-  !    charge_1*V(pos_1) + charge_2*V(pos_2)
-  !           - (charge_1+charge_2)*V( [pos_1+pos_2]/2 )
-  ! NOTES
-  ! The coulomb potential is created by the nucleus and not by the charges
-  ! given here as argument.
-  !
-  ! According to OB, this routine has more or less some nostalgical reasons.
-  ! Better not to use it nowadays anymore.
-  !****************************************************************************
-  real function coulombDifference(pos_1,pos_2,charge_1,charge_2)
-
-    use coulomb, only: emfoca
-
-    real, dimension(1:3), intent(in) :: pos_1, pos_2
-    integer, intent(in) :: charge_1,charge_2
-
-    real, dimension(1:3) :: middle , momentum
-    integer :: totalCharge
-    real :: cpot_1, cpot_2, cpot_middle
-
-    momentum=0.
-    totalCharge=charge_1+charge_2
-    middle=(pos_1+pos_2)/2.
-
-    cpot_1 = emfoca(pos_1,momentum,charge_1, 1) ! ID is dummy
-    cpot_2 = emfoca(pos_2,momentum,charge_2, 1) ! ID is dummy
-    cpot_middle = emfoca(middle,momentum,totalCharge, 1) ! ID is dummy
-
-    coulombDifference=cpot_1+cpot_2-cpot_middle
-
-    if (debug) write(*,*) 'CoulombDifference=' , coulombDifference
-
-  end function coulombDifference
-
-  !****************************************************************************
   !****s* master_2Body/setKinematics
   ! NAME
-  ! subroutine setKinematics(srts, srts_vacuum, betaToLRF, betaToCM,
+  ! subroutine setKinematics(srts, srts_vacuum_in, betaToLRF, betaToCM,
   ! mediumAtColl, partIn, partOut, collFlag, verbose)
   !
   ! PURPOSE
@@ -1502,7 +1428,7 @@ contains
   ! * type(particle),dimension(1:2):: partIn      -- incoming initial particles
   ! * type(particle),dimension(:)  :: partOut     -- outgoing particles
   ! * real                         :: srts        -- sqrt(s)
-  ! * real                         :: srts_vacuum -- sqrt(s) in the vacuum
+  ! * real                         :: srts_vacuum_in -- sqrt(s) in the vacuum
   ! * real, dimension(1:3)         :: betaToLRF
   !   -- beta of calc frame to LRF frame
   ! * real, dimension(1:3)         :: betaToCM
@@ -1522,7 +1448,7 @@ contains
   !   subroutine.
   ! * Only the kinematics (including masses of the finalState) will be set.
   !****************************************************************************
-  subroutine setKinematics(srts, srts_vacuum, betaToLRF, betaToCM, &
+  subroutine setKinematics(srts, srts_vacuum_in, betaToLRF, betaToCM, &
        mediumAtColl, partIn, partOut, collFlag, verbose)
 
     use mediumDefinition
@@ -1531,13 +1457,14 @@ contains
     use energyCalc, only: energyCorrection
     use lorentzTrafo, only: lorentz
     use output, only: WriteParticle
-    use idTable, only: pion,nucleon,photon
+    use idTable, only: pion,nucleon,photon,isBaryon
     use particleProperties, only: hadron
-    use RMF, only: getRMF_flag
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
     use nBodyPhaseSpace, only: momenta_in_4BodyPS
     use baryonWidthMedium, only: get_MediumSwitch_coll
 
-    real,                         intent(in)    :: srts, srts_vacuum
+    real,                         intent(in)    :: srts, srts_vacuum_in
     real, dimension(1:3),         intent(in)    :: betaToLRF, betaToCM
     type(medium),                 intent(in)    :: mediumAtColl
     type(particle),dimension(1:2),intent(in)    :: partIn
@@ -1553,6 +1480,7 @@ contains
                           ! violation due to potentials which are neglected
     integer, parameter :: maxCorrectLoop=20  ! maximal number of iterations
                                              ! for energy correction
+    real :: srts_vacuum
 
     ! (1) Initialize switches at first call
     if (initFlag) call ReadInput
@@ -1572,6 +1500,8 @@ contains
 
     flag=.true.
 
+    srts_vacuum = srts_vacuum_in
+
     ! Set Energy and momenta
 
     select case (size(partOut,dim=1))
@@ -1580,7 +1510,7 @@ contains
             'No finalstate particles! '
 
     case (1)  ! ===== one body final state =====
-       partOut(1)%momentum = partIn(1)%momentum(0:3) + partIn(2)%momentum(0:3)
+       partOut(1)%mom = partIn(1)%mom(0:3) + partIn(2)%mom(0:3)
 
     case (2)  ! ===== two body final state =====
        call Do2Body
@@ -1601,17 +1531,28 @@ contains
     ! set velocities in vacuum approximation
 
     !    Do i=lBound(partOut,dim=1), uBound(partOut, dim=1)
-    !       partOut(i)%velocity=partOut(i)%momentum(1:3)/partOut(i)%momentum(0)
+    !       partOut(i)%vel=partOut(i)%mom(1:3)/partOut(i)%mom(0)
     !    End do
 
     partOut%scaleCS=1.
-    partOut%in_formation=.false.
+    partOut%inF=.false.
 
   contains
     !**************************************************************************
     subroutine Do2Body
       use constants, only: mN, mPi
       integer, save :: fehlerZaehler=0
+      real,    dimension(1:2) :: spotOut
+      integer,    dimension(1:3) :: ind
+
+      if(isBaryon(partOut(1)%id) .and. isBaryon(partOut(2)%id) .and. getRMF_flag() .and. flagCorThr)  then
+          spotOut(1:2)=0.
+          if(getGridIndex(partOut(1)%pos,ind,0)) &
+              & spotOut(1) = SelfEnergy_scalar(ind(1),ind(2),ind(3),partOut(1)%id,.false.)
+          if(getGridIndex(partOut(2)%pos,ind,0)) &
+              & spotOut(2) = SelfEnergy_scalar(ind(1),ind(2),ind(3),partOut(2)%id,.false.)
+          srts_vacuum = srtS - spotOut(1) - spotOut(2)
+      end if
 
       energyCorrectLoop : do i=1, maxCorrectLoop
          if (debug) write(*,*) 'Vor massAss'
@@ -1679,7 +1620,7 @@ contains
             if (debug) write(*,*) '*************************'
             if (debug) write(*,*) 'wished srts=', srts
             if (debug) write(*,*) 'initial srts=', sqrts(partIn(1),partIn(2))
-            call energyCorrection(srts,betaToLRF,betaToCM, mediumAtColl, &
+            call energyCorrection(srts,betaToCM, &
                  & partOut, successFlag,potFailure, verb)
             if (debug) write(*,*) 'final srts=', sqrts(partOut(1),partOut(2))
             if (debug) write(*,*) 'initial srts=', sqrts(partIn(1),partIn(2))
@@ -1689,7 +1630,7 @@ contains
             ! just boost to Calculation frame
             successFlag=.true.
             do j=1,2
-               call lorentz(-betaToCM, partOut(j)%momentum, 'master_2Body(2)')
+               call lorentz(-betaToCM, partOut(j)%mom)
             end do
             exit energyCorrectLoop
          end if
@@ -1742,17 +1683,17 @@ contains
                  'Impossible to find final state (2)'
           write(*,*) partIn%Id, partOut%ID, srts, srts_vacuum
           write(*,*) "partIn(1)"
-          write(*,*) partIn(1)%mass, partIn(1)%momentum,&
-               partIn(1)%charge, partIn(1)%antiparticle
+          write(*,*) partIn(1)%mass, partIn(1)%mom,&
+               partIn(1)%charge, partIn(1)%anti
           write(*,*) "partIn(2)"
-          write(*,*) partIn(2)%mass, partIn(2)%momentum,&
-               partIn(2)%charge, partIn(2)%antiparticle
+          write(*,*) partIn(2)%mass, partIn(2)%mom,&
+               partIn(2)%charge, partIn(2)%anti
           successFlag=.false.
           cycle
          end if
 
          if (correctEnergy) then
-            call energyCorrection(srts,betaToLRF,betaToCM, mediumAtColl, &
+            call energyCorrection(srts,betaToCM, &
                  & partOut, successFlag,potFailure)
             if (successFlag) exit
             if (potFailure)  exit  ! Failed due to threshold violation
@@ -1760,7 +1701,7 @@ contains
             ! just boost to Calculation frame
             successFlag=.true.
             do j=1,3
-               call lorentz(-betaToCM,partOut(j)%momentum, 'master_2Body(3)')
+               call lorentz(-betaToCM,partOut(j)%mom)
             end do
          end if
       end do
@@ -1810,11 +1751,11 @@ contains
          p4 = momenta_in_4BodyPS (srts_vacuum, mass)
 
          do j=1,4
-            partOut(j)%momentum(1:3) = p4(1:3,j)
-            partOut(j)%momentum(0)   = sqrt(mass(j)**2 + &
-                 DOT_PRODUCT(partOut(j)%momentum(1:3),partOut(j)%momentum(1:3)))
+            partOut(j)%mom(1:3) = p4(1:3,j)
+            partOut(j)%mom(0)   = sqrt(mass(j)**2 + &
+                 DOT_PRODUCT(partOut(j)%mom(1:3),partOut(j)%mom(1:3)))
 
-            partOut(j)%velocity = partOut(j)%momentum(1:3)/partOut(j)%momentum(0)
+            partOut(j)%vel = partOut(j)%mom(1:3)/partOut(j)%mom(0)
             if (.not. checkVelo(partOut(j))) then
                write(*,*) 'SetKinematics,do4Body: checkVelo failed!'
                collFlag=.false.
@@ -1836,7 +1777,7 @@ contains
 
 
          if (correctEnergy) then
-            call energyCorrection(srts,betaToLRF,betaToCM, mediumAtColl, &
+            call energyCorrection(srts,betaToCM, &
                  & partOut, successFlag,potFailure)
             if (successFlag) exit
             if (potFailure)  exit  ! Failed due to threshold violation
@@ -1844,7 +1785,7 @@ contains
             ! just boost to Calculation frame
             successFlag=.true.
             do j=1,4
-               call lorentz(-betaToCM,partOut(j)%momentum, 'master_2Body(4)')
+               call lorentz(-betaToCM,partOut(j)%mom)
             end do
          end if
 
@@ -1977,8 +1918,8 @@ contains
 
 
     ! Define CM - Momentum :
-    pcm=partIn(1)%momentum
-    call lorentz(betaToCM, pcm, 'master_2Body(4)')
+    pcm=partIn(1)%mom
+    call lorentz(betaToCM, pcm)
 
 
     srtscor=srts_vacuum
@@ -1991,12 +1932,12 @@ contains
           !  accounted for in the FRITIOF/PYTHIA event generation
           !  (as a result energy and momentum are not exactly conserved)
 
-          pTot(0) = SQRT(partIn(1)%mass**2+Sum(partIn(1)%momentum(1:3)**2)) &
-               &  + SQRT(partIn(2)%mass**2+Sum(partIn(2)%momentum(1:3)**2))
-          pTot(1:3) = partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+          pTot(0) = SQRT(partIn(1)%mass**2+Sum(partIn(1)%mom(1:3)**2)) &
+               &  + SQRT(partIn(2)%mass**2+Sum(partIn(2)%mom(1:3)**2))
+          pTot(1:3) = partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
           srtsCor=SQRT(pTot(0)**2-Dot_Product(pTot(1:3),pTot(1:3)))
 
-          betaCor = lorentzCalcBeta (pTot, 'setKinematicsHiEnergy,betaCor')
+          betaCor = lorentzCalcBeta(pTot)
        else
           srtscor=srts
        end if
@@ -2012,7 +1953,7 @@ contains
          & srtS, srtS_vacuum, srtscor
 
     ! save srtscor & position for calls of VM_Mass
-    call Init_VM_Mass(srtscor,(partIn(1)%position+partIn(2)%position)/2.)
+    call Init_VM_Mass(srtscor,(partIn(1)%pos+partIn(2)%pos)/2.)
 
     ! Choose whether to make elastic, charge exchange or inelastic event :
     !
@@ -2059,8 +2000,8 @@ contains
 
     ! Set the production time for all finalState:
 
-    partOut%productionTime = time
-    partOut%in_Formation = .TRUE.
+    partOut%prodTime = time
+    partOut%inF = .TRUE.
 
     select case (scenario)
 
@@ -2084,7 +2025,7 @@ contains
        if (usePythia==1) then
           HiEnergyType = 2
           if (debugger) write(*,*) 'Vor Coll_Py'
-          call DoColl_Pythia (partIn, partOut, collFlag, &
+          call DoColl_Pythia(partIn, partOut, collFlag, &
                srtscor, pcm, betacor)
           if (debugger) write(*,*) 'Nach Coll_Py'
        else
@@ -2098,7 +2039,7 @@ contains
 
     case (scenarioBarBar)
 
-       select case (LogicMatrix(partIn(1)%antiparticle,partIn(2)%antiparticle))
+       select case (LogicMatrix(partIn(1)%anti,partIn(2)%anti))
 
        case (scenarioBarBar)
 
@@ -2108,7 +2049,7 @@ contains
           if (usePythia==1) then
              HiEnergyType = 2
              if (debugger) write(*,*) 'Vor Coll_Py'
-             call DoColl_Pythia (partIn, partOut, collFlag, srtscor, pcm, betacor)
+             call DoColl_Pythia(partIn, partOut, collFlag, srtscor, pcm, betacor)
              if (debugger) write(*,*) 'Nach Coll_Py'
           else
              HiEnergyType = 1
@@ -2136,7 +2077,7 @@ contains
           select case (MonteCarloChoose(sigsTemp(3:8))+2)
 
           case (3) ! === Annihilation ===
-             if (partIn(1)%antiParticle) then
+             if (partIn(1)%anti) then
                 call annihilate(partIn(1),partIn(2),time,partOut,collFlag,HiEnergyType)
              else
                 call annihilate(partIn(2),partIn(1),time,partOut,collFlag,HiEnergyType)
@@ -2272,27 +2213,27 @@ contains
     pauliIncluded = .false.
     if (present(pauliIncluded_out)) pauliIncluded_out = .false.
 
-    ! Initialize output
+    ! Initialize output (preEvent)
     partOut(:)%ID=0
     partOut(:)%charge=0
-    partOut(:)%antiParticle=.false.
+    partOut(:)%anti=.false.
     partOut(:)%mass=0.
 
     sigs = 0.
 
     ! Check kind of collision
-    if ((present(scenario0)).and.(scenario0.gt.-1000)) then
-       scenario = scenario0
-    else
+
+    scenario = -1000
+    if (present(scenario0)) scenario = scenario0
+    if (scenario.le.-1000) then
        scenario = LogicMatrix(isMeson(partIn(1)%ID), isMeson(partIn(2)%ID))
     end if
-
 
     select case (scenario)
     case (scenarioBarBar)
        if (present(ForceHiEnergy)) then
           HiEnergyFlag = ForceHiEnergy
-       else if (partIn(1)%antiParticle.neqv.partIn(2)%antiParticle) then
+       else if (partIn(1)%anti.neqv.partIn(2)%anti) then
           HiEnergyFlag = DecideHiEnergy(srts, HiEnergyThresholdBarAntibar, &
                &                              HiEnergyThresholdBarAntibarDelta)
        else
@@ -2402,8 +2343,8 @@ contains
       real, dimension(1:3) :: pos
 
       IQ = Sum(partIn%charge)
-      mom =  partIn(1)%momentum + partIn(2)%momentum
-      pos = (partIn(1)%position + partIn(2)%position)/2
+      mom =  partIn(1)%mom + partIn(2)%mom
+      pos = (partIn(1)%pos + partIn(2)%pos)/2
 
       if (IQ.ne.0) then
          mom(0) = mom(0) - emfoca(pos, mom(1:3), IQ, ID)
@@ -2454,7 +2395,7 @@ contains
            kkbar_out, kstarkbar_cross
       use particleProperties, only: hadron, nDecays
       use constants, only: pi, mK, GeVSquared_times_mb
-      use mesonPotentialModule, only: vecMes_massShift
+      use mesonPotentialMain, only: vecMes_massShift
       use twoBodyTools, only: pCM_sqr
       use monteCarlo, only: MonteCarloChoose
       use CallStack, only: Traceback
@@ -2471,7 +2412,7 @@ contains
       real, dimension(1:3) :: sigsTemp ! 1:3 = (Elast, Res, BG)
 
       integer :: izt,ichannel,k,idRes
-      logical :: pauliFlag,hasResonant
+      logical :: hasResonant
       real :: is1,is2,is3,iz1,iz2, multipl, isofac
       real :: pinitial2,m0,mR,gamtot, srts0
       real, dimension(pion:pion+nmes-1) :: sigRes, mRes
@@ -2533,6 +2474,8 @@ contains
 
          do idRes = pion,pion+nmes-1
 
+            if (.not.hadron(idRes)%propagated) cycle
+
             mR = mesMesResMass(partIn, idRes)
             mRes(idRes) = mR
 
@@ -2554,7 +2497,7 @@ contains
                ! the isospin factor must be corrected:
                if (partIn(1)%ID==partIn(2)%ID) isofac = 2.*isofac
 
-               width_meson = decayWidthMesonMedium(idRes, mR, izt, pauliFlag)
+               width_meson = decayWidthMesonMedium(idRes, mR, izt)
                ! get the in-width
                gamtot = WidthMesonMedium(idRes, mR, momLRF, mediumAtColl)
                ! total in-medium width (incl. collisional width)
@@ -2687,7 +2630,7 @@ contains
 
          partOut(1:2)%ID = partIn(1:2)%ID
          partOut(1:2)%charge = partIn(1:2)%charge
-         partOut(1:2)%antiParticle = partIn(1:2)%antiParticle
+         partOut(1:2)%anti = partIn(1:2)%anti
          partOut(1:2)%mass = partIn(1:2)%mass
 
       case (2) ! === res ===
@@ -2705,7 +2648,7 @@ contains
             partOut(1)%mass = mRes(idRes)
          end if
          partOut(1)%charge = izt
-         partOut(1)%antiparticle = .false.
+         partOut(1)%anti = .false.
 
       case (3) ! === background ===
 
@@ -2758,7 +2701,7 @@ contains
          end if
 
          partOut(1:2)%mass = hadron(partOut(1:2)%ID)%mass
-         partOut(1:2)%antiparticle = .false.
+         partOut(1:2)%anti = .false.
 
       end select
 
@@ -2792,7 +2735,7 @@ contains
       use mediumDefinition
       use idTable
       use particleDefinition
-      use parBarMes_HighEnergy, only: paramBarMesHE
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE
       use preEventDefinition
       use output, only: writeParticle
       ! The cross sections for the individual channels:
@@ -2822,8 +2765,7 @@ contains
       real, dimension(0:1),          intent(out) :: sigs
 
 
-      integer :: mesonID, mesonCharge, BaryonID, baryonCharge, idAnti, &
-           chargeAnti
+      integer :: mesonID, mesonCharge, BaryonID, baryonCharge
       logical :: antiBaryon = .false.
       type(particle),dimension(1:2)   :: partIn        ! colliding particles
 
@@ -2837,52 +2779,38 @@ contains
 
 
       if ( isMeson(partIn(1)%ID) ) then
-         if (partIn(1)%antiparticle) then ! If meson is an antiparticle
-                                          ! then we first convert it to a particle
-            write(*,*) 'There is a meson declared as Anti-Meson! Please tell Olli!', &
-               & partIn(1)%antiparticle, partIn(1)%ID
-
-            call WriteParticle(6,0,1,partIn(1))
-
-            call getAntiMeson(partIn(1)%ID,partIn(1)%charge,idAnti,chargeAnti)
-            partIn(1)%antiparticle=.false.
-            partIn(1)%ID=idAnti
-            partIn(1)%charge=chargeAnti
+         if (partIn(1)%anti) then
+            call WriteParticle(6,99,1,partIn(1))
+            call TRACEBACK('There is a meson declared as anti-meson!')
          end if
          mesonID=partIn(1)%ID
          mesonCharge=partIn(1)%Charge
 
          if (.not. isBaryon(partIn(2)%ID) ) then
-            write(*,*) 'Error in barMes. (2) not a baryon!!!', partIn(1:2)%ID
+            write(*,*) 'id 2 not a baryon!!!', partIn(1:2)%ID
+            call TRACEBACK()
          end if
 
          baryonID=partIn(2)%ID
-         antiBaryon=partIn(2)%antiParticle
+         antiBaryon=partIn(2)%anti
          baryonCharge=partIn(2)%charge
 
 
       else if ( isMeson(partIn(2)%ID) ) then
-         if (partIn(2)%antiparticle) then ! If meson is an antiparticle
-                                          ! then we first convert it to a particle
-            write(*,*) 'There is a meson declared as Anti-Meson! Please tell Olli!', &
-               &  partIn(2)%antiparticle, partIn(2)%ID
-
-            call WriteParticle(6,0,2,partIn(2))
-
-            call getAntiMeson(partIn(2)%ID,partIn(2)%charge,idAnti,chargeAnti)
-            partIn(2)%antiparticle=.false.
-            partIn(2)%ID=idAnti
-            partIn(2)%charge=chargeAnti
+         if (partIn(2)%anti) then
+            call WriteParticle(6,99,2,partIn(2))
+            call TRACEBACK('There is a meson declared as anti-meson!')
          end if
          mesonID=partIn(2)%ID
          mesonCharge=partIn(2)%Charge
 
          if (.not. isBaryon(partIn(1)%ID) ) then
-            write(*,*) 'Error in barMes. (1) not a baryon!!!', partIn(1:2)%ID
+            write(*,*) 'id 1 not a baryon!!!', partIn(1:2)%ID
+            call TRACEBACK()
          end if
 
          baryonID=partIn(1)%ID
-         antiBaryon=partIn(1)%antiParticle
+         antiBaryon=partIn(1)%anti
          baryonCharge=partIn(1)%charge
       else
          write(*,*) 'Error in barMes. No meson!!!', partIn(1:2)%ID
@@ -3100,8 +3028,6 @@ contains
 
       !real :: facts
       real :: dummy
-      real :: Elab,densfact
-
 
       partOut%ID=0
       sigs = 0.
@@ -3115,7 +3041,7 @@ contains
          sigs(isigElast) = 40. ! mb
          sigs(isigTot) = sigs(isigElast)
          partOut(1:2)%Id=partIn(1:2)%Id
-         partOut(1:2)%antiparticle=partIn(1:2)%antiparticle
+         partOut(1:2)%anti=partIn(1:2)%anti
          partOut(1:2)%charge=partIn(1:2)%charge
          return
       end if
@@ -3126,7 +3052,7 @@ HiEn: if (HiEnergyFlag) then
          ! no collisions of charmed baryons
          if (max(hadron(partIn(1)%ID)%charm,hadron(partIn(2)%ID)%charm)>0) return
 
- NNbar:  if (partIn(1)%antiParticle.neqv.partIn(2)%antiParticle) then
+ NNbar:  if (partIn(1)%anti.neqv.partIn(2)%anti) then
 
             ! Baryon-Antibaryon annihilation:
             !  facts=0.
@@ -3197,12 +3123,12 @@ HiEn: if (HiEnergyFlag) then
       else  HiEn
          if (debug) write(*,*) ' barBar: low energy', srts
 
-         if ( partIn(1)%antiparticle .and. partIn(2)%antiparticle ) then
+         if ( partIn(1)%anti .and. partIn(2)%anti ) then
             ! At low energies there is no antibaryon-antibaryon
             ! collision-Xsection yet
             partOut%ID=0
             !            sigs(0:1) = 0.
-         else if ( partIn(1)%antiparticle .or. partIn(2)%antiparticle ) then
+         else if ( partIn(1)%anti .or. partIn(2)%anti ) then
             ! Low energy cross sections for antibaryon-baryon-collisions
             call XsectionAntiBarBar(srts, partIn, mediumAtColl, &
                  partOut, &

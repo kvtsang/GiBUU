@@ -1,12 +1,15 @@
 program test
-  use inputGeneral
-
+  use inputGeneral, only: readinputGeneral
+  use version, only: printversion
+  use particleProperties, only: initParticleProperties
   implicit none
 
   write(*,*) '**************************************************'
+  call printversion
+  write(*,*) '**************************************************'
   write(*,*) 'Initializing database'
   call readinputGeneral
-  call init_Database
+  call initParticleProperties
   write(*,*) '**************************************************'
 
   write(*,*) '**************************************************'
@@ -60,10 +63,13 @@ program test
     teilchenIN(2)%Id=nucleon
     teilchenIN(1)%charge=chargeMeson
     teilchenIN(2)%charge=chargeNuk
-    teilchenIN(1)%mass=meson(eta)%mass
+    teilchenIN(1)%mass=hadron(eta)%mass
     teilchenIN(2)%mass=0.938
-    teilchenIN(2)%momentum=(/teilchenIN(2)%mass,0.,0.,0./)
-    teilchenIN(2)%velocity=(/0.,0.,0./)
+    teilchenIN(2)%mom=(/teilchenIN(2)%mass,0.,0.,0./)
+    teilchenIN(2)%vel=(/0.,0.,0./)
+
+    if (.not.validCharge(teilchenIn(1))) stop 'invalid charge 1.'
+    if (.not.validCharge(teilchenIn(2))) stop 'invalid charge 2.'
 
     Open(301,file='EtaNucleonXsections.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
@@ -71,15 +77,15 @@ program test
        plab=i*0.01
 !    do i=0,300
 !       plab = 0.5*exp( (log(500.)-log(0.5))*i/300. )
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
-       srts=SQRT((SQRT(meson(eta)%mass**2+plab**2)+baryon(nucleon)%mass)**2-plab**2)
-       momentumLRF=(/SQRT(meson(eta)%mass**2+plab**2)+baryon(nucleon)%mass ,plab,0.,0./)
-       ekin=SQRT(meson(eta)%mass**2+plab**2)-meson(eta)%mass
+       srts=SQRT((SQRT(hadron(eta)%mass**2+plab**2)+hadron(nucleon)%mass)**2-plab**2)
+       momentumLRF=(/SQRT(hadron(eta)%mass**2+plab**2)+hadron(nucleon)%mass ,plab,0.,0./)
+       ekin=SQRT(hadron(eta)%mass**2+plab**2)-hadron(eta)%mass
        call etaNuc(srts,teilchenIN,mediumATcollision,momentumLRF,teilchenOUT,sigmaTot,sigmaElast,.true.,2.2,.true.)
 
-       write(301,'(5F8.3)') plab,sigmaTot,sigmaElast
+       write(301,'(5F12.5)') plab,sigmaTot,sigmaElast
 
        Do k=lBOund(teilchenOut,dim=1),uBound(teilchenOut,dim=1)
           If ( (teilchenOut(k) %ID.eq.nucleon).and.(teilchenOut(k)%charge.lt.0)) then
@@ -96,11 +102,11 @@ program test
     pipiN=0.
     Do i=1,numTries
        plab=1
-       srts=SQRT((SQRT(meson(eta)%mass**2+plab**2)+baryon(nucleon)%mass)**2-plab**2)
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       srts=SQRT((SQRT(hadron(eta)%mass**2+plab**2)+hadron(nucleon)%mass)**2-plab**2)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
-       momentumLRF=(/SQRT(meson(eta)%mass**2+plab**2)+baryon(nucleon)%mass ,plab,0.,0./)
+       momentumLRF=(/SQRT(hadron(eta)%mass**2+plab**2)+hadron(nucleon)%mass ,plab,0.,0./)
        call etaNuc(srts,teilchenIN,mediumATcollision,momentumLRF,teilchenOUT,sigmaTot,sigmaElast,.true.,2.3,.false.)
        If ((teilchenOut(1)%ID.eq.pion).and.(teilchenOut(2)%ID.eq.pion).and.(teilchenOut(3)%ID.eq.nucleon)) then
           pipiN= pipiN+sigmatot
@@ -124,11 +130,11 @@ program test
     teilchenIN(2)%Id=nucleon
     teilchenIN(1)%charge=chargeMeson
     teilchenIN(2)%charge=-chargeNuk
-    teilchenIN(2)%antiparticle=.true.
-    teilchenIN(1)%mass=meson(eta)%mass
+    teilchenIN(2)%anti=.true.
+    teilchenIN(1)%mass=hadron(eta)%mass
     teilchenIN(2)%mass=0.938
-    teilchenIN(2)%momentum=(/teilchenIN(2)%mass,0.,0.,0./)
-    teilchenIN(2)%velocity=(/0.,0.,0./)
+    teilchenIN(2)%mom=(/teilchenIN(2)%mass,0.,0.,0./)
+    teilchenIN(2)%vel=(/0.,0.,0./)
 
     Open(301,file='EtaNucleonXsections_anti.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
@@ -136,15 +142,15 @@ program test
        plab=i*0.01
 !    do i=0,300
 !       plab = 0.5*exp( (log(500.)-log(0.5))*i/300. )
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
-       srts=SQRT((SQRT(meson(eta)%mass**2+plab**2)+baryon(nucleon)%mass)**2-plab**2)
-       momentumLRF=(/SQRT(meson(eta)%mass**2+plab**2)+baryon(nucleon)%mass ,plab,0.,0./)
-       ekin=SQRT(meson(eta)%mass**2+plab**2)-meson(eta)%mass
+       srts=SQRT((SQRT(hadron(eta)%mass**2+plab**2)+hadron(nucleon)%mass)**2-plab**2)
+       momentumLRF=(/SQRT(hadron(eta)%mass**2+plab**2)+hadron(nucleon)%mass ,plab,0.,0./)
+       ekin=SQRT(hadron(eta)%mass**2+plab**2)-hadron(eta)%mass
        call etaNuc(srts,teilchenIN,mediumATcollision,momentumLRF,teilchenOUT,sigmaTot,sigmaElast,.true.,2.3,.false.)
 
-       write(301,'(5F8.3)') plab,sigmaTot,sigmaElast
+       write(301,'(5F12.5)') plab,sigmaTot,sigmaElast
 
        Do k=lBOund(teilchenOut,dim=1),uBound(teilchenOut,dim=1)
           If ( (teilchenOut(k) %ID.eq.nucleon).and.(teilchenOut(k)%charge.gt.0)) then

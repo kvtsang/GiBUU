@@ -7,7 +7,7 @@
 program testMass
   use inputGeneral
   use mediumDefinition
-  use histf90
+  use hist
   use version
   use hadronFormation
   use particleProperties

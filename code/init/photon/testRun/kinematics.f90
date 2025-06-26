@@ -1,7 +1,7 @@
 program kinematics
 
   use constants
-  use hist2df90
+  use hist2d
 
   implicit none
 

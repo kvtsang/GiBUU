@@ -117,7 +117,7 @@ contains
 
        call eNev_init_eWQ(eNev1, eps1, W, Q2, flagOK)
        !     call write_electronNucleon_event(eNev1,.FALSE.,.TRUE.)
-       E_ = eNev1%lepton_in%momentum(0)
+       E_ = eNev1%lepton_in%mom(0)
        call eNeV_GetKinV(eNev1, nu_,Q2_,W_, fT=fT1)
        fak1 = 1e3*pi/(fT1*E_*(E_-nu_))
        x1 = Q2/(2*0.938*nu_)
@@ -133,7 +133,7 @@ contains
 
        call eNev_init_eWQ(eNev2, eps2, W, Q2, flagOK)
        !     call write_electronNucleon_event(eNev2,.FALSE.,.TRUE.)
-       E_ = eNev2%lepton_in%momentum(0)
+       E_ = eNev2%lepton_in%mom(0)
        call eNeV_GetKinV(eNev2, nu_,Q2_,W_, fT=fT2)
        fak2 = 1e3*pi/(fT2*E_*(E_-nu_))
        x2 = Q2/(2*0.938*nu_)
@@ -172,7 +172,7 @@ contains
 
        call eNev_init_eWQ(eNev1, eps1, W, Q2, flagOK)
 !       call write_electronNucleon_event(eNev1,.FALSE.,.TRUE.)
-       E_ = eNev1%lepton_in%momentum(0)
+       E_ = eNev1%lepton_in%mom(0)
        call eNeV_GetKinV(eNev1, nu_,Q2_,W_, fT=fT1)
        fak1 = 1e3*pi/(fT1*E_*(E_-nu_))
 !       form1 = 1.0
@@ -186,7 +186,7 @@ contains
 
        call eNev_init_eWQ(eNev2, eps2, W, Q2, flagOK)
 !       call write_electronNucleon_event(eNev2,.FALSE.,.TRUE.)
-       E_ = eNev2%lepton_in%momentum(0)
+       E_ = eNev2%lepton_in%mom(0)
        call eNeV_GetKinV(eNev2, nu_,Q2_,W_, fT=fT2)
        fak2 = 1e3*pi/(fT2*E_*(E_-nu_))
 !       form2 = 1.0
@@ -257,11 +257,11 @@ contains
        call eNev_setProcess(eNev1, 1,1)
        call eNev_init_eWQ(eNev1, eps1, W, Q2, flagOK)
        call write_electronNucleon_event(eNev1,.FALSE.,.TRUE.)
-       write(*,*) 's = ',abs4sq(eNev1%lepton_in%momentum+eNev1%nucleon_free%momentum)
+       write(*,*) 's = ',abs4sq(eNev1%lepton_in%mom+eNev1%nucleon_free%mom)
        write(*,*) 'light-x = ',eNeV_Get_LightX(eNev1)
 
 
-       E_ = eNev1%lepton_in%momentum(0)
+       E_ = eNev1%lepton_in%mom(0)
        call eNeV_GetKinV(eNev1, nu_,Q2_,W_, fT=fT1)
        write(*,*) ' x      = ',Q2/(2*0.938*nu_)
        write(*,*) ' y      = ',nu_/E_
@@ -301,7 +301,7 @@ contains
 
        call eNev_init_eWQ(eNev1, eps1, W, Q2, flagOK)
 !       call write_electronNucleon_event(eNev1,.FALSE.,.TRUE.)
-       E_ = eNev1%lepton_in%momentum(0)
+       E_ = eNev1%lepton_in%mom(0)
        call eNeV_GetKinV(eNev1, nu_,Q2_,W_, fT=fT1)
        fak1 = 1e3*pi/(fT1*E_*(E_-nu_))
 !       fak1 = 1e3/(2*pi*fT1)
@@ -313,7 +313,7 @@ contains
 
        call eNev_init_eWQ(eNev2, eps2, W, Q2, flagOK)
 !       call write_electronNucleon_event(eNev2,.FALSE.,.TRUE.)
-       E_ = eNev2%lepton_in%momentum(0)
+       E_ = eNev2%lepton_in%mom(0)
        call eNeV_GetKinV(eNev2, nu_,Q2_,W_, fT=fT2)
        fak2 = 1e3*pi/(fT2*E_*(E_-nu_))
 !       fak2 = 1e3/(2*pi*fT2)
@@ -351,7 +351,7 @@ contains
 
        call eNev_init_eWQ(eNev1, eps1, W, Q2, flagOK)
 !       call write_electronNucleon_event(eNev1,.FALSE.,.TRUE.)
-       E_ = eNev1%lepton_in%momentum(0)
+       E_ = eNev1%lepton_in%mom(0)
        call eNeV_GetKinV(eNev1, nu_,Q2_,W_, fT=fT1)
        fak1 = 1e3*pi/(fT1*E_*(E_-nu_))
 !       fak1 = 1e3/(2*pi*fT1)
@@ -364,7 +364,7 @@ contains
 
        call eNev_init_eWQ(eNev2, eps2, W, Q2, flagOK)
 !       call write_electronNucleon_event(eNev2,.FALSE.,.TRUE.)
-       E_ = eNev2%lepton_in%momentum(0)
+       E_ = eNev2%lepton_in%mom(0)
        call eNeV_GetKinV(eNev2, nu_,Q2_,W_, fT=fT2)
        fak2 = 1e3*pi/(fT2*E_*(E_-nu_))
 !       fak2 = 1e3/(2*pi*fT2)

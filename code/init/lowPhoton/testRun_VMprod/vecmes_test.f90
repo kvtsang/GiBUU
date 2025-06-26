@@ -27,7 +27,7 @@ call initParticleProperties
 ! set up proton at rest
 nuc%ID = nucleon
 nuc%mass = mN
-nuc%momentum = (/mN, 0., 0., 0./)
+nuc%mom = (/mN, 0., 0., 0./)
 nuc%charge = 1
 
 call cpu_time(clock_start)
@@ -38,7 +38,7 @@ do i = 1,3  ! loop over different parametrizations of the high energy behaviour
    do j=1,2000
       E_gamma = j*0.01
       mom_gamma = (/E_gamma, 0., 0., E_gamma/)
-      srts = abs4(nuc%momentum+mom_gamma)
+      srts = abs4(nuc%mom+mom_gamma)
       call calcXS_gammaN2VN (srts, med, XS_VN, XS_VNpi)
       call calcXS_gammaN2VDelta (srts, XS_VD, med)
       XS_Res_VN(1:4) = sigma_barMes_res_vac(nuc,mom_gamma,nucleon,(/rho,omegaMeson,phi,eta/))*1000.

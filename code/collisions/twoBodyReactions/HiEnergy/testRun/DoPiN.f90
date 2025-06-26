@@ -8,7 +8,7 @@ program DoPiN
   !use rhoMassParameter, only : srtFreeRhoMass
   use hadronFormation, only : forceInitFormation
   use random
-  use histMPf90
+  use histMP
   use version
 
   implicit none
@@ -241,7 +241,7 @@ contains
   end subroutine WriteStatusMC
 
   subroutine AddPartons(H,w)
-    use histMPf90
+    use histMP
 
     implicit none
     type(histogramMP) :: H

@@ -7,7 +7,7 @@ program test
   use VMMassParameter, only : srtFreeVMMass
   use hadronFormation, only : forceInitFormation
 
-  use hist2Df90
+  use hist2D
 
   implicit none
 
@@ -35,7 +35,7 @@ program test
 
   inPart%ID = (/103, 1 /)
   inPart%charge = (/0, 0 /)
-  inPart%antiparticle = (/.False., .False. /)
+  inPart%anti = (/.False., .False. /)
   inPart%mass = (/0.770, 0.938/)
 
   beta = 0
@@ -54,8 +54,8 @@ program test
             &(/-2.0,0.0/), (/2.0,2.0/), (/0.02,0.02/) , .true.)
   enddo
 
-  OutPart%productionTime = 0.0
-  OutPart%in_Formation = .TRUE.
+  OutPart%prodTime = 0.0
+  OutPart%inF = .TRUE.
 
   sigma = DoColl_ManniSigma(inPart,srtS)
 
@@ -67,8 +67,8 @@ program test
   
      do i=1,30
         if (OutPart(i)%ID .eq. 1) then
-           pL = OutPart(i)%momentum(3)
-           pT = sqrt(OutPart(i)%momentum(1)**2+OutPart(i)%momentum(2)**2)
+           pL = OutPart(i)%mom(3)
+           pT = sqrt(OutPart(i)%mom(1)**2+OutPart(i)%mom(2)**2)
            call AddHist2D(h2D(OutPart(i)%charge),(/pL, pT/),1.0/pT,1.0)
 
         endif

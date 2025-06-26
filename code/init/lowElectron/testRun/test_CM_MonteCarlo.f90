@@ -82,9 +82,9 @@ subroutine test_CM_MonteCArlo
 
   ! Set up resting nucleon
   nuc%ID=nucleon
-  nuc%momentum(0)=baryon(nucleon)%mass
+  nuc%mom(0)=baryon(nucleon)%mass
   nuc%mass=baryon(nucleon)%mass
-  nuc%momentum(1:3)=0.
+  nuc%mom(1:3)=0.
   nuc%charge=0
   ! (2) Set up electron-nucleon event
   eN=init_electronNucleon_event(electron_in,electron_out,nuc,CALC)

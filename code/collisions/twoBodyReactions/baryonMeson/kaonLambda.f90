@@ -99,7 +99,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -109,16 +109,16 @@ contains
        stop
     end if
 
-    if (lambda_particle%antiParticle.and.kaon_particle%antiParticle) then
+    if (lambda_particle%anti.and.kaon_particle%anti) then
        ! Both are antiparticles: s=0 scattering channel
        !
        ! Invert all particles in antiparticles
        lambda_particle%Charge        =  -lambda_particle%Charge
-       lambda_particle%antiparticle  = .false.
+       lambda_particle%anti  = .false.
        kaon_particle%Charge          =  -kaon_particle%Charge
-       kaon_particle%antiparticle  = .false.
+       kaon_particle%anti  = .false.
        antiParticleInput=.true.
-    else if ((.not.(lambda_particle%antiParticle)).and.(.not.(kaon_particle%antiParticle))) then
+    else if ((.not.(lambda_particle%anti)).and.(.not.(kaon_particle%anti))) then
        ! Both are no antiparticles : s=0 scattering channel
        antiParticleInput=.false.
     else
@@ -193,7 +193,7 @@ contains
       use particleDefinition
       use mediumDefinition, only: vacuum
       use particleProperties, only: hadron
-      use parametrizationsBarMes, only: huanglam, huanglamd
+      use parametrizationBarMes, only: huanglam, huanglamd
       use resonanceCrossSections, only: barMes_R_barMes, barMes2resonance
       use clebschGordan, only: clebschSquared
       use output, only: writeparticle
@@ -212,14 +212,14 @@ contains
       real :: pInitial, pFinal, detailedBalanceFactor
 
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.
       end if
 
-      momentum_vacuum(1:3)=partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+      momentum_vacuum(1:3)=partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
       momentum_vacuum(0)=FreeEnergy(partIn(1))+FreeEnergy(partIn(2))
 
 

@@ -10,9 +10,9 @@
 ! * statistics (i.e. numRnsembles) has to be increased
 !------------------------------------------------------------------------------
 
-! file: code/inputOutput/input.f90
+! file: code/inputOutput/inputGeneral.f90
 &input
-	numEnsembles=10
+	numEnsembles=-10
 	eventtype=3
 	numTimeSteps=200	! the distance numTimeSteps*delta_T should significantly exceed the radius of the target nucleus
 	delta_T=0.2
@@ -24,6 +24,7 @@
 	freezeRealParticles=.true.
 	LRF_equals_CALC_frame=.true. !if .false.: no offshelltransport possible
 	path_To_Input='~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: code/density/density.f90
@@ -33,12 +34,12 @@
 
 ! file: code/density/pauliBlocking.f90
 &initPauli
-      pauliSwitch     = 2
+	pauliSwitch     = 2
 /
 
 ! file: ./numerics/random.f90
 &initRandom
-      SEED=45678                ! Seed for the random number
+	SEED=45678		! Seed for the random number
 /
 
 
@@ -167,5 +168,5 @@
 
 ! file: code/collisions/insertion.f90
 &insertion
-	minimumEnergy=0.005	! default is 0.005 GeV
+	minimumEnergy=0.005
 /

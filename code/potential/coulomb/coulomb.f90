@@ -288,7 +288,7 @@ contains
 
     use IdTable, only: isHadron
     use ParticleProperties, only: hadron
-    use densityModule, only: GetGridIndex, gridSpacing
+    use densityModule, only: getGridIndex, gridSpacing
     use CallStack, only: Traceback
 
     real,    dimension(1:3) ,intent(in)            :: position, momentum
@@ -339,7 +339,7 @@ contains
     ipktmax = 1
     if (present(emForce)) ipktmax=7
 
-    if (GetGridIndex(position,ic,-2)) then
+    if (getGridIndex(position,ic,-2)) then
        ! *---------------------------------------------------------------------
        ! inside the grid
 
@@ -447,14 +447,14 @@ contains
   subroutine coulomb_ADI
     use constants, only: pi
     use ADI
-    use densityModule, only: get_densitySwitch, densityField, gridSpacing
+    use densityModule, only: getDensitySwitch, densField, gridSpacing
     use output, only: Write_InitStatus
 
     integer :: k
     real,    SAVE :: eta_x, eta_y
     logical, SAVE :: init=.true.
 
-    if (get_densitySwitch()==0) then ! --- no density:
+    if (getDensitySwitch()==0) then ! --- no density:
        coulombField   = 0.
        init=.false.
        return
@@ -473,7 +473,7 @@ contains
     do k = 0,kmax ! cf. magnetFieldFlag
 
        U_ADI = coulombField(:,:,:,k)
-       K_ADI = densityField(:,:,:)%charge(k) * gridSpacing(3)**2*4*pi*g_coulomb
+       K_ADI = densField(:,:,:)%charge(k) * gridSpacing(3)**2*4*pi*g_coulomb
 
        call ADI_Coulomb(U_ADI, K_ADI, eta_x, eta_y)
 
@@ -565,7 +565,7 @@ contains
   subroutine bounds
 
     use dichteDefinition
-    use densityModule, only: densityField, gridSpacing, gridPoints
+    use densityModule, only: densField, gridSpacing, gridPoints
 
     real,save :: mhat0(0:3)
     real,save :: mhat1(0:3,1:3)
@@ -603,7 +603,7 @@ contains
                 rabs    = sqrt(sum(xpri**2))
 
                 ! ***   evaluate mhats explicitely
-                rcell  = densityField(k,j,i)%charge(l)
+                rcell  = densField(k,j,i)%charge(l)
 
                 mhat0(l) = mhat0(l) + rcell
 
@@ -711,7 +711,7 @@ contains
   !****************************************************************************
   subroutine updateCoulomb
     use output, only: DoPR
-    use densityModule, only: get_densitySwitch
+    use densityModule, only: getDensitySwitch
     logical, save :: SkipThis = .false.
 
     if (initreadingFlag) call initCoulombReading
@@ -729,7 +729,7 @@ contains
     ! outside of the grid.
     call Get_TotalCharge
 
-    if (get_densitySwitch()==2) SkipThis = .true. ! never do an update again
+    if (getDensitySwitch()==2) SkipThis = .true. ! never do an update again
 
 
   end subroutine updateCoulomb

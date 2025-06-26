@@ -21,6 +21,7 @@
   path_To_Input   = '~/GiBUU/buuinput'
 
   continousBoundaries = T
+  version = 2025
 /
 
 &initInABox
@@ -74,4 +75,9 @@
   threeBodyProcesses = F
   maxOut             = 4
   collisionProtocol  = F
+/
+
+! file: code/numerics/random.f90
+&initRandom
+      Seed = 45678              ! seed for the random number
 /

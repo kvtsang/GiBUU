@@ -50,23 +50,23 @@ contains
       pairIN%mass   = (/mN,mPi/)
       pairIN%charge = 0
 
-      pairIN(1)%momentum(0:3) = (/mN,0.,0.,0./)
+      pairIN(1)%mom(0:3) = (/mN,0.,0.,0./)
 
-      pairIN(2)%momentum(0)   = sqrt(mPi**2+0.1**2)
-      pairIN(2)%momentum(1:3) = (/0.,0.,0.1/)
+      pairIN(2)%mom(0)   = sqrt(mPi**2+0.1**2)
+      pairIN(2)%mom(1:3) = (/0.,0.,0.1/)
 
 
       srts=sqrts(pairIn)
 
 
-      pairIN(2)%momentum(1:3)=(/0.05,0.,0./)
+      pairIN(2)%mom(1:3)=(/0.05,0.,0./)
       write(*,*) ' Result in fort.10 for pion in x-direction for sqrt(s)=' ,srts
       Do i=1,1000
          pscatt = winkel (pairIn, pairOut, srts, betaToCM, vacuum)
          write(10,*) pscatt
       End do
 
-      pairIN(2)%momentum(1:3)=(/0.,0.05,0./)
+      pairIN(2)%mom(1:3)=(/0.,0.05,0./)
       write(*,*) ' Result in fort.11 for pion in y-direction for sqrt(s)=' ,srts
       Do i=1,1000
          pscatt = winkel (pairIn, pairOut, srts, betaToCM, vacuum)
@@ -74,7 +74,7 @@ contains
       End do
 
       write(*,*) ' Result in fort.12 for pion in z-direction for sqrt(s)=' ,srts
-      pairIN(2)%momentum(1:3)=(/0.,0.,0.05/)
+      pairIN(2)%mom(1:3)=(/0.,0.,0.05/)
       Do i=1,1000
          pscatt = winkel (pairIn, pairOut, srts, betaToCM, vacuum)
          write(12,*) pscatt
@@ -88,7 +88,7 @@ contains
 
     subroutine NN_NDelta
       use constants, only: pi
-      use histf90
+      use hist
       use lorentzTrafo, only: lorentzCalcBeta
       use dimi, only: dimiIntegrated
       use master_2body, only: setKinematics
@@ -113,15 +113,15 @@ contains
       pairIN%mass   = (/mN, mN/)
       pairIN%charge = 1
 
-      pairIN(1)%momentum(0:3) = (/mN,0.,0.,0./)
+      pairIN(1)%mom(0:3) = (/mN,0.,0.,0./)
 
       plab = 1.98   ! 1.66 ! (Dmitriev)
-      pairIN(2)%momentum(0)   = sqrt(mN**2+plab**2)
-      pairIN(2)%momentum(1:3) = (/0.,0.,plab/)
+      pairIN(2)%mom(0)   = sqrt(mN**2+plab**2)
+      pairIN(2)%mom(1:3) = (/0.,0.,plab/)
 
       srts=sqrts(pairIn)
 
-      betaToCM = lorentzCalcBeta(pairIn(1)%momentum(0:3)+pairIn(2)%momentum(0:3))
+      betaToCM = lorentzCalcBeta(pairIn(1)%mom(0:3)+pairIn(2)%mom(0:3))
 
       sig = dimiIntegrated(srts)
 
@@ -141,8 +141,8 @@ contains
          ! (2) produce 'full event' in lab frame
          call setKinematics (srtS, srtS, betaToLRF, betaToCM, vacuum, pairIn, pairOut, success)
          if (success) then
-           pscatt = pairOut(2)%momentum(1:3)                      ! pscatt is in LAB frame
-           E = pairOut(2)%momentum(0)
+           pscatt = pairOut(2)%mom(1:3)                      ! pscatt is in LAB frame
+           E = pairOut(2)%mom(0)
            cost = pscatt(3)/sqrt(sum(pscatt*pscatt))
            y = 0.5*log((E+pscatt(3))/(E-pscatt(3)))               ! rapidity
            call AddHist (hist_cost, cost, 0., sig/float(Nevt))
@@ -166,7 +166,7 @@ contains
       ! This routine tests the angular distribution of "gamma N -> omega N".
       ! The setup is such that the results can be compared directly to the SAPHIR data,
       ! cf. J. Barth et al., Low-energy photoproduction of omega mesons, EPJ A 18 (2003), 117-127.
-      use histf90
+      use hist
       use constants, only: pi, mN
       use twoBodyTools, only: pcm
       use random, only: rnFlat,rnExp
@@ -188,7 +188,7 @@ contains
       pairIN%mass   = (/0.,mN/)
       pairIN%charge = (/0,1/)
 
-      pairIN(2)%momentum = (/mN,0.,0.,0./)  ! nucleon at rest
+      pairIN(2)%mom = (/mN,0.,0.,0./)  ! nucleon at rest
 
       E_thres = hadron(omegaMeson)%mass/(2*mN) * (2*mN+hadron(omegaMeson)%mass)  ! threshold for omega production
 
@@ -217,7 +217,7 @@ contains
            E_mid = (E_hi+E_lo)/2.  ! bin center
 
            ! go to upper bound of bin to determine dt_max (for histogram bounds)
-           pairIN(1)%momentum = (/E_hi,0.,0.,E_hi/)
+           pairIN(1)%mom = (/E_hi,0.,0.,E_hi/)
            srts = sqrts(pairIn)
            p_i = pcm (srts, pairIn(1)%mass , pairIn(2)%mass)
            p_f = pcm (srts, pairOut(1)%mass, pairOut(2)%mass)
@@ -228,7 +228,7 @@ contains
            call CreateHist (hist_t,     'angular distribution (t) for gamma N -> omega N'    , 0., dt_max , dt_max/20.)
 
            ! go to center of bin to determine p_i / p_f per bin ?!?
-!           pairIN(1)%momentum = (/E_mid,0.,0.,E_mid/)
+!           pairIN(1)%mom = (/E_mid,0.,0.,E_mid/)
 !           srts = sqrts(pairIn)
 !           p_i = pcm (srts, pairIn(1)%mass , pairIn(2)%mass)
 !           p_f = pcm (srts, pairOut(1)%mass, pairOut(2)%mass)
@@ -245,7 +245,7 @@ contains
            photon_energy = rnFlat (max(E_thres,E_lo), E_hi)             ! choose random photon energy
            !photon_energy = rnExp (-1.,max(E_thres,E_lo), E_hi)          ! alternative: exponential distribution of photon energy ?!?
 
-           pairIN(1)%momentum = (/photon_energy,0.,0.,photon_energy/)
+           pairIN(1)%mom = (/photon_energy,0.,0.,photon_energy/)
            srts = sqrts(pairIn)
 
            ! calculate p_i and p_f per event
@@ -280,19 +280,19 @@ contains
       pairIn%ID= (/delta,0/)
       pairIN(1)%mass=hadron(delta)%mass
       pairIN(1)%charge = 0
-      pairIN(1)%momentum(0)=hadron(delta)%mass
+      pairIN(1)%mom(0)=hadron(delta)%mass
 
       srts=sqrts(pairIN)
 
       write(*,*) ' Result in fort.100 for mesonMomentum in z-direction for sqrt(s)=' ,srts
-      pairIN(1)%momentum(1:3)=(/0.,0.,0.1/)
+      pairIN(1)%mom(1:3)=(/0.,0.,0.1/)
       Do i=1,10000
          pscatt = winkel (pairIn, pairOut, srts, betaToCM, vacuum)
          write(100,*) pscatt
       End do
 
       write(*,*) ' Result in fort.101 for mesonMomentum in x-direction for sqrt(s)=' ,srts
-      pairIN(1)%momentum(1:3)=(/0.1,0.,0./)
+      pairIN(1)%mom(1:3)=(/0.1,0.,0./)
       Do i=1,10000
          pscatt = winkel (pairIn, pairOut, srts, betaToCM, vacuum)
          write(101,*) pscatt
@@ -315,8 +315,8 @@ contains
       pairIN(2)%mass=0
       pairIN(1)%charge=0
       pairIN(2)%Charge=0
-      pairIN(1)%momentum(1:3)=(/1.,0.,0./)
-      pairIN(1)%momentum(0)=sqrt(hadron(rho)%mass**2+Dot_product(pairIN(1)%momentum(1:3),pairIN(1)%momentum(1:3)))
+      pairIN(1)%mom(1:3)=(/1.,0.,0./)
+      pairIN(1)%mom(0)=sqrt(hadron(rho)%mass**2+Dot_product(pairIN(1)%mom(1:3),pairIN(1)%mom(1:3)))
       pairIn(1)%number=5
 
       srts=sqrts(pairIN)
@@ -347,7 +347,7 @@ contains
     !**************************************************************************************************************
 
     subroutine NN_NR
-      use histf90
+      use hist
       use constants, only: pi, mN
       use twoBodyTools, only: pcm
 
@@ -366,8 +366,8 @@ contains
       pairOut%ID   = (/nucleon,resID/)
       pairOut%mass = (/mN,hadron(resID)%mass/)
 
-      pairIN(1)%momentum = (/mN+Ekin,0.,0.,sqrt(Ekin**2+2*mN*Ekin)/)
-      pairIN(2)%momentum = (/mN,0.,0.,0./)  ! nucleon at rest
+      pairIN(1)%mom = (/mN+Ekin,0.,0.,sqrt(Ekin**2+2*mN*Ekin)/)
+      pairIN(2)%mom = (/mN,0.,0.,0./)  ! nucleon at rest
 
       srts = sqrts(pairIn)
 
@@ -398,7 +398,7 @@ contains
     !**************************************************************************************************************
 
     subroutine NN_BYK
-      use histf90
+      use hist
       use constants, only: pi, mN
       use nBodyPhaseSpace, only: momenta_in_3BodyPS, momenta_in_3Body_BYK
 
@@ -419,8 +419,8 @@ contains
 
       masses(1:3) = (/ hadron(Bid)%mass, hadron(Yid)%mass, hadron(Kaon)%mass /)
 
-      pairIN(1)%momentum = (/mN+Ekin,0.,0.,sqrt(Ekin**2+2*mN*Ekin)/)
-      pairIN(2)%momentum = (/mN,0.,0.,0./)  ! nucleon at rest
+      pairIN(1)%mom = (/mN+Ekin,0.,0.,sqrt(Ekin**2+2*mN*Ekin)/)
+      pairIN(2)%mom = (/mN,0.,0.,0./)  ! nucleon at rest
 
       srts = sqrts(pairIn)
 
@@ -440,7 +440,7 @@ contains
          call AddHist (hist_Ek,    Ek, y=1.)
 
          ! (2) BYK model
-         mom = momenta_in_3Body_BYK (srts, pairIN(1)%momentum(1:3), masses)
+         mom = momenta_in_3Body_BYK (srts, pairIN(1)%mom(1:3), masses)
          pK = sqrt(sum(mom(1:3,3)**2))
          theta   = acos(mom(3,3)/pK)       ! mom is in CM frame !
          Ek      = sqrt(masses(3)**2 + pK**2)

@@ -99,15 +99,15 @@ module ClusterEnergy
          coul1(i)  = 0.
          coul2(i)  = 0.
          coul3(i)  = 0.
-         xi(:) = ParticleVector(ii)%position(:)
+         xi(:) = ParticleVector(ii)%pos(:)
          LoopPart : do j=1,FMass
             jf=PosFra(j)
             if (jf.eq.ii) cycle
-            xj(:) = ParticleVector(jf)%position(:)
-            pin(:)= ParticleVector(jf)%momentum(:)
+            xj(:) = ParticleVector(jf)%pos(:)
+            pin(:)= ParticleVector(jf)%mom(:)
             call boost(-betax,-betay,-betaz,pout,pin)
             uj(:) = pout(:)/(ParticleVector(jf)%mass*0.19733)
-            !uj(:) = ParticleVector(jf)%momentum(:)/(ParticleVector(jf)%mass*0.19733)
+            !uj(:) = ParticleVector(jf)%mom(:)/(ParticleVector(jf)%mass*0.19733)
             s1    = ( xi(1) - xj(1)  )*uj(1)
             s2    = ( xi(2) - xj(2)  )*uj(2)
             s3    = ( xi(3) - xj(3)  )*uj(3)
@@ -141,8 +141,8 @@ module ClusterEnergy
       LoopPart2 : do jj=1,FMass
          i      = PosFra(jj)
 !         efmf   = ( ParticleVector(i)%mass - skf*sigma )
-!         uj(:)  = ParticleVector(i)%momentum(:)/(ParticleVector(i)%mass*0.19733)
-         pin(:) = ParticleVector(i)%momentum(:)
+!         uj(:)  = ParticleVector(i)%mom(:)/(ParticleVector(i)%mass*0.19733)
+         pin(:) = ParticleVector(i)%mom(:)
          call boost(-betax,-betay,-betaz,pout,pin)
          uj(:)  = pout(:)/(ParticleVector(i)%mass*0.19733)
          stromi(0) = curf0e(jj)
@@ -187,7 +187,7 @@ module ClusterEnergy
 !!$                  stromi(1) = curf1e(ii)
 !!$                  stromi(2) = curf2e(ii)
 !!$                  stromi(3) = curf3e(ii)
-!!$                  pin(:) = ParticleVector(PosFra(ii))%momentum(:)/0.19733
+!!$                  pin(:) = ParticleVector(PosFra(ii))%mom(:)/0.19733
 !!$                  call boost(-betax,-betay,-betaz,pout,pin)
 !!$                  call betaToLRF(stromi,bx_LRF,by_LRF,bz_LRF)
 !!$                  pin(:) = pout(:)

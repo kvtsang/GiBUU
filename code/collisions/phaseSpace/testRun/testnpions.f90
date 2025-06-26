@@ -6,7 +6,7 @@ program testnpions
   use particleProperties
   use nBodyPhaseSpace, only : momenta_in_3BodyPS, momenta_in_4BodyPS
   use lorentzTrafo
-  use histf90
+  use hist
   implicit none
 
   real :: pLab, srts 

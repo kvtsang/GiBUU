@@ -62,7 +62,7 @@ contains
     real :: GammaColl, dens, temp
     real(4), dimension(1:4), save :: minX, maxX, deltaX
     real(4), dimension(1:4) :: X
-    character(1000) :: fname
+!    character(1000) :: fname
     logical, save :: readTable_flag=.true., first=.true.
 
     dens=med%density       ! baryon density in LRF (fm^-3)
@@ -112,8 +112,8 @@ contains
 
     integer :: n_dens_min_in,  n_dens_max_in, n_temp_min_in, n_temp_max_in
     integer :: n_p_min_in, n_p_max_in
-    integer :: ll,ios,index_mass,index_p,index_dens,index_temp
-    real :: mass,p,dens,temp
+    integer :: ll,ios,index_mass,index_p,index_dens !,index_temp
+    !    real :: mass,p,dens,temp
     character(5) ::raute
     logical, save :: firstCall=.true.
 
@@ -125,7 +125,7 @@ contains
        fileName=trim(path_to_Input)//'/inMediumWidth/GammaColl.103.dat.bz2'
     end if
 
-    write(*,*)' fileName: ', fileName
+    write(*,*)' fileName: ', trim(fileName)
 
     f = bzOpenR(trim(fileName))
 

@@ -190,7 +190,7 @@ CONTAINS
     use lorentzTrafo, only: lorentz
     use MesonWidthMedium, only: WidthMesonMedium, get_MediumSwitchMesons
     use BaryonWidthMedium, only: WidthBaryonMedium, get_MediumSwitch_coll
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
 
     real, intent(in)                           :: srts
     type(medium), intent(in)                   :: medium_AtCollision
@@ -241,8 +241,8 @@ CONTAINS
 
     if (successFlag) then
       do i=1,2
-        pairOUT(i)%momentum(0) = sqrt((masses(i)+spotOut(i))**2+Dot_Product(momentum(:,i),momentum(:,i)))
-        pairOUT(i)%momentum(1:3) = momentum(:,i)
+        pairOUT(i)%mom(0) = sqrt((masses(i)+spotOut(i))**2+Dot_Product(momentum(:,i),momentum(:,i)))
+        pairOUT(i)%mom(1:3) = momentum(:,i)
         pairOUT(i)%mass = masses(i)
       end do
     end if
@@ -384,8 +384,8 @@ CONTAINS
          pLRF(1:3)=0.
          pLRF(0)=maxMass(k)+spotOut(k)
          betaCMtoLab=-betaToCM
-         call lorentz(betaCMtoLab(1:3), plrf(0:3), 'finalState(1)')         ! boost from CM to Lab
-         call lorentz(betaToLRF(1:3), plrf(0:3), 'finalState(2)')         ! boost from Lab to LRF
+         call lorentz(betaCMtoLab(1:3), plrf(0:3))  ! boost from CM to Lab
+         call lorentz(betaToLRF(1:3), plrf(0:3))    ! boost from Lab to LRF
          ! calculate gamtot, spectral and intfac for mass(k)=maxMass(k)
          gamtot=WidthMesonMedium(IDOut(k),maxMass(k),plrf(0:3),medium_ATCollision)
          spectral_max=maxMass(k)**2*gamtot*gamma_pole(k)/ ((mass_pole(k)**2-maxMass(k)**2)**2 + gamtot**2*maxMass(k)**2)
@@ -718,8 +718,8 @@ CONTAINS
                   pLRF(1:3)=(-1)**(k+1)*pscatt(:)*p_cd
                   plrf(0)=sqrt((mass(k)+spotOut(k))**2+plrf(1)**2+ plrf(2)**2+plrf(3)**2)
                   betaCMtoLab=-betaToCM
-                  call lorentz(betaCMtoLab(1:3), plrf(0:3), 'finalState(1)')         ! boost from CM to Lab
-                  call lorentz(betaToLRF(1:3), plrf(0:3), 'finalState(2)')         ! boost from Lab to LRF
+                  call lorentz(betaCMtoLab(1:3), plrf(0:3)) ! boost from CM to Lab
+                  call lorentz(betaToLRF(1:3), plrf(0:3))    ! boost from Lab to LRF
 
                   if (isMeson(idOut(k))) then
                      gamtot=WidthMesonMedium(IDOut(k),mass(k), plrf(0:3) ,medium_ATCollision)
@@ -887,8 +887,8 @@ CONTAINS
 
     if (flag) then
       do i=1,3
-        tripleOUT(i)%momentum(0) = sqrt((masses(i)+spotOut(i))**2+Dot_Product(momentum(:,i),momentum(:,i)))
-        tripleOUT(i)%momentum(1:3) = momentum(:,i)
+        tripleOUT(i)%mom(0) = sqrt((masses(i)+spotOut(i))**2+Dot_Product(momentum(:,i),momentum(:,i)))
+        tripleOUT(i)%mom(1:3) = momentum(:,i)
         tripleOUT(i)%mass = masses(i)
       end do
     end if
@@ -1050,7 +1050,7 @@ CONTAINS
             if ((.not. NYK_isotropic) .and. &
                 IdOut(1)==nucleon .and. IdOut(3)==Kaon .and. &
                 (IdOut(2)==Lambda  .or. IdOut(2)==SigmaResonance)) then
-              pcm = pairIn(1)%momentum
+              pcm = pairIn(1)%mom
               call lorentz(betaToCM, pcm) ! boost from Lab to CM
               momentum = momenta_in_3Body_BYK (srts, pcm(1:3), mass(1:3))
             else
@@ -1172,8 +1172,8 @@ CONTAINS
                   pLRF(1:3)=momentum(:,k)
                   plrf(0)=sqrt((mass(k)+spotOut(k))**2+plrf(1)**2+plrf(2)**2+plrf(3)**2)
                   betaCMtoLab=-betaToCM
-                  call lorentz(betaCMtoLab(1:3), plrf(0:3), 'finalState(3)')         ! boost from CM to Lab
-                  call lorentz(betaToLRF(1:3), plrf(0:3), 'finalState(4)')             ! boost from Lab to LRF
+                  call lorentz(betaCMtoLab(1:3), plrf(0:3))  ! boost from CM to Lab
+                  call lorentz(betaToLRF(1:3), plrf(0:3))    ! boost from Lab to LRF
                   if (isMeson(idOut(k))) then
                      gamtot=WidthMesonMedium(IDOut(k),mass(k), plrf(0:3) ,medium_ATCollision)
                   else
@@ -1324,8 +1324,8 @@ CONTAINS
      ! Monte-Carlo sampling of the phase space:
      call momenta_in_nBodyPS(srts,finalState(1:n)%mass,pn(1:3,1:n))
      do k=1,n
-        finalState(k)%momentum(1:3)=pn(1:3,k)
-        finalState(k)%momentum(0)=sqrt(finalState(k)%mass**2+dot_product(pn(1:3,k),pn(1:3,k)))
+        finalState(k)%mom(1:3)=pn(1:3,k)
+        finalState(k)%mom(0)=sqrt(finalState(k)%mass**2+dot_product(pn(1:3,k),pn(1:3,k)))
      end do
      success=.true.
      return
@@ -1416,8 +1416,8 @@ CONTAINS
             ! Determine momenta in LRF for evaluation of the width
             plrf(1:3)=pn(1:3,k)
             plrf(0)=sqrt(mass(k)**2+plrf(1)**2+plrf(2)**2+plrf(3)**2)
-            call lorentz(-betaToCM, plrf, 'massass_nBody(1)')       ! boost from CM to comput. frame
-            call lorentz(betaToLRF, plrf, 'massass_nBody(2)')       ! boost from comput. frame to LRF
+            call lorentz(-betaToCM, plrf)       ! boost from CM to comput. frame
+            call lorentz(betaToLRF, plrf)       ! boost from comput. frame to LRF
             if (isMeson(finalState(k)%Id)) then
                gamtot=WidthMesonMedium(finalState(k)%Id, mass(k), plrf(0:3), mediumAtColl)
             else
@@ -1466,8 +1466,8 @@ CONTAINS
 
   do k=1,n
      finalState(k)%mass=mass(k)
-     finalState(k)%momentum(1:3)=pn(1:3,k)
-     finalState(k)%momentum(0)=sqrt(mass(k)**2+dot_product(pn(1:3,k),pn(1:3,k)))
+     finalState(k)%mom(1:3)=pn(1:3,k)
+     finalState(k)%mom(0)=sqrt(mass(k)**2+dot_product(pn(1:3,k),pn(1:3,k)))
   end do
 
 
@@ -1487,8 +1487,8 @@ CONTAINS
         mass=2*mPi+0.001*float(i)
         plrf(1:3)=0.
         plrf(0)=mass
-        call lorentz(-betaToCM, plrf, 'massass_nBody(1)')       ! boost from CM to comput. frame
-        call lorentz(betaToLRF, plrf, 'massass_nBody(2)')       ! boost from comput. frame to LRF
+        call lorentz(-betaToCM, plrf)       ! boost from CM to comput. frame
+        call lorentz(betaToLRF, plrf)       ! boost from comput. frame to LRF
         gamtot=WidthMesonMedium(rho,mass,plrf(0:3),mediumAtColl)
         gamma_pole=hadron(rho)%width
         mass_pole=hadron(rho)%mass

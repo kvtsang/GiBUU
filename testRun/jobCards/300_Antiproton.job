@@ -6,7 +6,7 @@
 ! Theo Gaitanos  : Theodoros.Gaitanos@theo.physik.uni-giessen.de
 !******************************************************************************
 
-! file: code/inputOutput/input.f90
+! file: code/inputOutput/inputGeneral.f90
 &input
   numEnsembles = 1000,   ! number of ensembles
   eventtype    = 300,    ! hadron-nucleus
@@ -17,6 +17,7 @@
   timeForOutput = 140.,
   timeSequence  = 30.,
   path_To_Input="~/GiBUU/buuinput",
+      version = 2025
 /
 
 ! file: code/database/particleProperties.f90

@@ -59,7 +59,7 @@ contains
     use Insertion, only: GarbageCollection
     use RMF, only: getRMF_flag
     use lorentzTrafo, only: lorentz
-    use potentialModule, only: trueEnergy
+    use potentialMain, only: trueEnergy
     use nucleusDefinition
     use EventInfo_HiLep, only: EventInfo_HiLep_Get
     use constants, only: mN
@@ -80,7 +80,7 @@ contains
     integer :: EventType
 
 
-    Source0%position = 0.0
+    Source0%pos = 0.0
 
 
     write(*,'("B(N=",i3,",Z=",i3,") = ",f12.4,"MeV")') &
@@ -106,23 +106,23 @@ contains
           if (Part(iEns,iPart)%Id <  0) exit
           if (Part(iEns,iPart)%Id == 0) cycle
 
-          Eout_all = Eout_all + Part(iEns,iPart)%momentum(0)
+          Eout_all = Eout_all + Part(iEns,iPart)%mom(0)
 
           if (Part(iEns,iPart)%Id.ne.1) cycle ! no nucleon
-          if (Part(iEns,iPart)%antiparticle) cycle
+          if (Part(iEns,iPart)%anti) cycle
           if (.not.IsBound()) cycle
 
           Source%Size   = Source%Size+1
           Source%Charge = Source%Charge+Part(iEns,iPart)%Charge
-          Source%position = Source%position + Part(iEns,iPart)%position
-          SourceMomStar = SourceMomStar + Part(iEns,iPart)%momentum
+          Source%pos = Source%pos + Part(iEns,iPart)%pos
+          SourceMomStar = SourceMomStar + Part(iEns,iPart)%mom
        end do
        Eout_part = Eout_all - SourceMomStar(0)
 
        if (Source%Size==0) cycle
 
-       Source%velocity = SourceMomStar(1:3) / SourceMomStar(0)
-       Source%position = Source%position/Source%Size
+       Source%vel = SourceMomStar(1:3) / SourceMomStar(0)
+       Source%pos = Source%pos/Source%Size
 
        BEin = BWformula( (/float(targetNuc%mass-targetNuc%charge), float(targetNuc%charge)/) )
        BEout= BWformula( (/float(Source%Size-Source%Charge), float(Source%Charge)/) )
@@ -131,7 +131,7 @@ contains
        BEout = BEout/Source%Size
 
        Eexc = Eout_all-Eout_part-(mN-BEout)*Source%Size &
-            & - (mN-BEout)*Source%Size*Dot_product(Source%velocity,Source%velocity)/2
+            & - (mN-BEout)*Source%Size*Dot_product(Source%vel,Source%vel)/2
 
        if (EventInfo_HiLep_Get(iEns,-1,Weight,nu,Q2,epsilon,EventType)) then
           write(*,'(A,f12.4)') 'nu       = ', nu
@@ -141,7 +141,7 @@ contains
        end if
 
        EexcB = nu+(mN-BEin)*targetNuc%mass-Eout_part-(mN-BEout)*Source%Size &
-            & - (mN-BEout)*Source%Size*Dot_product(Source%velocity,Source%velocity)/2
+            & - (mN-BEout)*Source%Size*Dot_product(Source%vel,Source%vel)/2
 
        write(*,'(A,f12.4)') 'Eout_all = ', Eout_all
        write(*,'(A,f12.4)') 'Eout_part= ', Eout_part
@@ -161,13 +161,13 @@ contains
           do iPart=1,size(Part,dim=2)
              if (Part(iEns,iPart)%Id <  0) exit
              if (Part(iEns,iPart)%Id.ne.1) cycle ! no nucleon
-             if (Part(iEns,iPart)%antiparticle) cycle
+             if (Part(iEns,iPart)%anti) cycle
              if (.not.IsBound()) cycle
 
              PartSRF = Part(iEns,iPart)
-             mom(0:3) = Part(iEns,iPart)%momentum(0:3)
-             call lorentz(Source%velocity,mom) ! boost to SRF
-             PartSRF%momentum = mom
+             mom(0:3) = Part(iEns,iPart)%mom(0:3)
+             call lorentz(Source%vel,mom) ! boost to SRF
+             PartSRF%mom = mom
 
              SourceMom(0) = SourceMom(0) + trueEnergy(PartSRF)
           end do
@@ -183,7 +183,7 @@ contains
           do iPart=1,size(Part,dim=2)
              if (Part(iEns,iPart)%Id <  0) exit
              if (Part(iEns,iPart)%Id.ne.1) cycle ! no nucleon
-             if (Part(iEns,iPart)%antiparticle) cycle
+             if (Part(iEns,iPart)%anti) cycle
              if (.not.IsBound()) cycle
 
              Part(iEns,iPart)%Id = 0 ! delete particle
@@ -199,10 +199,10 @@ contains
        Source%radEnergy= 0.0
 
        write(*,'(A,2i4)') 'Source:',Source%Size, Source%Charge
-       write(*,'(A,4es12.3)') '  pos:  ',0.0,Source%position
+       write(*,'(A,4es12.3)') '  pos:  ',0.0,Source%pos
        write(*,'(A,4es12.3)') '  p*:   ',SourceMomStar
        write(*,'(A,4es12.3)') '  vel:  ',&
-            & 1./sqrt(1.-Dot_product(Source%velocity,Source%velocity)),Source%velocity
+            & 1./sqrt(1.-Dot_product(Source%vel,Source%vel)),Source%vel
        write(*,'("==>",es12.3)') SourceMom(0)/Source%Size
 
     end do
@@ -221,9 +221,9 @@ contains
 
       select case (BoundMethod)
       case (1)
-         IsBound = (Part(iEns,iPart)%momentum(0) < Part(iEns,iPart)%mass)
+         IsBound = (Part(iEns,iPart)%mom(0) < Part(iEns,iPart)%mass)
       case (2)
-         LocalDens = DensityAt(Part(iEns,iPart)%position)
+         LocalDens = DensityAt(Part(iEns,iPart)%pos)
          IsBound = (LocalDens%baryon(0) > densCut)
       case default
          call TRACEBACK('wrong BoundMethod')

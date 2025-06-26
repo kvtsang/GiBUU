@@ -83,18 +83,19 @@ contains
   ! PURPOSE
   ! Simulates an annihilation event of an antibaryon and a baryon into some finalState.
   ! INPUTS
-  ! * type(particle), intent(in) ::  antibar                      ! antibaryon particle
-  ! * type(particle), intent(in) ::  bar                          ! baryon particle
-  ! * real, intent(in)                              :: time       ! current time
+  ! * type(particle) ::  antibar   -- antibaryon particle
+  ! * type(particle) ::  bar       -- baryon particle
+  ! * real :: time                 --  current time
   ! OUTPUT
-  ! * type(particle), intent(inout), dimension(:) :: finalState   ! Array of the final state particles
-  ! * logical, intent(out) :: flag_anni                           ! .true. if annihilation successfull
-  ! * integer, intent(out) :: HiEnergyType                        ! must be=-3 at the output
-  ! *                                                             ! (see docu of setKinematicsHiEnergy)
+  ! * type(particle), intent(inout), dimension(:) :: finalState -- Array of the final state particles
+  ! * logical :: flag_anni -- .true. if annihilation successfull
+  ! * integer :: HiEnergyType --  must be=-3 at the output
+  !   (see docu of setKinematicsHiEnergy)
   ! NOTES
-  ! This subroutine has a similar structure as generateFinalState. The main difference
-  ! is that the collision criterion is not checked here, i.e. the annihilation
-  ! is done independently on the actual annihilation cross section.
+  ! This subroutine has a similar structure as generateFinalState.
+  ! The main difference is that the collision criterion is not checked here,
+  ! i.e. the annihilation is done independently on the actual annihilation
+  ! cross section.
   !****************************************************************************
     subroutine annihilate(antibar,bar,time,finalState,flag_anni,HiEnergyType)
 
@@ -105,7 +106,7 @@ contains
     use twoBodyTools, only: sqrtS_free
     use RMF, only: getRMF_flag
     use propagation, only: updateVelocity, checkVelo
-    use densitymodule, only: Particle4Momentum_RMF
+    use densitymodule, only: Particle4MomentumRMF
     use mediumDefinition
     use energyCalc, only: energyCorrection
     use nBodyPhaseSpace, only: momenta_in_nBodyPS
@@ -117,13 +118,13 @@ contains
     use finalState_Full, only: massass_nBody
     use constants, only: mPi
 
-    type(particle), intent(in) ::  antibar                      ! antibaryon particle
-    type(particle), intent(in) ::  bar                          ! baryon particle
-    real, intent(in)                              :: time       ! current time
-    type(particle), intent(inout), dimension(:) :: finalState   ! Array of the final state particles
-    logical, intent(out) :: flag_anni                           ! .true. if annihilation successfull
-    integer, intent(out) :: HiEnergyType                        ! must be=-3 at the output
-                                                                ! (see docu of setKinematicsHiEnergy)
+    type(particle), intent(in) :: antibar
+    type(particle), intent(in) :: bar
+    real, intent(in) :: time
+    type(particle), intent(inout), dimension(:) :: finalState
+    logical, intent(out) :: flag_anni
+    integer, intent(out) :: HiEnergyType
+
 
     real :: srtS_star, srtS_vacuum, srtS, mstar_antibar, mstar_bar, xx
     real, dimension(0:3) :: momentum_star, momentum_tot, momentum_antibar, momentum_bar
@@ -155,11 +156,11 @@ contains
        call forceInitFormation
     end if
 
-    if ( .not.antibar%antiparticle ) then
-      write(*,*) ' wrong antibaryon in annihilate: ', antibar%Id, antibar%charge, antibar%antiparticle
+    if ( .not.antibar%anti ) then
+      write(*,*) ' wrong antibaryon in annihilate: ', antibar%Id, antibar%charge, antibar%anti
       stop
-    else if ( bar%antiparticle ) then
-      write(*,*) ' wrong baryon in annihilate: ', bar%Id, bar%charge, bar%antiparticle
+    else if ( bar%anti ) then
+      write(*,*) ' wrong baryon in annihilate: ', bar%Id, bar%charge, bar%anti
       stop
     end if
 
@@ -170,8 +171,8 @@ contains
     ! In the case of RMF mode momentum_star is the sum of the kinetic
     ! 4-momenta and betaToCV is the speed of the center-of-velocity frame:
 
-    momentum_star(0:3)= antibar%momentum(0:3) + bar%momentum(0:3)
-    betaToCV = lorentzCalcBeta (momentum_star, 'annihilate(1)')
+    momentum_star(0:3)= antibar%mom(0:3) + bar%mom(0:3)
+    betaToCV = lorentzCalcBeta(momentum_star)
 
     srtS_star = sqrtS((/antibar,bar/),"annihilate, srtS_star")
 
@@ -191,8 +192,8 @@ contains
 
       ! Compute canonical momenta of the antibaryon and baryon:
 
-      call Particle4Momentum_RMF(antibar,momentum_antibar)
-      call Particle4Momentum_RMF(bar,momentum_bar)
+      momentum_antibar = Particle4MomentumRMF(antibar)
+      momentum_bar     = Particle4MomentumRMF(bar)
 
       ! Compute srtS and betaToCM  with canonical momenta:
 
@@ -205,10 +206,10 @@ contains
           write(*,*) '# Bar. and antibar. Dirac masses: ', mstar_bar, mstar_antibar
           write(*,*) '# baryon canonical 4-momentum: ',  momentum_bar(:)
           write(*,*) '# antibaryon canonical 4-momentum: ',  momentum_antibar(:)
-          write(*,*) '# baryon kinetic 4-momentum: ', bar%momentum(:)
-          write(*,*) '# antibaryon kinetic 4-momentum: ', antibar%momentum(:)
-          write(*,*) '# Vector field for the baryon: ',     momentum_bar(:)-bar%momentum(:)
-          write(*,*) '# Vector field for the antibaryon: ', momentum_antibar(:)-antibar%momentum(:)
+          write(*,*) '# baryon kinetic 4-momentum: ', bar%mom(:)
+          write(*,*) '# antibaryon kinetic 4-momentum: ', antibar%mom(:)
+          write(*,*) '# Vector field for the baryon: ',     momentum_bar(:)-bar%mom(:)
+          write(*,*) '# Vector field for the antibaryon: ', momentum_antibar(:)-antibar%mom(:)
         end if
         flag_anni=.false.
         return
@@ -216,7 +217,7 @@ contains
 
       srtS= sqrt(srtS)
 
-      betaToCM = lorentzCalcBeta (momentum_tot, 'annihilate(2)')
+      betaToCM = lorentzCalcBeta(momentum_tot)
 
     end if
 
@@ -235,15 +236,16 @@ contains
 
     select case (position_flag)
     case (1)
-       position=(antibar%position+bar%position)/2.
+       position=(antibar%pos+bar%pos)/2.
     case (2)
-       position=antibar%position
+       position=antibar%pos
     case default
         write(*,*) ' Position of annihilation final state is not defined: ', position_flag
         stop
     end select
 
     finalState%Id=0               ! Initialize output
+    finalState%anti = .false.
 
     select case (model1)
 
@@ -252,8 +254,8 @@ contains
         if ( srtS .gt. 4.*mPi ) then   ! Use HiEnergy package:
 
               ! Define CM - Momentum :
-              p_cm=bar%momentum
-              call lorentz(betaToCV, p_cm, 'annihilate(1)')
+              p_cm=bar%mom
+              call lorentz(betaToCV, p_cm)
 
               if (debugFlag) write(*,*) 'Vor DoColl_BaB'
               call Init_VM_Mass(srtS_vacuum,position)
@@ -276,7 +278,7 @@ contains
                 finalState(1:2)%mass=mPi
 
                 if (izt.eq.0) then
-                  xx = rn()
+                   xx = rn()
                   ! 0.82=the branching ratio of the pi^+ pi^- channel for p pbar annihilation
                   ! at rest to 2pi.
                   ! See Table VI in I.N. Mishustin et al, PRC 71, 035201 (2005)
@@ -356,8 +358,8 @@ contains
               ! Vacuum dispersion relations are used for outgoing pions below:
               call momenta_in_nBodyPS(srtS,finalState(1:maxID)%mass,pn(1:3,1:maxID))
               do i=1,maxID
-                finalState(i)%momentum(1:3)=pn(1:3,i)
-                finalState(i)%momentum(0)=sqrt( finalState(i)%mass**2 &
+                finalState(i)%mom(1:3)=pn(1:3,i)
+                finalState(i)%mom(0)=sqrt( finalState(i)%mass**2 &
                                         &      +dot_product(pn(1:3,i),pn(1:3,i)) )
               end do
 
@@ -403,7 +405,7 @@ contains
               if (debugFlag) then
                  write(*,*) 'In annihilation, after massass_nBody, srts: ', srts
                  do i=1,maxID
-                   write(*,*) i, finalState(i)%mass, finalState(i)%momentum(1:3)
+                   write(*,*) i, finalState(i)%mass, finalState(i)%mom(1:3)
                  end do
               end if
 
@@ -463,8 +465,8 @@ contains
         !  energyCorrection takes finalState in the CM frame
         !  and returns it in the calculational frame
 
-        call energyCorrection(srtS, betaToLRF, betaToCM, mediumAtColl, &
-                             &finalState(1:maxId), successFlag)
+        call energyCorrection(srtS, betaToCM, &
+             finalState(1:maxId), successFlag)
 
         if (.not.successFlag) then
           flag_anni=.false.
@@ -475,44 +477,41 @@ contains
     else
 
         do i=1,maxID
-           impuls=finalState(i)%momentum
-           call lorentz(-betaToCM,impuls,'annihilate(2)')
-           finalState(i)%momentum=impuls
+           impuls=finalState(i)%mom
+           call lorentz(-betaToCM,impuls)
+           finalState(i)%mom=impuls
         end do
 
     end if
 
-    finalState(1:maxID)%productionTime = time
+    finalState(1:maxID)%prodTime = time
 
     if (model1.eq.1 .and. srtS.gt.4.*mPi ) then
-        finalState(1:maxID)%in_Formation = .TRUE.
+        finalState(1:maxID)%inF = .TRUE.
     else
-        finalState(1:maxID)%formationTime = time
+        finalState(1:maxID)%formTime = time
         finalState(1:maxID)%scaleCS=1.
-        finalState(1:maxID)%in_formation=.false.
+        finalState(1:maxID)%inF=.false.
     end if
 
     do k=0,3
-      momentum_final(k)=sum(finalState(1:maxId)%momentum(k))
+      momentum_final(k)=sum(finalState(1:maxId)%mom(k))
     end do
 
     ! Check energy-momentum conservation:
-    if ( max( abs(momentum_tot(0)-momentum_final(0)),&
-       &     abs(momentum_tot(1)-momentum_final(1)),&
-       &     abs(momentum_tot(2)-momentum_final(2)),&
-       &     abs(momentum_tot(3)-momentum_final(3)) ) .gt. 1.e-03 ) then
+    if (any(abs(momentum_tot-momentum_final) .gt. 1.e-03 )) then
       write(*,*) ' Problem with energy-momentum conservation in annihilate'
       write(*,*) ' antibar%Id, antibar%charge: ', antibar%Id, antibar%charge
       write(*,*) ' bar%Id, bar%charge: ', bar%Id, bar%charge
       write(*,*) ' srtS_star, srtS, srtS_vacuum: ', srtS_star, srtS, srtS_vacuum
-      write(*,*) ' momentum_tot - momentum_final: ', momentum_tot - momentum_final
+      write(*,*) ' momentum_tot - momentum_final: ', momentum_tot-momentum_final
     end if
 
     if ( .not.getRMF_flag() ) then
        call updateVelocity(finalState)
     else
        do i = 1,maxId
-         finalstate(i)%velocity = finalState(i)%momentum(1:3)/finalState(i)%momentum(0)
+         finalstate(i)%vel = finalState(i)%mom(1:3)/finalState(i)%mom(0)
          if (.not. checkVelo(finalState(i))) then
            write(*,*) ' In annihilate: checkVelo failed !!!'
            flag_anni=.false.
@@ -536,7 +535,7 @@ contains
          end if
       end do
       do i=1,maxID
-        finalState(i)%position=position
+        finalState(i)%pos=position
       end do
     end subroutine ResetPosition
 
@@ -551,34 +550,36 @@ contains
   ! PURPOSE
   ! Simulates an annihilation event of an antibaryon and a baryon into a meson.
   ! INPUTS
-  ! * type(particle), dimension(1:2), intent(in) ::  pairIn       ! incoming baryon and antibaryon (order does not matter)
-  ! * real, intent(in)                              :: time       ! current time
+  ! * type(particle), dimension(1:2)::  pairIn -- incoming baryon and antibaryon (order does not matter)
+  ! * real :: time --current time
+  !
   ! OUTPUT
-  ! * type(particle), intent(inout), dimension(:) :: finalState   ! Array of the final state particles
-  ! * logical, intent(out) :: flag_anni                           ! .true. if annihilation successfull
-  ! * integer, intent(out) :: HiEnergyType                        ! must be=-3 at the output (see docu of setKinematicsHiEnergy)
+  ! * type(particle), intent(inout), dimension(:) :: finalState -- Array of the final state particles
+  ! * logical :: flag_anni    -- .true. if annihilation successfull
+  ! * integer :: HiEnergyType --  must be=-3 at the output
+  !   (see docu of setKinematicsHiEnergy)
   !****************************************************************************
   subroutine annihilate_to_meson(pairIn,time,finalState,flag_anni,HiEnergyType)
 
     use particleDefinition, only: particle
     use RMF, only: getRMF_flag
-    use densitymodule, only: Particle4Momentum_RMF
+    use densitymodule, only: Particle4MomentumRMF
 
-    type(particle), dimension(1:2), intent(in) ::  pairIn       ! incoming baryon and antibaryon (order does not matter)
-    real, intent(in)                              :: time       ! current time
-    type(particle), intent(inout), dimension(:) :: finalState   ! Array of the final state particles
-    logical, intent(out) :: flag_anni                           ! .true. if annihilation successfull
-    integer, intent(out) :: HiEnergyType                        ! must be=-3 at the output
+    type(particle), dimension(1:2), intent(in) :: pairIn
+    real, intent(in) :: time
+    type(particle), intent(inout), dimension(:) :: finalState
+    logical, intent(out) :: flag_anni
+    integer, intent(out) :: HiEnergyType
 
     real, dimension(0:3) :: momentum_tot, momentum1, momentum2
     real :: srtS
     logical, parameter :: debugFlag=.false.
 
     if (.not.getRMF_flag()) then
-       momentum_tot=pairIN(1)%momentum+pairIN(2)%momentum
+       momentum_tot=pairIN(1)%mom+pairIN(2)%mom
     else
-       call Particle4Momentum_RMF(pairIN(1),momentum1)
-       call Particle4Momentum_RMF(pairIN(2),momentum2)
+       momentum1 = Particle4MomentumRMF(pairIN(1))
+       momentum2 = Particle4MomentumRMF(pairIN(2))
        momentum_tot=momentum1+momentum2
     end if
 
@@ -593,12 +594,12 @@ contains
     srtS= sqrt(srtS)
 
     finalState(1)%mass=srts
-    finalState(1)%momentum=momentum_tot
+    finalState(1)%mom=momentum_tot
 
-    finalState(1)%productionTime = time
-    finalState(1)%formationTime = time
+    finalState(1)%prodTime = time
+    finalState(1)%formTime = time
     finalState(1)%scaleCS=1.
-    finalState(1)%in_formation=.false.
+    finalState(1)%inF=.false.
 
     HiEnergyType=-3
     flag_anni=.true.

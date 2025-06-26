@@ -2,7 +2,7 @@ program MixHist
 
   ! this program uses Fortran 2003 features for the cli
 
-  use histf90
+  use hist
 
   integer :: iArg, nHist
   character(len=100) :: Arg, fNameOut

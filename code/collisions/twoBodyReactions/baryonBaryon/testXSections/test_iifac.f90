@@ -134,7 +134,7 @@ contains
     if (sum(q_out)/=sum(q)) return
     i1 = iifac1(IDout,is,q,q_out(1),q_out(2))
     i2 = isf(is,q,IDout,q_out)
-    print '(2F7.4,L2)', i1, i2, abs(i1-i2)<1E-6
+    print '(2F7.4,L2,2i3)', i1, i2, abs(i1-i2)<1E-6,q_out
     sum1=sum1-i1
     sum2=sum2-i2
   end subroutine
@@ -158,7 +158,8 @@ contains
   !*****************************************************************************
   real function isf (is_in, q_in, IDout, q_out)
 
-    use particleProperties, only: hadron, isBaryon
+    use particleProperties, only: hadron
+    use Idtable, only: isBaryon
     use clebschGordan, only: CG
 
     integer, intent(in), dimension(1:2)           :: is_in, q_in, IDout

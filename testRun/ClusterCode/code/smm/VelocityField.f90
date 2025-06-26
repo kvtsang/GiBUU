@@ -6,8 +6,8 @@
 ! FUNCTION
 ! calculates the collective flow field on the grid points.
 ! NOTES
-! The dimensions of the grid must be consistent with the GiBUU-run, 
-! which is analyzed in the CLusterCode/code/smm directory in terms 
+! The dimensions of the grid must be consistent with the GiBUU-run,
+! which is analyzed in the CLusterCode/code/smm directory in terms
 ! of fragment production.
 !***************************************************************************
 
@@ -16,7 +16,7 @@ Module velocityFieldModule
   implicit none
   PRIVATE
 
-  PUBLIC :: Get_collectiveFlow, Get_VelocityFieldAt,& 
+  PUBLIC :: Get_collectiveFlow, Get_VelocityFieldAt,&
        & Get_RadialFlowProfile !,CelRatio
 
 
@@ -35,7 +35,7 @@ Module velocityFieldModule
   !****g* velocityFieldModule/gridPoints
   ! SOURCE
   !
-  integer, dimension(1:3), save ::  gridPoints=(/40,40,50/) 
+  integer, dimension(1:3), save ::  gridPoints=(/40,40,50/)
   !
   ! PURPOSE
   ! Number of gridpoints in each space direction
@@ -60,7 +60,7 @@ Module velocityFieldModule
   Real, allocatable, dimension(:,:,:,:), SAVE :: VelocityField
   !
   ! PURPOSE
-  ! The collective velocity vector: contains the collective flow 
+  ! The collective velocity vector: contains the collective flow
   ! on the gridpoints for fireball sources.
   !
   !***********************************************************************
@@ -97,10 +97,11 @@ Module velocityFieldModule
 
   contains
 
-!***************************************************************************
+    !***************************************************************************
   subroutine Get_collectiveFlow(teilchen)
-!***************************************************************************
+  !***************************************************************************
     use TypeDefinitions, only : particle
+!    use particleDefinition
 
     type(particle), dimension(:,:), intent(in) :: teilchen
 
@@ -127,20 +128,20 @@ Module velocityFieldModule
 
           if (teilchen(i,j)%ID .ge.100) cycle
 !          if (teilchen(i,j)%sd == 999) cycle
-          
-          r(1:3)=teilchen(i,j)%position(1:3)
+
+          r(1:3)=teilchen(i,j)%pos(1:3)
           Index(1:3) = nint(r(1:3)/gridspacing)
 
-          if ( (abs(Index(1)).gt.gridSize(1)) .or.(abs(Index(2)).gt.gridSize(2)) .or. & 
+          if ( (abs(Index(1)).gt.gridSize(1)) .or.(abs(Index(2)).gt.gridSize(2)) .or. &
                & ((abs(Index(3)).gt.gridSize(3))) ) then
              write(*,*) 'smmModule/Get_collectiveVelocity:'
              write(*,*) 'Increase grid!, Index(1:3) = ',Index(1:3),' STOP!'
              STOP
           endif
-                   
-          velocityField(1:3,Index(1),Index(2),Index(3)) = & 
-               & velocityField(1:3,Index(1),Index(2),Index(3)) + & 
-               & teilchen(i,j)%momentum(1:3)/teilchen(i,j)%momentum(0)
+
+          velocityField(1:3,Index(1),Index(2),Index(3)) = &
+               & velocityField(1:3,Index(1),Index(2),Index(3)) + &
+               & teilchen(i,j)%mom(1:3)/teilchen(i,j)%mom(0)
           Norm(Index(1),Index(2),Index(3)) = Norm(Index(1),Index(2),Index(3)) + 1.
 
        end do
@@ -158,7 +159,7 @@ Module velocityFieldModule
 
           end do
        end do
-    end do   
+    end do
 
 !!$    do i1=-gridPoints(1),0
 !!$       if (Norm(i1,0,0).ne.0.) then
@@ -301,14 +302,14 @@ Module velocityFieldModule
       end if
       gridSpacing=gridSize/float(gridPoints)
 
-      write(*,'(A,2(F5.2,","),F5.2,A)') & 
+      write(*,'(A,2(F5.2,","),F5.2,A)') &
            & '  The gridsize of the density grid is        = (', gridsize, ') fm'
-      write(*,'(A,2(I5,","),I5,A)')     & 
+      write(*,'(A,2(I5,","),I5,A)')     &
            & '  The number of gridpoints per dimension are = (', gridPoints, ') '
-      write(*,'(A,2(F5.2,","),F5.2,A)') & 
+      write(*,'(A,2(F5.2,","),F5.2,A)') &
            & '  The grid spacing is                        = (', gridSpacing, ') fm'
 
-      allocate(VelocityField(1:3,& 
+      allocate(VelocityField(1:3,&
            & -gridPoints(1):gridPoints(1),-gridPoints(2):gridPoints(2),&
            & -gridPoints(3):gridPoints(3)))
       allocate(Norm(-gridPoints(1):gridPoints(1),-gridPoints(2):gridPoints(2),&
@@ -327,13 +328,13 @@ Module velocityFieldModule
 
       Real, dimension(1:3), intent(in)  :: r
       Real, dimension(1:3), intent(out) :: velo
-      
+
       integer, dimension(1:3) :: ipos
 
 !      real :: meanSlope
 
       ipos = nint(r/gridSpacing)
-      if ( (abs(iPos(1))>gridSize(1)).or.(abs(iPos(2))>gridSize(2)).or.& 
+      if ( (abs(iPos(1))>gridSize(1)).or.(abs(iPos(2))>gridSize(2)).or.&
            & (abs(iPos(3))>gridSize(3)) ) then
          write(*,*) 'upss....increase grid....'
          STOP

@@ -29,23 +29,23 @@ program test
   
 !  inPart%ID = (/34, 2 /)
 !  inPart%charge = (/1, -2 /)
-!  inPart%antiparticle = (/.False., .TRUE. /)
+!  inPart%anti = (/.False., .TRUE. /)
 !  inPart%charge = (/-1, 2 /)
-!  inPart%antiparticle = (/.TRUE.,.FALSE. /)
+!  inPart%anti = (/.TRUE.,.FALSE. /)
  
   
 !  inPart%ID = (/1, 1 /)
 !  inPart%charge = (/1, 0 /)
-!  inPart%antiparticle = (/.False., .False.. /)
+!  inPart%anti = (/.False., .False.. /)
 
 !  inPart%ID = (/34, 34 /)
 !  inPart%charge = (/2, -2 /)
-!  inPart%antiparticle = (/.False., .TRUE. /)
+!  inPart%anti = (/.False., .TRUE. /)
 
 
   inPart%ID = (/110, 34 /)
   inPart%charge = (/1, -1 /)
-  inPart%antiparticle = (/.False., .False. /)
+  inPart%anti = (/.False., .False. /)
 
   inPart%mass = (/0.496, 1.371/)
 
@@ -62,8 +62,8 @@ program test
   call WriteParticle(6,99,2,inPart(2))
   
 
-  OutPart%productionTime = 0.0
-  OutPart%in_Formation = .TRUE.
+  OutPart%prodTime = 0.0
+  OutPart%inF = .TRUE.
 
   call DoColl_Pythia(inPart,outPart,flagOK, srtS,pcm,beta,.FALSE.,weight)
 

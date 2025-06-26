@@ -127,11 +127,11 @@ contains
     dThreeX=VolumeElements_boxSize()
 
     ! 2.) Evaluate relative velocity
-    vrel_vector=pair(1)%velocity-pair(2)%velocity
+    vrel_vector=pair(1)%vel-pair(2)%vel
     vrel=sqrt(Dot_product(vrel_vector,vrel_vector))
 
     ! 2a) Boost sigma to frame where both A and B are moving
-    sigmaBOOST=eval_sigmaBoost(pair(1)%momentum,pair(2)%momentum)
+    sigmaBOOST=eval_sigmaBoost(pair(1)%mom,pair(2)%mom)
 
     ! 3.) Evaluate collision probability (see e.g. Phd-thesis of Lang)
     if (dThreeX>1E-9) then
@@ -177,7 +177,7 @@ contains
       ! * file "CollisionProb.dat"
       !************************************************************************
       subroutine protocol_prob
-        use histf90
+        use hist
 
         integer,save :: counter=0
         type(histogram) ,save :: p
@@ -237,27 +237,27 @@ contains
     ! Both particles at equal times in lab frame. Assume t=0:
     position(0,1:2)=0.
 
-    position(1:3,1)=teilchen(1)%position(1:3)
-    position(1:3,2)=teilchen(2)%position(1:3)
+    position(1:3,1)=teilchen(1)%pos(1:3)
+    position(1:3,2)=teilchen(2)%pos(1:3)
 
     ! Define 4-velocities of both particles
     ! First particle:
-    velocity(0,1)=1./Sqrt(1.-Dot_Product(teilchen(1)%velocity(1:3),teilchen(1)%velocity(1:3)))
-    velocity(1:3,1)=teilchen(1)%velocity(1:3)*velocity(0,1)
+    velocity(0,1)=1./Sqrt(1.-Dot_Product(teilchen(1)%vel(1:3),teilchen(1)%vel(1:3)))
+    velocity(1:3,1)=teilchen(1)%vel(1:3)*velocity(0,1)
     ! Second particle:
-    velocity(0,2)=1./Sqrt(1.-Dot_Product(teilchen(2)%velocity(1:3),teilchen(2)%velocity(1:3)))
-    velocity(1:3,2)=teilchen(2)%velocity(1:3)*velocity(0,2)
+    velocity(0,2)=1./Sqrt(1.-Dot_Product(teilchen(2)%vel(1:3),teilchen(2)%vel(1:3)))
+    velocity(1:3,2)=teilchen(2)%vel(1:3)*velocity(0,2)
 
     ! Evaluate the velocity of the CM-frame of both particles:
-    beta(1:3)=(teilchen(1)%momentum(1:3)+teilchen(2)%momentum(1:3))/ &
-              (teilchen(1)%momentum(0)+teilchen(2)%momentum(0))
+    beta(1:3)=(teilchen(1)%mom(1:3)+teilchen(2)%mom(1:3))/ &
+              (teilchen(1)%mom(0)+teilchen(2)%mom(0))
 
     if (.not.kodama_evalFrame) then
        ! Boost everything to the CM-frame
-       call lorentz (beta, position(0:3,1), 'kodama_position(1)')
-       call lorentz (beta, position(0:3,2), 'kodama_position(2)')
-       call lorentz (beta, velocity(0:3,1), 'kodama_position(3)')
-       call lorentz (beta, velocity(0:3,2), 'kodama_position(4)')
+       call lorentz(beta, position(0:3,1))
+       call lorentz(beta, position(0:3,2))
+       call lorentz(beta, velocity(0:3,1))
+       call lorentz(beta, velocity(0:3,2))
     end if
 
     ! Evaluate the minimal distance bMin, assuming straight trajectories
@@ -279,19 +279,19 @@ contains
           write(*,*) 'x_12=',x_12
           write(*,*) 'beta_12=',beta_12
           write(*,*) 'bmin=',bmin
-          write(*,*) 'particle 1:',teilchen(1)%ID,'pos=',teilchen(1)%position, 'mom=',teilchen(1)%momentum
-          write(*,*) 'particle 2:',teilchen(2)%ID,'pos=',teilchen(2)%position, 'mom=',teilchen(2)%momentum
+          write(*,*) 'particle 1:',teilchen(1)%ID,'pos=',teilchen(1)%pos, 'mom=',teilchen(1)%mom
+          write(*,*) 'particle 2:',teilchen(2)%ID,'pos=',teilchen(2)%pos, 'mom=',teilchen(2)%mom
           bmin=0 ! Set bmin to 0, otherwise the result is invalid since complex
        end if
     else
        bMin=sqrt(Dot_Product(x_12,x_12))
        write( *,*) 'Warning: There are particles which are in relative rest'
-       write(*,*) teilchen(1)%ID, teilchen(1)%position, &
-            & '###', teilchen(1)%momentum,'###',velocity(1:3,1), &
-            & '###',teilchen(1)%lastcollisionTime, teilchen(1)%number,teilchen(1)%event
-       write(*,*) teilchen(2)%ID, teilchen(2)%position, &
-            & '###', teilchen(2)%momentum,'###',velocity(1:3,2), &
-            & '###',teilchen(2)%lastcollisionTime, teilchen(2)%number,teilchen(2)%event
+       write(*,*) teilchen(1)%ID, teilchen(1)%pos, &
+            & '###', teilchen(1)%mom,'###',velocity(1:3,1), &
+            & '###',teilchen(1)%lastCollTime, teilchen(1)%number,teilchen(1)%event
+       write(*,*) teilchen(2)%ID, teilchen(2)%pos, &
+            & '###', teilchen(2)%mom,'###',velocity(1:3,2), &
+            & '###',teilchen(2)%lastCollTime, teilchen(2)%number,teilchen(2)%event
     end if
 
     kodama_position = (bMin<bmax)
@@ -350,8 +350,8 @@ contains
 
     if (kodama_evalFrame) then
        ! ** Decision is performed in the evaluation frame
-       x_12(1:3)=teilchen(1)%position(1:3)-teilchen(2)%position(1:3)
-       beta_12(1:3)=teilchen(1)%velocity(1:3)-teilchen(2)%velocity(1:3)
+       x_12(1:3)=teilchen(1)%pos(1:3)-teilchen(2)%pos(1:3)
+       beta_12(1:3)=teilchen(1)%vel(1:3)-teilchen(2)%vel(1:3)
 
        beta_12_squared=Dot_product(beta_12,beta_12)
        if (beta_12_squared>0.) then
@@ -377,8 +377,8 @@ contains
 
        ! Loop over both particles' rest-frames:
 
-       if (debug) write(*,*) 'velos 1=', teilchen(1)%velocity
-       if (debug) write(*,*) 'velos 2=', teilchen(2)%velocity
+       if (debug) write(*,*) 'velos 1=', teilchen(1)%vel
+       if (debug) write(*,*) 'velos 2=', teilchen(2)%vel
 
 
        do i=1,2 !i is the index of the particle whose restframe we are using to evaluate tau
@@ -390,11 +390,11 @@ contains
           position_i(0)=0.
 
           !Set positions in lab frame:
-          position_j(1:3)=teilchen(j)%position(1:3)
-          position_i(1:3)=teilchen(i)%position(1:3)
+          position_j(1:3)=teilchen(j)%pos(1:3)
+          position_i(1:3)=teilchen(i)%pos(1:3)
 
           !Boost Parameters for boost to restframe of i-th particle:
-          beta(1:3)=teilchen(i)%velocity(1:3)
+          beta(1:3)=teilchen(i)%vel(1:3)
           gamma = 1-Dot_Product(beta,beta)
           if (gamma<=0.) then
              write(*,*) 'kodama_time: wrong boost vector!'
@@ -405,12 +405,12 @@ contains
 
           if (debug) write(*,*) beta
           !Velocity of particle j:
-          gamma_j = 1. - Dot_Product(teilchen(j)%velocity(1:3),teilchen(j)%velocity(1:3))
+          gamma_j = 1. - Dot_Product(teilchen(j)%vel(1:3),teilchen(j)%vel(1:3))
           if (gamma_j<=0.) then
              write(*,*) 'Severe ERROR!!!! You must debug it!!'
              write(*,*) 'kodama_time: wrong velocity_j vector!'
-             write(*,*) 'velocity=',teilchen(j)%velocity
-             write(*,*) 'v^2=',Dot_Product(teilchen(j)%velocity(1:3),teilchen(j)%velocity(1:3))
+             write(*,*) 'velocity=',teilchen(j)%vel
+             write(*,*) 'v^2=',Dot_Product(teilchen(j)%vel(1:3),teilchen(j)%vel(1:3))
              write(*,*) 'gamma_j=', gamma_j
              call WriteParticle(6,99,j, teilchen(j))
              call traceBack('problem in kodama_time: bad velocity_j!',-1)
@@ -418,19 +418,19 @@ contains
           end if
 
           velocity_j(0)=1./sqrt(gamma_j)
-          velocity_j(1:3)=teilchen(j)%velocity(1:3)*velocity_j(0)
+          velocity_j(1:3)=teilchen(j)%vel(1:3)*velocity_j(0)
 
           if (debug) write(*,*) 'velo=', velocity_j
 
           ! Boost everything to restframe of particle i
-          call lorentz (beta, position_j, 'kodama_time(1)')
-          call lorentz (beta, position_i, 'kodama_time(2)')
-          call lorentz (beta, velocity_j, 'kodama_time(3)')
+          call lorentz(beta, position_j)
+          call lorentz(beta, position_i)
+          call lorentz(beta, velocity_j)
 
           ! Since velocity of particle i is zero in its own restframe we get:
-          beta_ij(1:3)=-velocity_j(1:3)/velocity_j(0)         
+          beta_ij(1:3)=-velocity_j(1:3)/velocity_j(0)
           x_ij(1:3)=position_i(1:3)-position_j(1:3)-beta_ij(1:3)*position_j(0)
-          
+
           if (debug) then
              write(*,*) 'beta=',beta_ij,'x_ij=', x_ij
              call WriteParticle_debug(teilchen(1))

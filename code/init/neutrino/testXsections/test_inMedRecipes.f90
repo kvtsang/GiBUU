@@ -204,7 +204,7 @@ contains
 
           sigma=0.
 
-          p_in=realParticles(i,j)%momentum 
+          p_in=realParticles(i,j)%mom 
           charge=realParticles(i,j)%charge
 
           !set kinematics of leptons 
@@ -304,10 +304,10 @@ contains
           k_out_lor=k_out
           p_in_lor=p_in
           p_out_lor=p_out
-!!$          call lorentz(realParticles(i,j)%velocity,k_in_lor)
-!!$          call lorentz(realParticles(i,j)%velocity,k_out_lor)
-!!$          call lorentz(realParticles(i,j)%velocity,p_in_lor)
-!!$          call lorentz(realParticles(i,j)%velocity,p_out_lor)
+!!$          call lorentz(realParticles(i,j)%vel,k_in_lor)
+!!$          call lorentz(realParticles(i,j)%vel,k_out_lor)
+!!$          call lorentz(realParticles(i,j)%vel,p_in_lor)
+!!$          call lorentz(realParticles(i,j)%vel,p_out_lor)
 
           !write(*,'(10g12.5)')'check lorentz',p_in,p_in_lor
 
@@ -334,7 +334,7 @@ contains
 
           sigma=0.197**2*10.*sigma  !cross section dsig/dElep dOmega  in millibarn/GeV/sr
 
-          if(pauliBlocking(p_out,realParticles(i,j)%position,charge,realParticles)) sigma=0.
+          if(pauliBlocking(p_out,realParticles(i,j)%pos,charge,realParticles)) sigma=0.
 
           sigabs=sigabs+sigma/float(numtry)
 

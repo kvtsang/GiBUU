@@ -48,7 +48,7 @@
         do j=1,numParticles
 
           if (particleVector(i,j)%id<=0) cycle
-          if (particleVector(i,j)%antiparticle) cycle
+          if (particleVector(i,j)%anti) cycle
           if (.not.hyperSource) then
               if (ParticleVector(i,j)%ID .ne. nucleon) cycle ! only nucleons
           else
@@ -87,7 +87,7 @@
                  search_loop : do jj=j+1,numParticles
 
                     if (particleVector(i,jj)%id<=0) cycle
-                    if (particleVector(i,jj)%antiparticle) cycle
+                    if (particleVector(i,jj)%anti) cycle
 
                     if (.not.hyperSource) then
                        if (ParticleVector(i,jj)%ID .ne. nucleon) cycle !only nucleons
@@ -102,7 +102,7 @@
 
                     if (sourceType(i,jj).ne.999) cycle
 
-                    dr(1:3)=particleVector(i,jj)%position(1:3)-particleVector(i,ind(n))%position(1:3)
+                    dr(1:3)=particleVector(i,jj)%pos(1:3)-particleVector(i,ind(n))%pos(1:3)
                     dr2=dot_product(dr(1:3),dr(1:3))
 
                     if (dr2 <= dcl2) then
@@ -131,7 +131,7 @@
 
            do jj=j+1,numParticles
               if (particleVector(i,jj)%id<=0) cycle
-              if (particleVector(i,jj)%antiparticle) cycle
+              if (particleVector(i,jj)%anti) cycle
 
               if (.not.hyperSource) then
                   if (ParticleVector(i,jj)%ID .ne. nucleon) cycle !only nucleons

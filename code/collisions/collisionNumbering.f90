@@ -244,6 +244,8 @@ contains
 !     integer :: nOut
     integer,dimension(3) :: iiEns
 
+    logical, parameter :: PionFreezeOut = .false.
+
 
 !...set some defaults:
     code11=0
@@ -318,6 +320,8 @@ contains
     if (code1==211 .or. code1==212) call cR_Add (sqrtS(InPart), time, code11, w)
 
     if (PrintCollisionList) call doPrintCollsionList
+
+    if (PionFreezeOut) call doPionFreezeOut
 
 !!$    call WriteEventHistory
 
@@ -448,20 +452,59 @@ contains
 
        if (code1.lt.100) then
           if (code1.eq.12) iiEns(1)=0
-          write(iFile,1001) time, code1, nout, iiEns(1),InPart(1)%number
+          write(iFile,1001) time, code1, nout, iiEns(1),InPart(1)%number,InPart(1)%firstEvent
        else if(code1.lt.1000) then
           if (code1.eq.212) iiEns(2)=0
-          write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,2)
+          write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,2),InPart(2)%firstEvent,code11
        else if(code1.lt.10000) then
           if (code1.eq.3112) iiEns(3)=0
-          write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,3)
+          write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,3),InPart(2)%firstEvent
        endif
 
        call WriteParticleCollisionList(iFile, 0, OutPart)
 
-1001   format(f5.2,i5,i3,3(" ",i5," ",i9))
+1001   format(f5.2,i5,i3,3(" ",i5," ",i9),i9,i3)
 
      end subroutine doPrintCollsionList
+
+     subroutine doPionFreezeOut
+
+       integer :: i, code1h
+       real :: pot,dens
+
+       logical, save :: first = .true.
+       real, save :: timeLast = -99d9
+       logical, save :: isOpen = .false.
+       integer, parameter :: iFile = 308
+
+       if (first) then
+          open(file="PionFreezeOut.txt",UNIT=iFile,Status='unknown')
+          close(iFile)
+          first = .false.
+       end if
+
+       if (time.ne.timeLast) then
+          if (isOpen) close(iFile)
+          open(file="PionFreezeOut.txt",UNIT=iFile,Status='old',Position='Append',Action='Write')
+          timeLast = time
+       end if
+
+       do i=1,size(OutPart)
+          if (OutPart(i)%ID .ne. 101) cycle
+
+          code1h = 0
+          if (code1<100) code1h = InPart(1)%ID
+          pot = 0.
+          dens = 0.
+
+          write(iFile,1001) time, OutPart(i)%charge, code1,code1h, &
+               OutPart(i)%pos, pot, dens
+
+       end do
+
+1001   format(f5.2,i3,2i5,3f12.3,2e12.3)
+
+     end subroutine doPionFreezeOut
 
   end subroutine ReportEventNumber
 
@@ -670,17 +713,27 @@ contains
   ! PURPOSE
   ! Checks wether particles a and b stem from the same collision,
   ! and no other collision happened yet.
+  !
+  ! Also forbids collisions, if the input flag 'onlyFirstEvent' is
+  ! given and a particle's field '%firstEvent' is not zero
   ! RESULT
   ! * true = if they are just created before by the very same event
   ! * false= if not...
   !****************************************************************************
   logical function check_justCollided(a,b)
     use particleDefinition
+    use inputGeneral, only: onlyFirstEvent
     type(particle), intent(in) :: a,b
 
-    if (a%perturbative.neqv.b%perturbative) then !real-pert
+    if (onlyFirstEvent) then
+       check_justCollided = (a%firstEvent/=0).or.(b%firstEvent/=0)
+       if (check_justCollided) return
+    end if
 
-       if (a%perturbative) then ! a is perturbative, b is real
+
+    if (a%pert.neqv.b%pert) then !real-pert
+
+       if (a%pert) then ! a is perturbative, b is real
          check_justCollided = (a%event(1)==b%number) .or. (a%event(2)==b%number)
        else ! b is perturbative, a is real
          check_justCollided = (b%event(1)==a%number) .or. (b%event(2)==a%number)

@@ -111,7 +111,7 @@ contains
     use random, only: rn
     use CollTools, only: setSomeDefaults_PY, CheckUndecayedString, SetVectorFromPYJETS
     use hadronFormation, only: useJetSetVec
-    use CollGetLeading, only: GetLeading_PY
+    use GetLeading, only: GetLeading_PY
     use nBodyPhaseSpace, only: momenta_in_4BodyPS
     use twoBodyTools, only: IsElastic, IsChargeExchange
     use ID_translation, only: KFfromBUU, SplitBaryon
@@ -188,7 +188,7 @@ contains
 
     !...Set ID etc
 
-    if (inPart(1)%antiparticle) then ! (Shift antiparticle to second position)
+    if (inPart(1)%anti) then ! (Shift antiparticle to second position)
        ID1=inPart(2)%ID
        ID2=-inPart(1)%ID
        IZ1=inPart(2)%charge
@@ -451,7 +451,7 @@ contains
           ! Test for charge-exchange event in antinucleon-nucleon
           ! antinucleon-delta or nucleon-antidelta collision
           if ((InPart(1)%Id+InPart(2)%Id<=nucleon+delta) .and. &
-              (InPart(1)%antiParticle.neqv.InPart(2)%antiParticle) .and. &
+              (InPart(1)%anti.neqv.InPart(2)%anti) .and. &
               IsChargeExchange(InPart(1),InPart(2),OutPart(1),OutPart(2))) cycle
 
        end if

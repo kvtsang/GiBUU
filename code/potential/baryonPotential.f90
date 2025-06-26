@@ -1,20 +1,20 @@
 !******************************************************************************
-!****m* /baryonPotentialModule
+!****m* /baryonPotentialMain
 ! NAME
-! module baryonPotentialModule
+! module baryonPotentialMain
 ! PURPOSE
 ! Includes all information about the baryonic potentials.
 ! Note: Only the non-relativistic case of Skyrme-like mean fields is treated
 ! here. For relativistic mean fields, see RMF.f90.
 !******************************************************************************
-module baryonPotentialModule
+module baryonPotentialMain
 
   implicit none
   private
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/EQS_Type
+  !****g* baryonPotentialMain/EQS_Type
   ! PURPOSE
   ! Switch for equation of state for nucleon resonances with spin 1/2.
   !
@@ -63,7 +63,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/symmetryPotFlag
+  !****g* baryonPotentialMain/symmetryPotFlag
   ! PURPOSE
   ! Switch for the asymmetry term in the nucleon potential.
   ! SOURCE
@@ -80,7 +80,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/symmetryPotFlag_Delta
+  !****g* baryonPotentialMain/symmetryPotFlag_Delta
   ! PURPOSE
   ! Switch for the asymmetry term in the Delta potential.
   ! SOURCE
@@ -94,7 +94,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/dsymm
+  !****g* baryonPotentialMain/dsymm
   ! SOURCE
   !
   real, save :: dsymm = 0.03
@@ -106,7 +106,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/SurfacePotFlag
+  !****g* baryonPotentialMain/SurfacePotFlag
   ! PURPOSE
   ! Switch for the surface term in the nucleon potential.
   ! SOURCE
@@ -118,7 +118,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/noPerturbativePotential
+  !****g* baryonPotentialMain/noPerturbativePotential
   ! PURPOSE
   ! Switch for potential of perturbative particles.
   ! If .true. then perturbative baryons feel no potential.
@@ -129,7 +129,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/DeltaPot
+  !****g* baryonPotentialMain/DeltaPot
   ! PURPOSE
   ! Switch for potential of spin=3/2 resonances:
   ! * 0 = no potential
@@ -143,7 +143,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/HypPot
+  !****g* baryonPotentialMain/HypPot
   ! PURPOSE
   ! Switch for potential of hyperons:
   ! * 0 = no potential
@@ -157,7 +157,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/rho_0
+  !****g* baryonPotentialMain/rho_0
   ! PURPOSE
   !  Nuclear matter density for EQS_Type=99
   ! SOURCE
@@ -168,7 +168,7 @@ module baryonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* baryonPotentialModule/p_0
+  !****g* baryonPotentialMain/p_0
   ! PURPOSE
   ! momentum for which U(p_0,rho=rho_0)=0 for EQS_Type=99
   ! SOURCE
@@ -179,7 +179,7 @@ module baryonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* baryonPotentialModule/U_0
+  !****g* baryonPotentialMain/U_0
   ! PURPOSE
   ! U(p=0,rho=rho_0) for EQS_Type=99
   ! SOURCE
@@ -190,7 +190,7 @@ module baryonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* baryonPotentialModule/bindingEnergy
+  !****g* baryonPotentialMain/bindingEnergy
   ! PURPOSE
   ! Nuclear matter binding energy for EQS_Type=99
   ! SOURCE
@@ -201,7 +201,7 @@ module baryonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* baryonPotentialModule/compressibility
+  !****g* baryonPotentialMain/compressibility
   ! PURPOSE
   ! Nuclear matter compressibility for EQS_Type=99
   ! SOURCE
@@ -213,7 +213,7 @@ module baryonPotentialModule
 
 
   !****************************************************************************
-  !****g* baryonPotentialModule/nLoopReAdjust
+  !****g* baryonPotentialMain/nLoopReAdjust
   ! PURPOSE
   ! number of iterations, if density is readjusted
   ! (cf. type(nucleus)%ReAdjustForConstBinding)
@@ -256,10 +256,12 @@ contains
     use inputGeneral, only: eventtype
     use eventtypes, only: heavyIon, hadron
 
+    use RMFflag, only: setSkyrme
+
     integer :: ios
 
     !**************************************************************************
-    !****n* baryonPotentialModule/baryonPotential
+    !****n* baryonPotentialMain/baryonPotential
     ! NAME
     ! NAMELIST /baryonPotential/
     ! PURPOSE
@@ -288,6 +290,8 @@ contains
     rewind(5)
     read(5,nml=baryonPotential,iostat=ios)
     call Write_ReadingInput('baryonPotential',0,ios)
+
+    call setSkyrme(EQS_Type)
 
     write(*,*) 'Equation of state       = ', EQS_Type
     write(*,*) 'DeltaPot                = ', DeltaPot
@@ -320,7 +324,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/symEn_nuc
+  !****f* baryonPotentialMain/symEn_nuc
   ! NAME
   ! real function symEn_nuc(Q, med)
   ! PURPOSE
@@ -380,7 +384,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/symEn_Delta
+  !****f* baryonPotentialMain/symEn_Delta
   ! NAME
   ! real function symEn_Delta(Q, med)
   ! PURPOSE
@@ -420,14 +424,14 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/BaryonPotential
+  !****f* baryonPotentialMain/BaryonPotential
   ! NAME
   ! function BaryonPotential(teilchen, med, positionNotSet, EQS_in)
   ! INPUTS
   ! * type(particle) :: teilchen    -- boosted to LRF
   ! * type(medium)   :: med         -- medium information
   ! * logical        :: positionNotSet --
-  !   .true. :  %position of particle is not well defined
+  !   .true. :  %pos of particle is not well defined
   ! * integer, OPTIONAL :: EQS_in --
   !   If present, then we use EQS_in as EQS type, if not present
   !   then EQS is chosen according to EQS_Type.
@@ -476,7 +480,7 @@ contains
     BaryonPotential=0. ! default fallback value
 
     ! No potential for perturbative particles if wished
-    if (noPerturbativePotential .and. teilchen%perturbative) return
+    if (noPerturbativePotential .and. teilchen%pert) return
 
     ! Check for quark content: no potential for charmed resonances
     if (hadron(teilchen%id)%charm/=0) return
@@ -505,7 +509,7 @@ contains
        return  !=> nucleon potential= potential of all baryons
 
     case (99)       ! Variable Skyrme
-       pAbs=abs3(Teilchen%momentum)
+       pAbs=abs3(Teilchen%mom)
        out = variableSkyrme(med%density*hbarc**3, pabs)
 
     case (1:5,9:14)
@@ -518,7 +522,7 @@ contains
        if (getYukawaFlag()) then
           if (positionNotSet) &
                call TRACEBACK('the position of the particle must be known')
-          place=teilchen%position(1:3)
+          place=teilchen%pos(1:3)
           skyrme=skyrme+yukpot(place)  !add yukawa-Term
        end if
 
@@ -532,7 +536,7 @@ contains
        case (3:4,12)   ! momentum independent
           out = skyrme
        case (1:2,5,9:11,13:14) ! momentum dependent
-          pAbs=abs3(Teilchen%momentum)
+          pAbs=abs3(Teilchen%mom)
           out = skyrme + momentumDependentPart(pAbs,c(EQS),lambda(EQS),med%density)
        end select
 
@@ -540,7 +544,7 @@ contains
        if (positionNotSet) &
             call TRACEBACK('the position of the particle must be known')
 
-       place=teilchen%position(1:3)
+       place=teilchen%pos(1:3)
        sqrtR = sqrt(Dot_Product(place,place))
        ! the following is necessary, due to possible overflow from nint:
        if (sqrtR.ge.float(ubound(StorePotP,1))*StorePotDX) then
@@ -555,7 +559,7 @@ contains
        end if
 
        if (EQS98MomDep>0) then
-          pAbs=abs3(Teilchen%momentum)
+          pAbs=abs3(Teilchen%mom)
 !          out = out + momentumDependentPart(pAbs,c(EQS98MomDep),lambda(EQS98MomDep),med%density)
           out = out + momentumDependentPart(pAbs,c(EQS98MomDep),lambda(EQS98MomDep),StoreRhoB(i))
        end if
@@ -615,7 +619,7 @@ contains
 
 
   !****************************************************************************
-  !****if* baryonPotentialModule/variableSkyrme
+  !****if* baryonPotentialMain/variableSkyrme
   ! NAME
   ! real function variableSkyrme(rho,p)
   ! PURPOSE
@@ -664,7 +668,7 @@ contains
 
 
   !****************************************************************************
-  !****if* baryonPotentialModule/momentumDependentPart
+  !****if* baryonPotentialMain/momentumDependentPart
   ! NAME
   ! real function momentumDependentPart(pin,c,lambda,rho,pF_in)
   ! PURPOSE
@@ -756,7 +760,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/rhoLaplace
+  !****f* baryonPotentialMain/rhoLaplace
   ! NAME
   ! function rhoLaplace(rvec,a)
   ! PURPOSE
@@ -791,7 +795,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/LDApotential(teilchen)
+  !****f* baryonPotentialMain/LDApotential(teilchen)
   ! NAME
   ! function LDApotential(teilchen)
   ! PURPOSE
@@ -824,19 +828,19 @@ contains
        firsttime=.false.
     end if
 
-    pos=densityAt(teilchen%position)
+    pos=densityAt(teilchen%pos)
     rho=SQRT(pos%baryon(0)**2-Dot_Product(pos%baryon(1:3),pos%baryon(1:3)))
-    !r=SQRT((teilchen%position(1))**2+(teilchen%position(2))**2+(teilchen%position(3))**2)
+    !r=SQRT((teilchen%pos(1))**2+(teilchen%pos(2))**2+(teilchen%pos(3))**2)
     !no spherical symmetry
-!    LDApotential=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%position,stepsize)-e0f*E0)*hbarc/1000.
+!    LDApotential=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%pos,stepsize)-e0f*E0)*hbarc/1000.
     !kleiner Test
-    LDApotential=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%position,stepsize))*hbarc
+    LDApotential=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%pos,stepsize))*hbarc
 
   end function LDApotential
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/LDApotentialWelke(teilchen)
+  !****f* baryonPotentialMain/LDApotentialWelke(teilchen)
   ! NAME
   ! function LDApotentialWelke(teilchen)
   ! PURPOSE
@@ -865,14 +869,14 @@ contains
        firsttime=.false.
     end if
 
-    pos=densityAt(teilchen%position)
+    pos=densityAt(teilchen%pos)
     rho=SQRT(pos%baryon(0)**2-Dot_Product(pos%baryon(1:3),pos%baryon(1:3)))
-    pAbs=Sqrt(Dot_Product(Teilchen%momentum(1:3),Teilchen%momentum(1:3)))
-    !r=SQRT((teilchen%position(1))**2+(teilchen%position(2))**2+(teilchen%position(3))**2)
+    pAbs=Sqrt(Dot_Product(Teilchen%mom(1:3),Teilchen%mom(1:3)))
+    !r=SQRT((teilchen%pos(1))**2+(teilchen%pos(2))**2+(teilchen%pos(3))**2)
     !no spherical symmetry
-!    LDApotential=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%position,stepsize)-e0f*E0)*hbarc/1000.
+!    LDApotential=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%pos,stepsize)-e0f*E0)*hbarc/1000.
     !kleiner Test
-    LDApotentialWelke=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%position,stepsize)) &
+    LDApotentialWelke=(2.*b1*rho+7./3.*b2*rho**(4./3.)+8./3.*b3*rho**(5./3.)-2*a*rhoLaplace(teilchen%pos,stepsize)) &
                        *hbarc + momentumDependentPart(pAbs,CLDA,lambdaLDA,rho)
 
 
@@ -880,7 +884,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/SurfacePart
+  !****f* baryonPotentialMain/SurfacePart
   ! NAME
   ! function SurfacePart(teilchen,spar)
   ! PURPOSE
@@ -901,13 +905,13 @@ contains
     type(particle), intent(in) :: teilchen
     real,           intent(in) :: spar
 
-    SurfacePart = -2.* spar * rhoLaplace(teilchen%position,gridSpacing)
+    SurfacePart = -2.* spar * rhoLaplace(teilchen%pos,gridSpacing)
     SurfacePart = SurfacePart * hbarc
   end function SurfacePart
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/rearrangementPotential
+  !****f* baryonPotentialMain/rearrangementPotential
   ! NAME
   ! real function rearrangementPotential(teilchen, med)
   ! PURPOSE
@@ -949,7 +953,7 @@ contains
     rearrangementPotential = 0. ! default fallback value
 
     ! no potential for perturbative particles if wished
-    if (noPerturbativePotential.and.teilchen%perturbative) return
+    if (noPerturbativePotential.and.teilchen%pert) return
 
     !Check for quark content:
     !No potential for s<-1 resonances and charmed resonances
@@ -968,7 +972,7 @@ contains
                   *(med%density/rhoNull)**tau(EQS_Type))/1000.
 
        if (getYukawaFlag()) &
-            skyrme_b = skyrme_b + yukpot(teilchen%position(1:3))
+            skyrme_b = skyrme_b + yukpot(teilchen%pos(1:3))
 
        if (SurfacePotFlag) &
             skyrme_b=skyrme_b + SurfacePart(teilchen,eta(EQS_Type))
@@ -978,7 +982,7 @@ contains
 
        rearrangementPotential = -skyrme_b/2-skyrme_r
 
-       if (symmetryPotFlag>0 .and. teilchen%id==nucleon .and. .not.teilchen%antiparticle) then
+       if (symmetryPotFlag>0 .and. teilchen%id==nucleon .and. .not.teilchen%anti) then
           ! add symmetry potential
           if (symmetryPotFlag == 1) then
             rhoDiff = med%densityProton - med%densityNeutron
@@ -995,8 +999,8 @@ contains
        EQS = EQS_Type
 
     case (98)
-       if (teilchen%id==nucleon .and. .not.teilchen%antiparticle) then
-          sqrtR = sqrt(sum(teilchen%position(1:3)**2))
+       if (teilchen%id==nucleon .and. .not.teilchen%anti) then
+          sqrtR = sqrt(sum(teilchen%pos(1:3)**2))
           ! the following is necessary, due to possible overflow from nint:
           if (sqrtR>=float(ubound(StorePotP,1))*StorePotDX) then
              i = ubound(StorePotP,1)
@@ -1017,7 +1021,7 @@ contains
 
     select case (EQS)
     case (1:2,5,9:11,13:14) ! momentum dependent
-       pAbs=Sqrt(Dot_Product(Teilchen%momentum(1:3),Teilchen%momentum(1:3)))
+       pAbs=Sqrt(Dot_Product(Teilchen%mom(1:3),Teilchen%mom(1:3)))
        rearrangementPotential = rearrangementPotential &
                               - momentumDependentPart(pAbs,c(EQS),lambda(EQS),med%density)/2
     end select
@@ -1041,7 +1045,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/HandPotentialToDensityStatic
+  !****f* baryonPotentialMain/HandPotentialToDensityStatic
   ! NAME
   ! subroutine HandPotentialToDensityStatic(nuc)
   ! PURPOSE
@@ -1058,7 +1062,7 @@ contains
   ! necessary.
   !
   ! Some complications are due to the calculation of the baryon potential in
-  ! baryonPotentialModule/BaryonPotential and the used tabulations.
+  ! baryonPotentialMain/BaryonPotential and the used tabulations.
   !
   ! INPUTS
   ! * type(tNucleus) :: nuc
@@ -1070,7 +1074,7 @@ contains
   subroutine HandPotentialToDensityStatic(nuc)
     use nucleusDefinition
     use densityStatic, only: ReAdjust
-    use densitymodule, only: get_densitySwitch
+    use densitymodule, only: getDensitySwitch
     use constants, only: hbarc, mN, pi
     use particleDefinition
     use mediumDefinition
@@ -1082,7 +1086,8 @@ contains
     type(tnucleus), pointer :: nuc
 
     integer :: i,iLoop
-    real :: x, rP,rN, pF, y
+    real :: x, pF, y
+    real, dimension(0:2) :: rho
     type(particle) :: Part
     real, dimension(:), allocatable :: potP, potN, potC
     type(medium)         :: med
@@ -1097,11 +1102,20 @@ contains
 
     useCoulomb = getCoulombFlag()
 
+    if (getDensitySwitch() .ne. 2) then
+       write(*,*) 'ATTENTION: ', &
+            'densitySwitch!=2 and readjust not yet implemented.'
+       write(*,*) 'Automatically reset ReAdjustForConstBinding to .false..'
+
+       nuc%ReAdjustForConstBinding = .false.
+
+       call Write_InitStatus("Readjust density distribution",1)
+       return
+    end if
+
     if (getYukawaFlag()) &
          call TRACEBACK('yukawa and readjustForConstBinding not possible. STOP!')
 
-    if (get_densitySwitch() .ne. 2) &
-         call TRACEBACK('densitySwitch!=2 and readjust not yet possible. STOP!')
 
     call setToDefault(Part)
 
@@ -1118,7 +1132,7 @@ contains
 
     Part%ID=1 ! Nucleon
     Part%mass=mN
-    Part%position = 0
+    Part%pos = 0
 
     select case (EQS_Type)
     case (1:2,5,9:11,13:14)
@@ -1138,23 +1152,22 @@ contains
 
        do i=0,nuc%MaxIndex
           x = i*nuc%dx
-          Part%position(1) = x
+          Part%pos(1) = x
 
-          rP = nuc%densTab(i,1)
-          rN = nuc%densTab(i,2)
+          rho = nuc%densTab(i,:)
 
-          med%density        = rP+rN
-          med%densityProton  = rP
-          med%densityNeutron = rN
+          med%density        = rho(0)
+          med%densityProton  = rho(1)
+          med%densityNeutron = rho(2)
 
           ! Coulomb potential is calcuated by integrating the charge over the
           ! included volume:
           if (useCoulomb) then
-             IntCoulomb1=IntCoulomb1 + x**2*rP
+             IntCoulomb1=IntCoulomb1 + x**2*rho(1)
              if (i.gt.0) then
                 IntCoulomb2=IntCoulomb2 + IntCoulomb1/x**2
              else
-                IntCoulomb2=IntCoulomb2 + rP
+                IntCoulomb2=IntCoulomb2 + rho(1)
              end if
              PotC(i) = IntCoulomb2 * (-4.0*pi*1./137.*hbarc) * nuc%dx**2 ! in GeV
           end if
@@ -1162,44 +1175,45 @@ contains
           if (EQS_Type==98) then ! iLoop=2,3,...
              ! now we undo the rescaling, because we need the density only for
              ! calculating the fermi momentum
-             rP = rP/nuc%facP
-             rN = rN/nuc%facN
+
+             rho(1:2) = rho(1:2)/nuc%fac(1:2)
+             rho(0)=rho(1)+rho(2)
           end if
 
 
-          pF = (3*pi**2*(rP+rN)/2)**(1./3.)*hbarc
-          Part%momentum(1) = pF
-          Part%momentum(0) = sqrt(Part%mass**2+pF**2)
+          pF = (3*pi**2*(rho(0))/2)**(1./3.)*hbarc
+          Part%mom(1) = pF
+          Part%mom(0) = sqrt(Part%mass**2+pF**2)
 
           Part%charge = 0
-!!$       pF = (3*pi**2*(rN))**(1./3.)*hbarc
-!!$       Part%momentum(1) = pF
-!!$       Part%momentum(0) = sqrt(Part%mass**2+pF**2)
+!!$       pF = (3*pi**2*(rho(2)))**(1./3.)*hbarc
+!!$       Part%mom(1) = pF
+!!$       Part%mom(0) = sqrt(Part%mass**2+pF**2)
 
           x = BaryonPotential(Part,med,.false.)
           PotN(i) = x
           if (iLoop.eq.1) then
              if (EQS98MomDep>0) then
-                x = x - momentumDependentPart(pF,c(EQS98MomDep),lambda(EQS98MomDep),rP+rN)
+                x = x - momentumDependentPart(pF,c(EQS98MomDep),lambda(EQS98MomDep),rho(0))
              end if
              StorePotN(i) = x
           end if
 
           Part%charge = 1
-!!$       pF = (3*pi**2*(rP))**(1./3.)*hbarc
-!!$       Part%momentum(1) = pF
-!!$       Part%momentum(0) = sqrt(Part%mass**2+pF**2)
+!!$       pF = (3*pi**2*(rho(1)))**(1./3.)*hbarc
+!!$       Part%mom(1) = pF
+!!$       Part%mom(0) = sqrt(Part%mass**2+pF**2)
           x = BaryonPotential(Part,med,.false.)
           PotP(i) = x
           if (iLoop.eq.1) then
              if (EQS98MomDep>0) then
-                x = x - momentumDependentPart(pF,c(EQS98MomDep),lambda(EQS98MomDep),rP+rN)
+                x = x - momentumDependentPart(pF,c(EQS98MomDep),lambda(EQS98MomDep),rho(0))
              end if
              StorePotP(i) = x
-             StoreRhoB(i) = rP+rN
+             StoreRhoB(i) = rho(0)
           end if
 
-!          write(*,'(6f13.5)') x,rN,rP,pF,PotN(i),PotP(i)
+!          write(*,'(6f13.5)') x,rho(2),rho(1),pF,PotN(i),PotP(i)
 
        end do
 
@@ -1225,9 +1239,6 @@ contains
     deallocate(PotP)
     deallocate(PotN)
     deallocate(PotC)
-
-!    write(*,*) 'stop'
-!    stop
 
     call Write_InitStatus("Readjust density distribution",1)
 
@@ -1255,7 +1266,7 @@ contains
       rB0 = 0
       do i=nuc%MaxIndex-1,0,-1
          x = i*nuc%dx
-         rB = nuc%densTab(i,1)+nuc%densTab(i,2)
+         rB = nuc%densTab(i,0)
          if (rB.eq.0) cycle
          drB = rB - rB0
 
@@ -1305,37 +1316,36 @@ contains
       rea = 0
       do i=0,nuc%MaxIndex,5
           x = i*nuc%dx
-          Part%position(1) = x
+          Part%pos(1) = x
 
-          rP = nuc%densTab(i,1)
-          rN = nuc%densTab(i,2)
+          rho = nuc%densTab(i,:)
 
-          med%density        = rP+rN
-          med%densityProton  = rP
-          med%densityNeutron = rN
+          med%density        = rho(0)
+          med%densityProton  = rho(1)
+          med%densityNeutron = rho(2)
 
           do iMom=0,nMom
              xMom = iMom*DeltaMom
-             Part%momentum(1) = xMom
-             Part%momentum(0) = sqrt(Part%mass**2+xMom**2)
+             Part%mom(1) = xMom
+             Part%mom(0) = sqrt(Part%mass**2+xMom**2)
 
              Part%charge = 1
              xP = BaryonPotential(Part,med,.false.)
 
              if (EQS98MomDep>0) then
-                xMomDep = momentumDependentPart(xMom,c(EQS98MomDep),lambda(EQS98MomDep),rP+rN)
+                xMomDep = momentumDependentPart(xMom,c(EQS98MomDep),lambda(EQS98MomDep),rho(0))
              end if
 
              Part%charge = 0
              xN = BaryonPotential(Part,med,.false.)
 
              if (EQS>0) then
-                rea = (alpha(EQS)*((rP+rN)/rhoNull) &
+                rea = (alpha(EQS)*(rho(0)/rhoNull) &
                      & + 2./(tau(EQS)+1.)*beta(EQS) &
-                     & *((rP+rN)/rhoNull)**tau(EQS))/1000.
+                     & *(rho(0)/rhoNull)**tau(EQS))/1000.
              end if
 
-             write(113,'(10f13.5)') x,xMom,xP,xN,xMomDep,rP,rN,rea
+             write(113,'(10f13.5)') x,xMom,xP,xN,xMomDep,rho(1:2),rea
           end do
           write(113,*)
 
@@ -1348,7 +1358,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/getNoPertPot_baryon
+  !****f* baryonPotentialMain/getNoPertPot_baryon
   ! NAME
   ! logical function getNoPertPot_baryon
   ! PURPOSE
@@ -1361,7 +1371,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/getsymmetryPotFlag_baryon
+  !****f* baryonPotentialMain/getsymmetryPotFlag_baryon
   ! NAME
   ! logical function getsymmetryPotFlag_baryon
   ! PURPOSE
@@ -1374,7 +1384,7 @@ contains
 
 
   !****************************************************************************
-  !****f* baryonPotentialModule/getPotentialEQSType
+  !****f* baryonPotentialMain/getPotentialEQSType
   ! NAME
   ! integer function getPotentialEQSType
   ! PURPOSE
@@ -1386,4 +1396,4 @@ contains
   end function getPotentialEQSType
 
 
-end module baryonPotentialModule
+end module baryonPotentialMain

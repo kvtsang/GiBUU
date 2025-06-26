@@ -10,23 +10,24 @@
 ! * Theodoros.Gaitanos@theo.physik.uni-giessen.de
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
-        eventtype           =       1 ! Heavy Ion Collisions (low energy)
-        numEnsembles        =     100
+      eventtype           =       1 ! Heavy Ion Collisions (low energy)
+      numEnsembles        =     100
 
-        delta_T             =    0.10 ! [fm]
-        numTimeSteps        =     400
-        time_max            =   100.0
+      delta_T             =    0.10 ! [fm]
+      numTimeSteps        =     400
+      time_max            =   100.0
 
-        printParticleVectorTime = T
-        timeForOutput       =   2.00
-        timeSequence        =   2.00
+      printParticleVectorTime = T
+      timeForOutput       =   2.00
+      timeSequence        =   2.00
 
 !      DoPrLevel(1) = .FALSE. ! set this for production runs
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
-        path_To_Input   = '~/GiBUU/buuinput'
+      path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./init/initHeavyIon.f90
@@ -44,20 +45,20 @@
 ! file: ./density/nucleus.f90
 &projectile
 !      fermiMotion = .FALSE.
-      Z= 79, A=197 ! Au
+      Z= 79, A=197              ! Au
 /
 
 ! file: ./density/nucleus.f90
 &target
 !      fermiMotion = .FALSE.
-      Z= 79, A=197 ! Au
+      Z= 79, A=197              ! Au
 /
 
 
 
 ! file: ./database/particleProperties.f90
 &initDatabase
-      propagationSwitch = 0 ! 0=all resonances with more than 1 star
+      propagationSwitch = 0     ! 0=all resonances with more than 1 star
 /
 
 ! file: code/numerics/random.f90
@@ -83,12 +84,12 @@
       linearInterpolation = F
       gridSize            = 20.0, 20.0, 100.0
       gridPoints          = 20,   20,   100
-/
+      /
 
 ! file: code/analysis/sourceAnalysis_Main.f90
 &SMM_input
       SMM_Flag        = T
-      MaxTimePrinting = 1000 ! number of times output is written
+      MaxTimePrinting = 1000    ! number of times output is written
 /
 
 ! file: code/collisions/collisionTerm.f90

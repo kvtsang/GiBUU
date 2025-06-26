@@ -55,18 +55,18 @@ program test
     teilchenIN(2)%mass=baryon(sigmaResonance)%mass
 
 
-    teilchenIN(1)%momentum=(/0.836625870459866,       0.196406508164487,  0.108609905565974,       0.794057440671839 /)
-    teilchenIN(2)%momentum=(/ 1.84423195111350,       0.262005851924195, -0.301559962962424,        1.29413168461444 /)
+    teilchenIN(1)%mom=(/0.836625870459866,       0.196406508164487,  0.108609905565974,       0.794057440671839 /)
+    teilchenIN(2)%mom=(/ 1.84423195111350,       0.262005851924195, -0.301559962962424,        1.29413168461444 /)
     
     
-    teilchenIN(1)%velocity=teilchenIn(1)%momentum(1:3)/teilchenIn(1)%momentum(0)
-    teilchenIN(2)%velocity=teilchenIn(2)%momentum(1:3)/teilchenIn(2)%momentum(0)
+    teilchenIN(1)%vel=teilchenIn(1)%mom(1:3)/teilchenIn(1)%mom(0)
+    teilchenIN(2)%vel=teilchenIn(2)%mom(1:3)/teilchenIn(2)%mom(0)
 
-    teilchenIn%antiparticle=.false.
+    teilchenIn%anti=.false.
 
     srts=sqrts(teilchenIn(1:2))
 
-    momentumLRF=teilchenIN(1)%momentum+teilchenIN(2)%momentum
+    momentumLRF=teilchenIN(1)%mom+teilchenIN(2)%mom
 
     i=0
     Do 
@@ -78,7 +78,7 @@ program test
              Write(*,*) 'Charge of particle is not valid in finalCheck'
              Write(*,*) 'Charge=',teilchenOut(k)%charge
              Write(*,*) 'Id=',teilchenOut(k)%id
-             Write(*,*) 'Antiparticle=',teilchenOut(k)%antiparticle
+             Write(*,*) 'Antiparticle=',teilchenOut(k)%anti
              write(*,*) 'Severe problem. Code stops!!!!'
              stop
           end if

@@ -119,12 +119,12 @@ contains
     call searchInInput(partIn,omegaMeson,nucleon,partOmega,partNucl,failFlag)
     if (failFlag)  call traceBack('wrong input')
 
-    if (partOmega%antiParticle)  call traceBack('meson is anti')
+    if (partOmega%anti)  call traceBack('meson is anti')
 
-    if (partNucl%antiParticle) then
+    if (partNucl%anti) then
        ! Invert all particles in antiparticles
        partNucl%Charge        =  -partNucl%Charge
-       partNucl%antiparticle  = .false.
+       partNucl%anti  = .false.
        partOmega%Charge          =  -partOmega%Charge
        antiParticleInput              = .true.
     else
@@ -186,8 +186,8 @@ contains
     subroutine evaluateXsections
       use resonanceCrossSections, only: barMes_R_barMes, barMes2resonance
       use mediumDefinition, only: vacuum
-      use parametrizationsBarMes, only: golub_omega, omegaN_lykasov, huang, huanglam
-      use parBarMes_HighEnergy, only: paramBarMesHE
+      use parametrizationBarMes, only: golub_omega, omegaN_lykasov, huang, huanglam
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE
       use output, only: writeparticle
 
       real, dimension(1:3) ::  position
@@ -202,14 +202,14 @@ contains
       real :: sigmaTotal_HE,sigmaElast_HE ! High energy matchin
       logical :: lDummy
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.
       end if
 
-      momentum_vacuum(1:3)=partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+      momentum_vacuum(1:3)=partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
       momentum_vacuum(0)=FreeEnergy(partIn(1))+FreeEnergy(partIn(2))
 
       !########################################################################

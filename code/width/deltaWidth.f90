@@ -7,6 +7,8 @@
 !******************************************************************************
 module deltaWidth
 
+  use CallStack, only: Traceback
+
   implicit none
   private
 
@@ -27,31 +29,31 @@ module deltaWidth
   !
   integer, save :: deltaSwitch=3
   ! NOTES
-  ! * 1 = use Oset self energies+BUU input
+  ! * 1 = Oset self energies+BUU input
   ! * 2 = Spreading potential
-  ! * 3 = use Oset self energies
+  ! * 3 = Oset self energies
   ! * 4 = density dependent with BUU input
   !****************************************************************************
 
 
   logical, parameter :: debug=.false.
 
-  integer, parameter :: nm=100  ! Number of mass bins
-  integer, parameter :: np=30  ! Number of momentum bins
-  integer, parameter :: nrho=40   ! Number of rho bins
+  integer, parameter :: nm=100   ! Number of mass bins
+  integer, parameter :: np=30    ! Number of momentum bins
+  integer, parameter :: nrho=40  ! Number of rho bins
 
-  real, parameter :: massmin=1.071      ! Minimal Mass
-  real, parameter :: rhomin=0.0      ! Minimal rho
-  real, parameter :: pmin=.0          ! Minimal momentum
+  real, parameter :: massmin=1.071  ! Minimal Mass
+  real, parameter :: rhomin=0.0     ! Minimal rho
+  real, parameter :: pmin=.0        ! Minimal momentum
 
   real, parameter :: drho=0.1
   real, parameter :: dp=0.05
   real, parameter :: dm=0.01
 
 !!$  ! To use Effenberger's input
-!!$  integer, parameter :: nm=51  ! Number of mass bins
-!!$  integer, parameter :: np=19  ! Number of momentum bins
-!!$  integer, parameter :: nrho=19   ! Number of rho bins
+!!$  integer, parameter :: nm=51    ! Number of mass bins
+!!$  integer, parameter :: np=19    ! Number of momentum bins
+!!$  integer, parameter :: nrho=19  ! Number of rho bins
 !!$
 !!$  real, parameter :: massmin=1.081      ! Minimal Mass
 !!$  real, parameter :: rhomin=0.0168      ! Minimal rho
@@ -72,18 +74,21 @@ module deltaWidth
   !****************************************************************************
 
 
-  real, save ::   medwidth(0:nm,0:np,0:nrho)  ! Delta width as function of mass, momentum and density
-  real, save ::   g1pi(0:nm,0:np,0:nrho)      ! partial width (Delta-> N Pi) width as function of mass, momentum and density
+  ! Delta width as function of mass, momentum and density:
+  real, save :: medwidth(0:nm,0:np,0:nrho)
 
-  real, save, dimension(:,:,:), ALLOCATABLE  ::   gcoll1, gcoll2   ! collisional width
-  ! also dimension(0:nm,0:np,0:nrho), if allocated
+  ! partial width (Delta-> N Pi) width as function of mass, momentum and density
+  real, save :: g1pi(0:nm,0:np,0:nrho)
+
+  ! collisional width, also dimension(0:nm,0:np,0:nrho), if allocated
+  real, save, dimension(:,:,:), ALLOCATABLE :: gcoll1, gcoll2
 
   logical,save  :: initFlag=.true.
 
   public :: delta_nucleonPion
   public :: delta_fullWidth
   public :: deloset
-  public :: osetDelta_used
+  public :: deltaOset_used
   public :: deltaOset_ND_NN
   public :: deltaOset_ND_ND
   public :: GetRhoValue
@@ -93,19 +98,17 @@ module deltaWidth
 contains
 
   !****************************************************************************
-  !****g* deltaWidth/osetDelta_used
+  !****g* deltaWidth/deltaOset_used
   ! NAME
-  ! logical function osetDelta_used
+  ! logical function deltaOset_used
   ! PURPOSE
   ! return true, if deltaSwitch==3
   !****************************************************************************
-  logical function osetDelta_used()
-    if (deltaSwitch.eq.3) then
-       osetDelta_used=.true.
-    else
-       osetDelta_used=.false.
-    end if
-  end function osetDelta_used
+  logical function deltaOset_used()
+
+    deltaOset_used = (deltaSwitch.eq.3)
+
+  end function deltaOset_used
 
   !****************************************************************************
   !****f* deltaWidth/delta_nucleonPion
@@ -179,23 +182,23 @@ contains
   !****************************************************************************
   !****is* deltaWidth/InitDelWidth
   ! NAME
-  ! subroutine InitDelwidth
+  ! subroutine InitDelWidth
   ! PURPOSE
   ! Evaluates Delta width and stores it as a function of mass, momentum and
   ! density into the field medwidth.
   !****************************************************************************
-  subroutine InitDelwidth
+  subroutine InitDelWidth
     use inputGeneral, only: path_to_input
     use constants, only: rhoNull
     use output
 
     integer :: i,j,k
-    real      :: rho
-    real      ::  mass,imsig2,imsig3,imsigq
+    real    :: rho
+    real    :: mass,imsig2,imsig3,imsigq
 
     integer :: ios ! checks file behavior
-    real , parameter :: betaD=0.
-    real , parameter :: alphaD=0.
+    real, parameter :: betaD=0.
+    real, parameter :: alphaD=0.
 
     real :: xColl1, xColl2
 
@@ -217,6 +220,11 @@ contains
     ! So you get the same grid with which Effenbergers Input file was
     ! generated!
 
+    character(36), dimension(1:4), parameter :: sSwitch = (/ &
+         '1 : Oset self energies+BUU input    ', &
+         '2 : Spreading potential             ', &
+         '3 : Oset self energies              ', &
+         '4 : density dependent with BUU input' /)
 
     NAMELIST /deltaWidth/ deltaSwitch
 
@@ -225,7 +233,13 @@ contains
     read(5,nml=deltaWidth,IOSTAT=IOS)
     call Write_ReadingInput('deltaWidth',0,IOS)
 
-    write(*,*) 'Set deltaSwitch      :' ,deltaSwitch
+    select case(deltaSwitch)
+    case(1:4)
+       write(*,*) 'deltaSwitch = ', sSwitch(deltaSwitch)
+    case default
+       write(*,*) 'deltaSwitch = ', deltaSwitch
+       call traceback('wrong input value')
+    end select
     call Write_ReadingInput('deltaWidth',1)
 
     ios=0
@@ -259,7 +273,7 @@ contains
              rho=float(k)*drho+rhoMin !*     rho in units of rho0
 
              select case (deltaSwitch)
-             case (1) ! use Oset self energies
+             case (1) ! Oset self energies
 
                 call deloset(mass,rho*rhoNull,imsig2,imsig3,  imsigq)
                 xcoll1=2.*imsig3+gcoll1(i,j,k)*(1.+5./3.*(mass-1.076)*rho)
@@ -270,13 +284,13 @@ contains
                 xcoll1=2.*delspread*rho
                 xcoll2=0.
 
-             case (3) ! use Oset self energies
+             case (3) ! Oset self energies
 
                 call deloset(mass,rho*rhoNull,imsig2,imsig3, imsigq)
                 xcoll1=2.*(imsig2+imsig3)
                 xcoll2=2.*imsigq
 
-             case (4)
+             case (4) ! density dependent with BUU input
 
                 g1pi(i,j,k)=g1pi(i,j,k)*(1.+betad*rho)
                 xcoll1=gcoll1(i,j,k)*(1.+alphad*rho)
@@ -304,7 +318,7 @@ contains
 !    call PrintFullWidth()
 
     return
-  end subroutine InitDelwidth
+  end subroutine InitDelWidth
 
 
   !****************************************************************************
@@ -754,12 +768,12 @@ contains
     ! Energy of pion (see Effenberger Phd thesis page 248):
     ompi=(mass**2-mN**2-mpi**2)/(3./5.*kf**2/2./mN+mN)/2.
     ! T/m of pion:
-    T=min(0.45,ompi-mPi)  ! Osets calculation only valid up to about here!  
+    T=min(0.45,ompi-mPi)  ! Osets calculation only valid up to about here!
     ! At 450 MeV the collisional Delta width becomes small and is frozen to this
-    ! value 
+    ! value
     T=max(0.0,T)   !ensures that at threshold m = mpi + mN T is not negative
                    !because of average kinetic energy of nucleon
-    
+
     x=T/mPi
 
     do i=1,5
@@ -872,17 +886,17 @@ contains
     if (part(1)%ID.eq.delta) then
        mass=part(1)%mass
 !        pdel=absMom(part(1))
-       pdel_vec=part(1)%momentum(1:3)
+       pdel_vec=part(1)%mom(1:3)
        charge=part(1)%charge
-       pos_delta=part(1)%position
-       pos_nuc  =part(2)%position
+       pos_delta=part(1)%pos
+       pos_nuc  =part(2)%pos
     else if (part(2)%ID.eq.delta) then
        mass=part(2)%mass
 !        pdel=absMom(part(2))
-       pdel_vec=part(2)%momentum(1:3)
+       pdel_vec=part(2)%mom(1:3)
        charge=part(2)%charge
-       pos_delta=part(2)%position
-       pos_nuc  =part(1)%position
+       pos_delta=part(2)%pos
+       pos_nuc  =part(1)%pos
     else
        write(*,*) "Wrong ID's in deltaOset_ND_ND. STOP", part%ID
        stop

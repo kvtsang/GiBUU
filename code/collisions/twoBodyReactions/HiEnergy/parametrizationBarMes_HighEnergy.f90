@@ -1,12 +1,12 @@
 !******************************************************************************
-!****m* /parBarMes_HighEnergy
+!****m* /parametrizationBarMes_HighEnergy
 ! NAME
-! module parBarMes_HighEnergy
+! module parametrizationBarMes_HighEnergy
 ! PURPOSE
 ! Includes all routines which are parametrizations of
 ! "baryon meson -> X" data for the high-energy region.
 !******************************************************************************
-module parBarMes_HighEnergy
+module parametrizationBarMes_HighEnergy
 
   implicit none
   private
@@ -20,7 +20,7 @@ contains
 
 
   !****************************************************************************
-  !****s*  parBarMes_HighEnergy/paramBarMesHE
+  !****s*  parametrizationBarMes_HighEnergy/paramBarMesHE
   ! NAME
   ! subroutine paramBarMesHE (srts, idM, idB, izM, izB, media, sigma, sigmael)
   !
@@ -46,14 +46,14 @@ contains
   !   from low to high energy.
   ! * This routine was formerly known as "fritziCS".
   !****************************************************************************
-  subroutine paramBarMesHE (srts, idM, idB, izM, izB, media, sigma, sigmael)
+  subroutine paramBarMesHE(srts, idM, idB, izM, izB, media, sigma, sigmael)
     use IdTable
     use mediumDefinition
-    use photonXSections, only: calcXS_gammaN2VN
+    use photonXS, only: calcXS_gammaN2VN
     use particleProperties, only: hadron
     use constants, only: alphaQED, mN, mK
     use output, only: DoPR
-    use parametrizationsBarMes, only: sigelkp
+    use parametrizationBarMes, only: sigelkp
 
     real,         intent(in)  :: srts
     integer,      intent(in)  :: idM,idB,izM,izB
@@ -254,7 +254,7 @@ contains
 
 
   !****************************************************************************
-  !****s* parBarMes_HighEnergy/paramBarMesHE_v
+  !****s* parametrizationBarMes_HighEnergy/paramBarMesHE_v
   ! NAME
   ! subroutine paramBarMesHE_v(srts,sigma)
   ! PURPOSE
@@ -291,7 +291,7 @@ contains
 
 
   !****************************************************************************
-  !****s* parBarMes_HighEnergy/paramBarMesHE_pion
+  !****s* parametrizationBarMes_HighEnergy/paramBarMesHE_pion
   ! NAME
   ! subroutine paramBarMesHE_pion(srts,sigma,sigel)
   ! INPUTS
@@ -358,7 +358,7 @@ contains
 
 
   !****************************************************************************
-  !****s* parBarMes_HighEnergy/paramBarMesHE_kaon
+  !****s* parametrizationBarMes_HighEnergy/paramBarMesHE_kaon
   ! NAME
   ! subroutine paramBarMesHE_kaon (srts, sigma, sigel)
   ! INPUTS
@@ -427,4 +427,4 @@ contains
   end subroutine paramBarMesHE_kaon
 
 
-end module parBarMes_HighEnergy
+end module parametrizationBarMes_HighEnergy

@@ -198,10 +198,10 @@ contains
     use insertion, only: setIntoVector
     use inputGeneral, only: fullEnsemble
     use output, only: WriteParticleVector
-    use offShellPotential, only: getOffShellParameter
+    use offShellPotential, only: setOffShellParameter
     use spectralFunc, only: specFunc
     use spectralFuncMesons, only: specFuncMes
-    use hist2Df90
+    use hist2D
     use mediumDefinition
     use mediumModule, only: mediumAt
     use nucleusDefinition
@@ -251,7 +251,7 @@ contains
        end if
 
        targetNuc => getTarget()
-       extNucRadius=targetNuc%radius*1.2  !give 20% extra
+       extNucRadius=targetNuc%radius(0)*1.2  !give 20% extra
 
     end if
 
@@ -281,13 +281,13 @@ contains
           if (realParticles(i,j)%ID.ne.nucleon) cycle
 
           call setToDefault(finalState)
-          finalState%antiparticle=.false.
-          finalState%perturbative=.true.
-          finalState%productionTime=0.
-          finalState%lastCollisionTime=0.
-          finalState%formationTime=0.
+          finalState%anti=.false.
+          finalState%pert=.true.
+          finalState%prodTime=0.
+          finalState%lastCollTime=0.
+          finalState%formTime=0.
           finalState%scaleCS=1.
-          finalState%in_Formation=.false.
+          finalState%inF=.false.
           finalState%event(1)=pert_numbering(realParticles(i,j))
           finalState%firstEvent=getFirstEvent()
           finalstate%history=0
@@ -303,11 +303,11 @@ contains
 
              !choose radius
              radius=extNucRadius*rn()
-             finalState(1)%position=radius*rnOmega()
+             finalState(1)%pos=radius*rnOmega()
 
              !choose threemomentum between 0.1 and 2 GeV
              mom= 0.1+1.9*rn()
-             finalstate(1)%momentum(1:3)=mom*rnOmega()
+             finalstate(1)%mom(1:3)=mom*rnOmega()
 
              ! choose mass
              m=minmass+rn()*(maxmass-minmass)
@@ -317,8 +317,8 @@ contains
 
           else
 
-             finalstate(1)%momentum(1:3)=threemomentum
-             finalState(1)%position=position
+             finalstate(1)%mom(1:3)=threemomentum
+             finalState(1)%pos=position
              finalstate%charge=charge
 
              if (mass<0.) then
@@ -333,10 +333,10 @@ contains
                       ! choose m**2 from a flat distribution (instead of m),
                       ! since specFunc is normalized in m**2
                       finalstate%mass=sqrt(minmass**2+rn()*(maxmass**2-minmass**2))
-                      finalstate%offshellparameter=0.
+                      finalstate%offshellPar=0.
                       call energyDetermination(finalstate(1))
-                      specFunc_RD=specFunc(finalstate(1)%ID,finalstate(1)%charge,finalstate(1)%momentum, &
-                                  finalstate(1)%position,bareMass_out)
+                      specFunc_RD=specFunc(finalstate(1)%ID,finalstate(1)%charge,finalstate(1)%mom, &
+                                  finalstate(1)%pos,bareMass_out)
                       if (specfunc_max<=specFunc_RD) then
                          write(*,*) 'problem in initTransportgivenParticle: specfunc_max.le.specFunc_RD ',specfunc_max,specFunc_RD
                          stop
@@ -358,7 +358,7 @@ contains
                       ! choose m**2 from a flat distribution (instead of m),
                       ! since specFuncMes is normalized in m**2
                       finalstate%mass=sqrt(minmass**2+rn()*(maxmass**2-minmass**2))
-                      finalstate%offshellparameter=0.
+                      finalstate%offshellPar=0.
                       call energyDetermination(finalstate(1))
                       specFunc_RD=specFuncMes(finalstate(1),bareMass_out)
                       if (specfunc_max<=specFunc_RD) then
@@ -382,12 +382,10 @@ contains
              end if
           end if  !initRandomRadiativeDelta
 
-          finalstate%offshellparameter=0.
+          finalstate%offshellPar=0.
           call energyDetermination(finalstate(1))
 
-          finalstate%offshellparameter=getOffShellParameter(finalstate(1)%ID,  &
-               finalstate(1)%Mass,finalstate(1)%momentum,finalstate(1)%position,success)
-
+          call setOffShellParameter(finalstate(1),success)
           if (.not.success) then
              ! REJECT event
              finalstate%id=0
@@ -401,7 +399,7 @@ contains
           call updateVelocity(finalState(1),success)
           if (.not.success) then
              write(*,*) 'problems in inittransportgivenparticle: velocity**2 greater or equal 1.'
-             call AddHist2D(velos, (/finalstate(1)%offshellparameter,finalstate(1)%mass/),1.)
+             call AddHist2D(velos, (/finalstate(1)%offshellPar,finalstate(1)%mass/),1.)
              finalstate%id=0
              numEvents_failure=numEvents_failure+1
              cycle loopVector
@@ -432,17 +430,17 @@ contains
     part%charge = charge
 
     ! calculate vacuum SF
-    part%position = 999. ! vacuum
+    part%pos = 999. ! vacuum
     open(10,file='TGP_SF_vac.dat')
     write(10,*) '# vac SF'
     invMass=hadron(particle_ID)%minmass
     do
       invMass=invMass+0.001
       if (invMass>maxmass) exit
-      part%momentum(1:3) = threemomentum(1:3)
-      part%momentum(0)=sqrt(invMass**2+Dot_Product(threemomentum,threemomentum))
+      part%mom(1:3) = threemomentum(1:3)
+      part%mom(0)=sqrt(invMass**2+Dot_Product(threemomentum,threemomentum))
       if (isBaryon(particle_ID)) then
-        SF = specFunc (particle_ID,charge,part%momentum,part%position)
+        SF = specFunc (particle_ID,charge,part%mom,part%pos)
       else if (isMeson(particle_ID)) then
         SF = specFuncMes (part)
       end if
@@ -451,17 +449,17 @@ contains
     close(10)
 
     ! calculate medium SF
-    part%position = 0. ! medium
+    part%pos = 0. ! medium
     open(10,file='TGP_SF_med.dat')
     write(10,*) '# med SF'
     invMass = 0.
     do
       invMass = invMass+0.001
       if (invMass>maxmass) exit
-      part%momentum(1:3) = threemomentum(1:3)
-      part%momentum(0)=sqrt(invMass**2+Dot_Product(threemomentum,threemomentum))
+      part%mom(1:3) = threemomentum(1:3)
+      part%mom(0)=sqrt(invMass**2+Dot_Product(threemomentum,threemomentum))
       if (isBaryon(particle_ID)) then
-        SF = specFunc (particle_ID,charge,part%momentum,part%position)
+        SF = specFunc (particle_ID,charge,part%mom,part%pos)
       else if (isMeson(particle_ID)) then
         SF = specFuncMes (part)
       end if

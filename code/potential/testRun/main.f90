@@ -16,14 +16,14 @@ call init_Database
 
 betaToLRF=0.
 teilchen(1)%ID=Delta
-teilchen(1)%momentum(1:3)=(/12.,3.,4./)
+teilchen(1)%mom(1:3)=(/12.,3.,4./)
 teilchen(1)%mass=1.212
-teilchen(1)%momentum(0)=freeEnergy(teilchen(1))
-teilchen(1)%perturbative=.true.
+teilchen(1)%mom(0)=freeEnergy(teilchen(1))
+teilchen(1)%pert=.true.
 betaToLrf(1)=0.8
-!Print * , teilchen%momentum
+!Print * , teilchen%mom
 !call energyDetermination(teilchen, betaToLRF)
-!Print * , teilchen%momentum
+!Print * , teilchen%mom
 
 time=20.
 call decayParticle(teilchen,finalState,collisionFlag,time,pauliFlag,.true.)

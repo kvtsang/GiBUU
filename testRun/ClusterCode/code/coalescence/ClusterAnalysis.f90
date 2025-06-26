@@ -120,10 +120,10 @@ contains
        endif
        mass     = FragmentVector(m)%MassNumber
        charge   = FragmentVector(m)%ChargeNumber
-       k0f      = FragmentVector(m)%momentum(0)
-       k1f      = FragmentVector(m)%momentum(1)
-       k2f      = FragmentVector(m)%momentum(2)
-       k3f      = FragmentVector(m)%momentum(3)
+       k0f      = FragmentVector(m)%mom(0)
+       k1f      = FragmentVector(m)%mom(1)
+       k2f      = FragmentVector(m)%mom(2)
+       k3f      = FragmentVector(m)%mom(3)
        HypCon   = FragmentVector(m)%HypNumber
        PartType = FragmentVector(m)%FreeBound
 
@@ -325,10 +325,10 @@ contains
     ! calculate again flows from ParticleVector
     !-----------------------------------------------------------------------
     do m=1,size(ParticleVector,dim=1)
-       k0f      = ParticleVector(m)%momentum(0)
-       k1f      = ParticleVector(m)%momentum(1)
-       k2f      = ParticleVector(m)%momentum(2)
-       k3f      = ParticleVector(m)%momentum(3)
+       k0f      = ParticleVector(m)%mom(0)
+       k1f      = ParticleVector(m)%mom(1)
+       k2f      = ParticleVector(m)%mom(2)
+       k3f      = ParticleVector(m)%mom(3)
 
 !       yb = 0.5*log( (k0f+k3f)/(k0f-k3f) )/yproj
 
@@ -511,7 +511,7 @@ contains
 !       mass     = FragmentVector(m)%MassNumber
        zz = float(FragmentVector(m)%ChargeNumber)
        aa = float(FragmentVector(m)%MassNumber)
-       kinEn = FragmentVector(m)%momentum(0) - FragmentVector(m)%Mass*0.19733 
+       kinEn = FragmentVector(m)%mom(0) - FragmentVector(m)%Mass*0.19733 
 
        ibin = int( aa/dz)
        ibin = min( zval, max(1,ibin) )
@@ -548,8 +548,8 @@ contains
        ! Charge distribution of spectator fragments
        !--------------------------------------------------------------------
        if (SpectCut.gt.0.) then
-          k0f      = FragmentVector(m)%momentum(0)
-          k3f      = FragmentVector(m)%momentum(3)
+          k0f      = FragmentVector(m)%mom(0)
+          k3f      = FragmentVector(m)%mom(3)
           yb       = 0.5*log( (k0f+k3f)/(k0f-k3f) )/yproj
           if (abs(yb)>SpectCut) then
              Zdistrb_Spect(ibin) = Zdistrb_Spect(ibin) + 1.

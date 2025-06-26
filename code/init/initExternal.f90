@@ -182,7 +182,7 @@ contains
     use collisionNumbering, only: real_numbering,pert_Numbering
     use constants, only : mn
     use RMF, only: getRMF_flag, g_rho
-    use baryonPotentialModule, only: getsymmetryPotFlag_baryon
+    use baryonPotentialMain, only: getsymmetryPotFlag_baryon
     use densitymodule, only: FermiMomAt
 
     type(particle), dimension(:,:), intent(inOut), target :: PartsReal
@@ -232,23 +232,23 @@ contains
 
                       StruckNuc=pParts(i,index)
 
-                      alpha=(freeEnergy(StruckNuc)-StruckNuc%momentum(3))/mn
+                      alpha=(freeEnergy(StruckNuc)-StruckNuc%mom(3))/mn
 
-                      StruckNuc%momentum(1)=StruckNuc%momentum(1)+pt
+                      StruckNuc%mom(1)=StruckNuc%mom(1)+pt
 
-                      StruckNuc%momentum(3)=(mn**2+StruckNuc%momentum(1)**2+StruckNuc%momentum(2)**2-(alpha*mn)**2)/(2.*alpha*mn)
+                      StruckNuc%mom(3)=(mn**2+StruckNuc%mom(1)**2+StruckNuc%mom(2)**2-(alpha*mn)**2)/(2.*alpha*mn)
 
                       if (getRMF_flag()) then
                          if (g_rho/=0.) then
-                            pF=FermiMomAt(StruckNuc%position,StruckNuc%charge)
+                            pF=FermiMomAt(StruckNuc%pos,StruckNuc%charge)
                          else
-                            pF=FermiMomAt(StruckNuc%position)
+                            pF=FermiMomAt(StruckNuc%pos)
                          end if
                       else
                          if (getsymmetryPotFlag_baryon()) then
-                            pF=FermiMomAt(StruckNuc%position,StruckNuc%charge)
+                            pF=FermiMomAt(StruckNuc%pos,StruckNuc%charge)
                          else
-                            pF=FermiMomAt(StruckNuc%position)
+                            pF=FermiMomAt(StruckNuc%pos)
                          end if
                       end if
 
@@ -303,8 +303,8 @@ contains
 
           read(1,*,IOSTAT=IOS) pParts(i,index)%id,pParts(i,index)%charge,&
                             &pParts(i,index)%mass,&
-                            &(pParts(i,index)%position(k), k=1,3),&
-                            &(pParts(i,index)%momentum(k), k=1,3),iens
+                            &(pParts(i,index)%pos(k), k=1,3),&
+                            &(pParts(i,index)%mom(k), k=1,3),iens
 
           if (IOS.lt.0) then ! E.o.f. is reached
             call setToDefault(pParts(i,index))
@@ -319,23 +319,23 @@ contains
           if(posSRC) then
              select case (pParts(i,index)%charge)
              case(1)
-                pParts(i,index)%position=r1
+                pParts(i,index)%pos=r1
              case(0)
-                pParts(i,index)%position=r2
+                pParts(i,index)%pos=r2
              case default
                 write(*,*)' UNEXPECTED CHARGE OF PARTICLE IN SRC : ', pParts(i,index)%charge
              end select
              ! Modified input with positions:
              write(2,FMT=55) pParts(i,index)%id,pParts(i,index)%charge,&
                             &pParts(i,index)%mass,&
-                            &(pParts(i,index)%position(k), k=1,3),&
-                            &(pParts(i,index)%momentum(k), k=1,3),iens
+                            &(pParts(i,index)%pos(k), k=1,3),&
+                            &(pParts(i,index)%mom(k), k=1,3),iens
 55           format(i4,1x,i2,1x,f5.3,3(1x,f8.3),3(1x,f8.3),1x,i5)
           end if
 
           if (pParts(i,index)%id.lt.0) then
              pParts(i,index)%id=abs(pParts(i,index)%id)
-             pParts(i,index)%antiparticle=.true.
+             pParts(i,index)%anti=.true.
           end if
 
           select case (NumberingScheme)
@@ -351,7 +351,7 @@ contains
              pParts(i,index)%event=count
           end select
 
-          pParts(i,index)%perturbative = DoPerturbative
+          pParts(i,index)%pert = DoPerturbative
 
           count = count + 1
 

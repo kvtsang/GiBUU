@@ -41,12 +41,12 @@ contains
     initNuc%mass=baryon(nucleon)%mass
     initNuc%ID  =nucleon
     initNuc%charge  =1
-    initNuc%position=0
+    initNuc%pos=0
     
-    initNuc%momentum(1:3)=0.
-    initNuc%momentum(0)=freeEnergy(initNuc)
+    initNuc%mom(1:3)=0.
+    initNuc%mom(0)=freeEnergy(initNuc)
     
-    write(*,*) 'p=', initNuc%momentum
+    write(*,*) 'p=', initNuc%mom
 
 
     ! Step sizes for dOmega(pion) integration:

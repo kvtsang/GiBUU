@@ -22,14 +22,14 @@ Write(*,*) 'Testing delta Bar'
 
 time=0.
 resonance%ID=delta
-resonance%antiParticle=.true.
+resonance%anti=.true.
 resonance%Charge=-2
 
 resonance%Mass=   1.19628101249960    
-resonance%Momentum=  (/ 0.125499491E+01   ,      -0.413693032E+00, -0.150027894E+00,-0.516731763E-01/)
-resonance%Position=  (/ 0.189334479E+01   ,      -0.345616075E+01, -0.147158862E+01 /)
-resonance%Velocity=  (/ -0.392547837E+00  ,       -0.142500801E+00 ,        -0.490951234E-01 /)
-resonance%Offshellparameter=  0.000000000000000E+000 
+resonance%mom=  (/ 0.125499491E+01   ,      -0.413693032E+00, -0.150027894E+00,-0.516731763E-01/)
+resonance%pos=  (/ 0.189334479E+01   ,      -0.345616075E+01, -0.147158862E+01 /)
+resonance%vel=  (/ -0.392547837E+00  ,       -0.142500801E+00 ,        -0.490951234E-01 /)
+resonance%offshellPar=  0.000000000000000E+000 
 
 
 
@@ -44,14 +44,14 @@ Do j=1,100
 
    If(collisionFlag) then
       Write(*,*) finalState(1:4)%ID
-      Write(*,*) finalState(1:4)%antiParticle
+      Write(*,*) finalState(1:4)%anti
       Write(*,*) finalState(1:4)%Charge
       momtot=0.
       Do i=1,4
-         if(finalState(i)%ID.gt.0)  momtot=momtot+finalState(i)%Momentum
+         if(finalState(i)%ID.gt.0)  momtot=momtot+finalState(i)%mom
       end do
       !  exit
-      write(*,'(A4,5F15.5)') 'In' ,resonance%momentum, abs4(resonance%momentum)
+      write(*,'(A4,5F15.5)') 'In' ,resonance%mom, abs4(resonance%mom)
       write(*,'(A4,5F15.5)') 'Out',momtot, abs4(momTot)
    end if
 End do

@@ -1,5 +1,7 @@
 program OpticalGlauber
 
+  ! for the fomulae, cf. Y14, Week 7  (and Miller:2007ri)
+
   use inputGeneral
   use version, only: PrintVersion
   use particleProperties, only: initParticleProperties
@@ -9,6 +11,7 @@ program OpticalGlauber
   use densityStatic
   use output, only: Write_ReadingInput
   use CallStack, only: traceBack
+  use constants, only: pi
 
   implicit none
 
@@ -58,10 +61,11 @@ program OpticalGlauber
 
   real, dimension(:,:), allocatable :: densTransA, densTransB
   real :: nColl, nPart
-  real :: b = 0, bmax = 0, weight, deltab
-  real, dimension(0:2) :: s
-  integer :: ib
+  real :: b = 0, bmax = 0, weight, deltab, cut, h, AB
+  real, dimension(0:3) :: s
+  integer :: ib,ic
   integer, parameter :: nb = 100
+  real, dimension(2,0:nb) :: arr
 
   call PrintVersion
 
@@ -97,42 +101,84 @@ program OpticalGlauber
   else ! ===== impact parameter integration
      if (impact > -100.) then
         bmax = abs(impact)
-      else
+     else
         bmax = NucA%radius + NucB%radius + 2*(NucA%surface+NucB%surface)
-      end if
+     end if
 
-      deltab=bmax/nb
-      s = 0
-      do ib=0,nb
-         b=ib*deltab
-         call doCalc(b, nColl, nPart)
+     AB = NucA%mass * NucB%mass
 
-         select case (impact_profile)
-         case (0)
-            ! default: minimum bias
-            weight = 1.0
-         case (1,2,3,4,5)
-            ! use HADES trigger-biased centrality distributions with Woods-Saxon shape
-            weight = impact_HADES(b,impact_profile)
-         case (6,7,8)
-!        ! use HADES trigger-biased centrality distributions with Gaussian shape
-            !        b = rnGauss(db(impact_profile), b0(impact_profile))
-            call TRACEBACK('not yet implemented')
-         case default
-            write(*,*) 'bad value for impact_profile: ', impact_profile
-            call TRACEBACK('stop')
-         end select
+     deltab=bmax/nb
+     s = 0
+     do ib=0,nb
+        b=ib*deltab
+        call doCalc(b, nColl, nPart)
 
-         s = s + weight*b*(/1.,nColl,nPart/)
-!         write(*,*) b,weight
-      end do
+        write(133,*) b, nColl, nPart
 
-      nColl = s(1)/s(0)
-      nPart = s(2)/s(0)
+        select case (impact_profile)
+        case (0)
+           ! default: minimum bias
+           weight = 1.0
+        case (1,2,3,4,5)
+           ! use HADES trigger-biased centrality distributions with Woods-Saxon shape
+           weight = impact_HADES(b,impact_profile)
+        case (6,7,8)
+           !        ! use HADES trigger-biased centrality distributions with Gaussian shape
+           !        b = rnGauss(db(impact_profile), b0(impact_profile))
+           call TRACEBACK('not yet implemented')
+        case default
+           write(*,*) 'bad value for impact_profile: ', impact_profile
+           call TRACEBACK('stop')
+        end select
+
+        h = 1.0-(1.0-nColl/(AB))**(AB) ! integrand for sigma_AB
+
+        s = s + weight*2*pi*b*deltab*(/1.,nColl,nPart,h/)
+
+        !         write(*,*) b,weight
+
+        arr(:,ib)=(/ b,s(3) /)
+
+        write(134,*) b,s(1)/s(0),s(2)/s(0)
+        write(135,*) b,s
+
+     end do
+
+     nColl = s(1)/s(0) ! average value
+     nPart = s(2)/s(0) ! average value
+
+     ! now find the centrality class boundaries:
+     ! centrality is defined with respect of the total cross section sigma_AB
+
+     arr(2,:)=arr(2,:)/arr(2,nb) ! norm y values to 1
+
+     cut = 0.0
+     ib = 0
+     ic = 0
+     write(141,*) ic, 0.0
+     do
+        cut = cut+0.1
+        if (cut > 0.9) exit
+        ic = ic+1
+
+        do
+           ib = ib+1
+           if (arr(2,ib)>cut) then
+
+              h = (cut-arr(2,ib-1))/(arr(2,ib)-arr(2,ib-1))
+              write(141,*) ic,arr(1,ib-1)+h*(arr(1,ib)-arr(1,ib-1))
+              write(*,*) ic,arr(1,ib-1)+h*(arr(1,ib)-arr(1,ib-1))
+
+              exit
+           end if
+        end do
+
+     end do
+     write(141,*) ic+1,arr(1,nb)
 
   end if
 
-  write(*,*) 'nColl, nPart = ', nColl, nPart
+  write(*,*) '<nColl>, <nPart>, sigma_AB [mb] = ', nColl, nPart, s(3)*10.
 
 contains
 
@@ -250,7 +296,7 @@ contains
     real, parameter :: valEps = 1e-10
     real :: xA, yA, valA, fakA
     real :: xB, yB, valB, fakB
-    real :: SumColl, sumPart
+    real :: SumColl, SumPart
     integer :: i,j
 
     RA = NucA%dx*NucA%maxIndex
@@ -289,7 +335,6 @@ contains
           SumPart = SumPart &
                + valA * ( 1.0 - (1.0 - valB*fakB)**nB ) &
                + valB * ( 1.0 - (1.0 - valA*fakA)**nA )
-
 
        end do
     end do

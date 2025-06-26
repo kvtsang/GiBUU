@@ -64,8 +64,8 @@ program TryNuDIS
   TargetNuc%ID = 1
   TargetNuc%charge = 1
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
 
   !...Set up the initial kinematics:
@@ -77,15 +77,15 @@ program TryNuDIS
   eNev0%nucleon%ID = 1
   eNev0%nucleon%mass  = 0.938
   eNev0%nucleon%charge = 1
-  eNev0%nucleon%momentum  = (/0.938,    0d0, 0d0, 0d0/)
-  eNev0%nucleon_free%position=999999999.
+  eNev0%nucleon%mom  = (/0.938,    0d0, 0d0, 0d0/)
+  eNev0%nucleon_free%pos=999999999.
 
   eNev0%QSquared = -abs4Sq(eNev0%photon)
-  eNev0%W = abs4(eNev0%photon+eNev0%nucleon%momentum)
+  eNev0%W = abs4(eNev0%photon+eNev0%nucleon%mom)
     
   eNev0%nucleon_free      = eNev0%nucleon
 
-  eNev0%W_free = abs4(eNev0%photon+eNev0%nucleon_free%momentum)
+  eNev0%W_free = abs4(eNev0%photon+eNev0%nucleon_free%mom)
 
   call write_electronNucleon_event(eNev0,.FALSE.,.TRUE.)
 

@@ -3,8 +3,9 @@ program test
   use particleProperties, only: initParticleProperties
   implicit none
 
-  call initParticleProperties
   call readInputGeneral
+  call initParticleProperties
+
   call testXsection
 
 contains
@@ -18,7 +19,7 @@ contains
     use particleProperties, only: hadron, nDecays
     use resProd_lepton, only: sigma_pipi_res_vac, sigma_barmes_res_vac
     use ClebschGordan
-    use photonXSections, only: calcXS_gammaN2VN
+    use photonXS, only: calcXS_gammaN2VN
     use constants, only: mN
 
     real, dimension(0:3) :: sig2pi, sigRes_2Pi, sig2pi_VM
@@ -71,11 +72,11 @@ contains
     pro%ID = nucleon
     pro%charge = 1
     pro%mass = mN
-    pro%momentum(0) = mN
+    pro%mom(0) = mN
     neu%ID = nucleon
     neu%charge = 0
     neu%mass = mN
-    neu%momentum(0) = mN
+    neu%mom(0) = mN
 
     do i=1,150
        photonEnergy = 0.3 + i*0.01

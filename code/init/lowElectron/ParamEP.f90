@@ -41,9 +41,11 @@
 !   ``Longitudinal-transverse separations of structure functions at low Q**2
 !   for hydrogen and deuterium,''
 !   Phys.Rev.Lett.98:142301,2007.
-!   PhD thesis, http://www1.jlab.org/Ul/Publications/documents/thesis_V_Tvaskis.pdf
+!   PhD thesis,
+!   http://www1.jlab.org/Ul/Publications/documents/thesis_V_Tvaskis.pdf
 ! * A.Bodek, U.K.Yang,
-!   ``Modeling neutrino and electron scattering inelastic cross- sections in the few GeV region with effective LO PDFs TV Leading Order´´,
+!   ``Modeling neutrino and electron scattering inelastic cross- sections in
+!   the few GeV region with effective LO PDFs TV Leading Order´´,
 !   Contribution to NuInt 02 (2003), hep-ex/0308007
 !******************************************************************************
 module ParamEP
@@ -68,7 +70,7 @@ module ParamEP
   ! SOURCE
   integer, save :: useParam = 2
   ! PURPOSE
-  ! select, which parametrization to use:
+  ! select, which parametrization to use when CalcParamEP is called:
   ! * 1: Brasse
   ! * 2: Bosted
   !****************************************************************************
@@ -768,7 +770,7 @@ contains
   ! * real                        :: sigmaL, sigmaT  -- cross section
   !
   ! NOTES
-  ! This is the parametrization described in th epaper in chapter III D with
+  ! This is the parametrization described in the paper in chapter III D with
   ! the parameters given in table VI
   !
   ! returned cross sections in microbarn/GeV

@@ -85,7 +85,7 @@ contains
           if (parts(ensemble,index)%ID < 0) exit index_loop !!! ID==-1
           if (parts(ensemble,index)%ID <= 0) cycle index_loop
 
-          if (.not.parts(ensemble,index)%antiparticle) cycle index_loop
+          if (.not.parts(ensemble,index)%anti) cycle index_loop
 
           if (isMeson(parts(ensemble,index)%Id)) then
              write(*,*) ' Meson with antiparticle=.true. in decideOnAnnihilation !!!!'
@@ -239,10 +239,10 @@ contains
             if (parts(ensemble,index)%ID <= 0) cycle index_loop
 
             if ( isMeson(parts(ensemble,index)%Id) .or.&
-                 &parts(ensemble,index)%antiparticle ) cycle index_loop
+                 &parts(ensemble,index)%anti ) cycle index_loop
 
-            d2=dot_product( antiBaryon%position(1:3)-parts(ensemble,index)%position(1:3), &
-                 & antiBaryon%position(1:3)-parts(ensemble,index)%position(1:3) )
+            d2=dot_product( antiBaryon%pos(1:3)-parts(ensemble,index)%pos(1:3), &
+                 & antiBaryon%pos(1:3)-parts(ensemble,index)%pos(1:3) )
 
             if (d2 .gt. R**2) cycle index_loop
 
@@ -272,9 +272,9 @@ contains
          baryonDensity=float(baryonNumber)/float(numberEnsembles)/V
          !baryonDensity=float(baryonNumber)/V
       case (2)
-         baryonDensity = getBaryonDensity(antiBaryon%position)
+         baryonDensity = getBaryonDensity(antiBaryon%pos)
       case (3)
-         density=staticDensity(antiBaryon%position,getTarget())
+         density=staticDensity(antiBaryon%pos,getTarget())
          baryonDensity=density%baryon(0)
       case default
          write(*,*) ' In gamma (width of the antiproton): wrong imode '
@@ -294,7 +294,7 @@ contains
 
       Baryon=BaryonsFound(i)  ! Baryon is selected
 
-      betaToCM = lorentzCalcBeta (antiBaryon%momentum + Baryon%momentum, 'width')
+      betaToCM = lorentzCalcBeta(antiBaryon%mom + Baryon%mom)
       srtS=sqrtS((/antiBaryon,Baryon/),"width, srtS")
 
       if (.not.getRMF_flag() ) then
@@ -328,7 +328,7 @@ contains
          call setToDefault(finalState)
          call annihilate(antiBaryon,Baryon,time,finalState,collisionFlag,HiEnergyType)
          if (.not.collisionFlag) cycle loop_over_trials_anni
-         if ( .not.accept_event((/antiBaryon,Baryon/),finalState) ) then
+         if ( .not.accept_event((/antiBaryon,Baryon/),finalState,HiEnergyFlag) ) then
             write(*,*) 'In width: event not accepted, annihilation'
             cycle loop_over_trials_anni
          end if
@@ -353,7 +353,7 @@ contains
 
          finalState(1:4)%ID=chosenEvent(1:4)%ID
          finalState(1:4)%charge=chosenEvent(1:4)%charge
-         finalState(1:4)%antiParticle=chosenEvent(1:4)%antiParticle
+         finalState(1:4)%anti=chosenEvent(1:4)%anti
          finalState(1:4)%mass=chosenEvent(1:4)%mass
 
          if (.not.HiEnergyFlag) then  !**** NOT HIGH ENERGY ****
@@ -387,7 +387,7 @@ contains
 
          if (.not.collisionFlag) cycle loop_over_trials
 
-         if ( .not.accept_event((/antiBaryon,Baryon/),finalState) ) then
+         if ( .not.accept_event((/antiBaryon,Baryon/),finalState,HiEnergyFlag) ) then
             write(*,*) 'In width: event not accepted, nonannihilation'
             cycle loop_over_trials
          end if
@@ -414,10 +414,10 @@ contains
       ! Determine relative velocity:
       if ( .not.getRMF_flag() ) then
          vRel= get_pInitial((/antiBaryon,Baryon/),0) * sqrtS(antiBaryon,Baryon) &
-              &/antiBaryon%momentum(0)/Baryon%momentum(0)
+              &/antiBaryon%mom(0)/Baryon%mom(0)
       else
          vRel= pcm(srtS_star,mstar_antibar,mstar_bar) * srtS_star &
-              &/antiBaryon%momentum(0)/Baryon%momentum(0)
+              &/antiBaryon%mom(0)/Baryon%mom(0)
       end if
 
       width=baryonDensity*0.1*sigmaAnniRed*vRel
@@ -467,23 +467,23 @@ contains
          end if
       end do
 
-      position=0.5*(pair(1)%position+pair(2)%position)
+      position=0.5*(pair(1)%pos+pair(2)%pos)
 
       flag1= .false.
       flag2= .false.
       do k=lbound(finalState,dim=1),maxID
          if ( .not.flag1 .and. &
               isBaryon(finalState(k)%ID) .and. &
-              (pair(1)%antiparticle.eqv.finalState(k)%antiparticle) ) then
-            finalState(k)%position = pair(1)%position
+              (pair(1)%anti.eqv.finalState(k)%anti) ) then
+            finalState(k)%pos = pair(1)%pos
             flag1= .true.
          else if ( .not.flag2 .and. &
               isBaryon(finalState(k)%ID) .and. &
-              (pair(2)%antiparticle.eqv.finalState(k)%antiparticle) ) then
-            finalState(k)%position = pair(2)%position
+              (pair(2)%anti.eqv.finalState(k)%anti) ) then
+            finalState(k)%pos = pair(2)%pos
             flag2 = .true.
          else
-            finalState(k)%position = position
+            finalState(k)%pos = position
          end if
       end do
 
@@ -542,10 +542,10 @@ contains
 !             if (parts(ensemble,index)%ID <= 0) cycle index_loop
 !
 !             if ( isMeson(parts(ensemble,index)%Id) .or.&
-!                  &parts(ensemble,index)%antiparticle ) cycle index_loop
+!                  &parts(ensemble,index)%anti ) cycle index_loop
 !
-!             d2=dot_product( antiBaryon%position(1:3)-parts(ensemble,index)%position(1:3), &
-!                  & antiBaryon%position(1:3)-parts(ensemble,index)%position(1:3) )
+!             d2=dot_product( antiBaryon%pos(1:3)-parts(ensemble,index)%pos(1:3), &
+!                  & antiBaryon%pos(1:3)-parts(ensemble,index)%pos(1:3) )
 !
 !             if (d2 .gt. R**2) cycle index_loop
 !
@@ -590,10 +590,10 @@ contains
 !                ! Determine relative velocity:
 !                if ( .not.getRMF_flag() ) then
 !                   vRel= get_pInitial((/antiBaryon,Baryon/),0) * sqrtS(antiBaryon,Baryon) &
-!                        &/antiBaryon%momentum(0)/Baryon%momentum(0)
+!                        &/antiBaryon%mom(0)/Baryon%mom(0)
 !                else
 !                   vRel= pcm(srtS_star,mstar_antibar,mstar_bar) * srtS_star &
-!                        &/antiBaryon%momentum(0)/Baryon%momentum(0)
+!                        &/antiBaryon%mom(0)/Baryon%mom(0)
 !                end if
 !                sum= sum + vRel*sigmaAnni
 !             end if
@@ -634,7 +634,7 @@ contains
     use collisionNumbering
     use output, only: WriteParticleVector, DoPr
     use RMF, only: getRMF_flag
-    use densitymodule, only: updateRMF, storeFields
+    use densitymodule, only: updateRMF, storeFieldsRMF
     use Insertion, only: particlePropagated, setIntoVector
     use XsectionRatios, only: accept_event
     use Annihilation
@@ -705,7 +705,7 @@ contains
           if (parts(ensemble,index)%ID < 0) exit index_loop !!! ID==-1
           if (parts(ensemble,index)%ID <= 0) cycle index_loop
 
-          if (.not.parts(ensemble,index)%antiparticle) cycle index_loop
+          if (.not.parts(ensemble,index)%anti) cycle index_loop
 
           if (.not.isBaryon(parts(ensemble,index)%Id)) then
              write(*,*) ' Meson with antiparticle=.true. in DoAnnihilation !!!!'
@@ -724,11 +724,11 @@ contains
              if (parts(ensemble,index1)%ID < 0) exit index1_loop !!! ID==-1
              if (parts(ensemble,index1)%ID <= 0) cycle index1_loop
 
-             if (      parts(ensemble,index1)%antiparticle &
+             if (      parts(ensemble,index1)%anti &
                   & .or. isMeson(parts(ensemble,index1)%Id) ) cycle index1_loop
 
-             d2=dot_product( antibar%position(1:3)-parts(ensemble,index1)%position(1:3), &
-                  & antibar%position(1:3)-parts(ensemble,index1)%position(1:3) )
+             d2=dot_product( antibar%pos(1:3)-parts(ensemble,index1)%pos(1:3), &
+                  & antibar%pos(1:3)-parts(ensemble,index1)%pos(1:3) )
 
              if (d2 <= d2_min) then
                 d2_min=d2
@@ -763,7 +763,7 @@ contains
 
              if (.not.collisionFlag) cycle Loop_over_annihilation_events
 
-             if ( .not.accept_event((/antibar,bar/),finalState) ) then
+             if ( .not.accept_event((/antibar,bar/),finalState,.true.) ) then
                 write(*,*) ' Event not accepted'
                 collisionFlag=.false.
                 cycle Loop_over_annihilation_events
@@ -820,7 +820,7 @@ contains
 
     end do ensemble_loop
 
-    if (getRMF_flag()) call storeFields
+    if (getRMF_flag()) call storeFieldsRMF
 
     call analyse
 

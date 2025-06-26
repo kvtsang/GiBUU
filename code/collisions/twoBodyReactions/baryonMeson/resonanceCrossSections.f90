@@ -51,8 +51,8 @@ contains
     rewind(5)
     read(5,nml=ResonanceCrossSections,IOSTAT=ios)
     call Write_ReadingInput("ResonanceCrossSections",0,ios)
-    write(*,*) '  Use the full self energy in the propagator of the resonances?',fullPropagator
-    write(*,'(A)') '   (It should be TRUE only if mediumSwitch_coll=.true. in the namelist width_Baryon)'
+    write(*,*) 'Use the full self energy in the propagator of the resonances?',fullPropagator
+    write(*,'(A)') ' (It should be TRUE only if mediumSwitch_coll=.true. in namelist width_Baryon)'
 
     call Write_ReadingInput("ResonanceCrossSections",1)
 
@@ -82,7 +82,7 @@ contains
   real function resonanceMass(ID, charge, media, FourMomentum, position, perturbative)
     use particleDefinition
     use mediumDefinition
-    use baryonPotentialModule, only: baryonPotential
+    use baryonPotentialMain, only: baryonPotential
     use coulomb, only: emfoca
     use callstack
     use LorentzTrafo, only: lorentz
@@ -101,20 +101,20 @@ contains
     mom = FourMomentum
 
     ! boost to calc frame:
-    call lorentz(-media%betaLRF, mom, 'resonanceMass 1')
+    call lorentz(-media%betaLRF, mom)
     ! calculate Coulomb potential
     potC = emfoca(position, mom(1:3), charge, ID)
     mom(0) = mom(0) - potC
     ! boost back to LRF
-    call lorentz( media%betaLRF, mom, 'resonanceMass 2')
+    call lorentz( media%betaLRF, mom)
 
     ! determine hadronic potential
     if (media%useMedium) then
-      resonance%position = position
-      resonance%perturbative = perturbative
+      resonance%pos = position
+      resonance%pert = perturbative
       resonance%charge = charge
       resonance%Id = ID
-      resonance%momentum = mom
+      resonance%mom = mom
       potLRF = BaryonPotential(resonance, media, .false.)
     else
       potLRF = 0.
@@ -175,7 +175,8 @@ contains
     use twoBodyTools, only: pCM_sqr
     use constants, only: pi, GeVSquared_times_mb
     use IdTable, only: Delta, nbar, isMeson, isBaryon
-    use RMF, only: getRMF_flag
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
     use selfenergy_baryons, only: get_realPart,selfEnergy_imag
     use minkowski, only: abs3, abs4
 
@@ -191,8 +192,10 @@ contains
     real, dimension(Delta:nbar)      :: sigma
 
     integer :: resID, chargeRes, i1, i2, i3, iz1, iz2, iz3
+    integer, dimension(1:3) :: ind
     real :: momCM2, gamma_In, gammaTot, spinFactor, isoFactor, absMom_LRF, &
-         fullMass, PI_REAL, PI_IMAG
+         fullMass, PI_REAL, PI_IMAG, spotOut
+    logical :: flagInsideGrid
 
     if (initInput_Flag) call readInput()
 
@@ -209,10 +212,18 @@ contains
     absMom_LRF = abs3(momLRF)
     if (fullPropagator) fullmass = abs4(momLRF)
 
+    if(getRMF_flag() .and. flagCorThr) then
+       fullmass = abs4(momLRF)
+       flagInsideGrid=.false.
+       if(getGridIndex(position,ind,0)) flagInsideGrid=.true.
+    end if
+
     ! Loop over intermediate resonances R : m B->  R -> X
     do resId=Delta,nbar
        if (.not.hadron(resId)%usedForXsections) cycle ! Exclude resonances
        if (propagated.and.(.not.(hadron(resId)%propagated))) cycle
+
+       if (hadron(resId)%stability == 0) cycle ! resonance may not decay
 
        if (abs(hadron(idMeson_ini)%strangeness + hadron(idBaryon_ini)%strangeness - hadron(resID)%strangeness) > 0) cycle   ! strangeness conservation
        if (abs(hadron(idMeson_ini)%charm       + hadron(idBaryon_ini)%charm       - hadron(resID)%charm)       > 0) cycle   ! charm conservation
@@ -239,7 +250,15 @@ contains
          masses(resID) = resonanceMass(resID, chargeRes, mediumAtColl, momLRF, position, perturbative)
          if (.not. masses(resID)>0.) cycle   ! this can happen if the potential gets too strong
        else if (present(srts)) then
-         masses(resID)=srts
+          if(flagCorThr) then
+             spotOut=0.
+             if(flagInsideGrid) &
+                & spotOut = SelfEnergy_scalar(ind(1),ind(2),ind(3),resId,.false.)
+             masses(resID) = fullmass - spotOut
+             if (.not. masses(resID)>0.) cycle
+          else
+             masses(resID)=srts
+          end if
        else
          write(*,*) ' In barMes2resonance: srts must present in RMF mode !!!'
          stop
@@ -248,6 +267,7 @@ contains
        if (debug) write(*,*) masses(resID), resID
 
        momCM2 = pCM_sqr(masses(resID)**2, mesonMass**2, baryonMass**2)
+
        if (momCM2 <= 0.) cycle
 
        if (debug) write(*,*) 'momCM2=',momCM2,'mass=',masses(ResID),'mesmass=', mesonMass,'barmass=', baryonMass
@@ -340,7 +360,8 @@ contains
     use particleProperties, only: hadron, isNonExotic
     use ClebschGordan, only: CG
     use constants, only: pi, GeVSquared_times_mb
-    use RMF, only: getRMF_flag
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
     use selfenergy_baryons, only: get_realPart, selfEnergy_imag
     use minkowski, only: abs3, abs4
     use IdTable, only: Delta, nbar, isBaryon, isMeson
@@ -356,8 +377,10 @@ contains
     real :: sigma
 
     integer :: resID, chargeRes, i1, i2, i3, iz1, iz2, iz3
+    integer, dimension(1:3) :: ind
     real :: momCM2, Gamma_In, Gamma_Out, Gamma_Tot, spinFactor, isoFactor, &
-         massRes, absMom_LRF, fullMass, PI_REAL, PI_IMAG
+         massRes, absMom_LRF, fullMass, PI_REAL, PI_IMAG, spotOut
+    logical :: flagInsideGrid
 
     if (initInput_Flag) call readInput()
 
@@ -381,6 +404,12 @@ contains
     chargeRes = chargeMes_in + chargeBar_in
     absMom_LRF = abs3(momLRF)
     if (fullPropagator) fullmass = abs4(momLRF)
+
+    if(getRMF_flag() .and. flagCorThr) then
+       fullmass = abs4(momLRF)
+       flagInsideGrid=.false.
+       if(getGridIndex(position,ind,0)) flagInsideGrid=.true.
+    end if
 
     ! Loop over intermediate resonances R : m B -> R -> m' B'
     do resID = Delta, nbar
@@ -426,7 +455,15 @@ contains
                position, perturbative)
           if (.not. massRes>0.) cycle   ! this can happen if the potential gets too strong
        else if (present(srts)) then
-          massres = srts
+          if(flagCorThr) then
+              spotOut=0.
+              if(flagInsideGrid) &
+                 & spotOut = SelfEnergy_scalar(ind(1),ind(2),ind(3),resId,.false.)
+              massRes = fullmass - spotOut
+              if (.not. massRes>0.) cycle
+          else
+              massRes = srts
+          end if
        else
          write(*,*) ' In barMes_R_barMes: srts must present in RMF mode !!!'
          stop

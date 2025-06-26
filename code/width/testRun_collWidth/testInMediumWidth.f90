@@ -4,10 +4,40 @@ use particleProperties, only: initParticleProperties
 
 call readInputGeneral
 call initParticleProperties
+
+!call tester_nuc
 !call tester_bar
-call tester_mes
+!call tester_mes
+!call writePhotoProduction
+!call dumpNucleon
+call writePionProduction
 
 end program test
+
+subroutine dumpNucleon
+  use baryonWidthMedium_tables, only : dumpTable
+
+  call dumpTable(200,1, -1,-1,0,0, 1)
+  call dumpTable(201,1, -1,-1,1,1, 1)
+  call dumpTable(202,1, -1,-1,2,2, 1)
+  call dumpTable(203,1, -1,-1,3,3, 1)
+  call dumpTable(204,1, -1,-1,4,4, 1)
+
+end subroutine dumpNucleon
+
+subroutine tester_nuc
+  use baryonWidthMedium_tables, only : dumpTable
+
+  call dumpTable(113,1, -1,1,1,1, 1)
+  write(113,*)
+  call dumpTable(113,1, 10,-1,3,3, 2)
+
+  call dumpTable(114,1, -1,-1,3,3, 12)
+
+
+
+
+end subroutine tester_nuc
 
 
 subroutine tester_bar
@@ -33,17 +63,19 @@ subroutine tester_bar
      write(57,*) '#rho=',rhoN+rhoP
      write(57,*) '#ID=',particleID
      mass=0.938
-     do k=0,100 
+     do k=0,100
         pabs=float(k)*0.01
         momentum=(/sqrt(mass**2+pabs**2),pabs,0.,0./)
-        write(57,'(5E18.6)') pabs,mass, get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,1)&
-             , get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,2), get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,3)
+        write(57,'(5E18.6)') pabs,mass, &
+             get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,1), &
+             get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,2), &
+             get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,3)
      end do
      close(57)
   end do
- 
 
-  do particleID=2,2     
+
+  do particleID=4,4
      do i=0,4
         Open(57,File='WidthBar_'//IntToChar(particleID)//'_rho_'//intToChar(i)//'.dat')
         rhoN=rho/4.*float(i)/2.
@@ -53,12 +85,13 @@ subroutine tester_bar
         do j=0,100
 !        write(*,*) "j",j
            mass=0.8+float(j)*0.02
-           do k=0,34 
+           do k=0,34
               pabs=float(k)*0.03
               momentum=(/sqrt(mass**2+pabs**2),pabs,0.,0./)
-              write(57,'(5G18.6)') pabs,mass, get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,1)&
-                   & , get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,2),&
-                   & get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,3)
+              write(57,'(5G18.6)') pabs,mass, &
+                   get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,1), &
+                   get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,2), &
+                   get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,3)
 
            end do
            write(57,*)
@@ -72,7 +105,7 @@ end subroutine tester_bar
 
 
 subroutine tester_mes
-  use output  
+  use output
   use mesonWidthMedium_tables, only : get_inMediumWidth,numSteps_absP,numSteps_mass
   use mediumDefinition
   implicit none
@@ -94,7 +127,7 @@ subroutine tester_mes
 !  particleID=101   ! pion
   particleID=102   ! eta
 !  particleID=104   ! sigmaMeson
-!  particleID=105   ! omegaMeson  
+!  particleID=105   ! omegaMeson
   do i=4,4 !1,4
      !     Open(57,File='WidthMes_'//inttochar(particleID)//'_rho_'//intToChar(i)//'.dat')
      !     Open(57,File='WidthMes_'//inttochar(particleID)//'_pion_'//intToChar(i)//'.dat')
@@ -106,7 +139,7 @@ subroutine tester_mes
      rhoP=rho/4.*float(i)/2.
      med%densityNeutron = rhoN
      med%densityProton = rhoP
-     
+
      write(57,*) '#rhoN', rhoN
      write(57,*) '#rhoP', rhoP
 
@@ -118,10 +151,96 @@ subroutine tester_mes
          do k=0,numSteps_absP
              pabs=float(k)*delta_absP
              write(57,'(3E18.6)') pabs,mass,get_inMediumWidth(particleID,pabs,mass,med)
-             
+
          end do
      end do
   end do
   close(57)
-  
+
 end subroutine tester_mes
+
+subroutine writePhotoProduction
+  use output
+  use baryonWidthMedium_tables, only : get_inMediumWidth
+!  use IdTable, only : nres
+  implicit none
+  integer :: i,j,k,particleID
+  real,parameter :: rho=0.16
+!  real,parameter :: rho=0.001
+  real :: rhoN,rhoP,pabs,mass
+  real, dimension(0:3) :: momentum
+  real :: mN
+
+  do particleID=4,4
+     do i=0,4
+        Open(57,File='PhotoProd_'//IntToChar(particleID)//'_rho_'//intToChar(i)//'.dat')
+        rhoN=rho/4.*float(i)/2.
+        rhoP=rho/4.*float(i)/2.
+!!$        write(57,*) '#rho=',rhoN+rhoP
+!!$        write(57,*) '#ID=',particleID
+
+        mN = 0.938
+
+        do j=100,300
+           !        write(*,*) "j",j
+           !           mass=0.8+float(j)*0.02
+           mass = j*0.01
+
+           if (mass<mN) cycle
+           pabs = (mass**2-mN**2)/(2*mN)
+           momentum=(/sqrt(mass**2+pabs**2),pabs,0.,0./)
+           write(57,'(5G18.6)') pabs,mass, &
+                get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,1),&
+                get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,2),&
+                get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,3)
+
+        end do
+     end do
+     close(57)
+  end do
+
+end subroutine writePhotoProduction
+
+
+subroutine writePionProduction
+  use output
+  use baryonWidthMedium_tables, only : get_inMediumWidth
+!  use IdTable, only : nres
+  implicit none
+  integer :: i,j,k,particleID
+  real,parameter :: rho=0.16
+!  real,parameter :: rho=0.001
+  real :: rhoN,rhoP,pabs,mass
+  real, dimension(0:3) :: momentum
+  real,parameter :: mN=0.938
+  real,parameter :: mPi=0.138
+  real :: Ekin
+
+
+  do particleID=2,2
+     do i=0,4
+        Open(57,File='PionProd_'//IntToChar(particleID)//'_rho_'//intToChar(i)//'.dat')
+        rhoN=rho/4.*float(i)/2.
+        rhoP=rho/4.*float(i)/2.
+!!$        write(57,*) '#rho=',rhoN+rhoP
+!!$        write(57,*) '#ID=',particleID
+
+
+
+        do j=1,300
+           Ekin = j*0.001
+           pabs = sqrt((Ekin+mPi)**2-mPi**2) ! = p_pi = p_Delta
+           mass = sqrt((Ekin+mPi+mN)**2-pabs**2) ! = sqrt(E_delta^2-p_Delta^2)
+
+           momentum=(/sqrt(mass**2+pabs**2),pabs,0.,0./)
+           write(57,'(5G18.6)') pabs,mass, &
+                get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,1),&
+                get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,2),&
+                get_inMediumWidth(particleID,momentum,mass,rhoN,rhoP,3)
+
+        end do
+     end do
+     close(57)
+  end do
+
+end subroutine writePionProduction

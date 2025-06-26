@@ -6,14 +6,14 @@
 ! PURPOSE
 ! Provides the form factors for electro-weak resonance excitation.
 !
-! INPUTS
-! Via FF_ResProd (namelist "input_FF_ResProd" in the Jobcard) one might choose
-! whether the form factors are calculated from MAID's helicity amplitudes directly
+! One might choose whether the form factors are calculated from MAID's
+! helicity amplitudes directly
 ! or whether the fit of Lalakulich (PRD 74, 014009 (2006)) is used.
 !
 !******************************************************************************
 module formFactor_ResProd
   use leptonicID
+  use callstack, only: traceback
 
   implicit none
 
@@ -39,11 +39,11 @@ module formFactor_ResProd
   !
   integer, save :: FF_ResProd=0
   ! PURPOSE
-  ! With FF_ResProd (namelist "input_FF_ResProd" in the Jobcard) one can choose
-  ! how the form factors are calculated:
+  ! select how the form factors are calculated:
   ! * 0: MAID's helicity amplitudes (Luis' helicity expressions - CM frame)
   ! * 1: fit of Lalakulich (PRD 74, 014009 (2006))
-  ! * 2: MAID's helicity amplitudes (Lalakulich's helicity expressions - LAB frame)
+  ! * 2: MAID's helicity amplitudes (Lalakulich's helicity expressions
+  !   - LAB frame)
   !****************************************************************************
 
 
@@ -64,16 +64,27 @@ module formFactor_ResProd
   !****g* formFactor_ResProd/MA
   ! SOURCE
   !
-  real, save :: MA=0.95   ! 0.95 tuned to ANL  ! 1.3 tuned to BNL
+  real, save :: MA=1.05   ! 0.95 tuned to ANL  ! 1.3 tuned to BNL
   ! PURPOSE
-  ! delta resonance axial mass parameter.
+  ! Delta resonance axial mass parameter.
+  ! Wilkinson et al have shown in Phys.Rev.D 90 (2014) that the ANL pion
+  ! production data are more reliable than the BNL ones.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* formFactor_ResProd/C5A0corr
+  ! SOURCE
+  !
+  real, save :: C5A0corr = 0.85
+  ! PURPOSE
+  ! fit parameter for C_5^A (Adler), adjusts strength of C5A0 for the Delta
   !****************************************************************************
 
   !****************************************************************************
   !****g* formFactor_ResProd/aDelta
   ! SOURCE
   !
-  real, save :: aDelta=-0.25
+  real, save :: aDelta= 0
   ! PURPOSE
   ! fit parameter for C_5^A (Adler)
   !****************************************************************************
@@ -82,7 +93,7 @@ module formFactor_ResProd
   !****g* formFactor_ResProd/bDelta
   ! SOURCE
   !
-  real, save :: bDelta=0.04
+  real, save :: bDelta= 0
   ! PURPOSE
   ! fit parameter for C_5^A (Adler)
   !****************************************************************************
@@ -112,9 +123,7 @@ module formFactor_ResProd
   logical, save :: HNV_axialFF=.false.
   !
   ! PURPOSE
-  ! With .true. or .false. HNV_axialFF (namelist "input_FF_ResProd" in the
-  ! Jobcard)
-  ! one can choose which axial form factors to use for Delta-resonance:
+  ! choose axial form factors for the Delta:
   ! * .true. is Hernandez-Nieves-Valverde fit with C5A=0.867,MA=0.985 (PRD 76)
   ! * .false. is as it was used by Lalakulich et al in PRD 74
   !****************************************************************************
@@ -127,9 +136,10 @@ module formFactor_ResProd
   real, save :: nenner_C5A_Lalakulich=3.0
   !
   ! PURPOSE
-  ! Factor wich appear in the Lalakulich parameterization of the axial C_5^A form factor
-  ! 3.0 was fitted to BNL and  used in Lalakulich PRD71 and PRD 74
-  ! fit of ANL gave 0.5
+  ! Factor which appears in the Lalakulich parameterization of the axial
+  ! C_5^A form factor:
+  ! * 3.0 was fitted to BNL and used in Lalakulich PRD71 and PRD 74
+  ! * 0.5 is given by a fit of ANL
   !****************************************************************************
 
 
@@ -140,10 +150,8 @@ module formFactor_ResProd
   logical, save :: refit_barnu_axialFF=.false.
   !
   ! PURPOSE
-  !
-  ! With .true. refit_barnu_axialFF (namelist "input_FF_ResProd" in the Jobcard)
-  ! means that the axial form factors are refitted to explain the low value
-  ! of antineutrino cross section ( exper data  Bolognese PLB81,393 (1979) )
+  ! if .true., axial form factors are refitted to explain the low value
+  ! of antineutrino cross section (exp. data  Bolognese PLB81,393 (1979))
   !****************************************************************************
 
 
@@ -155,9 +163,7 @@ module formFactor_ResProd
   logical, save :: W_cutOff_switch=.false.
   ! PURPOSE
   ! Switch to include a W-dependent cut-off function for the vector form
-  ! factor of the Delta:
-  ! * false = excluded
-  ! * true  = included
+  ! factor of the Delta
   !****************************************************************************
 
   !****************************************************************************
@@ -167,11 +173,10 @@ module formFactor_ResProd
   logical, save :: W_cutOff_switchAll=.false.
   ! PURPOSE
   ! Switch to include a W-dependent cut-off function for the vector and the
-  ! axial form factor of all resonances:
-  ! * false = excluded
-  ! * true  = included
+  ! axial form factor of all resonances
   ! NOTES
-  ! we assume the same dependence as for the Delta vector form factor
+  ! For the Delta, the cut off W_cutOff_lambda is used. For all other 
+  ! resonances the pole mass is used, i.e. lambda = mass
   !****************************************************************************
 
   !****************************************************************************
@@ -181,6 +186,10 @@ module formFactor_ResProd
   real, save :: W_cutOff_lambda=1.071
   ! PURPOSE
   ! Value for lambda in the W-dependent cut-off function.
+  !
+  ! NOTES
+  ! cf. https://gibuu.hepforge.org/trac/wiki/Xsections/Compton
+  ! and J.Weil, PhD thesis, fig. 8
   !****************************************************************************
 
   !****************************************************************************
@@ -189,9 +198,7 @@ module formFactor_ResProd
   !
   logical, save :: vector_FF_switch=.true.
   ! PURPOSE
-  ! Switch to turn off the vector form factors:
-  ! * false = off
-  ! * true  = on
+  ! Switch to turn off the vector form factors
   !****************************************************************************
 
   !****************************************************************************
@@ -200,16 +207,13 @@ module formFactor_ResProd
   !
   logical, save :: axial_FF_switch=.true.
   ! PURPOSE
-  ! Switch to turn off the axial form factors:
-  ! * false = off
-  ! * true  = on
+  ! Switch to turn off the axial form factors
   !****************************************************************************
 
 
 contains
   subroutine readInputResProdFormFactors
     use output
-    use callstack, only: traceback
  !   use singlePionProductionMAIDlike
  !   use readresparam, only: MADelta
 
@@ -224,6 +228,7 @@ contains
     ! * aDelta
     ! * bDelta
     ! * cDelta
+    ! * C5A0corr
     ! * DeltaAxFF
     ! * HNV_axialFF
     ! * nenner_C5A_Lalakulich
@@ -236,7 +241,7 @@ contains
     ! * DeltaCouplrelErr
     ! * MA
     !**************************************************************************
-    NAMELIST /input_FF_ResProd/ FF_ResProd,aDelta,bDelta,cDelta,&
+    NAMELIST /input_FF_ResProd/ FF_ResProd,aDelta,bDelta,C5A0corr,cDelta,&
          & DeltaAxFF,HNV_axialFF, &
          & nenner_C5A_Lalakulich, refit_barnu_axialFF, &
          & W_cutOff_lambda,W_cutOff_switch,vector_FF_switch,axial_FF_switch,&
@@ -250,13 +255,17 @@ contains
 
     select case (FF_ResProd)
     case (0)
-       write(*,*) 'form factors for resonance production: MAID with Luis helicity amplitudes'
+       write(*,*) 'form factors for resonance production: ', &
+       'MAID with Luis helicity amplitudes'
     case (1)
-       write(*,*) 'form factors for resonance production: Lalakulich Fit'
+       write(*,*) 'form factors for resonance production: ', &
+       'Lalakulich Fit'
     case (2)
-       write(*,*) 'form factors for resonance production: MAID with Lalakulich helicity ampl'
+       write(*,*) 'form factors for resonance production: ', &
+            'MAID with Lalakulich helicity ampl'
     case default
-       write(*,*) 'form factors for resonance production: something strange', FF_ResProd
+       write(*,*) 'form factors for resonance production: ', &
+            'something strange', FF_ResProd
        call traceback()
     end select
 
@@ -264,13 +273,13 @@ contains
     write(*,*) 'assumed error in delta C5A(0): ', DeltaCouplrelErr
     select case (deltaAxFF)
     case (1)
-       write(*,'(a,2F12.4)') ' using Adlers form for delta C_5^A with fit parameters a, b: ', &
-                             &  aDelta, bDelta
+       write(*,'(a,a,3F12.4)') ' using Adlers form for delta C_5^A ', &
+       'with fit parameters a, b, C5A0corr: ', aDelta, bDelta, C5A0corr
     case (2)
-       write(*,'(a,F12.4)') ' using Paschos form for delta C_5^A with fit parameters c: ', &
-                             & cDelta
+       write(*,'(a,a,F12.4)') ' using Paschos form for delta C_5^A ', &
+            'with fit parameters c: ', cDelta
     case (3)
-       write(*,'(a,F12.4)') ' using dipole form for delta C_5^A'
+       write(*,'(a)') ' using dipole form for delta C_5^A'
     case default
        write(*,*) 'wrong input for deltaAxFF:',deltaAxFF
        call traceback()
@@ -278,18 +287,22 @@ contains
 
     if (W_cutOff_switch) then
        write(*,*) 'W-dependence in vector form factor of Delta is INCLUDED!'
-       write(*,'(a,F12.4)') ' -> Value for the cut-off factor lambda:', W_cutOff_lambda
+       write(*,'(a,F12.4)') ' -> Value for the cut-off factor lambda:', &
+            W_cutOff_lambda
     end if
     if (W_cutOff_switchAll) then
        write(*,*) 'W-dependence in all form factors of all resonances is INCLUDED!'
-       write(*,'(a,F12.4)') ' -> Value for the cut-off factor lambda:', W_cutOff_lambda
+       write(*,'(a,F12.4)') ' -> Value for the cut-off factor lambda:', &
+            W_cutOff_lambda
     end if
     if (.not.W_cutOff_switch.and..not.W_cutOff_switchAll) then
        write(*,*) 'W-dependence in form factors is EXCLUDED!'
     end if
 
-    if (.not.vector_FF_switch) write(*,*) 'WARNING: vector FF are switched off!!!'
-    if (.not.axial_FF_switch)  write(*,*) 'WARNING: axial FF are switched off!!!'
+    if (.not.vector_FF_switch) &
+         write(*,*) 'WARNING: vector FF are switched off!!!'
+    if (.not.axial_FF_switch)  &
+         write(*,*) 'WARNING: axial FF are switched off!!!'
 
     if (HNV_axialFF) then
        if (FF_ResProd.eq.1) then
@@ -302,8 +315,8 @@ contains
 
 
     if (refit_barnu_axialFF .and. HNV_axialFF) then
-       call traceback('Only one of the parameters HNV_axialFF  _OR_  refit_barnu_axialFF  &
-                     & can be true, not both. STOP')
+       call traceback('Only one of the parameters HNV_axialFF  _OR_  &
+            &refit_barnu_axialFF can be true, not both. STOP')
     end if
 
     call Write_ReadingInput('input_FF_ResProd',1)
@@ -313,7 +326,7 @@ contains
   !****************************************************************************
   !****f* formFactor_ResProd/getFormfactor_Res
   ! NAME
-  ! function getFormfactor_Res (Qs, bare_mass, resID, targetCharge, process, FF_set)
+  ! function getFormfactor_Res(Qs, bare_mass, resID, targetCharge, process, flagOK)
   !
   ! PURPOSE
   ! This function serves as an interface to the subroutines which calculate
@@ -321,29 +334,32 @@ contains
   !
   ! INPUTS
   ! * real      :: Qs            -- momentum transfer
-  ! * real      :: bare_mass     -- bare mass of the resonance (no potentials included!)
+  ! * real      :: bare_mass     -- bare mass of the resonance
+  !   (no potentials included!)
   ! * integer   :: resID         -- ID of resonance (see IDtable)
   ! * integer   :: targetCharge  -- charge of target (nucleon)
   ! * integer   :: process       -- EM, CC or NC (or anti if negative)
-  ! * logical   :: FF_set        -- controll flag whether form factors
-  !                                 have been set successfully
+  ! * logical   :: flagOK        -- control flag whether form factors
+  !   have been set successfully
   !
   ! OUTPUT
   ! real, dimension(1:8)  :: getFormfactor_Res --
   ! first 4 entries contain the vector form factors,
   ! last 4 entries contain the axial form factors
   !****************************************************************************
-  function getFormfactor_Res (Qs, bare_mass, resID, targetCharge, process, FF_set)  &
-                             & result (formfactorfield)
+  function getFormfactor_Res(Qs, bare_mass, resID, targetCharge, process, &
+       flagOK)  result (FF)
+
     use IDTable, only: Delta
     use particleProperties, only: hadron
     use distributions, only: markusPostFormfactor
 
     real, intent(in) :: Qs, bare_mass
     integer, intent(in) :: resID, process, targetCharge
-    logical, intent(out) :: FF_set             !true if form factors set,
-    ! false if form factors could not be set
-    real, dimension(1:8) :: formfactorfield    !convention: 4 x FF_V, 4 x FF_A
+    logical, intent(out) :: flagOK
+    real, dimension(1:8) :: FF    !convention: 4 x FF_V, 4 x FF_A
+
+    real :: L
 
     !*** Read input:
     if (initFlag) then
@@ -351,43 +367,53 @@ contains
        initFlag=.false.
     end if
 
-    formfactorfield=0.
+    FF=0.
 
-    FF_set=.true.
+    flagOK=.true.
 
-    if (FF_ResProd.eq.0) then
-       call vectorformfactor_MAID_CM(formfactorfield(1:4),Qs,resID,targetCharge,process,FF_set)
-       if (process.ne.EM) call axialformfactor(formfactorfield(5:8),Qs,resID,targetCharge, &
-       & process,FF_set)
+    select case(FF_ResProd)
+    case (0)
+       call vecFF_MAID_CM(FF(1:4),Qs,resID,targetCharge,process,flagOK)
+       if (abs(process).ne.EM) &
+            call axialFF(FF(5:8),Qs,resID,targetCharge, process,flagOK)
 
-    else if (FF_ResProd.eq.1) then
-       call vectorformfactor_Lalakulich(formfactorfield(1:4),Qs,resID,targetCharge,process, &
-       & FF_set)
-       if (process.ne.EM) call axialformfactor_Lalakulich(formfactorfield(5:8),Qs,resID,  &
-          & targetCharge,process,FF_set)
+    case (1)
+       call vecFF_Lala(FF(1:4),Qs,resID,targetCharge,process, flagOK)
+       if (abs(process).ne.EM) &
+            call axialFF_Lala(FF(5:8),Qs,resID, targetCharge,process,flagOK)
 
-    else if (FF_ResProd.eq.2) then
-       call vectorformfactor_MAIDLala(formfactorfield(1:4),Qs,resID,targetCharge,process,FF_set)
-       if (process.ne.EM) call axialformfactor(formfactorfield(5:8),Qs,resID,targetCharge, &
-          & process,FF_set)
+    case (2)
+       call vecFF_MAIDLala(FF(1:4),Qs,resID,targetCharge,process,flagOK)
+       if (abs(process).ne.EM) &
+            call axialFF(FF(5:8),Qs,resID,targetCharge, process,flagOK)
 
-    end if
+    end select
 
     ! W-dependence for the vector form factors of the Delta
     if (W_cutoff_switch .and. (resID==Delta) .and. bare_mass>0) then
-      formfactorfield(1:4) = formfactorfield(1:4) &
-                           * markusPostFormfactor(bare_mass,hadron(resID)%mass,  &
-                           & hadron(resID)%minmass,W_cutoff_lambda)
+       FF(1:4) = FF(1:4) &
+            * markusPostFormfactor(bare_mass,hadron(resID)%mass,  &
+            & hadron(resID)%minmass,W_cutoff_lambda)
     end if
     ! W-dependence for all form factors of all resonances
     if (W_cutoff_switchAll .and. bare_mass>0) then
-      formfactorfield(1:8) = formfactorfield(1:8) &
-                           * markusPostFormfactor(bare_mass,hadron(resID)%mass,  &
-                           & hadron(resID)%minmass,W_cutoff_lambda)
+!!$       FF(1:8) = FF(1:8) &
+!!$            * markusPostFormfactor(bare_mass,hadron(resID)%mass,  &
+!!$            & hadron(resID)%minmass,W_cutoff_lambda)
+
+       select case (resID)
+       case (2)
+          L = W_cutoff_lambda
+       case default
+          L = hadron(resID)%mass
+       end select
+       FF(1:8) = FF(1:8) &
+            * markusPostFormfactor(bare_mass,hadron(resID)%mass,  &
+            & hadron(resID)%minmass,L)
     end if
 
-    if (.not.vector_FF_switch) formfactorfield(1:4)=0.
-    if (.not.axial_FF_switch)  formfactorfield(5:8)=0.
+    if (.not.vector_FF_switch) FF(1:4)=0.
+    if (.not.axial_FF_switch)  FF(5:8)=0.
 
 
   end function getFormfactor_Res
@@ -397,9 +423,9 @@ contains
 
 
   !****************************************************************************
-  !****s* formFactor_ResProd/vectorformfactor_MAID_CM
+  !****s* formFactor_ResProd/vecFF_MAID_CM
   ! NAME
-  ! subroutine vectorformfactor_MAID_CM(vecformfactor,Qs,resID,targetCharge,process,FF_set)
+  ! subroutine vecFF_MAID_CM(FF,Qs,resID,targetCharge,process,flagOK)
   !
   ! PURPOSE
   ! returns the vector form factors calculated using the MAID helicity
@@ -410,13 +436,13 @@ contains
   ! * integer   :: resID         -- ID of resonance (see IDtable)
   ! * integer   :: targetCharge  -- charge of target (nucleon)
   ! * integer   :: process       -- EM, CC or NC (or anti if negative)
-  ! * logical   :: FF_set        -- controll flag whether form factors
-  !                                 have been set successfully
+  ! * logical   :: flagOK        -- control flag whether form factors
+  !   have been set successfully
   !
   ! OUTPUT
-  ! * real, dimension(1:4):: vecformfactor  --   contains the vector FF
+  ! * real, dimension(1:4):: FF  --   contains the vector FF
   !****************************************************************************
-  subroutine vectorformfactor_MAID_CM(vecformfactor,Qs,resID,targetCharge,process,FF_set)
+  subroutine vecFF_MAID_CM(FF,Qs,resID,targetCharge,process,flagOK)
     use IDtable
     use particleProperties, only: hadron
     use constants, only: sinsthweinbg
@@ -424,25 +450,24 @@ contains
 
     real,  intent(in) :: Qs
     integer, intent(in) :: resID, process, targetCharge
-    real, dimension(1:4), intent(out) :: vecformfactor
-    logical, intent(inout) :: FF_set            !true if form factors set,
-                                                !false if form factors could not be set
+    real, dimension(1:4), intent(out) :: FF
+    logical, intent(inout) :: flagOK
 
     real,dimension(0:1) :: C3,C4,C5
     integer, parameter :: QS_max_index=400 ! Number of grid points in Q^2 for tabulation
-    real, parameter    :: QS_max=2.          ! Maximal Q^2 for tabulating the form factors
+    real, parameter    :: QS_max=2.        ! Maximal Q^2 for tabulation
     real, save         :: QS_delta
     real,dimension(0:1,nucleon+1:nucleon+nres,0:QS_max_index),save :: C3_table,C4_table,C5_table
 
-    logical, dimension(nucleon+1:nucleon+nres),save :: FF_SET_table
+    logical, dimension(nucleon+1:nucleon+nres),save :: arrFlagOK
     integer :: QSquared_index
-    logical ,save :: firstTime=.true.
+    logical, save :: firstTime=.true.
     logical, parameter :: useTable=.true.
 
-    vecformfactor=0.
+    FF=0.
 
     if (resid.eq.nucleon) then
-       ff_set=.false.
+       flagOK=.false.
        return
     end if
 
@@ -451,7 +476,7 @@ contains
        QS_delta=QS_max/float(QS_max_index)
        call write_initstatus('Tabulating form factors for resonance production  &
                             & using CM helicity amplitudes',0)
-       call tabulate(FF_SET_table,C3_table,C4_table,C5_table)
+       call tabulate(arrFlagOK,C3_table,C4_table,C5_table)
        call write_initstatus('Tabulating form factors for resonance production  &
                             & using CM helicity amplitudes',1)
     end if
@@ -462,62 +487,60 @@ contains
        C3=C3_table(0:1,resID,QSquared_index)
        C4=C4_table(0:1,resID,QSquared_index)
        C5=C5_table(0:1,resID,QSquared_index)
-       FF_SET=FF_SET_table(resID)
+       flagOK=arrFlagOK(resID)
     else
        ! Calculate explicitly
-       call MAID_CM(C3,C4,C5,Qs,resID,FF_set)
+       call MAID_CM(C3,C4,C5,Qs,resID,flagOK)
     end if
 
-    if (.not.FF_SET) then
-       return
-    end if
+    if (.not.flagOK) return
 
 
     select case (process)
 
     case (EM,antiEM)
-       vecformfactor(1)=C3(targetCharge)
-       vecformfactor(2)=C4(targetCharge)
-       vecformfactor(3)=C5(targetCharge)
-       FF_set=.true.
+       FF(1)=C3(targetCharge)
+       FF(2)=C4(targetCharge)
+       FF(3)=C5(targetCharge)
+       flagOK=.true.
 
     case (CC,antiCC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
           !see appendix of Luis notes for the minus
-          vecformfactor(1)=-C3(targetCharge)
-          vecformfactor(2)=-C4(targetCharge)
-          vecformfactor(3)=-C5(targetCharge)
+          FF(1)=-C3(targetCharge)
+          FF(2)=-C4(targetCharge)
+          FF(3)=-C5(targetCharge)
        case (1)
-          vecformfactor(1)=C3(proton)-C3(neutron)
-          vecformfactor(2)=C4(proton)-C4(neutron)
-          vecformfactor(3)=C5(proton)-C5(neutron)
+          FF(1)=C3(proton)-C3(neutron)
+          FF(2)=C4(proton)-C4(neutron)
+          FF(3)=C5(proton)-C5(neutron)
        end select
-       FF_set=.true.
+       flagOK=.true.
 
     case (NC,antiNC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
           !see appendix of Luis notes for the minus
-          vecformfactor(1)=-(1.-2.*sinsthweinbg)*C3(targetCharge)
-          vecformfactor(2)=-(1.-2.*sinsthweinbg)*C4(targetCharge)
-          vecformfactor(3)=-(1.-2.*sinsthweinbg)*C5(targetCharge)
+          FF(1)=-(1.-2.*sinsthweinbg)*C3(targetCharge)
+          FF(2)=-(1.-2.*sinsthweinbg)*C4(targetCharge)
+          FF(3)=-(1.-2.*sinsthweinbg)*C5(targetCharge)
        case (1)
           if (targetcharge.eq.proton) then
-             vecformfactor(1)=(0.5-2.*sinsthweinbg)*C3(proton)-0.5*C3(neutron)
-             vecformfactor(2)=(0.5-2.*sinsthweinbg)*C4(proton)-0.5*C4(neutron)
-             vecformfactor(3)=(0.5-2.*sinsthweinbg)*C5(proton)-0.5*C5(neutron)
+             FF(1)=(0.5-2.*sinsthweinbg)*C3(proton)-0.5*C3(neutron)
+             FF(2)=(0.5-2.*sinsthweinbg)*C4(proton)-0.5*C4(neutron)
+             FF(3)=(0.5-2.*sinsthweinbg)*C5(proton)-0.5*C5(neutron)
           else
-             vecformfactor(1)=(0.5-2.*sinsthweinbg)*C3(neutron)-0.5*C3(proton)
-             vecformfactor(2)=(0.5-2.*sinsthweinbg)*C4(neutron)-0.5*C4(proton)
-             vecformfactor(3)=(0.5-2.*sinsthweinbg)*C5(neutron)-0.5*C5(proton)
+             FF(1)=(0.5-2.*sinsthweinbg)*C3(neutron)-0.5*C3(proton)
+             FF(2)=(0.5-2.*sinsthweinbg)*C4(neutron)-0.5*C4(proton)
+             FF(3)=(0.5-2.*sinsthweinbg)*C5(neutron)-0.5*C5(proton)
           end if
        end select
-       FF_set=.true.
+       flagOK=.true.
 
     case default
        if (debugflag) write(*,*) 'strange processID -> STOP ',process
-       stop
+       call traceback()
 
     end select
 
@@ -525,10 +548,10 @@ contains
   contains
 
 
-    subroutine tabulate(FF_SET_table,C3_table,C4_table,C5_table)
+    subroutine tabulate(arrFlagOK,C3_table,C4_table,C5_table)
       real,dimension(0:1,nucleon+1:nucleon+nres,0:QS_max_index),  &
       & intent(out) :: C3_table,C4_table,C5_table
-      logical, dimension(nucleon+1:nucleon+nres),intent(out) :: FF_SET_table
+      logical, dimension(nucleon+1:nucleon+nres),intent(out) :: arrFlagOK
       real, dimension(0:1) :: C3,c4,c5
       real :: QSquared
       integer :: ID
@@ -541,27 +564,27 @@ contains
             C3_table(0:1,ID,i)=C3
             C4_table(0:1,ID,i)=C4
             C5_table(0:1,ID,i)=C5
-            FF_SET_table(ID)=flag
+            arrFlagOK(ID)=flag
          end do QSquaredLoop
       end do resonanceLoop
 
     end subroutine tabulate
 
-    subroutine MAID_CM(C3,C4,C5,Qs,resID,FF_set)
+    subroutine MAID_CM(C3,C4,C5,Qs,resID,flagOK)
       use constants, only: pi,alphaQED,mN
       use particleProperties, only: hadron
       use helicityAmplitudes
 
       real               , intent(in)    :: Qs
       integer            , intent(in)    :: resID
-      logical            , intent(inout) :: FF_set   !true if form factors set, false otherwise
+      logical            , intent(inout) :: flagOK
       real,dimension(0:1), intent(out)   :: C3,C4,C5
       real,dimension(0:1) :: A12,A32,S12
 
       real,dimension(0:1) :: F1,F2
       real :: ms, q2!,mu
 
-      FF_set=.true.
+      flagOK=.true.
 
       q2=-Qs
 
@@ -575,8 +598,8 @@ contains
       C5=0.
 
       if (((mn + ms)**2 - q2).lt.0..or.((mn - ms)**2 - q2).lt.0.) then
-         vecFormfactor=0.
-         FF_set=.false.
+         FF=0.
+         flagOK=.false.
          return
       end if
 
@@ -677,7 +700,7 @@ contains
       case default
 
          if (debugflag) write(*,*) 'formfactors of resonance ', resID, ' not yet included'
-         FF_set=.false.
+         flagOK=.false.
 
       end select
 
@@ -685,15 +708,15 @@ contains
     end subroutine MAID_CM
 
 
-  end subroutine vectorformfactor_MAID_CM
+  end subroutine vecFF_MAID_CM
 
 
 
 
   !****************************************************************************
-  !****s* formFactor_ResProd/vectorformfactor_MAIDLala
+  !****s* formFactor_ResProd/vecFF_MAIDLala
   ! NAME
-  ! subroutine vectorformfactor_MAIDLala(vecformfactor,Qs,resID,targetCharge,process,FF_set)
+  ! subroutine vecFF_MAIDLala(FF,Qs,resID,targetCharge,process,flagOK)
   !
   ! PURPOSE
   ! returns the vector form factors calculated using the MAID helicity
@@ -704,24 +727,23 @@ contains
   ! * integer   :: resID         -- ID of resonance (see IDtable)
   ! * integer   :: targetCharge  -- charge of target (nucleon)
   ! * integer   :: process       -- EM, CC or NC (or anti if negative)
-  ! * logical   :: FF_set        -- controll flag whether form factors
+  ! * logical   :: flagOK        -- controll flag whether form factors
   !                                 have been set successfully
   !
   ! OUTPUT
-  ! * real, dimension(1:4):: vecformfactor --    contains the vector FF
+  ! * real, dimension(1:4):: FF --    contains the vector FF
   !****************************************************************************
-  subroutine vectorformfactor_MAIDLala(vecformfactor,Qs,resID,targetCharge,process,FF_set)
+  subroutine vecFF_MAIDLala(FF,Qs,resID,targetCharge,process,flagOK)
     use minkowski, only: SP
     use IDtable
     use particleproperties, only: hadron
     use constants, only: pi, alphaQED
     use helicityAmplitudes, only: get_helicityAmplitudes
 
-    real,  intent(in) :: Qs
+    real, intent(in) :: Qs
     integer, intent(in) :: resID, process, targetCharge
-    real, dimension(1:4), intent(out) :: vecformfactor
-    logical, intent(inout) :: FF_set             !true if form factors set,
-                                                 ! false if form factors could not be set
+    real, dimension(1:4), intent(out) :: FF
+    logical, intent(inout) :: flagOK
 
     real,dimension(0:1) :: C3,C4,C5
     integer, parameter :: QS_max_index=400 ! Number of grid points in Q^2 for tabulation
@@ -729,15 +751,15 @@ contains
     real, save         :: QS_delta
     real,dimension(0:1,nucleon+1:nucleon+nres,0:QS_max_index),save :: C3_table,C4_table,C5_table
 
-    logical, dimension(nucleon+1:nucleon+nres),save :: FF_SET_table
+    logical, dimension(nucleon+1:nucleon+nres),save :: arrFlagOK
     integer :: QSquared_index
     logical ,save :: firstTime=.true.
     logical, parameter :: useTable=.true.
 
-    vecformfactor=0.
+    FF=0.
 
     if (resid.eq.nucleon) then
-       ff_set=.false.
+       flagOK=.false.
        return
     end if
 
@@ -747,7 +769,7 @@ contains
        write(*,*)
        write(*,*) 'Tabulating Form Factors for resonance production   &
                   & using Lalakulich helicity amplitudes ...'
-       call tabulate(FF_SET_table,C3_table,C4_table,C5_table)
+       call tabulate(arrFlagOK,C3_table,C4_table,C5_table)
        write(*,*) '... done'
        write(*,*)
     end if
@@ -758,45 +780,42 @@ contains
        C3=C3_table(0:1,resID,QSquared_index)
        C4=C4_table(0:1,resID,QSquared_index)
        C5=C5_table(0:1,resID,QSquared_index)
-       FF_SET=FF_SET_table(resID)
+       flagOK=arrFlagOK(resID)
     else
        ! Calculate explicitly
-       call MAIDLala(C3,C4,C5,Qs,resID,FF_set)
+       call MAIDLala(C3,C4,C5,Qs,resID,flagOK)
     end if
 
-    if (.not.FF_SET) then
-       return
-    end if
-
+    if (.not.flagOK) return
 
     select case (process)
 
     case (EM,antiEM)
-       vecformfactor(1)=C3(targetCharge)
-       vecformfactor(2)=C4(targetCharge)
-       vecformfactor(3)=C5(targetCharge)
-       FF_set=.true.
+       FF(1)=C3(targetCharge)
+       FF(2)=C4(targetCharge)
+       FF(3)=C5(targetCharge)
+       flagOK=.true.
 
     case (CC,antiCC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
-          vecformfactor(1)=-C3(targetCharge)
-          vecformfactor(2)=-C4(targetCharge)
-          vecformfactor(3)=-C5(targetCharge)
+          FF(1)=-C3(targetCharge)
+          FF(2)=-C4(targetCharge)
+          FF(3)=-C5(targetCharge)
        case (1)
-          vecformfactor(1)=C3(proton)-C3(neutron)
-          vecformfactor(2)=C4(proton)-C4(neutron)
-          vecformfactor(3)=C5(proton)-C5(neutron)
+          FF(1)=C3(proton)-C3(neutron)
+          FF(2)=C4(proton)-C4(neutron)
+          FF(3)=C5(proton)-C5(neutron)
        end select
-       FF_set=.true.
+       flagOK=.true.
 
     case (NC,antiNC)
        write(*,*) 'NC not yet implemented'
-       FF_set=.false.
+       flagOK=.false.
 
     case default
        if (debugflag) write(*,*) 'strange processID -> STOP ',process
-       stop
+       call traceback()
 
     end select
 
@@ -804,11 +823,11 @@ contains
   contains
 
 
-    subroutine tabulate(FF_SET_table,C3_table,C4_table,C5_table)
+    subroutine tabulate(arrFlagOK,C3_table,C4_table,C5_table)
       use IdTable, only: nucleon, nres
       real,dimension(0:1,nucleon+1:nucleon+nres,0:QS_max_index),  &
                     & intent(out) :: C3_table,C4_table,C5_table
-      logical, dimension(nucleon+1:nucleon+nres),intent(out) :: FF_SET_table
+      logical, dimension(nucleon+1:nucleon+nres),intent(out) :: arrFlagOK
       real, dimension(0:1) :: C3,c4,c5
       real :: QSquared
       integer :: ID
@@ -821,19 +840,19 @@ contains
             C3_table(0:1,ID,i)=C3
             C4_table(0:1,ID,i)=C4
             C5_table(0:1,ID,i)=C5
-            FF_SET_table(ID)=flag
+            arrFlagOK(ID)=flag
          end do QSquaredLoop
       end do resonanceLoop
 
     end subroutine tabulate
 
-    subroutine MAIDLala(C3,C4,C5,Qs,resID,FF_set)
+    subroutine MAIDLala(C3,C4,C5,Qs,resID,flagOK)
       use particleProperties, only: hadron
       use constants, only: mN
 
       real               , intent(in)    :: Qs
       integer            , intent(in)    :: resID
-      logical            , intent(inout) :: FF_set   !true if form factors set, false otherwise
+      logical            , intent(inout) :: flagOK   !true if form factors set, false otherwise
       real,dimension(0:1), intent(out)   :: C3,C4,C5
       real,dimension(0:1) :: A12,A32,S12
 
@@ -845,7 +864,7 @@ contains
 
       real, dimension(0:3) :: q,pin,pf
 
-      FF_set=.true.
+      flagOK=.true.
 
       W=hadron(resID)%mass
       call getKine_lab(W,QS,q,pin,pf)
@@ -861,8 +880,8 @@ contains
       qtimesppr=SP(q,pf)
 
       if ((pi * alphaQED * 2. * mN * (ppr0+MR))/(mN*(W**2-mN**2)).lt.0) then
-         vecFormfactor=0.
-         FF_set=.false.
+         FF=0.
+         flagOK=.false.
          return
       end if
       sqrtN=sqrt((pi * alphaQED * 2. * mN * (ppr0+MR))/(mN*(W**2-mN**2)))
@@ -948,7 +967,7 @@ contains
       case default
 
          if (debugflag) write(*,*) 'formfactors of resonance ', resID, ' not yet included'
-         FF_set=.false.
+         flagOK=.false.
 
       end select
 
@@ -956,15 +975,15 @@ contains
     end subroutine MAIDLala
 
 
-  end subroutine vectorformfactor_MAIDLala
+  end subroutine vecFF_MAIDLala
 
 
 
 
   !****************************************************************************
-  !****s* formFactor_ResProd/vectorformfactor_Lalakulich
+  !****s* formFactor_ResProd/vecFF_Lala
   ! NAME
-  ! subroutine vectorformfactor_Lalakulich(vecformfactor,Qs,resID,targetCharge,process,FF_set)
+  ! subroutine vecFF_Lala(FF,Qs,resID,targetCharge,process,flagOK)
   !
   ! PURPOSE
   ! returns the vector form factors according to a fit by Lalakulich et al.
@@ -975,21 +994,21 @@ contains
   ! * integer   :: resID         -- ID of resonance (see IDtable)
   ! * integer   :: targetCharge  -- charge of target (nucleon)
   ! * integer   :: process       -- EM, CC or NC (or anti if negative)
-  ! * logical   :: FF_set        -- controll flag whether form factors
+  ! * logical   :: flagOK        -- controll flag whether form factors
   !                                 have been set successfully
   !
   ! OUTPUT
-  ! * real, dimension(1:4):: vecformfactor --    contains the vector FF
+  ! * real, dimension(1:4):: FF --    contains the vector FF
   !****************************************************************************
-  subroutine vectorformfactor_Lalakulich(vecformfactor,Qs,resID,targetCharge,process,FF_set)
+  subroutine vecFF_Lala(FF,Qs,resID,targetCharge,process,flagOK)
     use IDtable
     use particleproperties, only: hadron
     use constants, only: sinsthweinbg, mN
 
     real, intent(in) :: Qs
     integer, intent(in) :: resID, process, targetCharge
-    real, dimension(1:4), intent(out) :: vecformfactor
-    logical, intent(inout) :: FF_set            !true if form factors set, false otherwise
+    real, dimension(1:4), intent(out) :: FF
+    logical, intent(inout) :: flagOK            !true if form factors set, false otherwise
 
     real,dimension(0:1) :: C3,C4,C5
 
@@ -1000,7 +1019,7 @@ contains
     MR=hadron(resID)%mass
     mu=MR+mN
 
-    vecformfactor=0.
+    FF=0.
     C3=0.
     C4=0.
     C5=0.
@@ -1062,78 +1081,75 @@ contains
     case default
 
        if (debugflag) write(*,*) 'formfactors of resonance ', resID, ' not yet included'
-       FF_set=.false.
+       flagOK=.false.
 
 
     end select
 
-    if (.not.FF_SET) then
-       return
-    end if
-
+    if (.not.flagOK) return
 
     select case (process)
 
     case (EM,antiEM)
-       vecformfactor(1)=C3(targetCharge)
-       vecformfactor(2)=C4(targetCharge)
-       vecformfactor(3)=C5(targetCharge)
-       FF_set=.true.
+       FF(1)=C3(targetCharge)
+       FF(2)=C4(targetCharge)
+       FF(3)=C5(targetCharge)
+       flagOK=.true.
 
     case (CC,antiCC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
-          vecformfactor(1)=C3(targetCharge)
-          vecformfactor(2)=C4(targetCharge)
-          vecformfactor(3)=C5(targetCharge)
+          FF(1)=C3(targetCharge)
+          FF(2)=C4(targetCharge)
+          FF(3)=C5(targetCharge)
        case (1)
-          vecformfactor(1)=C3(neutron)-C3(proton)
+          FF(1)=C3(neutron)-C3(proton)
           !Lalakulich uses a different definition here than the rest of the world
-          vecformfactor(2)=C4(neutron)-C4(proton)
-          vecformfactor(3)=C5(neutron)-C5(proton)
-          !vecformfactor(1)=C3(proton)-C3(neutron)
+          FF(2)=C4(neutron)-C4(proton)
+          FF(3)=C5(neutron)-C5(proton)
+          !FF(1)=C3(proton)-C3(neutron)
           ! conventional here and then positive axial FF
-          !vecformfactor(2)=C4(proton)-C4(neutron)
-          !vecformfactor(3)=C5(proton)-C5(neutron)
+          !FF(2)=C4(proton)-C4(neutron)
+          !FF(3)=C5(proton)-C5(neutron)
        end select
-       FF_set=.true.
+       flagOK=.true.
 
     case (NC,antiNC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
-          vecformfactor(1)=(1.-2.*sinsthweinbg)*C3(targetCharge)
-          vecformfactor(2)=(1.-2.*sinsthweinbg)*C4(targetCharge)
-          vecformfactor(3)=(1.-2.*sinsthweinbg)*C5(targetCharge)
+          FF(1)=(1.-2.*sinsthweinbg)*C3(targetCharge)
+          FF(2)=(1.-2.*sinsthweinbg)*C4(targetCharge)
+          FF(3)=(1.-2.*sinsthweinbg)*C5(targetCharge)
        case (1)
           if (targetcharge.eq.proton) then
-             vecformfactor(1)=(0.5-2.*sinsthweinbg)*C3(proton)-0.5*C3(neutron)
-             vecformfactor(2)=(0.5-2.*sinsthweinbg)*C4(proton)-0.5*C4(neutron)
-             vecformfactor(3)=(0.5-2.*sinsthweinbg)*C5(proton)-0.5*C5(neutron)
+             FF(1)=(0.5-2.*sinsthweinbg)*C3(proton)-0.5*C3(neutron)
+             FF(2)=(0.5-2.*sinsthweinbg)*C4(proton)-0.5*C4(neutron)
+             FF(3)=(0.5-2.*sinsthweinbg)*C5(proton)-0.5*C5(neutron)
           else
-             vecformfactor(1)=(0.5-2.*sinsthweinbg)*C3(neutron)-0.5*C3(proton)
-             vecformfactor(2)=(0.5-2.*sinsthweinbg)*C4(neutron)-0.5*C4(proton)
-             vecformfactor(3)=(0.5-2.*sinsthweinbg)*C5(neutron)-0.5*C5(proton)
+             FF(1)=(0.5-2.*sinsthweinbg)*C3(neutron)-0.5*C3(proton)
+             FF(2)=(0.5-2.*sinsthweinbg)*C4(neutron)-0.5*C4(proton)
+             FF(3)=(0.5-2.*sinsthweinbg)*C5(neutron)-0.5*C5(proton)
           end if
        end select
-       FF_set=.true.
+       flagOK=.true.
 
     case default
        if (debugflag) write(*,*) 'strange processID -> STOP ',process
-       stop
+       call traceback()
 
     end select
 
 
-  end subroutine vectorformfactor_Lalakulich
+  end subroutine vecFF_Lala
 
 
 
 
 
   !****************************************************************************
-  !****s* formFactor_ResProd/axialformfactor
+  !****s* formFactor_ResProd/axialFF
   ! NAME
-  ! subroutine axialformfactor(axialformfactor,Qs,resID,targetCharge,process,FF_set)
+  ! subroutine axialFF(FF,Qs,resID,targetCharge,process,flagOK)
   !
   ! PURPOSE
   ! returns the axial form factors, see Tina's notes and Mathematica
@@ -1144,21 +1160,21 @@ contains
   ! * integer   :: resID         -- ID of resonance (see IDtable)
   ! * integer   :: targetCharge  -- charge of target (nucleon)
   ! * integer   :: process       -- EM, CC or NC (or anti if negative)
-  ! * logical   :: FF_set        -- controll flag whether form factors
+  ! * logical   :: flagOK        -- controll flag whether form factors
   !                                 have been set successfully
   !
   ! OUTPUT
-  ! * real, dimension(1:4):: axialff --    contains the axial FF
+  ! * real, dimension(1:4):: FF --    contains the axial FF
   !****************************************************************************
-  subroutine axialformfactor(axialff,Qs,resID,targetCharge,process,FF_set)
+  subroutine axialFF(FF,Qs,resID,targetCharge,process,flagOK)
     use idtable
     use particleproperties, only: hadron
     use constants, only: mN, mPi
 
     real, intent(in) :: Qs
     integer, intent(in) :: resID, process, targetCharge
-    real, dimension(1:4), intent(out) :: axialff
-    logical, intent(inout) :: FF_set             !true if form factors set, false otherwise
+    real, dimension(1:4), intent(out) :: FF
+    logical, intent(inout) :: flagOK
     real :: C3A,C4A,C5A,C6A
     real :: C5A0,C3A0
 
@@ -1167,8 +1183,8 @@ contains
     real, parameter :: MAresSq=1.
 
 
-    axialff=0.
-    FF_set=.true.
+    FF=0.
+    flagOK=.true.
 
     C3A=0.
     C4A=0.
@@ -1180,7 +1196,7 @@ contains
 
 
     if (resid.eq.nucleon) then
-       ff_set=.false.
+       flagOK=.false.
        return
     end if
 
@@ -1211,7 +1227,7 @@ contains
 
     case (Delta,P13_1720,F15_1680,F35_1905,F37_1950)
 
-       if (resID.eq.Delta)    C5A0=1.17466
+       if (resID.eq.Delta)    C5A0=1.17466 * C5A0corr
        if (resID.eq.P13_1720) C5A0=-0.293934
        if (resID.eq.F15_1680) C5A0=-0.431952
        if (resID.eq.F35_1905) C5A0=0.148606
@@ -1258,57 +1274,53 @@ contains
     case default
 
        if (debugflag) write(*,*) 'formfactors of resonance ', resID, ' not yet included'
-       FF_set=.false.
+       flagOK=.false.
 
     end select
 
 
-    if (.not.FF_SET) then
-       return
-    end if
-
+    if (.not.flagOK) return
 
     select case (process)
 
     case (EM,antiEM)
-       write(*,*) 'for EM process you should not be in the axialformfactor routine -> STOP'
-       stop
+       call traceback('for EM process do not call axialFF')
 
     case (CC,antiCC)
-       axialff(1)=C3A
-       axialff(2)=C4A
-       axialff(3)=C5A
-       axialff(4)=C6A
-       FF_set=.true.
+       FF(1)=C3A
+       FF(2)=C4A
+       FF(3)=C5A
+       FF(4)=C6A
+       flagOK=.true.
 
     case (NC,antiNC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
-          axialff(1)=C3A
-          axialff(2)=C4A
-          axialff(3)=C5A
+          FF(1)=C3A
+          FF(2)=C4A
+          FF(3)=C5A
        case (1)
           if (targetcharge.eq.proton) then
-             axialff(1)=0.5*C3A
-             axialff(2)=0.5*C4A
-             axialff(3)=0.5*C5A
+             FF(1)=0.5*C3A
+             FF(2)=0.5*C4A
+             FF(3)=0.5*C5A
           else
-             axialff(1)=-0.5*C3A
-             axialff(2)=-0.5*C4A
-             axialff(3)=-0.5*C5A
+             FF(1)=-0.5*C3A
+             FF(2)=-0.5*C4A
+             FF(3)=-0.5*C5A
           end if
        end select
-       axialff(4)=0.
-       FF_set=.true.
+       FF(4)=0.
+       flagOK=.true.
 
     case default
        if (debugflag) write(*,*) 'strange processID -> STOP ',process
-       stop
+       call traceback()
 
     end select
 
 
-  end subroutine axialformfactor
+  end subroutine axialFF
 
 
 
@@ -1317,9 +1329,9 @@ contains
 
 
   !****************************************************************************
-  !****s* formFactor_ResProd/axialformfactor_Lalakulich
+  !****s* formFactor_ResProd/axialFF_Lala
   ! NAME
-  ! subroutine axialformfactor_Lalakulich(axialformfactor,Qs,resID,targetCharge,process,FF_set)
+  ! subroutine axialFF_Lala(FF,Qs,resID,targetCharge,process,flagOK)
   !
   ! PURPOSE
   ! returns the axial form factors according to a fit by Lalakulich et al.
@@ -1330,21 +1342,21 @@ contains
   ! * integer   :: resID         -- ID of resonance (see IDtable)
   ! * integer   :: targetCharge  -- charge of target (nucleon)
   ! * integer   :: process       -- EM, CC or NC (or anti if negative)
-  ! * logical   :: FF_set        -- controll flag whether form factors
+  ! * logical   :: flagOK        -- controll flag whether form factors
   !                                 have been set successfully
   !
   ! OUTPUT
-  ! * real, dimension(1:4):: axialformfactor --    contains the axial FF
+  ! * real, dimension(1:4):: FF --    contains the axial FF
   !****************************************************************************
-  subroutine axialformfactor_Lalakulich(axialff,Qs,resID,targetCharge,process,FF_set)
+  subroutine axialFF_Lala(FF,Qs,resID,targetCharge,process,flagOK)
     use IDtable
     use particleproperties, only: hadron
     use constants, only: mN, mPi
 
     real, intent(in) :: Qs
     integer, intent(in) :: resID, process, targetCharge
-    real, dimension(1:4), intent(out) :: axialff
-    logical, intent(inout) :: FF_set             !true if form factors set, false otherwise
+    real, dimension(1:4), intent(out) :: FF
+    logical, intent(inout) :: flagOK             !true if form factors set, false otherwise
 
     real :: C3A,C4A,C5A,C6A
 
@@ -1352,7 +1364,7 @@ contains
 
     real :: MA2, DA
 
-    axialff=0.
+    FF=0.
     C3A=0.
     C4A=0.
     C5A=0.
@@ -1413,65 +1425,61 @@ contains
     case default
 
        if (debugflag) write(*,*) 'formfactors of resonance ', resID, ' not yet included'
-       FF_set=.false.
+       flagOK=.false.
 
 
     end select
 
-    if (.not.FF_SET) then
-       return
-    end if
-
+    if (.not.flagOK) return
 
     select case (process)
 
     case (EM,antiEM)
-       write(*,*) 'for EM process you should not be in the axialformfactor routine -> STOP'
-       stop
+       call traceback('for EM process do not call axialFF')
 
     case (CC,antiCC)
-       axialff(1)=C3A
-       axialff(2)=C4A
-       axialff(3)=C5A
-       axialff(4)=C6A
+       FF(1)=C3A
+       FF(2)=C4A
+       FF(3)=C5A
+       FF(4)=C6A
 
        if (hadron(resID)%Spin.lt.1) then
-          axialff(1)=-C3A
-          axialff(2)=-C4A !we use a different sign in the axial spin 1/2 current than Lalakulich
+          FF(1)=-C3A
+          FF(2)=-C4A !we use a different sign in the axial spin 1/2 current than Lalakulich
        end if
 
-       FF_set=.true.
+       flagOK=.true.
 
     case (NC,antiNC)
        select case (hadron(resID)%isoSpinTimes2)
        case (3)
-          axialff(1)=C3A
-          axialff(2)=C4A
-          axialff(3)=C5A
+          FF(1)=C3A
+          FF(2)=C4A
+          FF(3)=C5A
        case (1)
           if (targetcharge.eq.proton) then
-             axialff(1)=-0.5*C3A
+             FF(1)=-0.5*C3A
              ! "-" sign because in PRD74 the vector FF was defined as neutron-proton
-             axialff(2)=-0.5*C4A  ! correspondingly the axial form factors  were set negative
-             axialff(3)=-0.5*C5A
+             FF(2)=-0.5*C4A  ! correspondingly the axial form factors  were set negative
+             FF(3)=-0.5*C5A
           else
-             axialff(1)=0.5*C3A
+             FF(1)=0.5*C3A
              ! "-" sign because in PRD74 the vector FF was defined as neutron-proton
-             axialff(2)=0.5*C4A   ! correspondingly the axial form factors  were set negative
-             axialff(3)=0.5*C5A
+             FF(2)=0.5*C4A   ! correspondingly the axial form factors  were set negative
+             FF(3)=0.5*C5A
           end if
        end select
-       axialff(4)=0.
-       FF_set=.true.
+       FF(4)=0.
+       flagOK=.true.
 
 
     case default
        if (debugflag) write(*,*) 'strange processID -> STOP ',process
-       stop
+       call traceback()
 
     end select
 
-  end subroutine axialformfactor_Lalakulich
+  end subroutine axialFF_Lala
 
 
 

@@ -51,8 +51,8 @@ program TryNeutrino
 contains
   subroutine DoPythia
 
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use CollTools
     IMPLICIT NONE
 

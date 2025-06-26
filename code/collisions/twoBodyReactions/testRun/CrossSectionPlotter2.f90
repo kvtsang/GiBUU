@@ -54,6 +54,7 @@ program CrossSectionPlotter2
   real :: sigma_out_excl(0:3)                                               ! index = number of additional pions (semi-excl)
   real :: sigma_out_incl(-1:2), sigma1(-1:2), sigma2(-1:2,-1:2), sigma3(-1:2,-1:2,-1:2)           ! index = charge
   real :: sigma_prongs(0:6)                                                 ! index = number of prongs (charged particles)
+  real :: sigma_Pion(0:3)
   integer :: charge(1:3)
 
   integer, save :: Nevents  = 1000     ! number of events
@@ -76,38 +77,38 @@ program CrossSectionPlotter2
 
   pair%Id=(/id1,id2/)
   pair%charge=(/q1,q2/)
-  pair%antiparticle=(/anti1,anti2/)
-  pair%perturbative=.false.
+  pair%anti=(/anti1,anti2/)
+  pair%pert=.false.
   pair(1)%event=1
   pair(2)%event=2
 
   pair(1)%mass=hadron(id1)%mass
   pair(2)%mass=hadron(id2)%mass
 
-  pair(1)%position = (/ 0., 0., 0.1 /)
-  pair(2)%position = (/ 0., 0., 0.0 /)
+  pair(1)%pos = (/ 0., 0., 0.1 /)
+  pair(2)%pos = (/ 0., 0., 0.0 /)
 
-  pair(1)%momentum(1:3)=0.
+  pair(1)%mom(1:3)=0.
 
-  !pair(1)%momentum(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
+  !pair(1)%mom(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
   call energyDetermination(pair(1),(/0.,0.,0./))
   call energyDetermination(pair(2),(/0.,0.,0./))
 
-  pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
+  pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
 
-  tMedium = mediumAt(pair(1)%position)
+  tMedium = mediumAt(pair(1)%pos)
 
-  if (isMeson(id_out)) srts_min = max(srts_min, hadron(pair(1)%ID)%mass+hadron(pair(1)%ID)%mass+hadron(id_out)%minmass)
+!  if (isMeson(id_out)) srts_min = max(srts_min, hadron(pair(1)%ID)%mass+hadron(pair(1)%ID)%mass+hadron(id_out)%minmass)
 
   write(*,*) '***********************'
   write(*,*) 'positions:'
-  write(*,*) pair(1)%position
-  write(*,*) pair(2)%position
+  write(*,*) pair(1)%pos
+  write(*,*) pair(2)%pos
   write(*,*) 'momenta:'
-  write(*,*) pair(1)%momentum
-  write(*,*) pair(2)%momentum
+  write(*,*) pair(1)%mom
+  write(*,*) pair(2)%mom
   write(*,*) 'sqrt(s)=',sqrts(pair(1),pair(2))
-  write(*,*) 'Total momentum=',pair(1)%momentum+pair(2)%momentum
+  write(*,*) 'Total momentum=',pair(1)%mom+pair(2)%mom
   write(*,*) 'sqrts_min = ', srts_min
   write(*,*) '***********************'
 
@@ -122,17 +123,18 @@ program CrossSectionPlotter2
   open(25,file='xs2.dat')
   open(26,file='xs3.dat')
   open(27,file='xs_prongs.dat')
+  open(28,file='xs_Pion.dat')
 
   Do i=1,1000
-     pair(2)%momentum(1:3) = (/ 0., 0., float(i)*dp /)
-     pair(2)%momentum(0)   = sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+     pair(2)%mom(1:3) = (/ 0., 0., float(i)*dp /)
+     pair(2)%mom(0)   = sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
 
-     momentum_calc = pair(1)%momentum(0:3)+pair(2)%momentum(0:3)
+     momentum_calc = pair(1)%mom(0:3)+pair(2)%mom(0:3)
 
      betaToCM = lorentzCalcBeta (momentum_calc)
 
      call energyDetermination (pair(2), betaToCM)
-     pair(2)%velocity=pair(2)%momentum(1:3)/pair(2)%momentum(0)
+     pair(2)%vel=pair(2)%mom(1:3)/pair(2)%mom(0)
 
      srts=sqrts(pair(1),pair(2))
 
@@ -141,7 +143,7 @@ program CrossSectionPlotter2
 
      write(*,*) '--- srts = ',srts
 
-     rHiEnergy = HiEnergyContrib(srts,pair%ID,pair%Antiparticle)
+     rHiEnergy = HiEnergyContrib(srts,pair%ID,pair%anti)
 
      sigmaTotal = 0.
      sigma_out_incl = 0.
@@ -150,6 +152,7 @@ program CrossSectionPlotter2
      sigma2 = 0.
      sigma3 = 0.
      sigma_prongs = 0.
+     sigma_Pion = 0.
 
 evtloop: do j=1,Nevents  ! event loop to produce final states
 
@@ -212,6 +215,8 @@ evtloop: do j=1,Nevents  ! event loop to produce final states
             end if
 
             sigmaTotal = sigmaTotal + sigTot/Nevents
+            if (N_pi<4) sigma_Pion(N_pi) = sigma_Pion(N_pi) + sigTot/Nevents
+
             if (N_out_tot>0) then
               sigma_out_incl(:) = sigma_out_incl(:) + sigTot*N_out(:)/Nevents      ! inclusive cross section
               if (N_out_tot==1 .and. N_pi<4 .and. N_tot==N_out_tot+N_nuc+N_pi) then
@@ -266,6 +271,9 @@ evtloop: do j=1,Nevents  ! event loop to produce final states
 
      write(27,'(11F12.4)') absmom(pair(2)), kineticEnergy(pair(2)), srts, sigmaTotal, sigma_prongs(0:6)
      flush(27)
+
+     write(28,'(22F12.4)') absmom(pair(2)), kineticEnergy(pair(2)), srts, sigmaTotal, sigma_Pion
+     flush(28)
 
   End do
 

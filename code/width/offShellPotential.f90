@@ -7,6 +7,8 @@
 !******************************************************************************
 module offShellPotential
 
+  use CallStack, only: TRACEBACK
+
   implicit none
   private
 
@@ -45,10 +47,10 @@ module offShellPotential
   !****************************************************************************
   !****g* offShellPotential/offshell_cutoff
   ! PURPOSE
-  ! If offshellParameter is less than this value, then we treat
+  ! If abs(offshellParameter) is less than this value, then we treat
   ! it as zero -> getoffshellMass returns the pole mass!
   ! SOURCE
-  real   , parameter :: offshell_cutoff = 1E-5
+  real, parameter :: offshell_cutoff = 1E-5
   !****************************************************************************
 
   !****************************************************************************
@@ -81,7 +83,7 @@ module offShellPotential
   logical, save :: relativistic = .false.
   !****************************************************************************
 
-  
+
   !****************************************************************************
   !****g* offShellPotential/SetOffShellEnergyFlag
   ! PURPOSE
@@ -91,15 +93,18 @@ module offShellPotential
   !          (dynamic case, e.g. heavy ion collision)
   ! SOURCE
   logical, save :: SetOffShellEnergyFlag = .false.
-  !****************************************************************************  
+  !****************************************************************************
 
-  
 
   logical, save :: initFlag    =.true.
 
-  public :: get_useOffShellPotentialBaryons, get_useOffShellPotentialMesons, treatParticleOffShell, &
-            getOffShellParameter, HamiltonFunc_offshell, get_offshell_debug, setOffShellParameter, &
-            SetOffShellEnergy
+  public :: get_useOffShellPotentialBaryons
+  public :: get_useOffShellPotentialMesons
+  public :: treatParticleOffShell
+  public :: HamiltonFunc_offshell
+  public :: get_offshell_debug
+  public :: setOffShellParameter
+  public :: setOffShellEnergy
 
 
 
@@ -111,20 +116,25 @@ module offShellPotential
   ! This is an interface which can be called like a subroutine using
   ! "call setOffShellParameter(p,success)".
   !
-  ! It calculates the offshell parameter for a single particle or a set of particles
-  ! If it fails for one of them, then it returns .false., otherwise .true. . The particles should
-  ! be properly initialized, only the offshellparameter should be left-over to initialize.
+  ! It calculates the offshell parameter for a single particle or a set of
+  ! particles.
+  ! If it fails for one of them, then it returns .false., otherwise .true. .
+  ! The particles should be properly initialized, only the offshellparameter
+  ! should be left-over to initialize.
   !
   ! INPUTS
-  ! * type(particle) , intent(inout), dimension (:) :: p
+  ! * type(particle), intent(inout), dimension (:) :: p
   ! or:
-  ! * type(particle) , intent(inout) :: p
+  ! * type(particle), intent(inout) :: p
   !
   ! OUTPUT
-  ! * logical, intent(out):: success -- .true. if the offshell parameter could be evaluated for all particles
+  ! * logical :: success -- .true. if the offshell parameter
+  !   could be evaluated for all particles
   !****************************************************************************
   Interface setOffShellParameter
-     Module Procedure setOffShellParameter_1dim, setOffShellParameter_single
+     Module Procedure setOffShellParameter_2dim, &
+          setOffShellParameter_1dim, &
+          setOffShellParameter_0dim
   end Interface
 
 
@@ -145,7 +155,10 @@ contains
     use inputGeneral
     use eventtypes
 
+
     integer :: ios
+    logical :: MediumSwitch_coll ! local copy of module variable
+
 
     !**************************************************************************
     !****n* offShellPotential/OffShellPotential
@@ -160,41 +173,40 @@ contains
     ! * relativistic
     ! * SetOffShellEnergyFlag
     !**************************************************************************
-    NAMELIST /offShellPotential/ useOffShellPotentialBaryons, useOffShellPotentialMesons, &
-                                 extrapolateBaryonWidth, max_offshellparameter, relativistic, &
-                                 SetOffShellEnergyFlag
+    NAMELIST /offShellPotential/ &
+         useOffShellPotentialBaryons, useOffShellPotentialMesons, &
+         extrapolateBaryonWidth, max_offshellparameter, relativistic, &
+         SetOffShellEnergyFlag
+
+    ! call this already here to make output easier to understand
+    MediumSwitch_coll = get_MediumSwitch_coll()
 
     call Write_ReadingInput('offShellPotential',0)
     rewind(5)
     read(5,nml=offShellPotential,IOSTAT=IOS)
     call Write_ReadingInput('offShellPotential',0,IOS)
 
-    if (.not.get_MediumSwitch_coll() .and. useOffShellPotentialBaryons) then
-       write(*,*) 'MediumSwitch_coll of baryons is switched off, therefore we now switch off useOffShellPotentialBaryons'
+    if (.not.MediumSwitch_coll .and. useOffShellPotentialBaryons) then
+       write(*,*) 'MediumSwitch_coll of baryons is false, therefore we switch off useOffShellPotentialBaryons'
+       write(*,*)
        useOffShellPotentialBaryons = .false.
-    else if (get_MediumSwitch_coll() .and. .not.useOffShellPotentialBaryons) then
-       write(*,*) 'MediumSwitch_coll of baryons is switched on, therefore useOffShellPotentialBaryons must be set to TRUE!'
-       stop
+    else if (MediumSwitch_coll .and. .not.useOffShellPotentialBaryons) then
+       call TRACEBACK('MediumSwitch_coll of baryons is true, therefore useOffShellPotentialBaryons must be set to TRUE!')
     end if
 
     if (useOffShellPotentialBaryons .and. .not.LRF_equals_CALC_frame) then
-       write(*,*) 'STOP: Baryonuic off-shell potential works only in the "LRF=Calculation frame" assumption'
-       write(*,*) 'The more general case is not yet implemented!!'
-       stop
+       call TRACEBACK('Baryonic off-shell potential works only in the "LRF=Calculation frame" assumption; The more general case is not yet implemented!!')
     end if
 
-    write(*,*) 'use offShell Potential for the baryons?', useOffShellPotentialBaryons
+    write(*,*) 'use offShell potential for baryons: ', &
+         useOffShellPotentialBaryons
+    write(*,*) 'use offShell potential for mesons:  ', &
+         useOffShellPotentialMesons
+    write(*,*) 'extrapolate baryon width below minimal mass: ', extrapolateBaryonWidth
+    write(*,*) 'max. offshell parameter for baryons:  ', max_offshellparameter
+    write(*,*) 'use relativistic off-shell parameter: ', relativistic
+    write(*,*) 'set off-shell energy: ', SetOffShellEnergyFlag
 
-    write(*,*) 'use offShell Potential for the mesons?', useOffShellPotentialMesons
-
-    write(*,*) 'extrapolate baryon width below minimal mass?', extrapolateBaryonWidth
-
-    write(*,*) 'max. offshell parameter for baryons: ', max_offshellparameter
-
-    write(*,*) 'use relativistic off-shell parameter?', relativistic
-
-    write(*,*) ' set off-shell energy ?', SetOffShellEnergyFlag
-    
     call Write_ReadingInput('offShellPotential',1)
 
   end subroutine readInput
@@ -237,13 +249,9 @@ contains
   ! NAME
   ! logical function get_OffShell_debug()
   ! PURPOSE
-  ! returns the value of OffShell_debug
+  ! returns the value of OffShell_debug (which is a parameter)
   !****************************************************************************
-  logical function get_OffShell_debug()
-    if (initFlag) then
-       call readInput
-       initFlag=.false.
-    end if
+  pure logical function get_OffShell_debug()
     get_OffShell_debug=OffShell_debug
   end function get_OffShell_debug
 
@@ -259,18 +267,23 @@ contains
   logical function treatParticleOffShell(partID,partOffShellParameter)
     use IdTable, only: isBaryon, isMeson
     integer, intent(in) :: partID
-    real, intent(in) :: partoffShellparameter
+    real, intent(in) :: partoffShellParameter
+
     if (initFlag) then
        call readInput
        initFlag=.false.
     end if
 
-    if (useOffShellPotentialBaryons.and.isBaryon(partId).and.abs(partOffshellparameter).gt.offshell_cutoff) then
-       treatParticleOffShell=.true.
-    else if (useOffShellPotentialMesons.and.isMeson(partId).and.abs(partOffshellparameter).gt.offshell_cutoff) then
-       treatParticleOffShell=.true.
-    else
-       treatParticleOffShell=.false.
+    treatParticleOffShell=.false.
+
+    if (useOffShellPotentialBaryons) then
+       if(isBaryon(partId).and.abs(partOffshellParameter).gt.offshell_cutoff) &
+            treatParticleOffShell=.true.
+    end if
+
+    if (useOffShellPotentialMesons) then
+       if(isMeson(partId).and.abs(partOffshellParameter).gt.offshell_cutoff) &
+            treatParticleOffShell=.true.
     end if
 
   end function treatParticleOffShell
@@ -279,27 +292,42 @@ contains
   !****************************************************************************
   !****f* offShellPotential/HamiltonFunc_offshell
   ! NAME
-  ! real function HamiltonFunc_offshell(part)
+  ! real function HamiltonFunc_offshell(part,outOfBounds,massIsDetermined,full_offShell,flagOk)
   ! PURPOSE
   ! determines Hamilton function for the offshell potential prescription
+  ! INPUTS
+  ! * type(particle) :: part -- the particle
+  ! * logical, OPTIONAL :: massIsDetermined -- ???
+  ! * logical, OPTIONAL :: full_offShell    -- ???
+  ! OUTPUT
+  ! * function value
+  ! * logical :: outOfBounds -- .true. if the width table is out of bounds
+  ! * logical, OPTIONAL :: flagOk -- .true. if success
+  !
+  ! NOTES
+  ! in the case of an internal failure (e.g. 'negative mass in massDet'),
+  ! the return value is 99999.
   !****************************************************************************
-  real function HamiltonFunc_offshell(part_in,outOfBounds,massIsDetermined_in,full_offShell_in)
+  real function HamiltonFunc_offshell(part_in,outOfBounds,massIsDetermined_in,full_offShell_in,flagOk)
     use particleDefinition
-    use potentialModule, only: potential_LRF,massdetermination
+    use potentialMain, only: potential_LRF,massDetermination
     use minkowski, only: abs4
-    use output, only: writeParticle_debug
+    use output, only: writeParticle_debug, DoPR
     use IdTable, only: isMeson,rho,omegaMeson,phi
     use selfenergy_mesons, only: get_realPart
     use mediumDefinition
     use mediumModule, only: mediumAt
-    !use callStack, only: traceBack
+    use particleProperties, only: partName
+    use ieee_arithmetic, only: ieee_is_nan
 
     type(particle),intent(in) :: part_in
+    logical, intent(out) :: outOfBounds
+    logical, intent(out), optional :: flagOk
+    logical, intent(in), optional :: massIsDetermined_in, full_offShell_in
+
     type(particle) :: part
     real :: mass,rp
     logical :: success
-    logical :: outOFBounds ! .true. if the width table is out of bounds
-    logical, optional :: massIsDetermined_in, full_offShell_in
     logical :: massIsDetermined,full_offShell
     type(medium) :: med
 
@@ -321,42 +349,59 @@ contains
 
     part=part_in
 
-    if (treatParticleOffShell(part%ID,part%OffShellParameter)) then
-       if (full_offshell) then
-          !Offshell mass includes off shell potential!
-          if (.not.massIsDetermined) then
-             call massDetermination(part,success=success)
-             if (.not. success) then
-                hamiltonFunc_offshell=99999.
-                !call traceBack('problem: No success in massDet in HamiltonFunc',-1)
-                call writeParticle_debug(part)
-                return
-             end if
-          end if
-          med = mediumAt (part%position)
-          med%useMedium = .true. ! to avoid threshold effects
-          if (isMeson(part%ID)) then
-            rp = get_realPart (part%ID, abs4(part%momentum), med)
-          else
-            rp = 0.
-          end if
-          mass=getOffShellMass(part%ID,part%offshellparameter,part%momentum,part%mass,med,outOfBounds)
-          select case (part%ID)
-          case (rho,omegaMeson,phi)
-               ! Optinal in-medium mass shift of vector mesons is contained in 'mass'. 
-               hamiltonFunc_offshell= sqrt(Dot_Product(part%momentum(1:3),part%momentum(1:3))+mass**2 + rp)
-          case default
-               hamiltonFunc_offshell= sqrt(Dot_Product(part%momentum(1:3),part%momentum(1:3))+mass**2 + rp) + potential_LRF(part)
-          end select          
-       else
-          outofBounds=.false.
-          ! no offshell potential
-          hamiltonFunc_offshell= sqrt(Dot_Product(part%momentum(1:3),part%momentum(1:3))+part%mass**2) + potential_LRF(part)
-       end if
-    else
-       write(*,*) 'HAMILTONFUNC_offshell should not be called -> STOP'
+    if (present(flagOk)) flagOk = .true.
+
+    if (.not.treatParticleOffShell(part%ID,part%offshellPar)) then
        call offShellErrorMessage(part)
-       STOP
+       call TraceBack('HAMILTONFUNC_offshell should not be called -> STOP')
+    end if
+
+
+    if (full_offshell) then
+       !Offshell mass includes off shell potential!
+       if (.not.massIsDetermined) then
+          call massDetermination(part,success=success,verbose=.false.)
+          if (.not. success) then
+             hamiltonFunc_offshell=99999.
+             if (present(flagOk)) flagOk = .false.
+             if (DoPR(2)) write(*,'("WARNING in HamiltonFunc: ",A,A,i10)') &
+                  'No success in massDet: ',partName(part),part%number
+             ! call writeParticle_debug(part)
+             return
+          end if
+       end if
+       med = mediumAt(part%pos)
+       med%useMedium = .true. ! to avoid threshold effects
+       if (isMeson(part%ID)) then
+          rp = get_realPart(part%ID, abs4(part%mom), med)
+       else
+          rp = 0.
+       end if
+       mass=getOffShellMass(part%ID,part%offshellPar,part%mom,part%mass,med,outOfBounds,success=success)
+       if (.not. success) then
+          hamiltonFunc_offshell=99999.
+          if (present(flagOk)) flagOk = .false.
+          if (DoPR(2)) write(*,'("WARNING in HamiltonFunc: ",A,A,i10)') &
+                  'getOffShellMass: ',partName(part),part%number
+          ! call writeParticle_debug(part)
+          return
+       end if
+       select case (part%ID)
+       case (rho,omegaMeson,phi)
+          ! Optinal in-medium mass shift of vector mesons is contained in 'mass'.
+          hamiltonFunc_offshell= sqrt(Dot_Product(part%mom(1:3),part%mom(1:3))+mass**2 + rp)
+       case default
+          hamiltonFunc_offshell= sqrt(Dot_Product(part%mom(1:3),part%mom(1:3))+mass**2 + rp) + potential_LRF(part)
+       end select
+    else
+       outOfBounds=.false.
+       ! no offshell potential
+       hamiltonFunc_offshell= sqrt(Dot_Product(part%mom(1:3),part%mom(1:3))+part%mass**2) + potential_LRF(part)
+    end if
+
+    if (ieee_is_nan(hamiltonFunc_offshell)) then
+       hamiltonFunc_offshell=99999.
+       if (present(flagOk)) flagOk = .false.
     end if
 
   end function HamiltonFunc_offshell
@@ -364,58 +409,33 @@ contains
 
 
   !****************************************************************************
-  !****f* offShellPotential/setOffShellParameter_single
-  ! NAME
-  ! subroutine setOffShellParameter_single(p,success)
-  !
-  ! PURPOSE
-  ! This subroutine calculates the offshell parameter for one given particle. If it fails,
-  ! then it returns .false. otherwise .true.
-  !
-  ! INPUTS
-  ! * type(particle),intent(inout)  :: p
-  !
-  ! OUTPUT
-  ! * logical, intent(out):: success -- .true. if the offshell parameter could be evaluated.
+  ! cf. Interface setOffShellParameter
   !****************************************************************************
-  subroutine setOffShellParameter_single(p,success)
+  subroutine setOffShellParameter_0dim(p,success)
     use particleDefinition
 
-    type(particle),intent(inout)  :: p
+    type(particle), intent(inout)  :: p
     logical, intent(out):: success
 
-    p%offshellParameter=getOffShellParameter(p%ID,p%mass,p%momentum,p%position,success)
+    p%offshellPar=getOffShellParameter(p%ID,p%mass,p%mom,p%pos,success)
 
-  end subroutine setOffShellParameter_single
-
-
+  end subroutine setOffShellParameter_0dim
 
   !****************************************************************************
-  !****f* offShellPotential/setOffShellParameter_1dim
-  ! NAME
-  ! subroutine setOffShellParameter_1dim(p,success)
-  !
-  ! PURPOSE
-  ! This subroutine calculates the offshell parameter for a given set of particles. If it fails for one
-  ! of them, then it returns .false. otherwise .true.
-  !
-  ! INPUTS
-  ! * type(particle) , intent(inout), dimension (:) :: p
-  !
-  ! OUTPUT
-  ! * logical, intent(out):: success -- .true. if the offshell parameter could be evaluated.
+  ! cf. Interface setOffShellParameter
   !****************************************************************************
   subroutine setOffShellParameter_1dim(p,success)
     use particleDefinition
 
-    type(particle) , intent(inout), dimension (:) :: p
+    type(particle), intent(inout), dimension (:) :: p
     logical, intent(out):: success
     logical :: flagOK
     integer :: i
+
     success=.true.
     do i= lbound(p,dim=1),ubound(p,dim=1)
        if (p(i)%ID.le.0) cycle
-       call setOffShellParameter_single(p(i),flagOk)
+       call setOffShellParameter_0dim(p(i),flagOk)
        if (.not.flagOk) then
           success=.false.
        end if
@@ -423,46 +443,75 @@ contains
   end subroutine setOffShellParameter_1dim
 
   !****************************************************************************
+  ! cf. Interface setOffShellParameter
+  !****************************************************************************
+  subroutine setOffShellParameter_2dim(p,success)
+    use particleDefinition
+
+    type(particle), intent(inout), dimension (:,:) :: p
+    logical, intent(out):: success
+    logical :: flagOK
+    integer :: iPart,iEns,nPart,nEns
+
+    success=.true.
+
+    nEns = size(p,dim=1)
+    nPart = size(p,dim=2)
+    do iEns = 1,nEns
+       do iPart = 1,nPart
+          if (p(iEns,iPart)%ID.le.0) cycle
+          call setOffShellParameter_0dim(p(iEns,iPart),flagOk)
+          if (.not.flagOk) then
+             success=.false.
+          end if
+       end do
+    end do
+  end subroutine setOffShellParameter_2dim
+
+  !****************************************************************************
   !****f* offShellPotential/getOffShellParameter
   ! NAME
-  ! real function getOffShellParameter
+  ! real function getOffShellParameter(partID,bareMass,momentum,position,
+  ! success)
   !
   ! PURPOSE
-  ! This function calculates the offshell parameter to be set into particle%offshellparameter.
-  ! When calling this routine, make sure, that momentum(0) is set correctly!!!!!!!!
+  ! This function calculates the offshell parameter to be set into
+  ! particle%offshellPar.
+  ! When calling this routine, make sure, that momentum(0) is set correctly!
   !
   ! INPUTS
-  ! * integer, intent(in) :: partID   -- ID of particle
-  ! * real, intent(in) :: bareMass     -- bare mass= %mass
-  ! * real, dimension(0:3), intent(in) :: momentum  -- 4-momentum at production point
-  ! * real, dimension(1:3), intent(in) :: position  -- production point
+  ! * integer :: partID    -- ID of particle
+  ! * real :: bareMass     -- bare mass= %mass
+  ! * real, dimension(0:3) :: momentum  -- 4-momentum at production point
+  ! * real, dimension(1:3) :: position  -- production point
   !
   ! OUTPUT
-  ! * logical, intent(out):: success -- .true. if the offshell parameter could be evaluated.
-  ! * real ::                getOffShellParameter
+  ! * function value
+  ! * logical :: success -- .true. if offshell parameter could be evaluated
   !****************************************************************************
   real function getOffShellParameter(partID,bareMass,momentum,position,success)
     use IDTable, only: rho, omegaMeson, phi, isBaryon
     use particleProperties, only: hadron
     use mediumDefinition
-    use hist2Df90
+    use hist2D
     use mediumModule, only: mediumAt
-    use minkowski, only: abs4
+    use minkowski, only: abs4,abs3
     use mesonWidthMedium, only: WidthMesonMedium
-    
+
     integer, intent(in) :: partID
     real, intent(in) :: bareMass
     real, dimension(0:3), intent(in) :: momentum
     real, dimension(1:3), intent(in) :: position
     logical, intent(out):: success
 
-    real :: width, poleMass    
+    real :: width, poleMass
     type(medium) :: mediumAtPosition
 
     !for debugging
     integer,save :: numcalls=0
     type(histogram2D),save :: histo_nucl
     type(histogram2D),save :: histo_delta,histo_delta_rho
+    type(histogram2D),save :: histo_rho
     logical, save :: initHistFirst=.true.
     logical :: outofBounds
     integer, save :: counter_too_large=0
@@ -479,7 +528,7 @@ contains
     success=.false.
 
     if (partID.le.0) return
-    
+
     mediumAtPosition = mediumAt(position)
     mediumAtPosition%useMedium = .true. ! to avoid threshold effects
 
@@ -509,14 +558,22 @@ contains
     end if
 
 
+!    if (partID==103) then
+!       write(742,*) bareMass,width,getOffShellParameter,abs4(momentum),abs3(momentum),mediumAtPosition%densityNeutron,mediumAtPosition%densityProton
+!       flush(742)
+!    end if
+
     !cutoff: we do not allow particles which are too far offshell
     if (isBaryon(partId) .and. abs(getoffshellparameter)>max_offshellparameter) then
        ! Declare failure: particle is too far off-shell
        if (counter_too_large.lt.100) then
-          write(*,'(A,2G13.5)') 'WARNING: off-shell parameter too large!', getoffshellparameter, max_offshellparameter
-          write(*,'(12g13.5)') partID,bareMass,momentum,poleMass,width,mediumAtPosition%density
+          write(*,'(A,2G13.5)') 'WARNING: off-shell parameter too large!', &
+               getoffshellparameter, max_offshellparameter
+          write(*,'(12g13.5)') partID,bareMass,momentum,poleMass,width,&
+               mediumAtPosition%density
           counter_too_large=counter_too_large+1
-          if (counter_too_large==100) write(*,*) 'This happended now 100 times. Stopping output!'
+          if (counter_too_large==100) &
+               write(*,*) 'This happended now 100 times. Stopping output!'
        end if
        getoffshellparameter=0.
        success=.false.
@@ -524,30 +581,47 @@ contains
        success=.true.
     end if
 
-!    write(*,*)' Id, Mass, OSP : ', partID, bareMass, getOffShellParameter 
-    
+!    write(*,*)' Id, Mass, OSP : ', partID, bareMass, getOffShellParameter
+
     !for debugging:
-    if (initHistFirst.and.offshell_debug) then
-       call CreateHist2D(histo_nucl, 'off shell parameter',(/-20.,0./),(/20.,0.7/),(/0.05,0.01/))
-       call CreateHist2D(histo_delta, 'off shell parameter',(/-20.,0./),(/20.,0.7/),(/0.05,0.01/))
-       call CreateHist2D(histo_delta_rho, 'off shell parameter',(/-20.,0./),(/20.,0.2/),(/0.05,0.005/))
-       initHistFirst=.false.
-    end if
+    if (offshell_debug) then
+       if (initHistFirst) then
+          call CreateHist2D(histo_nucl, 'off shell parameter',&
+               (/-20.,0.6/),(/20.,1.3/),(/0.05,0.01/))
+          call CreateHist2D(histo_delta, 'off shell parameter',&
+               (/-20.,0.9/),(/20.,1.6/),(/0.05,0.01/))
+          call CreateHist2D(histo_delta_rho, 'off shell parameter',&
+               (/-20.,0./),(/20.,0.2/),(/0.05,0.005/))
+          call CreateHist2D(histo_rho, 'off shell parameter',&
+               (/-20.,0./),(/20.,1.0/),(/0.05,0.01/))
+          initHistFirst=.false.
+       end if
 
-    if (offshell_debug.and.partID.eq.1) call AddHist2D(histo_nucl, (/getoffshellparameter,width/),1.)
-    if (offshell_debug.and.partID.eq.2) call AddHist2D(histo_delta, (/getoffshellparameter,width/),1.)
-    if (offshell_debug.and.partID.eq.2) call AddHist2D(histo_delta_rho, (/getoffshellparameter,mediumAtPosition%density/),1.)
+       select case (partID)
+       case (1)
+          call AddHist2D(histo_nucl, (/getoffshellparameter,width/),1.)
+       case (2)
+          call AddHist2D(histo_delta, (/getoffshellparameter,width/),1.)
+          call AddHist2D(histo_delta_rho, &
+               (/getoffshellparameter,mediumAtPosition%density/),1.)
+       case (103)
+          call AddHist2D(histo_rho, (/getoffshellparameter,width/),1.)
+       end select
 
-    if (mod(numCalls,1000).eq.0.and.offshell_debug) then
-       open(199,file='offshell_params_nucl.dat')
-       call WriteHist2D_Gnuplot(histo_nucl,199,mul=histo_nucl%xBin(1)*histo_nucl%xBin(2))
-       close(199)
-       open(199,file='offshell_params_delta.dat')
-       call WriteHist2D_Gnuplot(histo_delta,199,mul=histo_delta%xBin(1)*histo_delta%xBin(2))
-       close(199)
-       open(199,file='offshell_params_delta_rho.dat')
-       call WriteHist2D_Gnuplot(histo_delta_rho,199,mul=histo_delta_rho%xBin(1)*histo_delta_rho%xBin(2))
-       close(199)
+       if (mod(numCalls,1000).eq.0) then
+          call WriteHist2D_Gnuplot(histo_nucl,&
+               file='offshell_params_nucl.dat',&
+               mul=histo_nucl%xBin(1)*histo_nucl%xBin(2))
+          call WriteHist2D_Gnuplot(histo_delta,&
+               file='offshell_params_delta.dat',&
+               mul=histo_delta%xBin(1)*histo_delta%xBin(2))
+          call WriteHist2D_Gnuplot(histo_delta_rho,&
+               file='offshell_params_delta_rho.dat',&
+               mul=histo_delta_rho%xBin(1)*histo_delta_rho%xBin(2))
+          call WriteHist2D_Gnuplot(histo_rho,&
+               file='offshell_params_rho.dat',&
+               mul=histo_rho%xBin(1)*histo_rho%xBin(2))
+       end if
     end if
 
 
@@ -556,25 +630,28 @@ contains
 
   !****************************************************************************
   !****f* offShellPotential/getOffShellMass
-  !NAME
-  !real function getOffShellMass
+  ! NAME
+  ! real function getOffShellMass(partID,offshellparameter,momentum,baremass,
+  ! mediumAtPosition,outOfBounds,success)
   !
-  !FUNCTION
-  !This function calculates the offshellmass of a particle depending on its offshellparameter
-  !and the current kinematics -> full four-momentum needed!!!
+  ! FUNCTION
+  ! This function calculates the offshellmass of a particle depending on its
+  ! offshellparameter and the current kinematics
+  ! -> full four-momentum needed!!!
   !
   ! INPUTS
-  ! * integer, intent(in) :: partID   -- ID of particle
-  ! * real, intent(in) :: offshellparameter
-  ! * real, intent(in) :: bareMass     -- bare mass= %mass
-  ! * real, dimension(0:3), intent(in) :: momentum  -- 4-momentum
-  ! * type(medium),intent(in) :: mediumAtPosition   -- medium information
+  ! * integer :: partID                 -- ID of particle
+  ! * real :: offshellparameter         --
+  ! * real :: bareMass                  -- bare mass= %mass
+  ! * real, dimension(0:3) :: momentum  -- 4-momentum
+  ! * type(medium) :: mediumAtPosition  -- medium information
   !
   ! OUTPUT
-  ! * real ::                getOffShellMass
-  ! * real, optional :: getOffShellness
+  ! * real :: getOffShellMass
+  ! * logical :: outOfBounds -- true if mass is not in grid
+  ! * logical, OPTIONAL :: success -- indicates failure
   !****************************************************************************
-  real function getOffShellMass(partID,offshellparameter,momentum,baremass,mediumAtPosition,outOfBounds)
+  real function getOffShellMass(partID,offshellparameter,momentum,baremass,mediumAtPosition,outOfBounds,success)
     use particleDefinition
     use IdTable, only: isBaryon,isMeson,rho,omegaMeson,phi
     use particleProperties, only: hadron
@@ -582,35 +659,34 @@ contains
     use mediumDefinition
     use dichteDefinition
     use minkowski, only: abs4, SP
-    use callstack, only: traceback
-    use mesonWidthMedium, only: WidthMesonMedium
-    use mesonPotentialModule, only: vecMes_massShift
-    
+!    use mesonWidthMedium, only: WidthMesonMedium
+    use mesonPotentialMain, only: vecMes_massShift
+
     integer, intent(in) :: partID
     real, intent(in) :: offshellparameter
     real, dimension(0:3),intent(in) :: momentum
     real, intent(in) :: baremass
     type(medium),intent(in) :: mediumAtPosition
+    logical, optional, intent(out) :: success
 
     logical, intent(out) :: outOfBounds
     real :: width,spot
-    
+
     if (initFlag) then
        call readInput
        initFlag=.false.
     end if
 
     outOfBounds=.false.
+    if (present(success)) success=.true.
     if (treatParticleOffShell(partID,OffShellParameter)) then
-       
+
        ! Baryons
        if (isBaryon(partId)) then
 
           if (SP(momentum,momentum).le.0.) then
-             write(*,*) 'strange abs4 in offshell -> STOP in offshellPotential/getOffshellMass'
              call errorMessage_SPleZero()
              call traceback()
-             stop
           end if
           width = getBaryonWidth(partID,bareMass,momentum,mediumAtPosition,outOfBounds)
           if (relativistic) then
@@ -620,15 +696,18 @@ contains
           end if
           if (.not.extrapolateBaryonWidth) then
              getOffShellMass=max(getOffShellMass,get_minMass(partID))
-             if (outofbounds) getOffShellMass=get_minMass(partID)
+             if (outOfbounds) getOffShellMass=get_minMass(partID)
           end if
 
        ! Mesons
        else if (isMeson(partId)) then
 
           if (SP(momentum,momentum).le.0.) then
-             write(*,*) 'Warning: strange abs4 in offshellPotential/getOffshellMass'
-             call errorMessage_SPleZero()
+             if (present(success)) then
+                success=.false.
+             else
+                call errorMessage_SPleZero()
+             end if
              outOfBounds = .true.
              getOffShellMass = 0.
              return
@@ -644,7 +723,7 @@ contains
              ! in all other cases: neglect potential
              spot = 0.
           end select
-        
+
           if (relativistic) then
             getOffShellMass=sqrt(max((hadron(partID)%mass+spot)**2+offshellparameter*2.*abs4(momentum)*width,0.))
           else
@@ -652,14 +731,14 @@ contains
           end if
 
        else
-          write(*,*) 'getOffShellMass: no meson/baryon! CRITICAL ERROR: SHOULD NOT BE CALLED: Strange ID!! -> STOP', partID
-          stop
+          write(*,*) 'Strange ID!! -> STOP', partID
+          call TraceBack()
        end if
 
     else if (partID/=0) then
-       write(*,*) 'getOffShellMass: treatParticleOffShell=.false.! CRITICAL ERROR: SHOULD NOT BE CALLED!! -> STOP',  &
+       write(*,*) 'CRITICAL ERROR: SHOULD NOT BE CALLED!! -> STOP',  &
             & partID,OffShellParameter
-       stop
+       call TraceBack()
     else
        write(*,*) 'WARNING: getOffShellMass: ID=0'
        getOffShellMass=0
@@ -669,14 +748,12 @@ contains
 
     subroutine errorMessage_SPleZero()
       write(*,*) 'p^mu p_mu is less or equal zero in getOffShellMass:', SP(momentum,momentum)
-      write(*,*) 'partID,bareMass:'
-      write(*,*) partID,bareMass
-      write(*,*) 'momentum:'
+      write(*,*) '  partID,bareMass:',partID,bareMass
+!      write(*,*) 'momentum:'
       write(*,*) momentum
-      write(*,*) 'offshellparameter:'
-      write(*,*) offshellparameter
-      write(*,*) 'density:'
-      write(*,*) mediumAtPosition%density
+      write(*,*) '  offshellparameter:',offshellparameter
+      write(*,*) '  density:',mediumAtPosition%density
+      write(*,*)
     end subroutine errorMessage_SPleZero
 
 
@@ -685,51 +762,56 @@ contains
 
   !****************************************************************************
   !****s* offShellPotential/SetOffShellEnergy
-  !NAME
-  !subroutine SetOffShellEnergy(part)
+  ! NAME
+  ! subroutine SetOffShellEnergy(part,errCode)
   !
-  !PURPOSE
-  !Calculate the offshell energy and offshell mass of a particle depending on its offshellparameter
-  !and three-momentum.
+  ! PURPOSE
+  ! Calculate the offshell energy and offshell mass of a particle depending on
+  ! its offshellparameter and three-momentum.
   !
   ! INPUT
-  ! *  type(particle),intent(inout) :: part    
+  ! * type(particle) :: part
   ! OUTPUT
-  ! *  type(particle),intent(inout) :: part    ! with redefined part%momentum(0) and part%mass
+  ! * type(particle) :: part -- with redefined part%mom(0) and part%mass
+  ! * integer, OPTIONAL :: errCode -- 0 if okay, otherwise = 1,...5
   !****************************************************************************
-  subroutine SetOffShellEnergy(part)
+  subroutine SetOffShellEnergy(part,errCode)
     use particleDefinition
     use IdTable, only: isBaryon,rho,omegaMeson,phi
-    use particleProperties, only: hadron
+    use particleProperties, only: hadron, partName
     use mediumDefinition
     use mediumModule, only: mediumAt
     use mesonWidthMedium, only: WidthMesonMedium
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
     use constants, only: melec
-    use output, only: WriteParticle
-    
+    use output, only: WriteParticle, DoPr
+
     type(particle), intent(inout) :: part
+    integer, intent(out), optional :: errCode
 
     real, parameter :: err=1.e-06, dE=1.e-04, mass2min=1.e-04
 
-    real, dimension(0:3) :: momentum    
+    real, dimension(0:3) :: momentum
     type(medium) :: mediumAtPosition
     real :: spot,pAbs2,massOld,Eold,PoleMass,PoleMass2,E,E0,Enew,derf,fE,f0,fnew,mass2
     integer :: iter
     logical :: flagTryDiv
+    integer, parameter :: iterMax = 20  ! default: 10
 
     if (initFlag) then
        call readInput
        initFlag=.false.
     end if
-    
+
+    if (present(errCode)) errCode = 0
+
     if(.not.SetOffShellEnergyFlag) return
 
     if(part%id.le.0) return
-    
-    if (.not.treatParticleOffShell(part%id,part%OffShellParameter)) return
-    
-    mediumAtPosition=mediumAt(part%position)
+
+    if (.not.treatParticleOffShell(part%id,part%offshellPar)) return
+
+    mediumAtPosition=mediumAt(part%pos)
     mediumAtPosition%useMedium = .true. ! to avoid threshold effects
 
     select case (part%id)
@@ -740,80 +822,90 @@ contains
        ! in all other cases: neglect potential
        spot = 0.
     end select
-    
-    momentum=part%momentum
+
+    momentum=part%mom
 
     pAbs2=momentum(1)**2+momentum(2)**2+momentum(3)**2
-    
+
     massOld=part%mass
     Eold=sqrt((massOld+spot)**2+pAbs2)
-    
+
     PoleMass=hadron(part%id)%mass + spot
     PoleMass2=PoleMass**2
 
     if(momentum(0).lt.0.) then
-       write(*,*) ' Particle with negative energy in SetOffShellEnergy: ', part%Id, momentum
-       stop
+       write(*,*) ' Particle with negative energy: ', &
+            part%Id, part%number, momentum
+       call TraceBack()
     end if
-    
+
     E=momentum(0)
 
     fE=f(E)
-    
+
     if(abs(fE).lt.err) then
        if(mass2.gt.mass2min) then
           part%mass = sqrt(mass2) - spot
        else
-          write(*,*) 'WARNING in SetOffShellEnergy (1): too small (inv. mass)^2 ', part%Id, mass2
+          if (DoPR(2)) write(*,'(A,A,i10,G12.3)') &
+               "WARNING in SetOffShellEnergy (1): too small (inv.mass)^2: ",&
+               partName(part), part%number, mass2
           part%mass=massOld
-          part%momentum(0)=Eold          
+          part%mom(0)=Eold
+          if (present(errCode)) errCode = 1
        end if
-       return    
+       return
     end if
 
     flagTryDiv=.false.
 
     iter=0
-    do 
+    do
 
        iter=iter+1
-       
+
        derf=(f(E+dE)-fE)/dE
 
        if(derf.ne.0.) then
           E0=E
           f0=fE
           E = E - fE/derf
-       else  ! just shift from the extremum 
+       else  ! just shift from the extremum
           E = E + dE
        end if
 
        E=abs(E)
-       
+
        fE=f(E)
 
-!       write(*,*)' iter-secant, E, fE : ', iter, E, fE 
-       
+!       write(*,*)' iter-secant, E, fE : ', iter, E, fE
+
        if(abs(fE).lt.err) then
           if(mass2.gt.mass2min) then
              part%mass = sqrt(mass2) - spot
-             part%momentum(0)=E
+             part%mom(0)=E
           else
-             write(*,*) 'WARNING in SetOffShellEnergy (2): too small (inv. mass)^2 ', part%Id, mass2
+             if (DoPR(2)) write(*,'(A,A,i10,G12.3)') &
+                  "WARNING in SetOffShellEnergy (2): too small (inv.mass)^2: ",&
+                  partName(part), part%number, mass2
              part%mass=massOld
-             part%momentum(0)=Eold
+             part%mom(0)=Eold
+             if (present(errCode)) errCode = 2
           end if
           return
        else if(iter.gt.3 .and. f0*fE.lt.0.) then
           flagTryDiv=.true.
           exit
-       else if(iter.eq.10) then
-          write(*,*) 'WARNING in SetOffShellEnergy (3): poor converegence ', part%Id, abs(fE)
+       else if(iter.eq.iterMax) then
+          if (DoPR(2)) write(*,'(A,A,i10,G12.3)') &
+               "WARNING in SetOffShellEnergy (3): poor convergence: ",&
+               partName(part), part%number, abs(fE)
           part%mass=massOld
-          part%momentum(0)=Eold
+          part%mom(0)=Eold
+          if (present(errCode)) errCode = 3
           return
        end if
-       
+
     end do
 
     if(flagTryDiv) then
@@ -821,7 +913,7 @@ contains
        iter=0
        do
           iter=iter+1
-          
+
           Enew = 0.5*(E+E0)
           fnew=f(Enew)
           if(fnew*fE.lt.0.) then
@@ -830,26 +922,32 @@ contains
              E=Enew
              fE=fnew
           end if
-!          write(*,*)' iter-division, E, fE : ', iter, Enew, fnew 
+!          write(*,*)' iter-division, E, fE : ', iter, Enew, fnew
           if(abs(fnew).lt.err) then
               if(mass2.gt.mass2min) then
                  part%mass = sqrt(mass2) - spot
-                 part%momentum(0)=Enew
+                 part%mom(0)=Enew
               else
-                 write(*,*) 'WARNING in SetOffShellEnergy (4): too small (inv. mass)^2 ', part%Id, mass2
+                 if (DoPR(2)) write(*,'(A,A,i10,G12.3)') &
+                      "WARNING in SetOffShellEnergy (4): too small (inv.mass)^2: ",&
+                      partName(part), part%number, mass2
                  part%mass=massOld
-                 part%momentum(0)=Eold
+                 part%mom(0)=Eold
+                 if (present(errCode)) errCode = 4
               end if
               return
-          else if(iter.eq.100) then
-              write(*,*) 'WARNING in SetOffShellEnergy (5): poor converegence ', part%Id, abs(fnew)
+           else if(iter.eq.100) then
+              if (DoPR(2)) write(*,'(A,A,i10,G12.3)') &
+                   "WARNING in SetOffShellEnergy (5): poor convergence: ",&
+                   partName(part), part%number, abs(fnew)
               part%mass=massOld
-              part%momentum(0)=Eold
-              return            
+              part%mom(0)=Eold
+              if (present(errCode)) errCode = 5
+              return
           end if
        end do
     end if
-    
+
   contains
 
     real function f(p0)
@@ -858,58 +956,59 @@ contains
 
       real :: mass,width
       logical :: outofBounds
-      
+
       momentum(0)=p0
 
       mass2=momentum(0)**2-pAbs2
-      
+
 !      if (mass2.le.0.) then
 !         write(*,*) 'space-like particle in offshellPotential/SetOffShellEnergy'
 !         call WriteParticle(6,99,1,part)
 !         stop
-!      end if      
-      
+!      end if
+
       mass=sqrt(max(4.*melec**2,mass2))
-            
+
       if (isBaryon(part%id)) then
           width = getBaryonWidth(part%id,mass,momentum,mediumAtPosition,outOfBounds)
       else
           width = getMesonWidth(part%id,mass,momentum,mediumAtPosition)
       end if
-       
+
       if (relativistic) then
-         f = mass2 - PoleMass2 - part%offshellparameter*2.*mass*width
+         f = mass2 - PoleMass2 - part%offshellPar*2.*mass*width
       else
-         f = mass - PoleMass - part%offshellparameter*width
+         f = mass - PoleMass - part%offshellPar*width
       end if
 
 !      write(*,*)' id, mass, density, width : ', part%id, mass, mediumAtposition%density, width
 !      write(*,*)' momentum: ', momentum
-           
+
     end function f
-    
+
   end subroutine SetOffShellEnergy
 
-  
+
   !****************************************************************************
-  !****f* offShellPotential/getBaryonWidth
+  !****if* offShellPotential/getBaryonWidth
   ! NAME
-  ! real function getBaryonWidth
+  ! real function getBaryonWidth(partID,bareMass,momentum,mediumAtPosition,
+  ! outofBounds)
   !
   ! PURPOSE
   ! returns the baryonWidth. In case, extrapolateBaryonWidth is set to .true.
   ! the baryon width is extrapolated to masses below minimalmass.
+  !
   ! IMPORTANT: *** Baryon Width is calculated in the Lab Frame! ***
   !
-  !
   ! INPUTS
-  ! * integer, intent(in) :: partID   -- ID of particle
-  ! * real, intent(in) :: bareMass     -- bare mass= %mass
-  ! * real, dimension(0:3), intent(in) :: momentum  -- 4-momentum
-  ! * type(medium),intent(in) :: mediumAtPosition   -- medium information
+  ! * integer :: partID   -- ID of particle
+  ! * real :: bareMass     -- bare mass= %mass
+  ! * real, dimension(0:3) :: momentum  -- 4-momentum
+  ! * type(medium) :: mediumAtPosition   -- medium information
   !
   ! OUTPUT
-  ! * real ::                getBaryonWidth
+  ! * function value
   !****************************************************************************
   real function getBaryonWidth(partID,bareMass,momentum,mediumAtPosition,outofBounds)
     use IdTable, only: isBaryon
@@ -920,7 +1019,7 @@ contains
     use twoBodyTools, only: pCM
     use constants, only: mN
     use lorentzTrafo, only: lorentz
-    
+
     integer, intent(in) :: partID
     real, intent(in) :: bareMass
     real, dimension(0:3), intent(in) :: momentum
@@ -930,60 +1029,58 @@ contains
     real, dimension(0:3) :: momLRF
     real :: width
     real :: x1,x2,y1,y2,m,b,s_cut,s_real
-    integer, save :: Method=3
+    integer, parameter :: Method=3
     real :: p_squared
+
     if (initFlag) then
        call readInput
        initFlag=.false.
     end if
 
-    !Baryons
-    if (isBaryon(partId)) then
-
-       ! Determine momentum in LRF
-       momLRF=momentum
-       call lorentz(mediumAtPosition%betaLRF,momLRF,'offShellPotential(1)')
-       
-       if (extrapolateBaryonWidth.and.baremass.lt.(hadron(partid)%minmass+0.015)) then
-          x1=hadron(partid)%minmass+0.015
-          y1=WidthBaryonMedium(partID,x1,momLRF,mediumATposition,outofBounds)
-          select case (method)
-          case (1)
-             ! tina's method
-             x2=hadron(partid)%minmass+0.014
-             y2=WidthBaryonMedium(partID,x2,momLRF,mediumATposition,outofBounds)
-             m=(y1-y2)/(x1-x2)
-             b=y1-m*x1
-             width=m*baremass+b
-             if (offshell_debug) write(*,*) 'fakewidth=',Width
-             width=max(0.001,width)  !minimalwidth as set in baryonWidthMedium_tables
-             outofBounds=.false.
-          case (2)
-             ! Constant width
-             width=y1
-             getBaryonWidth=width
-             outofBounds=.true.
-          case (3)
-             ! Assume that width is due to NN absorption below threshold
-             p_squared=Dot_Product(momentum(1:3),momentum(1:3))
-             s_cut =sqrt((mN+sqrt(x1**2      +p_squared) )**2-p_Squared )
-             s_real=sqrt((mN+sqrt(baremass**2+p_squared) )**2-p_squared )
-             width=y1*pcm(s_real,mN,mN)/pcm(s_cut,mN,mN)
-             outofBounds=.false.
-          end select
-       else
-          width=WidthBaryonMedium(partID,baremass,momLRF,mediumATposition,outofBounds)
-          if (offshell_debug) write(*,*) 'width=',Width,partID,baremass,momentum,mediumATposition,outofBounds
-       end if
-
-       ! Gamma_lab = Gamma_restframe / gamma
-       getBaryonWidth = width * abs4(momentum)/momentum(0)
-
-    else
-
-       write(*,*) 'getBaryonWidth: no baryon! CRITICAL ERROR: SHOULD NOT BE CALLED: Strange ID!! -> STOP', partID
-       stop
+    if (.not.isBaryon(partId)) then
+       write(*,*) 'partID = ',partID
+       call TRACEBACK('particle is no baryon!')
     end if
+
+    ! Determine momentum in LRF
+    momLRF=momentum
+    call lorentz(mediumAtPosition%betaLRF,momLRF)
+
+
+    if (extrapolateBaryonWidth.and.baremass.lt.(hadron(partid)%minmass+0.015)) then
+       x1=hadron(partid)%minmass+0.015
+       y1=WidthBaryonMedium(partID,x1,momLRF,mediumATposition,outofBounds)
+       select case (Method)
+       case (1)
+          ! tina's method
+          x2=hadron(partid)%minmass+0.014
+          y2=WidthBaryonMedium(partID,x2,momLRF,mediumATposition,outofBounds)
+          m=(y1-y2)/(x1-x2)
+          b=y1-m*x1
+          width=m*baremass+b
+          if (offshell_debug) write(*,*) 'fakewidth=',Width
+          width=max(0.001,width)  !minimalwidth as set in baryonWidthMedium_tables
+          outofBounds=.false.
+       case (2)
+          ! Constant width
+          width=y1
+          getBaryonWidth=width
+          outofBounds=.true.
+       case (3)
+          ! Assume that width is due to NN absorption below threshold
+          p_squared=Dot_Product(momentum(1:3),momentum(1:3))
+          s_cut =sqrt((mN+sqrt(x1**2      +p_squared) )**2-p_Squared )
+          s_real=sqrt((mN+sqrt(baremass**2+p_squared) )**2-p_squared )
+          width=y1*pcm(s_real,mN,mN)/pcm(s_cut,mN,mN)
+          outofBounds=.false.
+       end select
+    else
+       width=WidthBaryonMedium(partID,baremass,momLRF,mediumATposition,outofBounds)
+       if (offshell_debug) write(*,*) 'width=',Width,partID,baremass,momentum,mediumATposition,outofBounds
+    end if
+
+    ! Gamma_lab = Gamma_restframe / gamma
+    getBaryonWidth = width * abs4(momentum)/momentum(0)
 
   end function getBaryonWidth
 
@@ -995,68 +1092,47 @@ contains
   ! real function getMesonWidth
   !
   ! PURPOSE
-  ! Returns the meson width in the meson rest frame. 
+  ! Returns the meson width in the meson rest frame.
   !
   ! INPUTS
-  ! * integer, intent(in) :: partID   -- ID of particle
-  ! * real, intent(in) :: bareMass     -- bare mass= %mass
-  ! * real, dimension(0:3), intent(in) :: momentum  -- 4-momentum
-  ! * type(medium),intent(in) :: mediumAtPosition   -- medium information
+  ! * integer :: partID   -- ID of particle
+  ! * real :: bareMass     -- bare mass= %mass
+  ! * real, dimension(0:3) :: momentum  -- 4-momentum
+  ! * type(medium) :: mediumAtPosition   -- medium information
   !
   ! OUTPUT
-  ! * real ::                getMesonWidth
+  ! * function value
   !****************************************************************************
   real function getMesonWidth(partID,bareMass,momentum,mediumAtPosition)
     use mediumDefinition
-    use mesonWidth, only: FullWidthMeson
-    use mesonWidthMedium, only: WidthMesonMedium, GammaColl
-    use constants, only: rhoNull
-    use IdTable, only: rho
+    use mesonWidthMedium, only: WidthMesonMedium
     use lorentzTrafo, only: lorentz
-    
+
     integer, intent(in) :: partID
     real, intent(in) :: bareMass
     real, dimension(0:3), intent(in) :: momentum
     type(medium),intent(in) :: mediumAtPosition
 
     real, dimension(0:3) :: momLRF
-    real :: width, dens
-    integer, save :: Method=1
 
-    select case(Method)
-       case(1) ! Full width as used in the spectral function
-    
-          ! Determine momentum in LRF
-          momLRF=momentum
-          call lorentz(mediumAtPosition%betaLRF,momLRF,'offShellPotential(2)')
+    ! Determine momentum in LRF
+    momLRF=momentum
+    call lorentz(mediumAtPosition%betaLRF,momLRF)
 
-          width = WidthMesonMedium(partID,bareMass,momLRF,mediumAtposition)
-
-       case(2) ! Vacuum width + density-dependent parameterization
-
-          width = FullWidthMeson(partID,bareMass)                 
-
-          if(mediumAtposition%useMedium) then
-              dens =mediumAtPosition%density/rhoNull
-              width=width+GammaColl(partID)*dens
-          end if
-
-    end select
-
-    getMesonWidth=width  
+    getMesonWidth = WidthMesonMedium(partID,bareMass,momLRF,mediumAtposition)
 
   end function getMesonWidth
-  
 
-  
+
+
   !****************************************************************************
-  !****s* offShellPotential/offShellErrorMessage(partID,bareMass,momentum,position)
+  !****s* offShellPotential/offShellErrorMessage
   ! NAME
-  ! subroutine  offShellErrorMessage(partID,bareMass,momentum,position)
+  ! subroutine offShellErrorMessage(partID,bareMass,momentum,position)
   ! PURPOSE
-  ! Routine returns particle information.
+  ! Routine prints particle information.
   ! INPUTS
-  ! * type(particle), intent(in) :: part
+  ! * type(particle) :: part
   !****************************************************************************
   subroutine offShellErrorMessage(part)
     use particleDefinition
@@ -1069,16 +1145,16 @@ contains
     write(*,'(A)')'offShellErrorMessage: printing particle properties...:'
     write(*,form)'Particle ID:                ', part%ID
     write(*,form)'Particle mass:              ', part%mass
-    write(*,form)'Particle offshellparameter: ', part%offshellparameter
+    write(*,form)'Particle offshellparameter: ', part%offshellPar
     write(*,form)'Particle number:            ', part%number
     write(*,form)'Particle firstevent:        ', part%firstevent
     write(*,form)'Particle history:           ', part%history
-    write(*,form)'Particle momentum:          ', part%momentum
-    write(*,form)'Particle perturbative?:     ', part%perturbative
+    write(*,form)'Particle momentum:          ', part%mom
+    write(*,form)'Particle perturbative?:     ', part%pert
     write(*,form)'Particle charge:            ', part%Charge
-    write(*,form)'Particle position:          ', part%position
-    write(*,form)'SP(momentum,momentum):      ', SP(part%momentum,part%momentum)
-    write(*,form)'SQ(abs(SP(momentum,momentum):',sqrt(abs(SP(part%momentum,part%momentum)))
+    write(*,form)'Particle position:          ', part%pos
+    write(*,form)'SP(momentum,momentum):      ', SP(part%mom,part%mom)
+    write(*,form)'SQ(abs(SP(momentum,momentum):',sqrt(abs(SP(part%mom,part%mom)))
     write(*,*)
 
   end subroutine offShellErrorMessage

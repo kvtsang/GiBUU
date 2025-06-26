@@ -13,5 +13,6 @@
 
 ! file: code/database/particleProperties.f90
 &initDatabase
-!   FileNameDecayChannels = 'DecayChannels.noPhotonicMeson.dat'
+!     FileNameDecayChannels = 'DecayChannels.noPhotonicMeson.dat'
+      rho_dilep = T
 /

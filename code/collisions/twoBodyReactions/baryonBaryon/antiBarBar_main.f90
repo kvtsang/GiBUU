@@ -104,9 +104,9 @@ contains
     integer :: totCharge, totId, izDelta, nAnti
     logical :: AntiDeltaFlag
 
-    if ( partIn(1)%antiParticle .eqv. partIn(2)%antiParticle ) then
+    if ( partIn(1)%anti .eqv. partIn(2)%anti ) then
        write(*,*) 'XsectionAntiBarBar is not applicable for bar+bar or antibar+antibar collisions !!!'
-       write(*,*) partIn%Id, partIn%antiParticle
+       write(*,*) partIn%Id, partIn%anti
        stop
     end if
 
@@ -115,7 +115,7 @@ contains
     ! Initialize output:
     partOut(:)%ID=0
     partOut(:)%charge=0
-    partOut(:)%antiParticle=.false.
+    partOut(:)%anti=.false.
     partOut(:)%mass=0.
     sigmaTot=0.
     sigmaElast=0.
@@ -165,11 +165,11 @@ contains
        if ( partIn(1)%Id.eq.delta ) then
           izDelta=  partIn(1)%charge
           mDelta= partIn(1)%mass
-          AntiDeltaFlag= partIn(1)%antiParticle
+          AntiDeltaFlag= partIn(1)%anti
        else
           izDelta=  partIn(2)%charge
           mDelta= partIn(2)%mass
-          AntiDeltaFlag= partIn(2)%antiParticle
+          AntiDeltaFlag= partIn(2)%anti
        end if
 
        if (AntiDeltaFlag) then
@@ -228,14 +228,14 @@ contains
 
     ! Nonannihilation channels:
 
-    partOut(1:2)%antiParticle=partIn(1:2)%antiparticle
+    partOut(1:2)%anti=partIn(1:2)%anti
     if (totId > 3) then
        partOut(1:2)%ID=partIn(1:2)%Id
        partOut(1:2)%charge=partIn(1:2)%charge
        return
     end if
 
-    if ( partIn(1)%antiparticle ) then
+    if ( partIn(1)%anti ) then
        nAnti=1
     else
        nAnti=2
@@ -336,8 +336,8 @@ contains
        else
 
           write(*,*) 'In XsectionAntiBarBar 2: wrong outgoing channel'
-          write(*,*) 'IdIn1, IdIn2, antiIn1, antiIn2:', partIn%Id, partIn%antiParticle
-          write(*,*) 'IdOut1, IdOut2, antiOut1, antiOut2:', partOut%Id, partOut%antiParticle
+          write(*,*) 'IdIn1, IdIn2, antiIn1, antiIn2:', partIn%Id, partIn%anti
+          write(*,*) 'IdOut1, IdOut2, antiOut1, antiOut2:', partOut%Id, partOut%anti
           stop
 
        end if
@@ -403,8 +403,8 @@ contains
        else
 
           write(*,*) 'In XsectionAntiBarBar 3: wrong outgoing channel'
-          write(*,*) 'IdIn1, IdIn2, antiIn1, antiIn2:', partIn%Id, partIn%antiParticle
-          write(*,*) 'IdOut1, IdOut2, antiOut1, antiOut2:', partOut%Id, partOut%antiParticle
+          write(*,*) 'IdIn1, IdIn2, antiIn1, antiIn2:', partIn%Id, partIn%anti
+          write(*,*) 'IdOut1, IdOut2, antiOut1, antiOut2:', partOut%Id, partOut%anti
 
           stop
 
@@ -492,7 +492,7 @@ contains
 
        write(*,*) 'Problem:  final state can not be chosen in XsectionAntiBarBar'
        write(*,*) 'srts: ', srts
-       write(*,*) 'IdIn1, IdIn2, antiIn1, antiIn2:', partIn%Id, partIn%antiParticle
+       write(*,*) 'IdIn1, IdIn2, antiIn1, antiIn2:', partIn%Id, partIn%anti
        write(*,*) 'sigmaAnni: ', sigmaAnni
        write(*,*) 'sigmaAntiNucNuc: ', sigmaAntiNucNuc
        write(*,*) 'sigmaAntiNucDelta: ', sigmaAntiNucDelta
@@ -503,7 +503,7 @@ contains
        ! enforce elastic scattering:
        partOut(1:2)%ID=partIn(1:2)%Id
        partOut(1:2)%charge=partIn(1:2)%charge
-       partOut(1:2)%antiParticle=partIn(1:2)%antiParticle
+       partOut(1:2)%anti=partIn(1:2)%anti
 
     end if
 

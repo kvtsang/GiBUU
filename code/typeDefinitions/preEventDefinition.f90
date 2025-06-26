@@ -18,7 +18,7 @@ module preEventDefinition
      real    :: mass = 0.
      Integer :: ID = 0
      Integer :: charge = 0
-     logical :: antiparticle = .false.
+     logical :: anti = .false.
   End Type preEvent
   !
   ! PURPOSE

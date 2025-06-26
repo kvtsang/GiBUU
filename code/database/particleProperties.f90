@@ -236,6 +236,10 @@ contains
   subroutine InitParticleProperties
     use idtable
     use decayChannels, only: initDecayChannels, Print_DecayChannels
+    use output, only: Write_InitStatus
+
+
+    call Write_InitStatus('ParticleProperties', 0)
 
     call Init ! read jobcard
 
@@ -252,8 +256,10 @@ contains
 
     ! Print out the properties and the decay channels of all particles
     call PrintParticleProperties
+    call Print_DecayChannels_Nice
 
-    call Print_DecayChannels
+    write(*,*)
+    call Write_InitStatus('ParticleProperties', 1)
 
   contains
 
@@ -442,6 +448,8 @@ contains
          write(*,*) "Bad value of propagationSwitch: ", propagationSwitch
          stop
       end select
+
+      hadron(pion:pion+nMes-1)%propagated = .true.
 
     end subroutine decideOnPropagationUsage
 
@@ -800,6 +808,7 @@ contains
 
     write(10,'(A)') "\documentclass[a4paper,10pt]{article}"
     write(10,'(A)') "\usepackage[left=1.5cm,right=1.5cm,top=1cm,bottom=1cm]{geometry}"
+    write(10,'(A)') "\usepackage{booktabs}"
     write(10,'(A)') "\begin{document}"
     write(10,'(A)') "\pagestyle{empty}"
 
@@ -826,74 +835,87 @@ contains
     integer :: ID, j, k, dID
     character(5), parameter :: stars='*****'
     character(14) :: name, sID
+    logical       :: doMidrule
 
-    write(*,*) 'Printing baryon properties to file'
+    write(*,*) 'Printing baryon properties to file...'
 
-    write(10,'(A)') "\section{Baryons}"
+    write(10,'(A)') "%\section{Baryons}"
+    write(10,'(A)') "\setcounter{section}{2}"
+    write(10,'(A)') "\setcounter{subsection}{0}"
     write(10,'(A)') "\subsection{Baryon Properties}"
 
-    write(10,'(A)') "\begin{tabular}{|lr|cccrccccc|} "
-    write(10,'(A)') "\hline"
+    write(10,'(A)') "\begin{tabular}{lrcccrccccc} "
+    write(10,'(A)') "\toprule"
     write(10,'(A)') "\textbf{Name}&\textbf{ID}&\textbf{Mass}&\textbf{Width}&\textbf{Spin}&\textbf{Rating}&",  &
                     "\textbf{Isospin}&\textbf{Strange}&\textbf{Charm}&\textbf{Stability}&\textbf{min.Mass} \\"
-    write(10,'(A)') "\hline"
+    doMidrule = .true.
 
     k=0
     do ID=1,nbar
-      write(10,'("$",A14,"$ & ",I3,2("&  ",F5.3)," & ",F4.1," & ",A5,"&  ",F7.1,3("&  ",I6),"& ",F5.3,"\\")') &
+       if (doMidrule) write(10,'(A)') "\midrule"
+       doMidrule = .false.
+       write(10,'("$",A14,"$ & ",I3,2("&  ",F5.3)," & ",F4.1," & ",A5,"&  ",F7.1,3("&  ",I6),"& ",F5.3,"\\")') &
             hadron(ID)%nameTeX, ID, hadron(ID)%mass, hadron(ID)%width, hadron(ID)%spin, stars(1:hadron(ID)%rating), &
             hadron(ID)%isoSpinTimes2/2., hadron(ID)%strangeness, hadron(ID)%charm, hadron(ID)%stability, hadron(ID)%minMass
-      if (ID==31 .or. ID==55) write(10,'(A)') "\hline"
+      if (ID==31 .or. ID==55) doMidrule = .true.
     end do
 
-    write(10,'(A)') "\hline"
+    write(10,'(A)') "\bottomrule"
     write(10,'(A)') "\end{tabular}"
     write(10,'(A)') ""
 
     write(10,'(A)') "\subsection{Non-Strange Baryon Decays}"
 
-    write(10,'(A)') "\begin{tabular}[t]{|lr|l|ll|l|} "
-    write(10,'(A)') "\hline"
+    write(10,'(A)') "\begin{tabular}[t]{lrllll} "
+    write(10,'(A)') "\toprule"
     write(10,'(A)') 'Name & ID & $\Gamma/\Gamma_{\rm tot}$ & $P_1$ & $P_2$ & L \\ '
-    write(10,'(A)') "\hline"
+    doMidrule = .true.
 
     do ID=1,nbar
-      name = hadron(ID)%nameTex
-      write(sID,"(i3)") ID
-      k = 0
-      do j=1,nDecays
-         dID = hadron(ID)%decaysID(j)
-         select case (dID)
-         case (0)
-            exit
+       name = hadron(ID)%nameTex
+       write(sID,"(i3)") ID
+       k = 0
+       do j=1,nDecays
+          dID = hadron(ID)%decaysID(j)
+          select case (dID)
+          case (0)
+             exit
 
-         case (1:) ! 2-Body-Decays
-            write(10,'("$",A20,"$&",A3,"&",F8.5,"&$ ",A20,"$ &$ ",A20,"$& ",I1,"\\")') &
-                 name, sID, hadron(ID)%decays(j), &
-                 TeXName(Decay2BodyBaryon(dID)%id(1)), &
-                 TeXName(Decay2BodyBaryon(dID)%id(2)), &
-                 getAngularMomentum_baryon(dId,ID)
-            name = " " ! reset for further lines
-            sID = " "
-            k = k + 1
+          case (1:) ! 2-Body-Decays
+             if (doMidrule) write(10,'(A)') "\midrule"
+             doMidrule = .false.
+             write(10,'("$",A20,"$&",A3,"&",F8.5,"&$ ",A20,"$ &$ ",A20,"$& ",I1,"\\")') &
+                  name, sID, hadron(ID)%decays(j), &
+                  TeXName(Decay2BodyBaryon(dID)%id(1)), &
+                  TeXName(Decay2BodyBaryon(dID)%id(2)), &
+                  getAngularMomentum_baryon(dId,ID)
+             name = " " ! reset for further lines
+             sID = " "
+             k = k + 1
 
-         case (:-1) ! 3Body-Decays
-            ! ---- not yet implemented here
+          case (:-1) ! 3Body-Decays
+             ! ---- not yet implemented here
 
-         end select
-      end do
-      if (k>0) write(10,'(A)') "\hline"
-      if (ID==16 .or. ID==32 .or. ID==46) then
-         write(10,'(A)') "\end{tabular}"
-         if (ID==32) then
-           write(10,'(A)') " "
-           write(10,'(A)') "\subsection{Strange/Charmed Baryon Decays}"
-         end if
-         write(10,'(A)') "\begin{tabular}[t]{|lr|l|ll|l|} "
-         write(10,'(A)') "\hline"
-      end if
+          end select
+       end do
+       if (k>0) doMidrule = .true.
+
+       if (ID==15 .or. ID==32 .or. ID==45) then
+          write(10,'(A)') "\bottomrule"
+          write(10,'(A)') "\end{tabular}"
+          if (ID==32) then
+             write(10,'(A)') " "
+             write(10,'(A)') "\subsection{Strange/Charmed Baryon Decays}"
+          else
+             write(10,'(A)') "\hspace*{1cm}"
+          end if
+          write(10,'(A)') "\begin{tabular}[t]{lrllll} "
+          write(10,'(A)') "\toprule"
+          doMidrule = .false.
+       end if
     end do
 
+    write(10,'(A)') "\bottomrule"
     write(10,'(A)') "\end{tabular}"
 
   end subroutine PrintBaryonProperties
@@ -911,36 +933,43 @@ contains
 
     integer       :: j, ID, dId, k
     character(14) :: name, sID
+    logical       :: doMidrule
 
-    write(*,*) 'Printing meson properties to file'
+    write(*,*) 'Printing meson properties to file...'
 
-    write(10,'(A)') "\section{Mesons}"
+    write(10,'(A)') "%\section{Mesons}"
+    write(10,'(A)') "\setcounter{section}{1}"
+    write(10,'(A)') "\setcounter{subsection}{0}"
     write(10,'(A)') "\subsection{Meson Properties}"
 
-    write(10,'(A)') "\begin{tabular}{|lr|cccccccc|} "
-    write(10,'(A)') "\hline"
+    write(10,'(A)') "\begin{tabular}{lrcccccccc} "
+    write(10,'(A)') "\toprule"
     write(10,'(A)') "\textbf{Name}&\textbf{ID}&\textbf{Mass}&\textbf{Width}&\textbf{Spin}&",  &
-                    "\textbf{Isospin}&\textbf{Strange}&\textbf{Charm}&\textbf{Stability}&\textbf{min.Mass} \\"
-    write(10,'(A)') "\hline"
+         "\textbf{Isospin}&\textbf{Strange}&\textbf{Charm}&\textbf{Stability}&\textbf{min.Mass} \\"
+    doMidrule = .true.
 
     do ID=pion,pion+nMes-1
-      write(10,'("$",A14,"$  & ",I3,2(" & ",F6.4),2(" & ",F4.1),3(" & ",I2),"& ",F5.3,"\\")') &
+       if (doMidrule) write(10,'(A)') "\midrule"
+       doMidrule = .false.
+       write(10,'("$",A14,"$  & ",I3,2(" & ",F6.4),2(" & ",F4.1),3(" & ",I2),"& ",F5.3,"\\")') &
             hadron(ID)%nameTeX, ID,  hadron(ID)%mass, hadron(ID)%width, hadron(ID)%spin, float(hadron(ID)%isoSpinTimes2)/2., &
             hadron(ID)%strangeness,  hadron(ID)%charm, hadron(ID)%stability, hadron(ID)%minMass
-      if (ID==109 .or. ID==113 .or. ID==121) write(10,'(A)') "\hline"
+       if (ID==109 .or. ID==113 .or. ID==121) doMidrule = .true.
     end do
-    write(10,'(A)') "\hline"
+    write(10,'(A)') "\bottomrule"
     write(10,'(A)') "\end{tabular}"
     write(10,'(A)') ""
 
     write(10,'(A)') "\subsection{Meson Decays}"
 
-    write(10,'(A)') "\begin{tabular} {|lr|l|lll|l|} "
-    write(10,'(A)') "\hline"
+    write(10,'(A)') "\begin{tabular} {lrlllll} "
+    write(10,'(A)') "\toprule"
     write(10,'(A)') 'Name & ID & $\Gamma/\Gamma_{\rm tot}$ & $P_1$ & $P_2$ & $P_3$ & L \\ '
-    write(10,'(A)') "\hline"
+    doMidrule = .true.
 
     do ID=pion,pion+nMes-1
+       if (doMidrule) write(10,'(A)') "\midrule"
+       doMidrule = .false.
        name = hadron(ID)%nameTex
        write(sID,"(i3)") ID
        k = 0
@@ -971,9 +1000,9 @@ contains
              k = k + 1
           end select
        end do
-       if (k>0) write(10,'(A)') "\hline"
+       if (k>0) doMidrule = .true.
     end do
-
+    write(10,'(A)') "\bottomrule"
     write(10,'(A)') "\end{tabular}"
 
   end subroutine PrintMesonProperties
@@ -1042,8 +1071,9 @@ contains
     use output, only: Write_ReadingInput
     use IdTable, only: pion, nMes
 
-    character(60) :: formI = '("  ",A," (ID=",i3,") changed: ",A," = ",i3," --> ",i3)'
-    character(60) :: formR = '("  ",A," (ID=",i3,") changed: ",A," = ",f5.3," --> ",f5.3)'
+    character(60), parameter :: formI = '("  ",A7," (ID=",i3,") changed: ",A," = ",i3," --> ",i3)'
+    character(60), parameter :: formR = '("  ",A7," (ID=",i3,") changed: ",A," = ",f5.3," --> ",f5.3)'
+    character(60), parameter :: formL = '("  ",A7," (ID=",i3,") changed: ",A," = ",l3," --> ",l3)'
 
     !**************************************************************************
     !****g* ReadInitModify/mass
@@ -1091,6 +1121,21 @@ contains
     !**************************************************************************
 
     !**************************************************************************
+    !****g* ReadInitModify/propagated
+    ! SOURCE
+    integer, dimension(1:pion+nMes-1) :: propagated = -1
+    ! PURPOSE
+    ! Input array for modifications on the flag propagated
+    ! NOTES
+    ! This array is intended to "input" values for the flag of the particles,
+    ! which are different from the default. Therefore only entries, which are
+    ! zero or positive after reading the file are stored in the internal
+    ! database.
+    ! Here 0 is understood as .false., while all positive values stand for
+    ! .true.
+    !**************************************************************************
+
+    !**************************************************************************
     !****n* particleProperties/ModifyParticles
     ! NAME
     ! NAMELIST ModifyParticles
@@ -1099,11 +1144,13 @@ contains
     ! * mass
     ! * width
     ! * stabilityFlag
+    ! * propagated
     !**************************************************************************
-    NAMELIST /ModifyParticles/ mass, width, stabilityFlag
+    NAMELIST /ModifyParticles/ mass, width, stabilityFlag, propagated
 
     integer :: ios,i,iOld
     real :: rOld
+    logical :: lNew, lOld
 
     call Write_ReadingInput('ModifyParticles',0)
     rewind(5)
@@ -1128,6 +1175,13 @@ contains
           iOld = hadron(i)%stability
           hadron(i)%stability = stabilityFlag(i)
           if (iOld/=stabilityFlag(i)) write(*,formI) TRIM(hadron(i)%name),i,'stability',iOld,stabilityFlag(i)
+       end if
+
+       if (propagated(i)>-1) then
+          lOld = hadron(i)%propagated
+          lNew = (propagated(i)>0)
+          hadron(i)%propagated = lNew
+          if (lOld.neqv.lNew) write(*,formL) TRIM(hadron(i)%name),i,'propagated',lOld,lNew
        end if
 
     end do
@@ -1216,7 +1270,7 @@ contains
 
     type(particle), intent(in) :: part
 
-    if (.not.part%antiParticle) then
+    if (.not.part%anti) then
        validCharge_P = validCharge_ID(part%ID, part%charge)
     else
        validCharge_P = validCharge_ID(part%ID,-part%charge)
@@ -1291,7 +1345,7 @@ contains
   character(15) function PartName2 (Part)
     use particleDefinition
     type(particle), intent(in) :: Part
-    PartName2 = PartName1 (Part%ID, Part%charge, Part%antiparticle)
+    PartName2 = PartName1 (Part%ID, Part%charge, Part%anti)
   end function PartName2
   !-------------------------------------------------------------------------
   character(15) function PartName3 (ID)
@@ -1404,7 +1458,7 @@ contains
   character(25) function TeXName2 (Part)
     use particleDefinition
     type(particle), intent(in) :: Part
-    TeXName2 = TeXName1(Part%ID,Part%charge,Part%antiparticle)
+    TeXName2 = TeXName1(Part%ID,Part%charge,Part%anti)
   end function TeXName2
   !-------------------------------------------------------------------------
   character(25) function TeXName3 (ID)
@@ -1425,5 +1479,78 @@ contains
 
   end function TeXName3
 
+  !****************************************************************************
+  !****************************************************************************
+  subroutine Print_DecayChannels_Nice
+
+    use decayChannels
+
+    integer :: i
+
+    open(10,file='GiBUU_database_decayChannels.txt',status='unknown')
+
+    write(10,*) '2-body decay channels of the hadrons'
+    write(10,'(A)') '  i & final State 1 & final State 2 & 1 is stable & 2 is stable & angular momentum & threshold'
+    write(10,*)
+
+    do i=1,nDecay2bodyMeson
+!!$       write(10,'(I3," & ",2(I3," & "),2(L3," & "),I3," & ",f5.3)') &
+!!$            i, Decay2bodyMeson(i)%id, Decay2bodyMeson(i)%stable, &
+!!$            Decay2bodyMeson(i)%angularMomentum, Decay2bodyMeson(i)%threshold
+       write(10,'(I3," & ",2(A," & "),2(L3," & "),I3," & ",f5.3)') &
+            i, &
+            PartName(Decay2bodyMeson(i)%id(1)), &
+            PartName(Decay2bodyMeson(i)%id(2)), &
+            Decay2bodyMeson(i)%stable, &
+            Decay2bodyMeson(i)%angularMomentum, Decay2bodyMeson(i)%threshold
+    end do
+
+    write(10,*)
+
+    do i=1,nDecay2bodyBaryon
+!!$       write(10,'(I3," & ",2(I3," & "),2(L3," & "),I3," & ",f5.3)') &
+!!$            i, Decay2bodyBaryon(i)%id, Decay2bodyBaryon(i)%stable, &
+!!$            Decay2bodyBaryon(i)%angularMomentum, Decay2bodyBaryon(i)%threshold
+       write(10,'(I3," & ",2(A," & "),2(L3," & "),I3," & ",f5.3)') &
+            i, &
+            PartName(Decay2bodyBaryon(i)%id(1)), &
+            PartName(Decay2bodyBaryon(i)%id(2)), &
+            Decay2bodyBaryon(i)%stable, &
+            Decay2bodyBaryon(i)%angularMomentum, Decay2bodyBaryon(i)%threshold
+    end do
+
+    write(10,*)
+    write(10,*) '3-body decay channels of the hadrons'
+!    write(10,'(A)') ' i & final State 1 & final State 2 & final State 3 & charge 1 & charge 2 & charge 3 & threshold'
+    write(10,'(A)') ' i & final State 1 & final State 2 & final State 3 & threshold'
+
+    do i=1,nDecay3bodyMeson
+!!$       write(10,'(I3," & ",3(I3," & ")," & ",3(I2," & ")," & ",f5.3)') &
+!!$            i,Decay3bodyMeson(i)%id, Decay3bodyMeson(i)%charge, Decay3bodyMeson(i)%threshold
+       write(10,'(I3," & ",3(A," & ")," & ",f5.3)') &
+            i, &
+            PartName(Decay3bodyMeson(i)%id(1),Decay3bodyMeson(i)%charge(1),.false.), &
+            PartName(Decay3bodyMeson(i)%id(2),Decay3bodyMeson(i)%charge(2),.false.), &
+            PartName(Decay3bodyMeson(i)%id(3),Decay3bodyMeson(i)%charge(3),.false.), &
+            Decay3bodyMeson(i)%threshold
+    end do
+
+    write(10,*)
+
+    do i=1,nDecay3bodyBaryon
+!!$       write(10,'(I3," & ",3(I3," & ")," & ",3(I2," & ")," & ",f5.3)') &
+!!$            i,Decay3bodyBaryon(i)%id, Decay3bodyBaryon(i)%charge, Decay3bodyBaryon(i)%threshold
+       write(10,'(I3," & ",3(A," & ")," & ",f5.3)') &
+            i, &
+            PartName(Decay3bodyBaryon(i)%id(1),Decay3bodyBaryon(i)%charge(1),.false.), &
+            PartName(Decay3bodyBaryon(i)%id(2),Decay3bodyBaryon(i)%charge(2),.false.), &
+            PartName(Decay3bodyBaryon(i)%id(3),Decay3bodyBaryon(i)%charge(3),.false.), &
+            Decay3bodyBaryon(i)%threshold
+    end do
+
+    close(10)
+
+
+  end subroutine Print_DecayChannels_Nice
 
 End Module ParticleProperties

@@ -25,20 +25,20 @@ program test_massass_omegaN
 
     pair(1)%ID=omegaMeson
     pair(1)%mass=0.15
-    pair(1)%momentum(1:2)= 0.
-    pair(1)%momentum(3)=0.02
-    pair(1)%momentum(0) = freeEnergy(pair(1))
-    pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
-    !pair(1)%position=999.   ! outside nucleus
+    pair(1)%mom(1:2)= 0.
+    pair(1)%mom(3)=0.02
+    pair(1)%mom(0) = freeEnergy(pair(1))
+    pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
+    !pair(1)%pos=999.   ! outside nucleus
     pair(1)%charge=0
 
     pair(2)%ID=nucleon
     pair(2)%mass=baryon(nucleon)%mass
-    pair(2)%position=pair(1)%position
+    pair(2)%pos=pair(1)%pos
     pair(2)%charge=1
-    pair(2)%momentum(1:3) = 0.
-    pair(2)%momentum(0) = freeEnergy(pair(2))
-    pair(2)%velocity    = pair(2)%momentum(1:3)/pair(2)%momentum(0)
+    pair(2)%mom(1:3) = 0.
+    pair(2)%mom(0) = freeEnergy(pair(2))
+    pair(2)%vel    = pair(2)%mom(1:3)/pair(2)%mom(0)
 
     srts=sqrtS(pair) 
     write(*,*) 'Srts: ', srts

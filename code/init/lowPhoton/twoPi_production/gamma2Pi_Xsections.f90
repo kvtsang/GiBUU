@@ -5,16 +5,7 @@
 ! PURPOSE
 ! Includes the cross sections for gamma Nucleon -> Nucleon Pion Pion processes.
 !******************************************************************************
-
 module gamma2Pi_Xsections
-  !****************************************************************************
-  !****n* gamma2Pi_Xsections/gamma_2Pi_Xsections
-  ! NAME
-  ! NAMELIST gamma_2Pi_Xsections
-  ! PURPOSE
-  ! Includes:
-  ! * experimentalXsections
-  !****************************************************************************
 
   use inputGeneral
   use cl_splines
@@ -33,13 +24,16 @@ module gamma2Pi_Xsections
   ! * If .false. then the theoretical values are given
   !****************************************************************************
 
-  logical , save :: initFlag=.true.
 
-  public :: gamma2pi, cleanUp
+
+  public :: gamma2pi
+  public :: cleanUp
+
+  logical, save :: initFlag=.true.
 
   integer, save :: counter_CLerror=0
 
-  type(tspline),save :: s1,s2,s3,s4,s5,s6
+  type(tspline), save :: s1,s2,s3,s4,s5,s6
 
 contains
 
@@ -56,6 +50,14 @@ contains
 
     integer :: ios
 
+    !**************************************************************************
+    !****n* gamma2Pi_Xsections/gamma_2Pi_Xsections
+    ! NAME
+    ! NAMELIST gamma_2Pi_Xsections
+    ! PURPOSE
+    ! Includes:
+    ! * experimentalXsections
+    !**************************************************************************
     NAMELIST /gamma_2Pi_Xsections/ experimentalXsections
 
     call Write_ReadingInput('gamma_2Pi_Xsections',0)
@@ -203,17 +205,19 @@ contains
 
 
   !****************************************************************************
-  !*2 pion off the proton
+  !* 2 pion off the proton
   !****************************************************************************
 
+  !****************************************************************************
+  !****f* gamma2Pi_Xsections/gP_ProtonPiPlusPiMinus
+  ! Subroutine for calculation of gamma p -> p pi+ pi- cross section
+  ! NOTES
+  ! Reads out data file and uses a spline with it.
+  ! OUTPUT
+  ! * real, optional     :: minPlab,minSig -- plab and sigma of lowest lying
+  !   data point in the data file
+  !****************************************************************************
   function gP_ProtonPiPlusPiMinus(plab,minPlab,minSig) Result (sigma)
-    !****f* gamma2Pi_Xsections/gP_ProtonPiPlusPiMinus
-    ! Subroutine for calculation of gamma p -> p pi+ pi- cross section
-    ! NOTES
-    ! Reads out data file and uses a spline with it.
-    ! OUTPUT
-    ! * real, optional     :: minPlab,minSig ! plab and sigma of lowest lying data point in the data file
-    !**************************************************************************
 
     real, intent(in) :: plab
     real :: sigma
@@ -270,15 +274,15 @@ contains
   end function gP_ProtonPiPlusPiMinus
 
   !****************************************************************************
-
+  !****f* gamma2Pi_Xsections/gP_NeutronPiPlusPiNull
+  ! Subroutine for calculation of gamma p -> n pi+ pi0  cross section
+  ! NOTES
+  ! Reads out data file and uses a spline with it.
+  ! OUTPUT
+  ! * real, optional     :: minPlab,minSig -- plab and sigma of lowest lying
+  !   data point in the data file
+  !****************************************************************************
   function gP_NeutronPiPlusPiNull(plab,minPlab,minSig) Result (sigma)
-    !****f* gamma2Pi_Xsections/gP_NeutronPiPlusPiNull
-    ! Subroutine for calculation of gamma p -> n pi+ pi0  cross section
-    ! NOTES
-    ! Reads out data file and uses a spline with it.
-    ! OUTPUT
-    ! * real, optional     :: minPlab,minSig ! plab and sigma of lowest lying data point in the data file
-    !**************************************************************************
 
     real, intent(in) :: plab
     real  :: sigma
@@ -334,15 +338,15 @@ contains
   end function gP_NeutronPiPlusPiNull
 
   !****************************************************************************
-
+  !****f* gamma2Pi_Xsections/gP_ProtonPiNullPiNull
+  ! Subroutine for calculation of gamma p -> p pi0 pi0  cross section
+  ! NOTES
+  ! Reads out data file and uses a spline with it.
+  ! OUTPUT
+  ! * real, optional     :: minPlab,minSig -- plab and sigma of lowest lying
+  !   data point in the data file
+  !****************************************************************************
   function gP_ProtonPiNullPiNull(plab,minPlab,minSig) Result (sigma)
-    !****f* gamma2Pi_Xsections/gP_ProtonPiNullPiNul
-    ! Subroutine for calculation of gamma p -> p pi0 pi0  cross section
-    ! NOTES
-    ! Reads out data file and uses a spline with it.
-    ! OUTPUT
-    ! * real, optional     :: minPlab,minSig ! plab and sigma of lowest lying data point in the data file
-    !**************************************************************************
 
     real, intent(in) :: plab
     real  :: sigma
@@ -401,14 +405,16 @@ contains
   !*2 pion off the neutron
   !****************************************************************************
 
+  !****************************************************************************
+  !****f* gamma2Pi_Xsections/gN_NeutronPiPlusPiMinus
+  ! Subroutine for calculation of gamma n -> n pi+ pi- cross section
+  ! NOTES
+  ! Reads out data file and uses a spline with it.
+  ! OUTPUT
+  ! * real, optional     :: minPlab,minSig -- plab and sigma of lowest lying
+  !   data point in the data file
+  !****************************************************************************
   function gN_NeutronPiPlusPiMinus(plab,minPlab,minSig) Result (sigma)
-    !****f* gamma2Pi_Xsections/gN_NeutronPiPlusPiMinus
-    ! Subroutine for calculation of gamma n -> n pi+ pi-  cross section
-    ! NOTES
-    ! Reads out data file and uses a spline with it.
-    ! OUTPUT
-    ! * real, optional     :: minPlab,minSig ! plab and sigma of lowest lying data point in the data file
-    !**************************************************************************
 
     real, intent(in) :: plab
     real  :: sigma
@@ -462,15 +468,15 @@ contains
   end function gN_NeutronPiPlusPiMinus
 
   !****************************************************************************
-
+  !****f* gamma2Pi_Xsections/gN_ProtonPiMinusPiNull
+  ! Subroutine for calculation of gamma n -> p pi- pi0  cross section
+  ! NOTES
+  ! Reads out data file and uses a spline with it.
+  ! OUTPUT
+  ! * real, optional     :: minPlab,minSig -- plab and sigma of lowest lying
+  !   data point in the data file
+  !****************************************************************************
   function gN_ProtonPiMinusPiNull(plab,minPlab,minSig) Result (sigma)
-    !****f* gamma2Pi_Xsections/gN_ProtonPiMinusPiNull
-    ! Subroutine for calculation of gamma n -> p pi- pi0  cross section
-    ! NOTES
-    ! Reads out data file and uses a spline with it.
-    ! OUTPUT
-    ! * real, optional     :: minPlab,minSig ! plab and sigma of lowest lying data point in the data file
-    !**************************************************************************
 
     real, intent(in) :: plab
     real  :: sigma
@@ -524,16 +530,15 @@ contains
   end function gN_ProtonPiMinusPiNull
 
   !****************************************************************************
-
-
+  !****f* gamma2Pi_Xsections/gN_NeutronPiNullPiNull
+  ! Subroutine for calculation of gamma n -> n pi0 pi0  cross section
+  ! NOTES
+  ! Reads out data file and uses a spline with it.
+  ! OUTPUT
+  ! * real, optional     :: minPlab,minSig -- plab and sigma of lowest lying
+  !   data point in the data file
+  !****************************************************************************
   function gN_NeutronPiNullPiNull(plab,minPlab,minSig) Result (sigma)
-    !****f* gamma2Pi_Xsections/gN_NeutronPiNullPiNull
-    ! Subroutine for calculation of gamma n -> n pi0 pi0  cross section
-    ! NOTES
-    ! Reads out data file and uses a spline with it.
-    ! OUTPUT
-    ! * real, optional     :: minPlab,minSig ! plab and sigma of lowest lying data point in the data file
-    !**************************************************************************
 
     real, intent(in) :: plab
     real  :: sigma
@@ -592,11 +597,8 @@ contains
   ! NOTES
   ! * This subroutine provides a reasonable threshold behaviour for
   !   the two pion photoproduction cross sections. gamma nucleon -> nucleon+2pi
-  !
-  ! * Retrieves the lowest data point of all the parametrizations and fits a phase space curve to it.
-  !
-  ! AUTHOR
-  ! * Oliver Buss
+  ! * Retrieves the lowest data point of all the parametrizations and fits a
+  !   phase space curve to it.
   !
   ! INPUTS
   ! * qnuK : charge of nucleon
@@ -605,9 +607,9 @@ contains
   ! OUTPUT
   ! * real :: sigma(1:3)
   !   cross sections (1=double charged, 2= single charged, 3= pi^0 pi^0)
-  !
   ! * logical, dimension(1:3), intent (out) :: inThresholdRegion
-  !   .true. if sqrt(s) is smaller than lowest data point in the channel (1=double charged, 2= single charged, 3= pi^0 pi^0)
+  !   .true. if sqrt(s) is smaller than lowest data point in the channel
+  !   (1=double charged, 2= single charged, 3= pi^0 pi^0)
   !****************************************************************************
   subroutine thres2pi(srts,sigma,qnuk,inThresholdRegion)
 

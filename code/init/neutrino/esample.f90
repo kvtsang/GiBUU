@@ -19,11 +19,11 @@ module esample
   !****************************************************************************
   !****g* esample/Enu_upper_cut
   ! SOURCE
-  real, save, public :: Enu_upper_cut=200.
+  real, save, public :: Enu_upper_cut=10000.
   ! PURPOSE
   ! cut events with neutrino energy above Enu_upper_cut;
   ! for ANL experiment, for example, Enu_upper_cut=1.5 for ppi0 and npi+ final
-  ! state, but 5.98 for ppi+
+  ! state, but 5.98 for ppi+, 6000 for FASER
   !****************************************************************************
 
   !****************************************************************************

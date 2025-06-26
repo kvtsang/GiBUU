@@ -116,7 +116,7 @@ contains
              inte = pathint(targetNuc,r,cost,z2)
 
              r2s=sqrt(r**2-z1**2+z2**2)
-             rho2 = NucleusStaticDens(targetNuc,r2s,0)
+             rho2 = targetNuc%staticDens(r2s,0)
              if (corflag) then
                 xbes=qc*abs(z2-z1)/hbarc
                 rho2=rho2*(1.-sin(xbes)/xbes)
@@ -211,7 +211,7 @@ contains
                   do i2=1,nst
                      x(3)=-(float(i2)-0.5)*dza+z2
                      rsqr=sqrt(x(1)**2+x(2)**2+x(3)**2)
-                     rho = NucleusStaticDens(targetNuc,rsqr,0)
+                     rho = targetNuc%staticDens(rsqr,0)
                      inte2=inte2+rho
                      if ((rho.lt.rhomin.and.x(3).lt.0)) exit
                   end do

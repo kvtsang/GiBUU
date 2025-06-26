@@ -6,7 +6,7 @@
 !------------------------------------------------------------------------------
 
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =           5 ! neutrino interactions
       numEnsembles    =        1000
@@ -14,13 +14,13 @@
       delta_T         =         0.2 ! time step size [fm]
       freezeRealParticles  = T
       localEnsemble   = T
-!      printParticleVectors = T ! ???
-      LRF_equals_CALC_frame= T ! ???
+!      printParticleVectors = T ! produce some output
 
 !      DoPrLevel(1) = .FALSE. ! set this for production runs
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: code/density/nucleus.f90
@@ -43,7 +43,7 @@
 
 ! file: code/init/neutrino/initNeutrino.f90
 &neutrino_induced
-      process_ID      =  2      ! 2:CC, 3:NC, -2:antiCC, -3:antiNC
+      process_ID      =  2 ! 2:CC, 3:NC, -2:antiCC, -3:antiNC
       flavor_ID       =  2 ! 1:electron, 2:muon, 3:tau
 
       nuXsectionMode  = 16 ! 16: EXP_dSigmaMC
@@ -57,6 +57,12 @@
       includeDIS      = T
       include2p2hQE   = T
       include2pi      = T
+/
+
+! file: code/init/neutrino/neutrinoParms.f90
+&nl_neweN
+      new_eN = T
+!      new_eNres = T
 /
 
 ! file: code/init/neutrino/esample.f90
@@ -82,6 +88,7 @@
 &propagation
       RungeKuttaOrder=2         ! 2=second order Range-Kutta
 /
+
 ! file: code/width/baryonWidthMedium.f90
 &width_Baryon
       mediumSwitch = F

@@ -5,7 +5,7 @@
 ! https://gibuu.hepforge.org
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
   eventtype           = 0  ! elementary interactions
   numEnsembles        = 0
@@ -13,4 +13,5 @@
   num_runs_SameEnergy = 0
   num_energies        = 0
   path_To_Input       = '~/GiBUU/buuinput'
+  version = 2025
 /

@@ -1,7 +1,7 @@
 program HiLeptonCLASrho0
 
-  use histf90
-  use hist2Df90
+  use hist
+  use hist2D
 
   implicit none
 

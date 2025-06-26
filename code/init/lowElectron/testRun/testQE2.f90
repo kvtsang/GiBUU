@@ -64,8 +64,8 @@ program testQE
   ! setting all fermi momenta in z-direction
   do iEns=1,numEnsembles
      do iPart=1,lengthReal
-        realparticles(iEns,iPart)%momentum(3)=abs3(realparticles(iEns,iPart)%momentum)
-        realparticles(iEns,iPart)%momentum(1:2)=0
+        realparticles(iEns,iPart)%mom(3)=abs3(realparticles(iEns,iPart)%mom)
+        realparticles(iEns,iPart)%mom(1:2)=0
      end do
   end do
   !     call WriteParticle(101,1, realparticles(1,:))
@@ -95,7 +95,7 @@ program testQE
 
      do iEns = 1,numEnsembles
         do iPart=1,lengthReal
-           pTot = realparticles(iEns,iPart)%momentum(3)
+           pTot = realparticles(iEns,iPart)%mom(3)
 
            !        write(*,*) '################'
 
@@ -103,8 +103,8 @@ program testQE
               cost = iCost*0.01
               eNev_RunData = eNev_InitData
               Part = realparticles(iEns,iPart)
-              Part%momentum(3)=pTot*cost
-              Part%momentum(2)=pTot*sqrt(1-cost**2)
+              Part%mom(3)=pTot*cost
+              Part%mom(2)=pTot*sqrt(1-cost**2)
               call eNev_init_Target(eNev_RunData,Part,flagOK)
 
 

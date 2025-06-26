@@ -60,55 +60,55 @@ subroutine tester
 
 
 
-  finalState%antiparticle=.false.
-  finalState%perturbative=.true.
-  finalState%productionTime=0.
-  finalState%lastCollisionTime=0.
-  finalState%formationTime=0.
+  finalState%anti=.false.
+  finalState%pert=.true.
+  finalState%prodTime=0.
+  finalState%lastCollTime=0.
+  finalState%formTime=0.
   finalState%scaleCS=1.
-  finalState%in_Formation=.false.
+  finalState%inF=.false.
   finalstate%history=0
-  finalState(1,1)%position(1)=0.
-  finalState(1,1)%position(2)=0.
-  finalState(1,1)%position(3)=pos
+  finalState(1,1)%pos(1)=0.
+  finalState(1,1)%pos(2)=0.
+  finalState(1,1)%pos(3)=pos
   finalstate%id=particle_id
   finalstate%charge=charge
   finalstate%mass=mass
-  finalstate(1,1)%momentum(1)=0.
-  finalstate(1,1)%momentum(2)=0.
-  finalstate(1,1)%momentum(3)=mom
+  finalstate(1,1)%mom(1)=0.
+  finalstate(1,1)%mom(2)=0.
+  finalstate(1,1)%mom(3)=mom
 
   call energyDetermination(finalstate(1,1))
-  finalstate%offshellparameter= &
-       & getOffShellParameter(finalstate(1,1)%ID,finalstate(1,1)%Mass,finalstate(1,1)%momentum,finalstate(1,1)%position,success)
-  mediumAtPosition=mediumAt(finalstate(1,1)%position)
+  finalstate%offshellPar= &
+       & getOffShellParameter(finalstate(1,1)%ID,finalstate(1,1)%Mass,finalstate(1,1)%mom,finalstate(1,1)%pos,success)
+  mediumAtPosition=mediumAt(finalstate(1,1)%pos)
 
   if (isBaryon(particle_ID)) then
-    width=WidthBaryonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%momentum,mediumATposition)
+    width=WidthBaryonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%mom,mediumATposition)
   else if (isMeson(particle_ID)) then
-    width=WidthMesonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%momentum,mediumATposition)
+    width=WidthMesonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%mom,mediumATposition)
   end if
 
-  write(*,*) width,abs4(finalstate(1,1)%momentum)
-  write(*,*) finalstate(1,1)%momentum
-  write(*,*) finalstate(1,1)%offshellparameter,mediumAtPosition%density
+  write(*,*) width,abs4(finalstate(1,1)%mom)
+  write(*,*) finalstate(1,1)%mom
+  write(*,*) finalstate(1,1)%offshellPar,mediumAtPosition%density
 
   if(.not.success) then
      ! REJECT event
      stop 'offshellparameter'
   end if
-  if(.not.treatParticleOffShell(finalstate(1,1)%ID,finalstate(1,1)%OffShellParameter)) stop 'not offshell'
+  if(.not.treatParticleOffShell(finalstate(1,1)%ID,finalstate(1,1)%offshellPar)) stop 'not offshell'
 
-  write(200,*)   finalState(1,1)%momentum(0), HamiltonFunc_offshell(finalstate(1,1),outOfBounds)
+  write(200,*)   finalState(1,1)%mom(0), HamiltonFunc_offshell(finalstate(1,1),outOfBounds)
 
-  write(*,*) 'starting propa loop',finalstate(1,1)%offshellparameter, finalstate(1,1)%momentum(0)
-  energy_previous=finalstate(1,1)%momentum(0)
+  write(*,*) 'starting propa loop',finalstate(1,1)%offshellPar, finalstate(1,1)%mom(0)
+  energy_previous=finalstate(1,1)%mom(0)
   error_perTimeStep=energy_previous
   propaloop: do j=1,100000000
      call propagate(finalstate,finalstate,delta_T,(/0.,0.,0./),(/0.,0.,0./),.true.)
      if(finalstate(1,1)%id.eq.0) stop 'id null'
      call energyDetermination(finalstate(1,1))
-     write(200,*)   finalState(1,1)%momentum(0), HamiltonFunc_offshell(finalstate(1,1),outOfBounds)
+     write(200,*)   finalState(1,1)%mom(0), HamiltonFunc_offshell(finalstate(1,1),outOfBounds)
 
      !if(j*delta_T.lt.3.0+delta_T/2..and.j*delta_T.gt.3.0-delta_T/2.) then
      !   call rloop(finalstate(1,1))
@@ -116,39 +116,39 @@ subroutine tester
      !   call eloop(finalstate(1,1))
      !end if
 
-     mediumAtPosition=mediumAt(finalstate(1,1)%position)
+     mediumAtPosition=mediumAt(finalstate(1,1)%pos)
      if (isBaryon(particle_ID)) then
-       width=WidthBaryonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%momentum,mediumATposition)
+       width=WidthBaryonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%mom,mediumATposition)
      else if (isMeson(particle_ID)) then
-       width=WidthMesonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%momentum,mediumATposition)
+       width=WidthMesonMedium(finalstate(1,1)%ID,finalstate(1,1)%mass,finalstate(1,1)%mom,mediumATposition)
      end if
-     !write(*,'(10G20.6)') j*delta_T,sqrt(dot_product(finalstate(1,1)%momentum(1:3),finalstate(1,1)%momentum(1:3))), &
-     !     & sqrt(dot_product(finalstate(1,1)%position,finalstate(1,1)%position)), &
+     !write(*,'(10G20.6)') j*delta_T,sqrt(dot_product(finalstate(1,1)%mom(1:3),finalstate(1,1)%mom(1:3))), &
+     !     & sqrt(dot_product(finalstate(1,1)%pos,finalstate(1,1)%pos)), &
      !     & mediumAtPosition%density, Width, &
-     !     & finalstate(1,1)%momentum(0), finalstate(1,1)%mass
+     !     & finalstate(1,1)%mom(0), finalstate(1,1)%mass
      !write(*,*)
-     write(101,'(10G20.4)') finalstate(1,1)%position,finalstate(1,1)%momentum
+     write(101,'(10G20.4)') finalstate(1,1)%pos,finalstate(1,1)%mom
 
-     write(4714,'(10G20.6)') j*delta_T,sqrt(dot_product(finalstate(1,1)%momentum(1:3),finalstate(1,1)%momentum(1:3))), &
-          & sqrt(dot_product(finalstate(1,1)%position,finalstate(1,1)%position)), &
+     write(4714,'(10G20.6)') j*delta_T,sqrt(dot_product(finalstate(1,1)%mom(1:3),finalstate(1,1)%mom(1:3))), &
+          & sqrt(dot_product(finalstate(1,1)%pos,finalstate(1,1)%pos)), &
           & mediumAtPosition%density, width, &
-          & finalstate(1,1)%momentum(0), finalstate(1,1)%mass
+          & finalstate(1,1)%mom(0), finalstate(1,1)%mass
 
      !check energy conservation:
-     if(abs(energy_previous-finalstate(1,1)%momentum(0)).gt.0.001) then
-        write(*,*) 'energy cons failed: ',finalstate(1,1)%momentum(0)-energy_previous
+     if(abs(energy_previous-finalstate(1,1)%mom(0)).gt.0.001) then
+        write(*,*) 'energy cons failed: ',finalstate(1,1)%mom(0)-energy_previous
         call rloop(finalstate(1,1))
         call ploop(finalstate(1,1))
         call eloop(finalstate(1,1))
-        write(*,*) finalState(1,1)%position
+        write(*,*) finalState(1,1)%pos
         write(*,*) 'Time=', delta_T*float(j),j
   !      stop
      end if
 
-     energy_previous=finalstate(1,1)%momentum(0)
+     energy_previous=finalstate(1,1)%mom(0)
 
-     write(102,*) error_perTimeStep- finalstate(1,1)%momentum(0)
-     error_perTimeStep=finalstate(1,1)%momentum(0)
+     write(102,*) error_perTimeStep- finalstate(1,1)%mom(0)
+     error_perTimeStep=finalstate(1,1)%mom(0)
 
      if(absPos(finalState(1,1)).gt.7) exit propaLoop
      if(j*delta_T.gt.50) exit propaLoop
@@ -170,22 +170,22 @@ contains
     call setToDefault(dummyfinalState(1,1))
     dummyfinalstate=finalstate
 
-    E_in=finalstate(1,1)%momentum(0)
+    E_in=finalstate(1,1)%mom(0)
 
-    write(*,*) 'starting E loop',dummyfinalstate(1,1)%offshellparameter,E_in
+    write(*,*) 'starting E loop',dummyfinalstate(1,1)%offshellPar,E_in
     do i=-5,5
        write(*,*) 'loop',i
        E=E_in+i*0.01
-       dummyfinalstate(1,1)%momentum(0)=E
-       mediumAtPosition=mediumAt(dummyfinalstate(1,1)%position)
+       dummyfinalstate(1,1)%mom(0)=E
+       mediumAtPosition=mediumAt(dummyfinalstate(1,1)%pos)
        if (isBaryon(particle_ID)) then
-         width=WidthBaryonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%momentum,mediumATposition)
+         width=WidthBaryonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%mom,mediumATposition)
        else if (isMeson(particle_ID)) then
-         width=WidthMesonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%momentum,mediumATposition)
+         width=WidthMesonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%mom,mediumATposition)
        end if
-       write(4713,'(16E20.5)') E,abs4(dummyfinalstate(1,1)%momentum),HamiltonFunc_offshell(dummyfinalstate(1,1),outOfBounds),  &
-            & getOffShellMass(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%offshellparameter,dummyfinalstate(1,1)%momentum,&
-            & dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%position,outOfBounds),  &
+       write(4713,'(16E20.5)') E,abs4(dummyfinalstate(1,1)%mom),HamiltonFunc_offshell(dummyfinalstate(1,1),outOfBounds),  &
+            & getOffShellMass(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%offshellPar,dummyfinalstate(1,1)%mom,&
+            & dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%pos,outOfBounds),  &
             & Width,E_in
     end do
 
@@ -202,22 +202,22 @@ contains
     call setToDefault(dummyfinalState(1,1))
     dummyfinalstate=finalstate
 
-    r_in=finalstate(1,1)%position(3)
+    r_in=finalstate(1,1)%pos(3)
 
-    write(*,*) 'starting r loop',dummyfinalstate(1,1)%offshellparameter,r_in
+    write(*,*) 'starting r loop',dummyfinalstate(1,1)%offshellPar,r_in
     do i=-5,5
        write(*,*) 'loop',i
        r=r_in+i*0.4
-       dummyfinalstate(1,1)%position(3)=r
-       mediumAtPosition=mediumAt(dummyfinalstate(1,1)%position)
+       dummyfinalstate(1,1)%pos(3)=r
+       mediumAtPosition=mediumAt(dummyfinalstate(1,1)%pos)
        if (isBaryon(particle_ID)) then
-         width=WidthBaryonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%momentum,mediumATposition)
+         width=WidthBaryonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%mom,mediumATposition)
        else if (isMeson(particle_ID)) then
-         width=WidthMesonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%momentum,mediumATposition)
+         width=WidthMesonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%mom,mediumATposition)
        end if
-       write(4712,'(16E20.5)') r,abs4(dummyfinalstate(1,1)%momentum),HamiltonFunc_offshell(dummyfinalstate(1,1),outOfBounds), &
-            & getOffShellMass(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%offshellparameter,dummyfinalstate(1,1)%momentum,&
-            & dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%position,outOfBounds),  &
+       write(4712,'(16E20.5)') r,abs4(dummyfinalstate(1,1)%mom),HamiltonFunc_offshell(dummyfinalstate(1,1),outOfBounds), &
+            & getOffShellMass(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%offshellPar,dummyfinalstate(1,1)%mom,&
+            & dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%pos,outOfBounds),  &
             & width,r_in
     end do
 
@@ -235,23 +235,23 @@ contains
     call setToDefault(dummyfinalState(1,1))
     dummyfinalstate=finalstate
 
-    p_in=finalstate(1,1)%momentum(3)
+    p_in=finalstate(1,1)%mom(3)
 
-    write(*,*) 'starting p loop',dummyfinalstate(1,1)%offshellparameter,p_in
+    write(*,*) 'starting p loop',dummyfinalstate(1,1)%offshellPar,p_in
     do i=-5,5
        write(*,*) 'loop',i
        p=p_in+i*0.01
-       dummyfinalstate(1,1)%momentum(3)=p
+       dummyfinalstate(1,1)%mom(3)=p
 
-       mediumAtPosition=mediumAt(dummyfinalstate(1,1)%position)
+       mediumAtPosition=mediumAt(dummyfinalstate(1,1)%pos)
        if (isBaryon(particle_ID)) then
-         width=WidthBaryonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%momentum,mediumATposition)
+         width=WidthBaryonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%mom,mediumATposition)
        else if (isMeson(particle_ID)) then
-         width=WidthMesonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%momentum,mediumATposition)
+         width=WidthMesonMedium(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%mom,mediumATposition)
        end if
-       write(4711,'(16E20.5)') p,abs4(dummyfinalstate(1,1)%momentum),HamiltonFunc_offshell(dummyfinalstate(1,1),outOfBounds), &
-            & getOffShellMass(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%offshellparameter,dummyfinalstate(1,1)%momentum,&
-            & dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%position,outOfBounds),  &
+       write(4711,'(16E20.5)') p,abs4(dummyfinalstate(1,1)%mom),HamiltonFunc_offshell(dummyfinalstate(1,1),outOfBounds), &
+            & getOffShellMass(dummyfinalstate(1,1)%ID,dummyfinalstate(1,1)%offshellPar,dummyfinalstate(1,1)%mom,&
+            & dummyfinalstate(1,1)%mass,dummyfinalstate(1,1)%pos,outOfBounds),  &
             & Width,p_in
     end do
 

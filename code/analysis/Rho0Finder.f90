@@ -12,7 +12,7 @@
 !******************************************************************************
 module Rho0Finder
   use particlePointerListDefinition
-  use particlePointerList
+  use particlePointerList, only: PartList_INIT, PartList_APPEND
 
   implicit none
 
@@ -149,7 +149,7 @@ contains
 
     if (initFlag) call readInput
 
-    call ParticleList_INIT(PartsOut)
+    call PartList_INIT(PartsOut)
 
     nParts=PartsIn%nEntries
     if (nParts.eq.0) return
@@ -208,7 +208,7 @@ contains
 
           if (ProbRho.eq.0.0) goto 102
 
-          momRho = pNode1%V%momentum+pNode2%V%momentum
+          momRho = pNode1%V%mom+pNode2%V%mom
           mRho2 = momRho(0)**2-Sum(momRho(1:3)**2)
 
 !          if (mRho2 .lt. 0.6**2) goto 102
@@ -225,17 +225,17 @@ contains
 
 
           allocate(Part)
-          Part%momentum = momRho
+          Part%mom = momRho
           Part%mass = sqrt(mRho2)
           Part%perWeight = pNode1%V%perWeight * probRho
           Part%ID = 103
           Part%charge = 0
           Part%event = pNode1%V%event
           Part%firstEvent = pNode1%V%firstEvent
-          Part%position(1) = sqrt(max(0.0,mX2)) ! abuse !!!
-          Part%position(2) = DeltaE    ! abuse !!!
+          Part%pos(1) = sqrt(max(0.0,mX2)) ! abuse !!!
+          Part%pos(2) = DeltaE    ! abuse !!!
 
-          Part%offShellParameter=thetaDecay ! abuse !!!
+          Part%offshellPar=thetaDecay ! abuse !!!
 
           Part%scaleCS = 0.0 ! abuse !!!
           if (PIL_rho0Dec_GET(pNode1%V%number,nr2,tC,tP,tF)) then
@@ -254,18 +254,18 @@ contains
              end if
           end if
 
-          Part%lastCollisionTime=-99.9
-          Part%productionTime   =-99.9
-          Part%formationTime    =-99.9
-          Part%position(3) = 0    ! abuse !!!
+          Part%lastCollTime=-99.9
+          Part%prodTime   =-99.9
+          Part%formTime    =-99.9
+          Part%pos(3) = 0    ! abuse !!!
           if (Part%scaleCS.eq.1.0) then
-             Part%lastCollisionTime= tC
-             Part%productionTime   = tP
-             Part%formationTime    = tF
-             Part%position(3) = pNode2%V%productionTime    ! abuse !!!
+             Part%lastCollTime= tC
+             Part%prodTime   = tP
+             Part%formTime    = tF
+             Part%pos(3) = pNode2%V%prodTime    ! abuse !!!
           end if
 
-          call ParticleList_APPEND(PartsOut,Part)
+          call PartList_APPEND(PartsOut,Part)
 
 102       pNode2=>pNode2%next
           i2 = i2+1
@@ -292,7 +292,7 @@ contains
     ! photon-recoil plane) is not calculated
     ! INPUTS
     ! * momIn
-    ! * pNode1%V%momentum,pNode2%V%momentum
+    ! * pNode1%V%mom,pNode2%V%mom
     ! * momRho
     ! OUTPUT
     ! * real :: theta -- the angle (in degrees)
@@ -311,9 +311,9 @@ contains
       momRecoil = momIn - momRho
 
       if (pNode1%V%charge.gt.0) then
-         momPi = pNode1%V%momentum
+         momPi = pNode1%V%mom
       else
-         momPi = pNode2%V%momentum
+         momPi = pNode2%V%mom
       end if
 
       beta = lorentzCalcBeta (momRho)

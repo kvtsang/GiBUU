@@ -8,6 +8,8 @@
 !******************************************************************************
 module twoBodyStatistics
 
+  use CallStack, only: Traceback
+
   implicit none
   private
 
@@ -61,7 +63,6 @@ module twoBodyStatistics
   logical, save :: varirate_filterPhi = .false.
   !****************************************************************************
 
-
   !****************************************************************************
   !****g* twoBodyStatistics/varirate_size
   ! PURPOSE
@@ -72,11 +73,26 @@ module twoBodyStatistics
   !****************************************************************************
 
   !****************************************************************************
+  !****g* twoBodyStatistics/varirate_format
+  ! PURPOSE
+  ! indicate the format to produce the output.
+  !
+  ! It is binary coded:
+  ! * 1 : use human readable output
+  ! * 2 : use machine readable output (csv format)
+  ! So valid values are 1,2,3.
+  ! SOURCE
+  !
+  integer, save :: varirate_format = 1
+  !****************************************************************************
+
+  !****************************************************************************
   !****g* twoBodyStatistics/sqrts_mode
   ! PURPOSE
-  ! This flag determines the way how sqrt(s) is calculated (if flag_sqrts = .true.).
-  ! 1 = use vacuum sqrt(s)
-  ! 2 = use in-medium, i.e. full sqrts
+  ! This flag determines the way how sqrt(s) is calculated
+  ! (if flag_sqrts = .true.):
+  ! * 1 = use vacuum sqrt(s)
+  ! * 2 = use in-medium, i.e. full sqrts
   ! SOURCE
   !
   integer, save ::  sqrts_mode = 1
@@ -120,9 +136,11 @@ contains
     ! * varirate_chargeZero
     ! * varirate_size
     ! * varirate_filterPhi
+    ! * varirate_format
     !**************************************************************************
     NAMELIST /ColStat/ flag_sqrts, flag_rate, flag_varirate, sqrts_mode, &
-         varirate_chargeZero, varirate_size, varirate_filterPhi
+         varirate_chargeZero, varirate_size, varirate_filterPhi, &
+         varirate_format
 
     call Write_ReadingInput('ColStat',0)
     rewind(5)
@@ -139,6 +157,9 @@ contains
        write(*,*) ' chargeZero : ', varirate_chargeZero
        write(*,*) ' size       : ', varirate_size
        write(*,*) ' fiter phi  : ', varirate_filterPhi
+       write(*,*) ' format     : ', varirate_format
+       if ((varirate_format < 1).or.(varirate_format>3)) &
+            call Traceback("wrong value for format")
     end if
 
     call Write_ReadingInput('ColStat',1)
@@ -151,7 +172,7 @@ contains
   !****************************************************************************
   !****s* twoBodyStatistics/sqrts_distribution
   ! NAME
-  ! subroutine sqrts_distribution (pair, itype, flag)
+  ! subroutine sqrts_distribution(pair, itype, flag)
   ! PURPOSE
   ! Computes the distribution of colliding pairs of particles over sqrt(s).
   ! INPUTS
@@ -169,13 +190,13 @@ contains
   ! * If flag==.true., output is written to the files "dNdsqrts_BB.dat",
   ! "dNdsqrts_Bm.dat" and "dNdsqrts_mm.dat".
   !****************************************************************************
-  subroutine sqrts_distribution (pair, itype, flag)
+  subroutine sqrts_distribution(pair, itype, flag)
 
     use particleDefinition
     use IdTable
     use inputGeneral, only: numEnsembles, num_Runs_SameEnergy
     use twoBodyTools, only: sqrtS_free
-    use densitymodule, only: Particle4Momentum_RMF
+    use densitymodule, only: Particle4MomentumRMF
     use RMF, only: getRMF_flag
     use minkowski, only: abs4
     use histMC
@@ -196,20 +217,40 @@ contains
     if (.not.flag_sqrts) return
 
     if (first) then
-      call CreateHistMC (dNdsqrts_BB, "sqrt(s) distribution of baryon-baryon collisions", &
-                         sqrts_min, sqrts_min+Nsqrts*dsqrts, dsqrts, 5)
+       call CreateHistMC (dNdsqrts_BB, &
+            "sqrt(s) distribution of baryon-baryon collisions", &
+            sqrts_min, sqrts_min+Nsqrts*dsqrts, dsqrts, 5)
       dNdsqrts_BB%xDesc = "sqrt(s) [GeV]"
-      dNdsqrts_BB%yDesc(1:5) = (/ "dNdsqrts-sep.        ", "dNdsqrts-before corr.", &
-                                  "dNdsqrts-after corr. ", "binary elastic       ", "binary inelastic     " /)
-      call CreateHistMC (dNdsqrts_Bm, "sqrt(s) distribution of baryon-meson collisions", &
-                         sqrts_min, sqrts_min+Nsqrts*dsqrts, dsqrts, 9)
+      dNdsqrts_BB%yDesc(1:5) = (/ &
+           "dNdsqrts-sep.        ", &
+           "dNdsqrts-before corr.", &
+           "dNdsqrts-after corr. ", &
+           "binary elastic       ", &
+           "binary inelastic     " /)
+      call CreateHistMC (dNdsqrts_Bm, &
+           "sqrt(s) distribution of baryon-meson collisions", &
+           sqrts_min, sqrts_min+Nsqrts*dsqrts, dsqrts, 9)
       dNdsqrts_Bm%xDesc = "sqrt(s) [GeV]"
-      dNdsqrts_Bm%yDesc(1:9) = (/ "pi-N      ", "eta-N     ", "rho-N     ", "omega-N   ", "Kbar-N    ", &
-                                  "KstarBar-N", "Kbar-Delta", "pi-Y      ", "Y-N       " /)
-      call CreateHistMC (dNdsqrts_mm, "sqrt(s) distribution of meson-meson collisions", &
-                         sqrts_min, sqrts_min+Nsqrts*dsqrts, dsqrts, 5)
+      dNdsqrts_Bm%yDesc(1:9) = (/ &
+           "pi-N      ", &
+           "eta-N     ", &
+           "rho-N     ", &
+           "omega-N   ", &
+           "Kbar-N    ", &
+           "KstarBar-N", &
+           "Kbar-Delta", &
+           "pi-Y      ", &
+           "Y-N       " /)
+      call CreateHistMC (dNdsqrts_mm, &
+           "sqrt(s) distribution of meson-meson collisions", &
+           sqrts_min, sqrts_min+Nsqrts*dsqrts, dsqrts, 5)
       dNdsqrts_mm%xDesc = "sqrt(s) [GeV]"
-      dNdsqrts_mm%yDesc(1:5) = (/ "pi-pi ", "pi-K  ", "pi-rho", "K-K   ",  "other " /)
+      dNdsqrts_mm%yDesc(1:5) = (/ &
+           "pi-pi ", &
+           "pi-K  ", &
+           "pi-rho", &
+           "K-K   ", &
+           "other " /)
       first = .false.
       w = 1./float(numEnsembles*num_Runs_SameEnergy)  ! weight
     end if
@@ -255,19 +296,19 @@ contains
       if (.not. getRMF_flag()) then
          srtS=sqrtS_free(pair)
       else
-         sqrtsStar = abs4(pair(1)%momentum + pair(2)%momentum)
-         mstar1 = abs4(pair(1)%momentum)
-         mstar2 = abs4(pair(2)%momentum)
+         sqrtsStar = abs4(pair(1)%mom + pair(2)%mom)
+         mstar1 = abs4(pair(1)%mom)
+         mstar2 = abs4(pair(2)%mom)
          srtS = sqrtsStar - (mstar1-pair(1)%mass) - (mstar2-pair(2)%mass)
       end if
     case (2)
       ! Full sqrts:
       if (.not. getRMF_flag()) then
-         momentum1(:)=pair(1)%momentum
-         momentum2(:)=pair(2)%momentum
+         momentum1(:)=pair(1)%mom
+         momentum2(:)=pair(2)%mom
       else
-         call Particle4Momentum_RMF(pair(1),momentum1)
-         call Particle4Momentum_RMF(pair(2),momentum2)
+         momentum1 = Particle4MomentumRMF(pair(1))
+         momentum2 = Particle4MomentumRMF(pair(2))
       end if
       srtS= abs4(momentum1 + momentum2)
     end select
@@ -338,12 +379,12 @@ contains
   !****************************************************************************
   !****s* twoBodyStatistics/rate
   ! NAME
-  ! subroutine rate(teilchenIn,teilchenOut,time,flag)
+  ! subroutine rate(partIn,partOut,time,flag)
   ! PURPOSE
   ! Computes the collision rates for the different types of collisions.
   ! INPUTS
-  ! * type(particle), intent(in), dimension(:)  ::  teilchenIn -- incoming particles
-  ! * type(particle), intent(in), dimension(:)  ::  teilchenOut -- outgoing particles
+  ! * type(particle), dimension(:)  ::  partIn -- incoming particles
+  ! * type(particle), dimension(:)  ::  partOut -- outgoing particles
   ! * real, intent(in) :: time -- current time step
   ! * logical, optional, intent(in) :: flag  -- .true. do output of the accumulated collision numbers
   !
@@ -362,7 +403,8 @@ contains
 
   integer, dimension(-121:121) :: num_in, num_out
   integer :: num_in_sum, num_out_sum,i,id,dLambda
-  real, save, dimension(0:1,1:150) :: collision_number=0.
+  integer, parameter :: nch=159    ! number of collision channels
+  real, save, dimension(0:1,1:nch) :: collision_number=0.
   real, save :: time_prev=-100.
   logical, save :: firstCall=.true.
   logical :: flagLambdaProd, flagLambdaAbs
@@ -387,13 +429,13 @@ contains
   if (present(flag)) then
      if (flag) then
         open(file='rate.dat',UNIT=41,Status='old',Position='Append',Action='Write')
-        write(41,'(151(1x,e13.6))') time_prev,collision_number(1,1:150)
+        write(41,'(300(1x,e13.6))') time_prev,collision_number(1,1:nch)
         close(41)
         open(file='rate_accumulated_time.dat',UNIT=41,Status='old',Position='Append',Action='Write')
-        write(41,'(151(1x,e13.6))') time_prev,collision_number(0,1:150)
+        write(41,'(300(1x,e13.6))') time_prev,collision_number(0,1:nch)
         close(41)
         open(file='rate_accumulated.dat',UNIT=41,Status='Replace',Action='Write')
-        write(41,'(150(1x,e13.6))') collision_number(0,1:150)
+        write(41,'(300(1x,e13.6))') collision_number(0,1:nch)
         close(41)
         return
      end if
@@ -402,10 +444,10 @@ contains
   if (time.ne.time_prev) then
      if (time_prev.gt.0.) then
         open(file='rate.dat',UNIT=41,Status='old',Position='Append',Action='Write')
-        write(41,'(151(1x,e13.6))')  time_prev,collision_number(1,1:150)
+        write(41,'(300(1x,e13.6))')  time_prev,collision_number(1,1:nch)
         close(41)
         open(file='rate_accumulated_time.dat',UNIT=41,Status='old',Position='Append',Action='Write')
-        write(41,'(151(1x,e13.6))') time_prev,collision_number(0,1:150)
+        write(41,'(300(1x,e13.6))') time_prev,collision_number(0,1:nch)
         close(41)
      end if
      time_prev=time
@@ -415,7 +457,7 @@ contains
   num_in=0
   do i=1,size(partIn,dim=1)
      id=partIn(i)%id
-     if (partIn(i)%antiparticle) id=-id
+     if (partIn(i)%anti) id=-id
      if (abs(id).le.121) num_in(id)=num_in(id)+1
   end do
   num_in_sum=sum(num_in(:))
@@ -424,7 +466,7 @@ contains
   do i = 1,size(partOut,dim=1)
      if (partOut(i)%ID <= 0) cycle
      id=partOut(i)%ID
-     if (partOut(i)%antiparticle) id=-id
+     if (partOut(i)%anti) id=-id
      if (abs(id).le.121) num_out(id)=num_out(id)+1
   end do
   num_out_sum=sum(num_out(:))
@@ -789,6 +831,43 @@ contains
       if ( num_out(Xi).ge.1 ) &
        &  collision_number(:,145)=collision_number(:,145)+1.  !  Xi production
 
+      if(num_in(nucleon).eq.2 .and. num_in_sum.eq.2) then
+         if(num_out(Delta).eq.1 .and. num_out(nucleon).eq.1) &
+              & collision_number(:,150)=collision_number(:,150)+1.  ! NN -> NDelta
+         if(num_out(pion).eq.1 .and. num_out(nucleon).eq.2) &
+              & collision_number(:,151)=collision_number(:,151)+1.  ! NN -> NNpi
+         if(sum(num_out(P11_1440:F37_1950)).eq.1 .and. num_out(nucleon).eq.1) &
+              & collision_number(:,154)=collision_number(:,154)+1.  ! NN -> NR
+         if(num_out(Delta).eq.2) &
+              & collision_number(:,155)=collision_number(:,155)+1.  ! NN -> DeltaDelta
+         if(num_out(Delta).eq.1 .and. sum(num_out(P11_1440:F37_1950)).eq.1) &
+              & collision_number(:,156)=collision_number(:,156)+1.  ! NN -> DeltaR
+      end if
+
+      if(num_in(nucleon).eq.1 .and. num_in(Delta).eq.1 .and. num_in_sum.eq.2) then
+         if(num_out(nucleon).eq.2) &
+              & collision_number(:,152)=collision_number(:,152)+1.  ! NDelta -> NN
+      end if
+
+      if(num_in(nucleon).eq.1 .and. sum(num_in(P11_1440:F37_1950)).eq.1 .and. num_in_sum.eq.2) then
+         if(num_out(nucleon).eq.2) &
+              & collision_number(:,157)=collision_number(:,157)+1.  ! NR -> NN
+      end if
+
+      if(num_in(Delta).eq.2 .and. num_in_sum.eq.2) then
+         if(num_out(nucleon).eq.2) &
+              & collision_number(:,158)=collision_number(:,158)+1.  ! DeltaDelta -> NN
+      end if
+
+      if(num_in(Delta).eq.1 .and. sum(num_in(P11_1440:F37_1950)).eq.1 .and. num_in_sum.eq.2) then
+         if(num_out(nucleon).eq.2) &
+              & collision_number(:,159)=collision_number(:,159)+1.  ! DeltaR -> NN
+      end if
+
+      if(num_in(nucleon).eq.2 .and. num_in(pion).eq.1) then
+         collision_number(:,153)=collision_number(:,153)+1.         ! NNpi -> NN
+      end if
+
   else if ( sum(num_in(Lambda:sigma_1915)).eq.2 ) then  !**********  Y(Y^*)-Y(Y^*) collision *******
 
       dLambda=num_out(Lambda)-num_in(Lambda)
@@ -813,8 +892,6 @@ contains
          flagLambdaAbs=.true.
       end if
 
-
-
   end if
 
   if ( num_out(Lambda).gt.num_in(Lambda) .and. .not.flagLambdaProd ) then
@@ -822,28 +899,28 @@ contains
      write(*,*) ' Incoming Ids : '
      do i=1,size(partIn,dim=1)
         id=partIn(i)%id
-        if (partIn(i)%antiparticle) id=-id
+        if (partIn(i)%anti) id=-id
         write(*,*) id
      end do
      write(*,*) ' Outgoing Ids : '
      do i = 1,size(partOut,dim=1)
         if (partOut(i)%ID <= 0) cycle
         id=partOut(i)%ID
-        if (partOut(i)%antiparticle) id=-id
+        if (partOut(i)%anti) id=-id
         write(*,*) id
      end do
   else if ( num_out(Lambda).lt.num_in(Lambda) .and. .not.flagLambdaAbs ) then
      write(*,*) ' Missed Lambda absorption: '
      do i=1,size(partIn,dim=1)
         id=partIn(i)%id
-        if (partIn(i)%antiparticle) id=-id
+        if (partIn(i)%anti) id=-id
         write(*,*) id
      end do
      write(*,*) ' Outgoing Ids : '
      do i = 1,size(partOut,dim=1)
         if (partOut(i)%ID <= 0) cycle
         id=partOut(i)%ID
-        if (partOut(i)%antiparticle) id=-id
+        if (partOut(i)%anti) id=-id
         write(*,*) id
      end do
   end if
@@ -903,11 +980,12 @@ contains
     use IdTable
     use preEventDefinition
     use PreEvListDefinition
-    use CallStack, only: Traceback
+
     use PreEvList, only: CreateSortedPreEvent, ComparePreEvent, &
          PreEvList_INIT, PreEvList_INSERT, PreEvList_Print, &
-         PreEvList_GET, PreEvList_PrintEntry
-    use twoBodyTools, only: LogicMatrix
+         PreEvList_GET, &
+         PreEvList_PrintEntry, PreEvList_PrintEntryRaw
+
 
     type(particle), intent(in), dimension(:)  :: partIn
     type(particle), intent(in), dimension(:)  :: partOut
@@ -919,12 +997,11 @@ contains
     type(tPreEvList), save :: ListIn, ListOut
     type(tPreEvListEntry) :: ePreEvIn, ePreEvOut, Vin, Vout
     integer :: iPosIn, iPosOut
-    integer :: i,j,h,lev, scenario
 
     integer, dimension(:,:), allocatable, save :: EntryArr
     integer, save :: nEntryArr
 
-    character*(*),dimension(0:3),parameter :: sS = (/ "  ","BB","BM","MM" /)
+
 
     if (firstCall) then
        call PreEvList_INIT(ListIn)
@@ -939,66 +1016,8 @@ contains
 
     if (time.ne.time_prev) then ! === do output ===
 
-       open(313,file='VariRate.particles.dat')
-       write(313,'("# time =",f13.5)') time_prev
-       call PreEvList_Print(313, ListIn, 1.0, SortCrit=0)
-       call PreEvList_Print(313, ListOut, 1.0, SortCrit=0)
-       close(313)
-
-       open(313,file='VariRate.rates.dat')
-       write(313,'("# time =",f13.5)') time_prev
-
-       do i=1,ListIn%nEntries
-          do j=i,ListOut%nEntries
-
-             if (EntryArr(i,j) > 0) then
-
-                if (.not.PreEvList_GET(ListIn, Vin, i)) call Traceback()
-                if (.not.PreEvList_GET(ListOut, Vout, j)) call Traceback()
-
-                h = EntryArr(i,j)+EntryArr(j,i)
-                lev = min(9, int(abs(EntryArr(i,j)-EntryArr(j,i))*10.0/h))
-                scenario = 0
-
-                if (ComparePreEvent(Vin%PreE,Vout%PreE) < 0) then
-                   if (size(Vin%PreE)==2) &
-                        scenario = LogicMatrix(isMeson(Vin%PreE(1)%ID),isMeson(Vin%PreE(2)%ID))
-
-                   write(313,'("(",A,") (",i1,") [",i1,"<-->",i1,"] ")',advance='no') &
-                        sS(scenario), lev, size(Vin%PreE),size(Vout%PreE)
-                   call PreEvList_PrintEntry(313,Vin,1.0,doWeight=.false.,noAdvance=.true.)
-                   write(313,'(" --> ")',advance='no')
-                   call PreEvList_PrintEntry(313,Vout,1.0,doWeight=.false.,noAdvance=.true.)
-                   write(313,'(" : ",2i10," # ",i10,f9.5)') EntryArr(i,j),EntryArr(j,i), &
-                        h, (EntryArr(i,j)-EntryArr(j,i)) * 1.0/h
-
-                else if (ComparePreEvent(Vout%PreE,Vin%PreE) < 0) then
-                   if (size(Vout%PreE)==2) &
-                        scenario = LogicMatrix(isMeson(Vout%PreE(1)%ID),isMeson(Vout%PreE(2)%ID))
-                   write(313,'("(",A,") (",i1,") [",i1,"<-->",i1,"] ")',advance='no') &
-                        sS(scenario), lev, size(Vout%PreE),size(Vin%PreE)
-                   call PreEvList_PrintEntry(313,Vout,1.0,doWeight=.false.,noAdvance=.true.)
-                   write(313,'(" --> ")',advance='no')
-                   call PreEvList_PrintEntry(313,Vin,1.0,doWeight=.false.,noAdvance=.true.)
-                   write(313,'(" : ",2i10," # ",i10,f9.5)') EntryArr(j,i),EntryArr(i,j), &
-                        h, (EntryArr(j,i)-EntryArr(i,j)) * 1.0/h
-                else
-                   if (size(Vin%PreE)==2) &
-                        scenario = LogicMatrix(isMeson(Vin%PreE(1)%ID),isMeson(Vin%PreE(2)%ID))
-                   write(313,'("(",A,") (",i1,") [",i1,"====",i1,"] ")',advance='no') &
-                        sS(scenario), lev, size(Vin%PreE),size(Vout%PreE)
-                   call PreEvList_PrintEntry(313,Vin,1.0,doWeight=.false.,noAdvance=.true.)
-                   write(313,'(" --> ")',advance='no')
-                   call PreEvList_PrintEntry(313,Vout,1.0,doWeight=.false.,noAdvance=.true.)
-                   write(313,'(" : ",2i10," # ",i10,f9.5)') EntryArr(i,j),EntryArr(j,i), &
-                        h, (EntryArr(i,j)-EntryArr(j,i)) * 1.0/h
-
-                end if
-             end if
-
-          end do
-       end do
-       close(313)
+       if (iand(varirate_format,1)==1) call do_output_human
+       if (iand(varirate_format,2)==2) call do_output_csv
 
        time_prev = time
     end if
@@ -1011,11 +1030,18 @@ contains
 
     if (.not.CreateSortedPreEvent(partIn,ePreEvIn%preE,chargeZero=varirate_chargeZero)) then
        if (partIn(1)%ID == 0) return ! this was just a 'print' call with dummy
-       call Traceback('Problems in CollHist_UpdateHist: preEvIn. STOP!')
+       call Traceback('Problems with preEvIn. STOP!')
     end if
     if (.not.CreateSortedPreEvent(partOut,ePreEvOut%preE,chargeZero=varirate_chargeZero)) then
-       call Traceback('Problems in CollHist_UpdateHist: preEvOut. STOP!')
+       call Traceback('Problems with preEvOut. STOP!')
     end if
+
+
+!!$    write(6,'("called: ")',advance='no')
+!!$    call PreEvList_PrintEntry(6,ePreEvIn,1.0,doWeight=.false.,noAdvance=.true.)
+!!$    write(6,'(" --> ")',advance='no')
+!!$    call PreEvList_PrintEntry(6,ePreEvOut,1.0,doWeight=.false.,noAdvance=.true.)
+!!$    write(6,*) " "
 
 !    if ((size(ePreEvIn%preE) <= 2).and.(size(ePreEvOut%preE) <= 2)) return
 
@@ -1041,6 +1067,163 @@ contains
     ! === Now the cross array is filled: ===
 
     EntryArr(iPosIn,iPosOut) = EntryArr(iPosIn,iPosOut) + 1
+
+  contains
+    !**************************************************************************
+    !**************************************************************************
+    subroutine do_output_human()
+
+      integer :: i,j
+
+      open(313,file='VariRate.particles.dat')
+      write(313,'("# time =",f13.5)') time_prev
+      call PreEvList_Print(313, ListIn, 1.0, SortCrit=0)
+      call PreEvList_Print(313, ListOut, 1.0, SortCrit=0)
+      close(313)
+
+      open(313,file='VariRate.rates.dat')
+      write(313,'("# time =",f13.5)') time_prev
+
+      do i=1,ListIn%nEntries
+         do j=i,ListOut%nEntries
+
+            if ((EntryArr(i,j) > 0).or.(EntryArr(j,i) > 0)) then
+
+               if (.not.PreEvList_GET(ListIn, Vin, i)) call Traceback()
+               if (.not.PreEvList_GET(ListOut, Vout, j)) call Traceback()
+
+               select case (ComparePreEvent(Vin%PreE,Vout%PreE))
+               case (-1)
+                  call do_output_human_kernel(Vin,Vout, .false. , &
+                       EntryArr(i,j),EntryArr(j,i))
+               case (+1)
+                  call do_output_human_kernel(Vout,Vin, .false. , &
+                       EntryArr(j,i),EntryArr(i,j))
+               case ( 0)
+                  call do_output_human_kernel(Vin,Vout, .true.  , &
+                       EntryArr(i,j),EntryArr(j,i))
+               case default
+                  call Traceback("wrong compare value")
+               end select
+
+            end if
+
+         end do
+      end do
+      close(313)
+
+    end subroutine do_output_human
+    !--------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
+    subroutine do_output_human_kernel(V1,V2, isElast, n1,n2)
+
+      use twoBodyTools, only: LogicMatrix
+
+      type(tPreEvListEntry), intent(in) :: V1, V2
+      logical, intent(in) :: isElast
+      integer, intent(in) :: n1,n2
+
+      integer :: scenario, s,d, lev
+      character*(4) :: sep
+
+      character*(*),dimension(0:3),parameter :: sS = (/ "  ","BB","BM","MM" /)
+
+
+      scenario = 0
+      if (size(V1%PreE)==2) &
+           scenario=LogicMatrix(isMeson(V1%PreE(1)%ID),isMeson(V1%PreE(2)%ID))
+
+      s = n1+n2
+      d = n1-n2
+      lev = min(9, int(abs(d)*10.0/s))
+
+      if (isElast) then
+         sep = "===="
+      else
+         sep = "<-->"
+      end if
+
+      write(313,'("(",A,") (",i1,") [",i1,A,i1,"] ")',advance='no') &
+           sS(scenario), lev, size(V1%PreE),sep,size(V2%PreE)
+      call PreEvList_PrintEntry(313,V1,1.0,doWeight=.false.,noAdvance=.true.)
+      write(313,'(" --> ")',advance='no')
+      call PreEvList_PrintEntry(313,V2,1.0,doWeight=.false.,noAdvance=.true.)
+
+      write(313,'(" : ",2i10," # ",i10,f9.5)') n1,n2, s, d * 1.0/s
+
+    end subroutine do_output_human_kernel
+
+    !**************************************************************************
+    !**************************************************************************
+    subroutine do_output_csv()
+
+      integer :: i,j
+
+      open(313,file='VariRate.rates.csv')
+      !      write(313,'("# time =",f13.5)') time_prev
+
+      do i=1,ListIn%nEntries
+         do j=i,ListOut%nEntries
+
+            if ((EntryArr(i,j) > 0).or.(EntryArr(j,i) > 0)) then
+
+               if (.not.PreEvList_GET(ListIn, Vin, i)) call Traceback()
+               if (.not.PreEvList_GET(ListOut, Vout, j)) call Traceback()
+
+               select case (ComparePreEvent(Vin%PreE,Vout%PreE))
+               case (-1)
+                  call do_output_csv_kernel(Vin,Vout, .false., &
+                       EntryArr(i,j),EntryArr(j,i))
+               case (+1)
+                  call do_output_csv_kernel(Vout,Vin, .false., &
+                       EntryArr(j,i),EntryArr(i,j))
+               case ( 0)
+                  call do_output_csv_kernel(Vin,Vout, .true., &
+                       EntryArr(i,j),EntryArr(j,i))
+               case default
+                  call Traceback("wrong compare value")
+               end select
+
+            end if
+
+         end do
+      end do
+      close(313)
+
+    end subroutine do_output_csv
+
+    !--------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
+    subroutine do_output_csv_kernel(V1,V2, isElast, n1,n2)
+
+      use twoBodyTools, only: LogicMatrix
+
+      type(tPreEvListEntry), intent(in) :: V1, V2
+      logical, intent(in) :: isElast
+      integer, intent(in) :: n1,n2
+
+      character, parameter :: cS = ','
+!      character, parameter :: cS = ' '
+
+
+      write(313,'(2(i10,A))', advance='no') n1,cS,n2,cS
+      write(313,'(2(i3,A))', advance='no') size(V1%PreE),cS,size(V2%PreE),cS
+
+      call PreEvList_PrintEntryRaw(313,V1,1.0,doWeight=.false.,noAdvance=.true.,cS=cS)
+!      write(313,'(" --> ")',advance='no')
+      call PreEvList_PrintEntryRaw(313,V2,1.0,doWeight=.false.,noAdvance=.true.,cS=cS)
+
+!!$      write(313,'("(",A,") (",i1,") [",i1,A,i1,"] ")',advance='no') &
+!!$           sS(scenario), lev, size(V1%PreE),sep,size(V1%PreE)
+!!$      call PreEvList_PrintEntry(313,V1,1.0,doWeight=.false.,noAdvance=.true.)
+!!$      write(313,'(" --> ")',advance='no')
+!!$      call PreEvList_PrintEntry(313,V2,1.0,doWeight=.false.,noAdvance=.true.)
+!!$
+!!$      write(313,'(" : ",2i10," # ",i10,f9.5)') n1,n2, s, d * 1.0/s
+
+      write(313,*)
+
+    end subroutine do_output_csv_kernel
 
   end subroutine varirate
 

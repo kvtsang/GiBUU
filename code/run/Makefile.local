@@ -1,2 +1,2 @@
 SUBDIREXCL := testRun
-FILEEXCL :=
+FILEEXCL := nuDispenser.f90

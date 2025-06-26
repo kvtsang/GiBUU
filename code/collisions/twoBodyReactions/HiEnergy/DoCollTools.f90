@@ -388,20 +388,20 @@ contains
        i2 = i2+1
 
        Part(i2)%ID            = abs(ID0)
-       Part(i2)%antiparticle  = (ID0.lt.0)
+       Part(i2)%anti  = (ID0.lt.0)
        Part(i2)%charge        = IZ0
        Part(i2)%mass          = P(i1,5)
-       Part(i2)%momentum(1:3) = P(i1,1:3)
-       Part(i2)%momentum(0)   = P(i1,4)
+       Part(i2)%mom(1:3) = P(i1,1:3)
+       Part(i2)%mom(0)   = P(i1,4)
 
-       Part(i2)%velocity = Part(i2)%momentum(1:3)/Part(i2)%momentum(0)
+       Part(i2)%vel = Part(i2)%mom(1:3)/Part(i2)%mom(0)
        !c=CheckVelo(Part(i2))
 
        call setNumberGuess(Part(i2))
 
-!       Part(i2)%position = ...pos(coll)... ! already set
-!       Part(i2)%productionTime = time      ! already set
-!       Part(i2)%in_Formation = .TRUE.      ! already set
+!       Part(i2)%pos = ...pos(coll)... ! already set
+!       Part(i2)%prodTime = time      ! already set
+!       Part(i2)%inF = .TRUE.      ! already set
 
        if (present(iDiffrRho)) then
           if ((Part(i2)%ID.eq.103).and.(Part(i2)%charge.eq.0)&
@@ -409,7 +409,7 @@ contains
        end if
 
        Part(i2)%scaleCS=1.
-       Part(i2)%formationTime = -999
+       Part(i2)%formTime = -999
 
        call SetJSVFormation(Part(i2),i1,HardScaleQ2,K(i1,4)) ! if JetSetVec !!!
 
@@ -591,7 +591,7 @@ contains
        if (Part(i)%ID <= 0) cycle
 
        ID = Part(i)%ID
-       if (Part(i)%antiparticle) ID=-ID
+       if (Part(i)%anti) ID=-ID
 
        dQArray(i) = BUUKFDeltaQ(deltaQ, ID, Part(i)%charge)
        dQMax = dQMax + dQArray(i)
@@ -1090,9 +1090,9 @@ contains
        call getAntiMeson(part%ID,part%Charge, part%ID,part%Charge)
     else if (isBaryon(part%ID)) then
        part%Charge       = -part%Charge
-       part%antiparticle = .not.part%antiparticle
+       part%anti = .not.part%anti
     else
-       write(*,*) 'OOps',part%ID,part%Charge,part%antiparticle
+       write(*,*) 'OOps',part%ID,part%Charge,part%anti
        stop
     end if
   end subroutine ConvertToAnti_1

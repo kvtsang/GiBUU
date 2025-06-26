@@ -48,26 +48,30 @@ end module aux
 ! Averaging over runs of the output in file dens.dat 
 program densAver
 
+!  use output, only: intTochar, intToChar4
+
   use aux
   
   implicit none
 
-  integer, parameter ::  numTimeSteps        = 150
+  integer, parameter ::  numTimeSteps        = 300
   real, dimension(1:numTimeSteps) ::  time, dens, temp, mub, Qzz
   real :: dens_inp, rhoz_antibar, p_inp(0:3), baryon_number, charge_number, strangeness, temp_inp, mub_inp
   real :: Qzz_inp
-  integer :: idir,ndir,i
+  integer :: idir,ndir,i,ndir1
   logical :: exist_file
   character(100) :: Directory,file
   
-  ndir=100
+  ndir=70
 
   dens=0.
   temp=0.
   mub=0.
-
-  file='dens.dat'
+  Qzz=0.
+  ndir1=0
   
+  file='dens.dat'
+
   do idir=1,ndir
 
         write(6,*)' idir: ', idir       
@@ -84,6 +88,8 @@ program densAver
            cycle
         end if
 
+        ndir1=ndir1+1
+        
         open(1,file=trim(Directory)//'/'//trim(file),status='old',action='read')
         read(1,*)
 
@@ -102,10 +108,10 @@ program densAver
   end do
 
   
-  dens=dens/float(ndir)
-  temp=temp/float(ndir)
-  mub=mub/float(ndir)
-  Qzz=Qzz/float(ndir)
+  dens=dens/float(ndir1)
+  temp=temp/float(ndir1)
+  mub=mub/float(ndir1)
+  Qzz=Qzz/float(ndir1)
 
   open(2,file='densAver.dat',status='unknown')
   write(2,*)'# t, fm/c:     dens_bar, fm^-3:      temp, GeV:     mub, GeV:   Qzz, (GeV/c)^2: '

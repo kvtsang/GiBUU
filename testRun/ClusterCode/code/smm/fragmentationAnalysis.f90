@@ -50,8 +50,8 @@ contains
           end If
           write(103,50) FragmentVector(i,j)%ID,FragmentVector(i,j)%chargeNumber,&
                FragmentVector(i,j)%massNumber,FragmentVector(i,j)%HypNumber,&
-               (FragmentVector(i,j)%position(k), k=1,3),&
-               (FragmentVector(i,j)%momentum(k)/FragmentVector(i,j)%momentum(0), k=1,3),i,isu
+               (FragmentVector(i,j)%pos(k), k=1,3),&
+               (FragmentVector(i,j)%mom(k)/FragmentVector(i,j)%mom(0), k=1,3),i,isu
        enddo Loop_over_particles
     enddo Loop_over_ensembles
     close(103)
@@ -102,9 +102,9 @@ contains
           write(103,'(a,1x,a)')  'HypType               = ',FragmentVector(i,j)%HypType
           write(103,'(a,1x,i8)') 'Mass number           = ',FragmentVector(i,j)%MassNumber
           write(103,'(a,1x,i8)') 'Charge number         = ',FragmentVector(i,j)%ChargeNumber
-          write(103,'(a,1x,3f12.4)') 'pos.                  = ',FragmentVector(i,j)%position
+          write(103,'(a,1x,3f12.4)') 'pos.                  = ',FragmentVector(i,j)%pos
           write(103,'(a,1x,3f12.4)') 'Vel.                  = ',& 
-               & FragmentVector(i,j)%momentum(1:3)/FragmentVector(i,j)%momentum(0)
+               & FragmentVector(i,j)%mom(1:3)/FragmentVector(i,j)%mom(0)
           write(103,*)
           write(103,*) 'Counting index of Hyp.= ',HyperCount
           write(103,*)
@@ -120,9 +120,9 @@ contains
              write(103,'(a,1x,f8.4)') 'born     = ',particleVector(in,HypIndex1)%bornTime
              write(103,'(a,1x,f8.4)') 'lastColl = ',particleVector(in,HypIndex1)%lastCollTime
              write(103,'(a,1x,i10)')  'collHis  = ',particleVector(in,HypIndex1)%collHis
-             write(103,'(a,1x,3f12.4)') 'Pos.   = ',particleVector(in,HypIndex1)%position
+             write(103,'(a,1x,3f12.4)') 'Pos.   = ',particleVector(in,HypIndex1)%pos
              write(103,'(a,1x,3f12.4)') 'Vel.   = ', & 
-                  & particleVector(in,HypIndex1)%momentum(1:3)/particleVector(in,HypIndex1)%momentum(0)
+                  & particleVector(in,HypIndex1)%mom(1:3)/particleVector(in,HypIndex1)%mom(0)
           else
 
              HyperCountDouble = HyperCountDouble + 1
@@ -134,9 +134,9 @@ contains
              write(103,'(a,1x,f8.4)') 'born     = ',particleVector(in,HypIndex2(1))%bornTime
              write(103,'(a,1x,f8.4)') 'lastColl = ',particleVector(in,HypIndex2(1))%lastCollTime
              write(103,'(a,1x,i10)') 'collHis  = ',particleVector(in,HypIndex2(1))%collHis
-             write(103,'(a,1x,3f12.4)') 'Pos.   = ',particleVector(in,HypIndex2(1))%position
+             write(103,'(a,1x,3f12.4)') 'Pos.   = ',particleVector(in,HypIndex2(1))%pos
              write(103,'(a,1x,3f12.4)') 'Vel.   = ', & 
-                  & particleVector(in,HypIndex2(1))%momentum(1:3)/particleVector(in,HypIndex2(1))%momentum(0)
+                  & particleVector(in,HypIndex2(1))%mom(1:3)/particleVector(in,HypIndex2(1))%mom(0)
              write(103,*)
              write(103,'(a,1x,i8)') 'Index of bound hyperon #2 = ',HypIndex2(2)
              write(103,*) 'Information on bound Hyperons:'
@@ -144,9 +144,9 @@ contains
              write(103,'(a,1x,f8.4)') 'born     = ',particleVector(in,HypIndex2(2))%bornTime
              write(103,'(a,1x,f8.4)') 'lastColl = ',particleVector(in,HypIndex2(2))%lastCollTime
              write(103,'(a,1x,i10)') 'collHis  = ',particleVector(in,HypIndex2(2))%collHis
-             write(103,'(a,1x,3f12.4)') 'Pos.   = ',particleVector(in,HypIndex2(2))%position
+             write(103,'(a,1x,3f12.4)') 'Pos.   = ',particleVector(in,HypIndex2(2))%pos
              write(103,'(a,1x,3f12.4)') 'Vel.   = ', & 
-                  & particleVector(in,HypIndex2(2))%momentum(1:3)/particleVector(in,HypIndex2(2))%momentum(0)
+                  & particleVector(in,HypIndex2(2))%mom(1:3)/particleVector(in,HypIndex2(2))%mom(0)
           endif
           write(103,*)
           write(103,'(a)') '##################################################################'
@@ -272,17 +272,17 @@ contains
 
        k0f= sqrt( & 
             & ParticleVector(i,j)%mass**2 + & 
-            & Dot_Product(ParticleVector(i,j)%momentum(1:3),& 
-            & ParticleVector(i,j)%momentum(1:3)))
-       k3f= ParticleVector(i,j)%momentum(3)
-       k1f= ParticleVector(i,j)%momentum(1)
-       k2f= ParticleVector(i,j)%momentum(2)
+            & Dot_Product(ParticleVector(i,j)%mom(1:3),& 
+            & ParticleVector(i,j)%mom(1:3)))
+       k3f= ParticleVector(i,j)%mom(3)
+       k1f= ParticleVector(i,j)%mom(1)
+       k2f= ParticleVector(i,j)%mom(2)
        zz = float(ParticleVector(i,j)%Charge)
        pID = ParticleVector(i,j)%ID
        yb = 0.5*log( (k0f+k3f)/(k0f-k3f) ) / yproj
        kinEn = k0f - ParticleVector(i,j)%mass
 
-       xp(1:3) = ParticleVector(i,j)%position(1:3)
+       xp(1:3) = ParticleVector(i,j)%pos(1:3)
        xsq = sqrt( dot_product(xp(:),xp(:)) )
 
        if (yb < 0.) then
@@ -529,8 +529,8 @@ contains
           if (ParticleVector(i,j)%ID .eq. 999) cycle !empty 
           k0f= sqrt( & 
                & ParticleVector(i,j)%mass**2 + & 
-               & Dot_Product(ParticleVector(i,j)%momentum(1:3),& 
-               & ParticleVector(i,j)%momentum(1:3)))
+               & Dot_Product(ParticleVector(i,j)%mom(1:3),& 
+               & ParticleVector(i,j)%mom(1:3)))
           pID = ParticleVector(i,j)%ID
           !       if (pID==53 .and. (k0f-ParticleVector(i,j)%mass) < 0.0801 ) then
           if (pID==53 ) then
@@ -576,11 +576,11 @@ contains
 
           k0f= sqrt( & 
                & FragmentVector(i,j)%mass**2 + & 
-               & Dot_Product(FragmentVector(i,j)%momentum(1:3),& 
-               & FragmentVector(i,j)%momentum(1:3)))
-          k3f= FragmentVector(i,j)%momentum(3)
-          k1f= FragmentVector(i,j)%momentum(1)
-          k2f= FragmentVector(i,j)%momentum(2)
+               & Dot_Product(FragmentVector(i,j)%mom(1:3),& 
+               & FragmentVector(i,j)%mom(1:3)))
+          k3f= FragmentVector(i,j)%mom(3)
+          k1f= FragmentVector(i,j)%mom(1)
+          k2f= FragmentVector(i,j)%mom(2)
           zz = float(FragmentVector(i,j)%ChargeNumber) !charge number
           aa = float(FragmentVector(i,j)%MassNumber)   !mass number
           nn = aa - zz !neutron number
@@ -641,7 +641,7 @@ contains
 
 
           !For test: kinEn1 coincides now with KinEn. 
-          !kinEn1 = FragmentVector(i,j)%momentum(0) - FragmentVector(i,j)%mass
+          !kinEn1 = FragmentVector(i,j)%mom(0) - FragmentVector(i,j)%mass
           KinEn = k0f - FragmentVector(i,j)%mass
 
           !Distributions in A
@@ -825,15 +825,15 @@ contains
 
        k0f= sqrt( & 
             & ParticleVector(i,j)%mass**2 + & 
-            & Dot_Product(ParticleVector(i,j)%momentum(1:3),& 
-            & ParticleVector(i,j)%momentum(1:3)))
-       k3f= ParticleVector(i,j)%momentum(3)
-       k1f= ParticleVector(i,j)%momentum(1)
-       k2f= ParticleVector(i,j)%momentum(2)
+            & Dot_Product(ParticleVector(i,j)%mom(1:3),& 
+            & ParticleVector(i,j)%mom(1:3)))
+       k3f= ParticleVector(i,j)%mom(3)
+       k1f= ParticleVector(i,j)%mom(1)
+       k2f= ParticleVector(i,j)%mom(2)
        zz = float(ParticleVector(i,j)%Charge)
        pID = ParticleVector(i,j)%ID
 
-!       kinEn1 = ParticleVector(i,j)%momentum(0) - ParticleVector(i,j)%Mass
+!       kinEn1 = ParticleVector(i,j)%mom(0) - ParticleVector(i,j)%Mass
        KinEn = k0f - ParticleVector(i,j)%Mass
 
        !Kin. Energy spectra of emitted protons & neutrons
@@ -1512,11 +1512,11 @@ contains
           charge   = FragmentVector(i,j)%ChargeNumber
           k0f= sqrt( & 
                & FragmentVector(i,j)%mass**2 + & 
-               & Dot_Product(FragmentVector(i,j)%momentum(1:3),& 
-               & FragmentVector(i,j)%momentum(1:3)))
-          k1f      = FragmentVector(i,j)%momentum(1)
-          k2f      = FragmentVector(i,j)%momentum(2)
-          k3f      = FragmentVector(i,j)%momentum(3)
+               & Dot_Product(FragmentVector(i,j)%mom(1:3),& 
+               & FragmentVector(i,j)%mom(1:3)))
+          k1f      = FragmentVector(i,j)%mom(1)
+          k2f      = FragmentVector(i,j)%mom(2)
+          k3f      = FragmentVector(i,j)%mom(3)
           PartType = FragmentVector(i,j)%FreeBound
 
 
@@ -1585,11 +1585,11 @@ contains
        charge   = ParticleVector(i,j)%Charge
        k0f= sqrt( & 
             & ParticleVector(i,j)%mass**2 + & 
-            & Dot_Product(ParticleVector(i,j)%momentum(1:3),& 
-            & ParticleVector(i,j)%momentum(1:3)))
-       k1f      = ParticleVector(i,j)%momentum(1)
-       k2f      = ParticleVector(i,j)%momentum(2)
-       k3f      = ParticleVector(i,j)%momentum(3)
+            & Dot_Product(ParticleVector(i,j)%mom(1:3),& 
+            & ParticleVector(i,j)%mom(1:3)))
+       k1f      = ParticleVector(i,j)%mom(1)
+       k2f      = ParticleVector(i,j)%mom(2)
+       k3f      = ParticleVector(i,j)%mom(3)
 
        yb(3) = 0.5*log( (k0f+k3f)/(k0f-k3f) )/yproj
        yb(1) = 0.5*log( (k0f+k1f)/(k0f-k1f) )/yproj
@@ -1768,9 +1768,9 @@ contains
 
           k0f= sqrt( & 
                & FragmentVector(i,j)%mass**2 + & 
-               & Dot_Product(FragmentVector(i,j)%momentum(1:3),& 
-               & FragmentVector(i,j)%momentum(1:3)))
-          k3f = FragmentVector(i,j)%momentum(3)
+               & Dot_Product(FragmentVector(i,j)%mom(1:3),& 
+               & FragmentVector(i,j)%mom(1:3)))
+          k3f = FragmentVector(i,j)%mom(3)
 
           EkinFra = k0f - FragmentVector(i,j)%mass
 
@@ -1795,8 +1795,8 @@ contains
           !spectra in moving frame of projectile (ALADIN experiment)
           k0flrf  = sqrt( & 
                & FragmentVector(i,j)%mass**2 + & 
-               & Dot_Product(FragmentVector(i,j)%momentumLRF(1:3),& 
-               & FragmentVector(i,j)%momentumLRF(1:3)))
+               & Dot_Product(FragmentVector(i,j)%momLRF(1:3),& 
+               & FragmentVector(i,j)%momLRF(1:3)))
           Ekin    = k0flrf - FragmentVector(i,j)%mass
 
 
@@ -1879,11 +1879,11 @@ contains
 
        k0f= sqrt( & 
             & ParticleVector(i,j)%mass**2 + & 
-            & Dot_Product(ParticleVector(i,j)%momentum(1:3),& 
-            & ParticleVector(i,j)%momentum(1:3)))
-       k3f= ParticleVector(i,j)%momentum(3)
-       k1f= ParticleVector(i,j)%momentum(1)
-       k2f= ParticleVector(i,j)%momentum(2)
+            & Dot_Product(ParticleVector(i,j)%mom(1:3),& 
+            & ParticleVector(i,j)%mom(1:3)))
+       k3f= ParticleVector(i,j)%mom(3)
+       k1f= ParticleVector(i,j)%mom(1)
+       k2f= ParticleVector(i,j)%mom(2)
        zz = ParticleVector(i,j)%Charge
        pID = ParticleVector(i,j)%ID
        yb = 0.5*log( (k0f+k3f)/(k0f-k3f) )/yproj 
@@ -2224,9 +2224,9 @@ contains
 
           k0f= sqrt( & 
                & FragmentVector(i,j)%mass**2 + & 
-               & Dot_Product(FragmentVector(i,j)%momentum(1:3),& 
-               & FragmentVector(i,j)%momentum(1:3)))
-          k3f = FragmentVector(i,j)%momentum(3)
+               & Dot_Product(FragmentVector(i,j)%mom(1:3),& 
+               & FragmentVector(i,j)%mom(1:3)))
+          k3f = FragmentVector(i,j)%mom(3)
 
           yb  = 0.5*log( (k0f+k3f)/(k0f-k3f) ) 
 
@@ -2383,9 +2383,9 @@ contains
 
        kf(0)= sqrt( & 
             & FragmentVector(i,j)%mass**2 + & 
-            & Dot_Product(FragmentVector(i,j)%momentum(1:3),& 
-            & FragmentVector(i,j)%momentum(1:3)))
-       kf(1:3) = FragmentVector(i,j)%momentum(1:3)
+            & Dot_Product(FragmentVector(i,j)%mom(1:3),& 
+            & FragmentVector(i,j)%mom(1:3)))
+       kf(1:3) = FragmentVector(i,j)%mom(1:3)
 
        zz = FragmentVector(i,j)%ChargeNumber
        aa = FragmentVector(i,j)%MassNumber
@@ -2393,7 +2393,7 @@ contains
        Icount        = iCount        + 1
        MeanMass      = MeanMass      + aa
        MeanCharge    = MeanCharge    + zz
-       MeanPos(:)    = meanPos(:)    + FragmentVector(i,j)%position(:)
+       MeanPos(:)    = meanPos(:)    + FragmentVector(i,j)%pos(:)
        MeanVelo(:) = MeanVelo(:) + kf(:)
 
     end do Ensemples_Loop2

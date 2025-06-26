@@ -27,6 +27,7 @@ program plotAllXS
 !  use eventGenerator_eN_lowEnergy
   !  use eventGenerator_eN_HiEnergy
   use neutrinoXsection
+  use neutrinoSigma
 
   use ParamEP
   use output
@@ -39,7 +40,7 @@ program plotAllXS
   use collisionTerm, only:  ForceDecays
   use insertion, only: GarbageCollection
 
-  use histf90
+  use hist
 
   implicit none
 
@@ -91,7 +92,7 @@ program plotAllXS
 !  call InitParticleProperties
 
 !  call ReadHiGammaNucleus
-  call get_xsection_namelist(0)
+  call get_sigma_namelist(0)
 
   call SetSomeDefaults_PY
   call event_INIT(tEv)
@@ -129,9 +130,9 @@ program plotAllXS
   TargetNuc%ID = 1
   TargetNuc%charge = chargeTarget
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-!  TargetNuc%momentum = (/0.1, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+!  TargetNuc%mom = (/0.1, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
   realPart(1,1)%ID = 0
 
@@ -158,9 +159,9 @@ program plotAllXS
 
 !        call write_electronNucleon_event(eNev1,.FALSE.,.FALSE.)
         call eNeV_GetKinV(eNev1, nu,Q2,W,Wfree,eps,fT1)
-        fT1 = fT1/ ( 1e-3* pi/(eNev1%lepton_out%momentum(0)*eNev1%lepton_in%momentum(0)))
+        fT1 = fT1/ ( 1e-3* pi/(eNev1%lepton_out%mom(0)*eNev1%lepton_in%mom(0)))
 
-        s1=abs4(eNev1%nucleon%momentum+eNev1%lepton_in%momentum)
+        s1=abs4(eNev1%nucleon%mom+eNev1%lepton_in%mom)
         x1=eNeV_Get_LightX(eNev1)
 !        write(*,*) 'nu :',nu
 !        write(*,*) 'xB :',Q2/(2*0.938*nu)
@@ -169,8 +170,8 @@ program plotAllXS
 
 !        call write_electronNucleon_event(eNev2,.FALSE.,.FALSE.)
         call eNeV_GetKinV(eNev2, nu,Q2,W,Wfree,eps,fT2)
-        fT2 = fT2/ ( 1e-3* pi/(eNev2%lepton_out%momentum(0)*eNev2%lepton_in%momentum(0)))
-        s2=abs4(eNev2%nucleon%momentum+eNev2%lepton_in%momentum)
+        fT2 = fT2/ ( 1e-3* pi/(eNev2%lepton_out%mom(0)*eNev2%lepton_in%mom(0)))
+        s2=abs4(eNev2%nucleon%mom+eNev2%lepton_in%mom)
         x2=eNeV_Get_LightX(eNev2)
 !        write(*,*) 'nu :',nu
 !        write(*,*) 'xB :',Q2/(2*0.938*nu)
@@ -260,7 +261,7 @@ program plotAllXS
                     pPart => finalstateBAK(1,i)
                     call event_ADD(tEv,pPart)
                     nPart0 = nPart0+1
-                    MomSum1 = MomSum1 + pPart%momentum
+                    MomSum1 = MomSum1 + pPart%mom
                  end do
                  call Multiplicity_AddEvent(tEv)
 
@@ -335,7 +336,7 @@ program plotAllXS
                     pPart => finalstateBAK(1,i)
                     call event_ADD(tEv,pPart)
                     nPart0 = nPart0+1
-                    MomSum2 = MomSum2 + pPart%momentum
+                    MomSum2 = MomSum2 + pPart%mom
                  end do
                  call Multiplicity_AddEvent(tEv)
 

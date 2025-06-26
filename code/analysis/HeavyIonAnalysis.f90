@@ -8,6 +8,8 @@
 !******************************************************************************
 module HeavyIonAnalysis
 
+  use histMP
+
   implicit none
   private
 
@@ -64,18 +66,46 @@ module HeavyIonAnalysis
   logical, save :: pionAnalysis = .false.
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* HeavyIonAnalysis/etaAnalysis
+  ! PURPOSE
+  ! This flag generates various eta spectra and eta-related analyses.
+  ! SOURCE
+  !
+  logical, save :: etaAnalysis = .false.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* HeavyIonAnalysis/rapBinningMode
+  ! PURPOSE
+  ! Select the variable the 'rapBinning' is given for:
+  ! * 1: variable is y0 = y/y_cms (the normalised rapidity)
+  ! * 2: variable is y
+  !
+  ! SOURCE
+  !
+  integer, save :: rapBinningMode = 1
+  !****************************************************************************
 
   !****************************************************************************
   !****g* HeavyIonAnalysis/rapBinning
   ! PURPOSE
-  ! Rapidity binning for the pion analysis (only used if pionAnalysis = .true.).
-  ! The numbers represent the binning borders in y0. For each of the seven
-  ! y0 bins, a separate mT spectrum will be generated.
+  ! Rapidity binning for the pion and eta analysis
+  ! (only used if pionAnalysis = .true. or etaAnalysis = .true. ).
+  ! The numbers represent the binning borders in y (or y0, see rapBinningMode).
+  ! For each of the bins, a separate pT and/or mT spectrum will be generated.
+  !
+  ! Only bins, where the upper bound is larger than the lower one are considered
   ! SOURCE
   !
-  real, dimension(0:7), save :: rapBinning = (/ -0.75, -0.45, -0.15, 0.15, 0.45, 0.75, 1.05, 1.35 /)
+  real, dimension(0:13), save :: rapBinning = (/ -0.75, -0.45, -0.15, 0.15, 0.45, 0.75, 1.05, 1.35, -99.9, -99.9, -99.9, -99.9, -99.9, -99.9 /)
+  !
+  ! NOTES
+  ! * for the Hades AuAu analysis, you should set the bins to
+  !   -0.65,-0.55,...0.75
   !****************************************************************************
 
+  integer, save :: nRapBinning ! stores the maximal used bin number
 
   !****************************************************************************
   !****g* HeavyIonAnalysis/KaonAnalysis
@@ -84,6 +114,15 @@ module HeavyIonAnalysis
   ! SOURCE
   !
   logical, save :: KaonAnalysis = .false.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* HeavyIonAnalysis/nPartAnalysis
+  ! PURPOSE
+  ! This flag generates output about impact parameter and N_part
+  ! SOURCE
+  !
+  logical, save :: nPartAnalysis = .false.
   !****************************************************************************
 
   !****************************************************************************
@@ -114,6 +153,39 @@ module HeavyIonAnalysis
   !***************************************************************************
 
   !***************************************************************************
+  !****g* HeavyIonAnalysis/do_Spectra
+  ! SOURCE
+  logical,save :: do_Spectra=.false.
+  ! PURPOSE
+  ! Switch for general spectra output.
+  !***************************************************************************
+
+  !***************************************************************************
+  !****g* HeavyIonAnalysis/do_QRvector
+  ! SOURCE
+  logical,save :: do_QRvector=.false.
+  ! PURPOSE
+  ! Switch for QRvector output.
+  !***************************************************************************
+
+  !***************************************************************************
+  !****g* HeavyIonAnalysis/do_Glauber
+  ! SOURCE
+  logical,save :: do_Glauber=.false.
+  ! PURPOSE
+  ! Switch for Glauber-MC analysis at timestep 0
+  !***************************************************************************
+
+
+  !***************************************************************************
+  !****g* HeavyIonAnalysis/BarMes_Tmunu
+  ! SOURCE
+  logical,save :: BarMes_Tmunu=.false.
+  ! PURPOSE
+  ! If .true., then Tmunu is calculated for baryons and mesons separately.
+  !***************************************************************************
+
+  !***************************************************************************
   !****g* HeavyIonAnalysis/rotateZ_Tmunu
   ! SOURCE
   logical,save :: rotateZ_Tmunu=.false.
@@ -131,13 +203,37 @@ module HeavyIonAnalysis
   ! * 0: no correction
   ! * 1: full potential added to p0
   ! * 2: only U_b/2+U_r added to p0
+  ! * 3: U_b/2+U_r added to p0 in the LRF
   !***************************************************************************
 
+  !****************************************************************************
+  !****g* HeavyIonAnalysis/selectTmunuFormat
+  ! SOURCE
+  integer,save :: selectTmunuFormat = 2
+  ! PURPOSE
+  ! select output format of Tmunu (binary encoded):
+  ! * 1: ASCII
+  ! * 2: Binary
+  ! * 3: ASCII + Binary
+  !****************************************************************************
+
+  integer, parameter :: nSet = 5
+  !****************************************************************************
+  !****g* HeavyIonAnalysis/useSet
+  ! SOURCE
+  logical, dimension(nSet), save :: useSet = (/ .false., .true., .false., .true., .true. /)
+  ! PURPOSE
+  ! Array to indicate, which particle set will be used for output
+  !****************************************************************************
+  type(histogramMP), dimension(nSet), save :: &
+       hMP_ESet, hMP_mTSet, hMP_pTSet, hMP_ySet
+
+  type tArray
+     real, dimension(:), allocatable :: v
+  end type tArray
+  type(tArray), dimension(nSet), save :: arrMultSet
+
   logical, save :: initFlag=.true.
-
-
-  real, dimension(:), allocatable, save :: &
-       arrMultSet2, arrMultSet4, arrMultSet5
 
   ! string constants may be broken over multiple continuation lines:
   character(*), parameter :: Form5 = &
@@ -148,6 +244,9 @@ module HeavyIonAnalysis
        &1x,e13.6,1x,i5,1x,i4,1x,f6.3)"
 
   public :: DoHeavyIonAnalysis, DoHeavyIonAnalysisTime, HeavyIon_evol
+  public :: getRapBinning
+  public :: calcGlauber
+  public :: countParts
 
 contains
 
@@ -165,8 +264,10 @@ contains
   !****************************************************************************
   subroutine init
     use output, only: Write_ReadingInput
+    use CallStack, only: TRACEBACK
+    use RMF, only: getRMF_flag
 
-    integer :: ios
+    integer :: ios, i
 
     !**************************************************************************
     !****n* HeavyIonAnalysis/HICanalysis_Input
@@ -178,38 +279,88 @@ contains
     ! * flag_outputPert
     ! * flag_outputDetailed
     ! * pionAnalysis
+    ! * etaAnalysis
+    ! * rapBinningMode
     ! * rapBinning
     ! * KaonAnalysis
     ! * DensityPlot
     ! * NucleonMassPlot
+    ! * do_Spectra
+    ! * do_QRvector
+    ! * do_Glauber
     ! * do_Tmunu
+    ! * BarMes_Tmunu
     ! * rotateZ_Tmunu
     ! * correctPot_Tmunu
+    ! * selectTmunuFormat
+    ! * useSet
+    ! * nPartAnalysis
     !**************************************************************************
     NAMELIST /HICanalysis_Input/ &
          flag_outputReal, flag_outputPert, flag_outputDetailed, &
-         pionAnalysis, rapBinning, KaonAnalysis, &
+         pionAnalysis, etaAnalysis, rapBinning, rapBinningMode, KaonAnalysis, &
          DensityPlot, NucleonMassPlot, &
-         do_Tmunu, rotateZ_Tmunu, correctPot_Tmunu
+         do_Spectra, do_QRvector, do_Glauber, &
+         do_Tmunu, &
+         BarMes_Tmunu, rotateZ_Tmunu, correctPot_Tmunu, selectTmunuFormat, &
+         useSet, nPartAnalysis
 
     call Write_ReadingInput('HICanalysis_Input',0)
     rewind(5)
     read(5,nml=HICanalysis_Input,iostat=ios)
     call Write_ReadingInput('HICanalysis_Input',0,ios)
 
+
+    do i=ubound(rapBinning,dim=1),1,-1
+       if (rapBinning(i-1) < rapBinning(i)) then
+          nRapBinning = i
+          exit
+       end if
+    end do
+
     write(*,*) 'flag_outputReal    : ', flag_outputReal
     write(*,*) 'flag_outputPert    : ', flag_outputPert
     write(*,*) 'flag_outputDetailed: ', flag_outputDetailed
     write(*,*) 'pionAnalysis       : ', pionAnalysis
-    if (pionAnalysis) write(*,'(A,8F7.3)') ' rapBinning         : ', rapBinning
+    write(*,*) 'etaAnalysis        : ', etaAnalysis
+    if (pionAnalysis.or.etaAnalysis) then
+       select case (rapBinningMode)
+       case (1)
+          write(*,*) 'rapBinningMode     : ',rapBinningMode," =y_0"
+       case (2)
+          write(*,*) 'rapBinningMode     : ',rapBinningMode," =y"
+       case default
+          call TRACEBACK("wrong rapBinningMode")
+       end select
+       write(*,'(A,99F7.3)') ' rapBinning         : ', &
+            rapBinning(0:nRapBinning)
+    end if
     write(*,*) 'KaonAnalysis       : ', KaonAnalysis
+    write(*,*) 'nPartAnalysis      : ', nPartAnalysis
     write(*,*) 'DensityPlot        : ', DensityPlot
     write(*,*) 'NucleonMassPlot    : ', NucleonMassPlot
+    write(*,*) 'do Spectra         : ', do_Spectra
+    write(*,*) 'do Q-/R-vector     : ', do_QRvector
+    write(*,*) 'do Glauber-MC      : ', do_Glauber
     write(*,*) 'do Tmunu           : ', do_Tmunu
+
     if (do_Tmunu) then
+       write(*,*) '  Tmunu: BarMes    : ', barMes_Tmunu
        write(*,*) '  Tmunu: rotateZ   : ', rotateZ_Tmunu
+       if (getRMF_flag()) then
+          if (correctPot_Tmunu>0) then
+             write(*,*) 'correctPot_Tmunu>0 in RMF mode not possible. Reset.'
+             correctPot_Tmunu = 0
+          end if
+       end if
        write(*,*) '  Tmunu: correctPot: ', correctPot_Tmunu
+       write(*,*) '  Tmunu format     : ', selectTmunuFormat
+
+       if (selectTmunuFormat==0) then
+          call Traceback("selectTmunuFormat must not == 0")
+       end if
     end if
+    write(*,*) 'use MP set         : ',useSet
 
     call Write_ReadingInput('HICanalysis_Input',1)
 
@@ -224,21 +375,16 @@ contains
   ! subroutine DoHeavyIonAnalysis(realParts,pertParts,finalFlag)
   !
   ! PURPOSE
-  ! Makes the output of the test particle id's, charges, masses, positions and
-  ! momenta on disk.
-  ! Also does some statistical analysis (see subroutine histo1).
+  ! Does some analysis at the end of the run.
   !
   ! INPUTS
   ! * type(particle), dimension(:,:), :: realParts -- real particle vector
   ! * type(particle), dimension(:,:), :: pertParts -- perturb. particle vector
-  ! * logical, intent (in)     :: finalFlag -- if .true., it is the last call
-  !   for one specific energy, therefore final output must be made.
+  ! * logical, intent(in) :: finalFlag -- if .true., it is the last run
+  !   for one specific energy, therefore final output must be done.
   !
   ! RESULT
-  ! The test particle infos are printed into file 'DoHIA.dat'.
-  ! The statistical results are printed to the files:
-  ! * 'DoHIA1.dat'
-  ! * 'DoHIA2.dat'
+  ! some files written to disk
   !****************************************************************************
   subroutine DoHeavyIonAnalysis(realParts, pertParts, finalFlag)
 
@@ -249,14 +395,14 @@ contains
     use initElementary, only: b_ele => impactParameter
     use twoBodyStatistics, only: sqrts_distribution, rate
     use inputGeneral, only: eventtype
-    use eventtypes, only: HeavyIon, hadron, elementary, HiLepton
+    use eventtypes, only: HeavyIon, hadron, elementary, HiLepton, HiPion
     use history, only: history_getParents,history_getGeneration
 
     type(particle), dimension(:,:), intent(in), target :: realParts
     type(particle), dimension(:,:), intent(in), target :: pertParts
     logical,                        intent(in)         :: finalFlag
 
-    integer :: i,j,k,nEns,nPart,indFree,parents(1:3),generation,factor
+    integer :: nEns,nPart
     real :: stossParameter
     integer, save :: isu=0     ! counter of subsequent runs
     type(particle), dimension(1:2) :: dummy
@@ -283,99 +429,25 @@ contains
     nEns = size(realParts,dim=1)
     nPart = size(realParts,dim=2)
 
-
-    if (flag_outputReal) then
-
-       !***********************************************************************
-       !****o* HeavyIonAnalysis/DoHIA.dat
-       ! NAME
-       ! file DoHIA.dat
-       ! PURPOSE
-       ! Contains the full dump of the real particle vector at the end of the
-       ! simulation, including particle ID, charge, position, momentum, etc.
-       !***********************************************************************
-       open(30,file='DoHIA.dat',position='Append')
-
-       do i = 1,nEns
-          do j = 1,nPart
-
-             pPart => realParts(i,j)
-             if (pPart%ID <= 0) cycle
-
-             factor = merge(-1, 1, pPart%antiparticle)
-             indFree = merge(1, 0, isFree(realParts,i,j,pPart))
-
-             parents = history_getParents(pPart%history)
-             generation=history_getGeneration(pPart%history)
-             do k=1,2
-                if (parents(k)>200) parents(k)=200-parents(k)
-             end do
-
-             write(30,Form5) &
-                  factor*pPart%ID,pPart%charge,&
-                  pPart%event(1),parents(1:3),generation,pPart%mass,&
-                  indFree,pPart%position(1:3),&
-                  pPart%momentum(1:3),&
-                  pPart%perweight,i,isu,stossParameter
-
-
-          end do
-
-       end do
-
-       close(30)
-    end if
-
-
-    if (flag_outputPert) then
-
-       !***********************************************************************
-       !****o* HeavyIonAnalysis/DoHIA_pert.dat
-       ! NAME
-       ! file DoHIA_pert.dat
-       ! PURPOSE
-       ! Contains the full dump of the perturbative particle vector at the end
-       ! of the simulation, including particle ID, charge, position, momentum,
-       ! etc.
-       !***********************************************************************
-       open(30,file='DoHIA_pert.dat',position='Append')
-       do i = 1,nEns
-          do j = 1,size(pertParts,dim=2) ! nPart for pert vector
-
-             pPart => pertParts(i,j)
-             if (pPart%ID == EOV) exit
-             if (pPart%ID == NOP) cycle
-
-             factor = merge(-1, 1, pPart%antiparticle)
-             indFree = merge(1, 0, isFree(realParts,i,j,pPart))
-
-             parents = history_getParents(pPart%history)
-             do k=1,2
-                if (parents(k)>200) parents(k)=200-parents(k)
-             end do
-
-             write(30,Form6) &
-                  factor*pPart%ID,pPart%charge,pPart%firstEvent,&
-                  pPart%event(1),parents(1:3),pPart%mass,&
-                  indFree, (pPart%momentum(k), k=0,3),&
-                  pPart%perWeight,i,isu,stossParameter
-
-          end do
-
-       end do
-
-       close(30)
-
-    end if
+    if (flag_outputReal) call write_DoHIA
+    if (flag_outputPert) call write_DoHIApert
 
     if (finalFlag) then
        call sqrts_distribution(dummy,0,.true.)
        call rate(dummy,dummy,0.,.true.)
-       if (eventtype.ne.HiLepton) then
-          call Spectra
+    end if
+
+    if (eventtype.ne.HiLepton) then
+       if (eventtype.ne.HiPion) then
+          if (do_Spectra) call Spectra(realParts)
           call countParts(realParts, -99.9, "final_")
+       else
+          if (do_Spectra) call Spectra(pertParts)
+          ! for HiPion countparts is called directly
+          !          call countParts(pertParts, -99.9, "final_")
        end if
     end if
+
 
     if (eventtype==hadron &
          .and. particleId==nucleon &
@@ -385,10 +457,96 @@ contains
     end if
 
     if (pionAnalysis) call analyze_Pions
+    if (etaAnalysis) call analyze_Etas
     if (KaonAnalysis) call analyze_Kaons
 
+    if (nPartAnalysis) call analyze_Npart
 
   contains
+
+    !**************************************************************************
+    !***is* DoHeavyIonAnalysis/write_DoHIA
+    !**************************************************************************
+    subroutine write_DoHIA
+
+      integer :: i,j,indFree,parents(1:3),generation,factor
+
+      !***********************************************************************
+      !****o* HeavyIonAnalysis/DoHIA.dat
+      ! NAME
+      ! file DoHIA.dat
+      ! PURPOSE
+      ! Contains the full dump of the real particle vector at the end of the
+      ! simulation, including particle ID, charge, position, momentum, etc.
+      !***********************************************************************
+      open(30,file='DoHIA.dat',position='Append')
+      do i = 1,nEns
+         do j = 1,nPart
+            pPart => realParts(i,j)
+            if (pPart%ID <= 0) cycle
+
+            factor = merge(-1, 1, pPart%anti)
+            indFree = merge(1, 0, isFree(realParts,i,j,pPart))
+
+            generation=history_getGeneration(pPart%history)
+            parents = history_getParents(pPart%history)
+            where (parents>200)
+               parents = 200-parents
+            end where
+
+            write(30,Form5) &
+                 factor*pPart%ID,pPart%charge,&
+                 pPart%event(1),parents(1:3),generation,pPart%mass,&
+                 indFree,pPart%pos(1:3),&
+                 pPart%mom(1:3),&
+                 pPart%perweight,i,isu,stossParameter
+         end do
+      end do
+      close(30)
+    end subroutine write_DoHIA
+
+    !**************************************************************************
+    !***is* DoHeavyIonAnalysis/write_DoHIApert
+    !**************************************************************************
+    subroutine write_DoHIApert
+
+      integer :: i,j,k, indFree,parents(1:3),factor
+
+      !***********************************************************************
+      !****o* HeavyIonAnalysis/DoHIA_pert.dat
+      ! NAME
+      ! file DoHIA_pert.dat
+      ! PURPOSE
+      ! Contains the full dump of the perturbative particle vector at the end
+      ! of the simulation, including particle ID, charge, position, momentum,
+      ! etc.
+      !***********************************************************************
+      open(30,file='DoHIA_pert.dat',position='Append')
+      do i = 1,nEns
+         do j = 1,size(pertParts,dim=2) ! nPart for pert vector
+
+            pPart => pertParts(i,j)
+            if (pPart%ID == EOV) exit
+            if (pPart%ID == NOP) cycle
+
+            factor = merge(-1, 1, pPart%anti)
+            indFree = merge(1, 0, isFree(realParts,i,j,pPart))
+
+            parents = history_getParents(pPart%history)
+            where (parents>200)
+               parents = 200-parents
+            end where
+
+            write(30,Form6) &
+                 factor*pPart%ID,pPart%charge,pPart%firstEvent,&
+                 pPart%event(1),parents(1:3),pPart%mass,&
+                 indFree, (pPart%mom(k), k=0,3),&
+                 pPart%perWeight,i,isu,stossParameter
+
+         end do
+      end do
+      close(30)
+    end subroutine write_DoHIApert
 
     !**************************************************************************
     !***is* DoHeavyIonAnalysis/histo1
@@ -402,7 +560,7 @@ contains
       real, save, dimension(1:Nmom,0:10) :: dNpiondMom  ! Pion momentum distr.
       real, save :: pion_events
 
-      integer :: numPions,ibin
+      integer :: i,j,numPions,ibin,factor
       logical :: flag_not_only_pions
       real :: fnorm,pinumAv,momentumAbs
       type(particle), POINTER :: pPart
@@ -444,12 +602,12 @@ contains
                if (pPart%ID <= 0) cycle Particle_loop2
 
                if (numPions.le.1) then
-                  factor = merge( -1., 1., pPart%antiparticle)
+                  factor = merge( -1., 1., pPart%anti)
 
                   write(36,5) int(factor)*pPart%ID,pPart%charge,&
                        pPart%mass,&
-                       pPart%position(1:3),&
-                       pPart%momentum(1:3),&
+                       pPart%pos(1:3),&
+                       pPart%mom(1:3),&
                        i,isu
 5                 format(i4,1x,i2,1x,f6.3,3(1x,f8.3),3(1x,f8.3),1x,i5,1x,i4)
                end if
@@ -457,7 +615,7 @@ contains
                if (pPart%ID .ne. pion) cycle Particle_loop2
 
 
-               momentumAbs=sqrt(dot_product(pPart%momentum(1:3),pPart%momentum(1:3)))
+               momentumAbs=sqrt(dot_product(pPart%mom(1:3),pPart%mom(1:3)))
                ibin=nint((momentumAbs-dmom/2.)/dmom)+1
                if (ibin.ge.1 .and. ibin.le.Nmom .and. pPart%charge.ne.0) then
                   dNpiondMom(ibin,0)=dNpiondMom(ibin,0)+1.
@@ -527,14 +685,19 @@ contains
       use nucleusDefinition
       use nucleus, only: getProjectile
       use histMC_avg
+      use output, only: intToChar2
 
       type(histogramMC), save :: hist_pT, hist_y, hist_y0, hist_cost
-      type(histogramMC), dimension(0:7), save :: hist_mT       ! 0=total; 1:7=different rap. bins
+      type(histogramMC), dimension(0:13), save :: hist_mT ! 0=total; 1:..=different rap. bins
       type(histogramMC_avg), save :: hist_v1_y, hist_v2_y, hist_v1_u, hist_v2_u
+      type(histogramMC_avg), save :: hist_cos2t
       logical, save :: first = .true.
       real, save :: w, y_cms, u_proj
       integer :: i, j, ch, rb
-      real :: mom(0:3), pT, mT, m, y, y0, cost, E, p, pabs, v1, v2, ut0, beta_proj, beta(1:3), gamma
+      real :: mom(0:3)
+      real :: beta(1:3)
+      real :: pT, mT, m, y, y0, cost, E, p, pabs, v1, v2, ut0, beta_proj, gamma
+      real :: cos2t, yTmp
       character(40) :: str
       type(tnucleus), pointer :: proj
       integer, save :: n = 0
@@ -559,10 +722,12 @@ contains
               0.,4.,0.2 ,3)
          call CreateHistMC_avg(hist_v2_u, 'Elliptic flow of pions: v2(ur0)', &
               0.,4.,0.2 ,3)
-         do i=1,7
+         call CreateHistMC_avg(hist_cos2t, '< cos^2(theta) >(p_cm)', &
+              0.,1.,0.01,3)
+         do i=1,nRapBinning
             write(str,'(A,i1,A,f5.2,A,f5.2,A)') &
                  " (rap. bin #",i,": y0 = ",rapBinning(i-1),&
-                 " ... ",rapBinning(i)," GeV)"
+                 " ... ",rapBinning(i),")"
             hist_mT(i)%name = trim(hist_mT(i)%name) // str
          end do
          hist_pT%xDesc = 'p_T [GeV]'
@@ -575,6 +740,7 @@ contains
          hist_y0%xDesc   = 'y0'
          hist_cost%xDesc = 'cos(theta_cm)'
          hist_mT%xDesc   = 'm_T - m [GeV]'
+
          hist_v1_y%xDesc   = 'y0'
          hist_v1_y%yDesc = (/ "pi-", "pi0", "pi+" /)
          call CopyDesc_avg(hist_v2_y, hist_v1_y)
@@ -582,13 +748,16 @@ contains
          call CopyDesc_avg(hist_v2_u, hist_v1_y)
          hist_v1_u%xDesc   = 'ut0'
          hist_v2_u%xDesc   = 'ut0'
+         call CopyDesc_avg(hist_cos2t, hist_v1_y)
+         hist_cos2t%xDesc  = 'p_cm'
+
          w = 1. / (nEns*num_Runs_SameEnergy*num_energies)   ! weight factor
          E = 2*mN + ekin_lab_Projectile
          p = sqrt(ekin_lab_Projectile**2 + 2.*mN*ekin_lab_Projectile)  ! assumption: fixed target
          y_cms = 0.5*log((E+p)/(E-p))
          write(*,*) "analyze_Pions: y_cms = ", y_cms
          proj => getProjectile()
-         beta_proj = sqrt(sum(proj%velocity**2))
+         beta_proj = sqrt(sum(proj%vel**2))
          u_proj = beta_proj / sqrt(1. - beta_proj**2)
          write(*,*) "analyze_Pions: u_proj = ", u_proj
          first = .false.
@@ -600,7 +769,7 @@ contains
             if (realParts(i,j)%ID /= pion) cycle
 
             ch = realParts(i,j)%charge+2
-            mom = realParts(i,j)%momentum
+            mom = realParts(i,j)%mom
             beta = mom(1:3) / mom(0)
             gamma = 1./ sqrt( 1. - dot_product(beta,beta) )
             m = abs4(mom)                                 ! mass
@@ -609,10 +778,13 @@ contains
             y0 = y/y_cms                                  ! 'normalized' rapidity
             pt = sqrt(mom(1)**2+mom(2)**2)                ! transverse momentum
             mt = sqrt(m**2+pt**2)                         ! transverse mass
+
             cost = mom(3)/pabs
             v1 = mom(1)/pt                       ! v1 = < px/pT >
             v2 = (mom(1)**2 - mom(2)**2)/pt**2   ! v2 = < (px**2-py**2)/pT**2 >
             ut0 = gamma * sqrt(beta(1)**2+beta(2)**2) / u_proj  ! transverse comp. of scaled four-velocity
+
+            cos2t= 2*cost**2 - 1.0 ! = cos(2 theta)
 
             call AddHistMC(hist_pT,    pt,   ch, w)
             call AddHistMC(hist_y,     y,    ch, w)
@@ -620,6 +792,7 @@ contains
             call AddHistMC(hist_mT(0), mt-m, ch, w/mt**2)
             if (pabs>0.2 .and. pabs<0.8) &
                  call AddHistMC(hist_cost,  cost, ch, w)
+            call AddHistMC_avg(hist_cos2t, pabs, ch, cos2t)
             if (ut0>1.0 .and. ut0<4.2) then
               call AddHistMC_avg(hist_v1_y, y0, ch, v1)
               call AddHistMC_avg(hist_v2_y, y0, ch, v2)
@@ -629,12 +802,18 @@ contains
               call AddHistMC_avg(hist_v2_u, ut0, ch, v2)
             end if
             ! determine rap. bin
+            select case (rapBinningMode)
+            case (1)
+               yTmp = y0
+            case (2)
+               yTmp = y
+            end select
             rb = 0
-            do while (rb < 8)
-               if (y0 < rapBinning(rb)) exit
+            do while (rb < nRapBinning+1)
+               if (yTmp < rapBinning(rb)) exit
                rb = rb + 1
             end do
-            if (rb>0 .and. rb<8) &
+            if (rb>0 .and. rb< nRapBinning+1) &
                  call AddHistMC(hist_mT(rb), mt-m, ch, w/mt**2)
          end do
       end do
@@ -646,16 +825,144 @@ contains
       call WriteHistMC(hist_y,   'PionY.dat',    mul=fac)
       call WriteHistMC(hist_y0,  'PionY0.dat',   mul=fac)
       call WriteHistMC(hist_cost,'PionCost.dat', mul=fac)
-      do i=0,7
+      do i=0,nRapBinning
          str = ""
-         if (i>0) write(str,'(A,i1)') "_rapBin",i
+         if (i>0) str = "_rapBin"//intToChar2(i)
          call WriteHistMC(hist_mT(i), 'PionMt'//trim(str)//'.dat', mul=fac)
       end do
       call WriteHistMC_avg(hist_v1_y,'PionV1_y.dat')
       call WriteHistMC_avg(hist_v2_y,'PionV2_y.dat')
       call WriteHistMC_avg(hist_v1_u,'PionV1_u.dat')
       call WriteHistMC_avg(hist_v2_u,'PionV2_u.dat')
+      call WriteHistMC_avg(hist_cos2t,'PionCos2t.dat', dump=.true.)
     end subroutine analyze_Pions
+
+    !**************************************************************************
+    !***is* DoHeavyIonAnalysis/analyze_Etas
+    !**************************************************************************
+    subroutine analyze_Etas
+
+      use histMC
+      use IDTable, only: EOV, pion, eta
+      use minkowski, only: abs4, abs3
+      use inputGeneral, only: num_Runs_SameEnergy, num_energies
+      use initHeavyIon, only: ekin_lab_Projectile
+      use constants, only: mN
+      use nucleusDefinition
+      use nucleus, only: getProjectile
+      use output, only: intToChar2
+
+      logical, save :: first = .true.
+      real, save :: w, y_cms
+
+      type(histogramMC), save :: hist_y0, hist_cost
+
+      ! 0=total; 1:..=different rap. bins
+      type(histogramMC), dimension(0:13), save :: hist_mT, hist_pT
+
+      integer,save :: n = 0
+      integer :: i, j, ch, rb
+      real :: E, p, m, y, y0, pt, mt, pabs, cost, fac, yTmp
+      real :: mom(0:3)
+      character(40) :: str
+
+      write(*,*) 'subroutine analyze_Etas'
+
+      if (first) then
+         call CreateHistMC(hist_y0, 'rapidity spectra: dN/dy0', &
+              -3.,3.,0.1,4)
+         call CreateHistMC(hist_cost, 'polar angle spectra: dN/dcos(theta)', &
+              -1.,1.,0.05,4)
+         call CreateHistMC(hist_pT, 'transverse momentum spectra: dN/dpT',&
+              0.,1.,0.01,4)
+         call CreateHistMC(hist_mT, 'transverse mass spectra: mT^(-2)*dN/dmT', &
+              0.,1.,0.01,4)
+
+         do i=1,nRapBinning
+            write(str,'(A,i1,A,f5.2,A,f5.2,A)') &
+                 " (rap. bin #",i,": y0 = ",rapBinning(i-1),&
+                 " ... ",rapBinning(i),")"
+            hist_mT(i)%name = trim(hist_mT(i)%name) // str
+            hist_pT(i)%name = trim(hist_pT(i)%name) // str
+         end do
+         hist_y0%xDesc = 'y0'
+         hist_y0%yDesc = (/ "pi-", "pi0", "pi+", "eta" /)
+         call CopyDesc(hist_cost, hist_y0)
+         call CopyDesc(hist_pT, hist_y0)
+         call CopyDesc(hist_mT, hist_y0)
+         hist_cost%xDesc = 'cos(theta)'
+         hist_pT%xDesc   = 'p_T [GeV]'
+         hist_mT%xDesc   = 'm_T - m [GeV]'
+
+         w = 1. / (nEns*num_Runs_SameEnergy*num_energies)   ! weight factor
+         E = 2*mN + ekin_lab_Projectile
+         p = sqrt(ekin_lab_Projectile**2 + 2.*mN*ekin_lab_Projectile)  ! assumption: fixed target
+         y_cms = 0.5*log((E+p)/(E-p))
+         write(*,*) "analyze_Etas: y_cms = ", y_cms
+         first = .false.
+      end if
+
+      do i=1,nEns
+         do j=1,nPart
+            select case(realParts(i,j)%ID)
+            case(EOV)
+               exit
+            case(pion)
+               ch = realParts(i,j)%charge+2
+            case(eta)
+               ch = 4
+            case default
+               cycle
+            end select
+
+            mom = realParts(i,j)%mom
+            m = abs4(mom)
+            y = 0.5*log((mom(0)+mom(3))/(mom(0)-mom(3)))  ! rapidity
+            y0 = y/y_cms                                  ! normalized rapidity
+            pt = sqrt(mom(1)**2+mom(2)**2)                ! transverse momentum
+            mt = sqrt(m**2+pt**2)                         ! transverse mass
+            pabs = abs3(mom)                              ! absolute momentum
+            cost = mom(3)/pabs
+
+            call AddHistMC(hist_y0,    y0,   ch, w)
+            call AddHistMC(hist_cost,  cost, ch, w)
+            call AddHistMC(hist_pT(0), pt,   ch, w)
+            call AddHistMC(hist_mT(0), mt-m, ch, w/mt**2)
+
+            select case (rapBinningMode)
+            case (1)
+               yTmp = y0
+            case (2)
+               yTmp = y
+            end select
+            rb = 0
+            do while (rb < nRapBinning+1)
+               if (yTmp < rapBinning(rb)) exit
+               rb = rb + 1
+            end do
+            if (rb>0 .and. rb< nRapBinning+1) then
+               call AddHistMC(hist_pT(rb), pt,   ch, w)
+               call AddHistMC(hist_mT(rb), mt-m, ch, w/mt**2)
+            end if
+
+         end do
+      end do
+
+      n = n + 1                                        ! count runs
+      fac = num_Runs_SameEnergy*num_energies/float(n)  ! multiplication factor for writing histograms
+
+      call WriteHistMC(hist_y0,   'EtaY0.dat',   mul=fac, dump=.true.)
+      call WriteHistMC(hist_cost, 'EtaCost.dat', mul=fac, dump=.true.)
+      do i=0,nRapBinning
+         str = ""
+         if (i>0) str = "_rapBin"//intToChar2(i)
+         call WriteHistMC(hist_mT(i), 'EtaMt'//trim(str)//'.dat', mul=fac, &
+              dump=.true.)
+         call WriteHistMC(hist_pT(i), 'EtaPt'//trim(str)//'.dat', mul=fac, &
+              dump=.true.)
+      end do
+
+    end subroutine analyze_Etas
 
     !**************************************************************************
     !***is* DoHeavyIonAnalysis/analyze_Kaons
@@ -723,7 +1030,7 @@ contains
                cycle
             end if
 
-            mom = realParts(i,j)%momentum
+            mom = realParts(i,j)%mom
             m = abs4(mom)                                 ! mass
             pabs = abs3(mom)                              ! absolute momentum
             y = 0.5*log((mom(0)+mom(3))/(mom(0)-mom(3)))  ! rapidity
@@ -775,72 +1082,136 @@ contains
     !**************************************************************************
     !***is* DoHeavyIonAnalysis/Spectra
     !**************************************************************************
-    subroutine Spectra
+    subroutine Spectra(Parts)
 
-      use histMPf90
+      use histMP
       use IDtable, only: isHadron
+      use eventtypes
+      use inputGeneral, only: eventType
+      use ieee_arithmetic, only: ieee_is_nan
 
-      type(histogramMP), save :: hMP_ESet2, hMP_ESet4, hMP_ESet5
-      type(histogramMP), save :: hMP_mTSet2, hMP_mTSet4, hMP_mTSet5
+      type(particle),dimension(:,:),intent(in), target :: Parts
 
-      integer :: i,j, nEns,nPart
-      real :: mulFak, mom, mom0, mT, y
+      integer :: i,j, iSet
+      real :: mulFak, mom, mom0, mT, pT, y
       type(particle), POINTER :: pPart
       real, parameter :: dy = 0.05
+      logical, save :: first = .true.
 
-      call CreateHistMP(hMP_ESet2, "dN/pE dE", 0.0, 2.5, 0.02, 2)
-      call CreateHistMP(hMP_ESet4, "dN/pE dE", 0.0, 2.5, 0.02, 4)
-      call CreateHistMP(hMP_ESet5, "dN/pE dE", 0.0, 2.5, 0.02, 5)
+      if (first) then
+         do iSet=1,nSet
+            if (.not.useSet(iSet)) cycle
+            call CreateHistMP(hMP_ESet(iSet), "dN/pE dE", 0.0, 2.5, 0.02, iSet)
+            call CreateHistMP(hMP_mTSet(iSet), "dN/mT2 dmT dy", 0.0, 2.5, 0.02, iSet)
+            call CreateHistMP(hMP_pTSet(iSet), "dN/dpT dy", 0.0, 2.5, 0.02, iSet)
+            call CreateHistMP(hMP_ySet(iSet), "dN/dy", -3.0, 3.0, 0.02, iSet)
+         end do
+         first = .false.
+      end if
 
-      call CreateHistMP(hMP_mTSet2, "dN/mT2 dmT dy", 0.0, 2.5, 0.02, 2)
-      call CreateHistMP(hMP_mTSet4, "dN/mT2 dmT dy", 0.0, 2.5, 0.02, 4)
-      call CreateHistMP(hMP_mTSet5, "dN/mT2 dmT dy", 0.0, 2.5, 0.02, 5)
-
-      nEns  = size(realParts,dim=1)
-      nPart = size(realParts,dim=2)
-      mulfak = 1.0/(nEns)
+      nEns  = size(Parts,dim=1)
+      nPart = size(Parts,dim=2)
+      select case (eventType)
+      case (HiPion)
+         mulfak = 1.0
+      case default
+         mulfak = 1.0/nEns
+      end select
 
       do i=1,nEns
          do j=1,nPart
-            pPart => realParts(i,j)
+            pPart => Parts(i,j)
             if (pPart%Id <  0) exit
             if (pPart%Id <= 0) cycle
 
             mom = absMom(pPart)
-            mom0 = pPart%momentum(0)
-            mT = sqrt(max(1e-15,pPart%momentum(0)**2-pPart%momentum(3)**2))
+            mom0 = pPart%mom(0)
+            mT = sqrt(max(1e-15,pPart%mom(0)**2-pPart%mom(3)**2))
             y = rapidity(pPart)
+            pT = sqrt(pPart%mom(1)**2+pPart%mom(2)**2)
 
-            call AddHistMP(hMP_ESet2, pPart, mom0, 1.0/(mom0*mom), 1.0)
-            call AddHistMP(hMP_ESet4, pPart, mom0, 1.0/(mom0*mom), 1.0)
-            call AddHistMP(hMP_ESet5, pPart, mom0, 1.0/(mom0*mom), 1.0)
-
-            if (abs(y) < dy) then
-               call AddHistMP(hMP_mTSet2, pPart, mT, 1.0/(2*dy*mT**2), 1.0)
-               call AddHistMP(hMP_mTSet4, pPart, mT, 1.0/(2*dy*mT**2), 1.0)
-               call AddHistMP(hMP_mTSet5, pPart, mT, 1.0/(2*dy*mT**2), 1.0)
+            if (ieee_is_nan(mom0)) then
+               write(*,*) 'attention: mom0 is NaN',pPart%mom
+               cycle
             end if
 
+            if (ieee_is_nan(y)) then
+               write(*,*) 'attention: y is NaN',pPart%mom
+               cycle
+            end if
+
+            do iSet=1,nSet
+               if (.not.useSet(iSet)) cycle
+               call AddHistMP(hMP_ESet(iSet), pPart, mom0, 1.0/(mom0*mom), 1.0)
+               call AddHistMP(hMP_ySet(iSet), pPart, y, 1.0, 1.0)
+
+               if (abs(y) < dy) then
+                  call AddHistMP(hMP_pTSet(iSet), pPart, pT, 1.0, 1.0)
+                  call AddHistMP(hMP_mTSet(iSet), pPart, mT, 1.0/(2*dy*mT**2), 1.0)
+               end if
+            end do
 
          end do
       end do
 
-      call WriteHistMP(hMP_ESet2, file='E_Set2_final.dat', &
-           add=1e-20, mul=mulfak, iColumn=1)
-      call WriteHistMP(hMP_ESet4, file='E_Set4_final.dat', &
-           add=1e-20, mul=mulfak, iColumn=1)
-      call WriteHistMP(hMP_ESet5, file='E_Set5_final.dat', &
-           add=1e-20, mul=mulfak, iColumn=1)
+      if (finalFlag) then
+         do iSet=1,nSet
+            if (.not.useSet(iSet)) cycle
 
-      call WriteHistMP(hMP_mTSet2, file='mT_Set2_final.dat', &
-           add=1e-20, mul=mulfak, iColumn=1)
-      call WriteHistMP(hMP_mTSet4, file='mT_Set4_final.dat', &
-           add=1e-20, mul=mulfak, iColumn=1)
-      call WriteHistMP(hMP_mTSet5, file='mT_Set5_final.dat', &
-           add=1e-20, mul=mulfak, iColumn=1)
+            call WriteHistMP(hMP_ESet(iSet), &
+                 file='E_Set'//achar(48+iSet)//'_final.dat', &
+                 add=1e-20, mul=mulfak, iColumn=1, dump=.true.)
+            call WriteHistMP(hMP_mTSet(iSet), &
+                 file='mT_Set'//achar(48+iSet)//'_final.dat', &
+                 add=1e-20, mul=mulfak, iColumn=1, dump=.true.)
+            call WriteHistMP(hMP_pTSet(iSet), &
+                 file='pT_Set'//achar(48+iSet)//'_final.dat', &
+                 add=1e-20, mul=mulfak, iColumn=1, dump=.true.)
+            call WriteHistMP(hMP_ySet(iSet), &
+                 file='y_Set'//achar(48+iSet)//'_final.dat', &
+                 add=1e-20, mul=mulfak, iColumn=1, dump=.true.)
 
+            call ClearHistMP(hMP_ESet(iSet))
+            call ClearHistMP(hMP_mTSet(iSet))
+            call ClearHistMP(hMP_pTSet(iSet))
+            call ClearHistMP(hMP_ySet(iSet))
+
+         end do
+      end if
 
     end subroutine Spectra
+
+
+    !**************************************************************************
+    !***is* DoHeavyIonAnalysis/analyze_Npart
+    !**************************************************************************
+    subroutine analyze_Npart
+
+      integer :: i,j,nUnwounded
+      type(particle), POINTER :: pPart
+
+
+      nUnwounded = 0
+      do i = 1,nEns
+         do j = 1,size(realParts,dim=2)
+
+            pPart => realParts(i,j)
+            if (pPart%ID == EOV) exit
+!            if (pPart%ID == NOP) cycle
+            if (pPart%ID /= 1) cycle
+            if (pPart%anti) cycle
+
+            if (pPart%firstEvent /= 0) cycle
+
+            nUnwounded = nUnwounded+1
+         end do
+      end do
+
+      open(123,file="nUnwounded.txt",status="unknown")
+      write(123,*) stossParameter,float(nUnwounded)/nEns
+      close(123)
+
+    end subroutine analyze_Npart
 
 
   end subroutine DoHeavyIonAnalysis
@@ -860,8 +1231,9 @@ contains
   !****************************************************************************
   subroutine DoHeavyIonAnalysisTime(realParts, time)
     use particleDefinition
-    use inputGeneral, only: time_max, delta_T, timeForOutput, timeSequence
-    use output, only: intTochar
+    use inputGeneral, only: time_max, delta_T, timeForOutput, timeSequence, &
+         num_runs_sameEnergy
+    use output, only: intTochar,intToChar4
     use IdTable, only: EOV, NOP
     use Dilepton_Analysis, only: Dilep_write_CS_time
 
@@ -876,7 +1248,7 @@ contains
     if (time>= timeForOutput) then
 
       if (mod(itime*delta_T,timeSequence)<1E-4) then
-        call writeParticleVectorHI
+        if (flag_outputReal) call writeParticleVectorHI
         call RapiditySpectra
         call InvariantMassSpectra
         call Dilep_write_CS_time(time)
@@ -948,7 +1320,7 @@ contains
             if (realParts(i,j)%id == NOP) cycle Loop_over_particles
             if (realParts(i,j)%id == EOV) exit Loop_over_particles
             if (realParts(i,j)%ID > 0) then
-               if (realParts(i,j)%antiparticle) then
+               if (realParts(i,j)%anti) then
                   fact = -1
                else
                   fact = 1
@@ -959,9 +1331,10 @@ contains
                   indFree=0
                end if
                write(103,50) fact*realParts(i,j)%ID, realParts(i,j)%charge, &
-                             realParts(i,j)%mass, abs4(realParts(i,j)%momentum)**2, indFree, &
-                             realParts(i,j)%position(1:3), realParts(i,j)%momentum(1:3), &
-                             i, isut+1, stossParameter
+                    realParts(i,j)%mass, abs4(realParts(i,j)%mom)**2, &
+                    indFree, realParts(i,j)%pos(1:3), &
+                    realParts(i,j)%mom(1:3), &
+                    i, isut+1, stossParameter
             end if
          end do Loop_over_particles
       end do Loop_over_ensembles
@@ -982,7 +1355,7 @@ contains
     !**************************************************************************
     subroutine RapiditySpectra
       use idTable, only: nucleon
-      use histf90
+      use hist
 
       integer, parameter :: nrap = 60
       real, parameter :: ystart=-6.0, dy=0.1
@@ -1000,7 +1373,7 @@ contains
         allocate(dNdy(0:N))
         do k=0,N
           write(title,'(A,f7.2,A)') "nucleon rapidity distribution dN/dy at time = ", timeForOutput + k*timeSequence, " fm/c"
-          call createHist (dNdy(k),  title, ystart, ystart+2*nrap*dy, dy)
+          call createHist(dNdy(k),  title, ystart, ystart+2*nrap*dy, dy)
         end do
         RapidityInitFLAG = .false.
       end if
@@ -1016,8 +1389,8 @@ contains
 
             if (realParts(i,j)%ID == nucleon) then
 
-               p0 = realParts(i,j)%momentum(0)
-               pz = realParts(i,j)%momentum(3)
+               p0 = realParts(i,j)%mom(0)
+               pz = realParts(i,j)%mom(3)
                yb = 0.5*log( (p0+pz)/(p0-pz) )
 
                call addHist(dNdy(k), yb, 1.0)
@@ -1025,7 +1398,7 @@ contains
          end do Loop_over_particles
       end do Loop_over_ensembles
 
-      call writeHist(dNdy(k),  file='RapidityDistributions'//intTochar(nint(time/delta_T))//'.dat', mul = 1./nEns)
+      call writeHist(dNdy(k),  file='RapidityDistributions'//intTochar4(nint(time/delta_T))//'.dat', mul = 1./nEns)
 
     end subroutine RapiditySpectra
 
@@ -1039,26 +1412,39 @@ contains
     ! generate and write out invariant mass spectra of some particles
     !**************************************************************************
     subroutine InvariantMassSpectra
-      use idTable, only: rho
-      use histf90
+      use idTable, only: nucleon,S11_1535,rho,omegaMeson
+      use hist
 
-      integer, parameter :: nm = 40
-      real, parameter :: mstart=0., dm=0.05
-
-      type(histogram), allocatable, save :: dNdm(:)
+      type(histogram), allocatable, save :: dNdm_nuc(:),dNdm_1535(:), &
+           dNdm_rho(:),dNdm_omega(:)
       logical, save :: InitFLAG=.true.
 
       integer :: i, j, k, N, nEns
+      real :: mstar
       character(len=100) :: title
 
       if (InitFLAG) then
-        N = int((time_max - timeForOutput)/timeSequence)
-        allocate(dNdm(0:N))
-        do k=0,N
-          write(title,'(A,f7.2,A)') "rho-meson invariant mass distribution dN/dm at time = ", timeForOutput + k*timeSequence, " fm/c"
-          call createHist (dNdm(k),  title, mstart, mstart+nm*dm, dm)
-        end do
-        InitFLAG = .false.
+         N = int((time_max - timeForOutput)/timeSequence)
+         allocate(dNdm_nuc(0:N),dNdm_1535(0:N),dNdm_rho(0:N),dNdm_omega(0:N))
+         do k=0,N
+            write(title,'(A,f7.2,A)') &
+                 "nucleon invariant mass distribution dN/dm at time = ", &
+                 timeForOutput + k*timeSequence, " fm/c"
+            call createHist(dNdm_nuc(k),  title, 0.4, 0.4+80*0.01, 0.01)
+            write(title,'(A,f7.2,A)') &
+                 "N*(1535) invariant mass distribution dN/dm at time = ", &
+                 timeForOutput + k*timeSequence, " fm/c"
+            call createHist(dNdm_1535(k),  title, 0., 0.+80*0.05, 0.05)
+            write(title,'(A,f7.2,A)') &
+                 "rho-meson invariant mass distribution dN/dm at time = ", &
+                 timeForOutput + k*timeSequence, " fm/c"
+                 call createHist(dNdm_rho(k),  title, 0., 0.+50*0.02, 0.02)
+            write(title,'(A,f7.2,A)') &
+                 "omega-meson invariant mass distribution dN/dm at time = ", &
+                 timeForOutput + k*timeSequence, " fm/c"
+            call createHist(dNdm_omega(k),  title, 0., 0.+200*0.01, 0.01)
+         end do
+         InitFLAG = .false.
       end if
 
       k = nint((time - timeForOutput) / timeSequence)
@@ -1069,16 +1455,36 @@ contains
          Loop_over_particles : do j = 1,size(realParts,dim=2)
             if (realParts(i,j)%id == NOP) cycle Loop_over_particles
             if (realParts(i,j)%id == EOV) exit Loop_over_particles
-
-            if (realParts(i,j)%ID == rho) call addHist(dNdm(k),realParts(i,j)%mass,1.0)
-
+            select case(realParts(i,j)%ID)
+            case (nucleon)
+               mstar = sqrtS(realParts(i,j),'InvariantMassSpectra, mstar_nuc')
+               call addHist(dNdm_nuc(k),mstar,1.0)
+            case(S11_1535)
+               mstar = sqrtS(realParts(i,j),'InvariantMassSpectra, mstar_1535')
+               call addHist(dNdm_1535(k),mstar,1.0)
+            case(rho)
+               call addHist(dNdm_rho(k),realParts(i,j)%mass,1.0)
+            case(omegaMeson)
+               call addHist(dNdm_omega(k),realParts(i,j)%mass,1.0)
+            end select
          end do Loop_over_particles
       end do Loop_over_ensembles
 
-      call writeHist(dNdm(k),  file='InvariantMassDistributions'//intTochar(nint(time/delta_T))//'.dat', mul = 1./nEns)
+      call writeHist(dNdm_nuc(k), &
+           file='InvariantMassDistributions_nuc_'//intTochar4(nint(time/delta_T))//'.dat',&
+           mul = 1./(nEns*num_runs_sameEnergy))
+      call writeHist(dNdm_1535(k), &
+           file='InvariantMassDistributions_1535_'//intTochar4(nint(time/delta_T))//'.dat',&
+           mul = 1./(nEns*num_runs_sameEnergy))
+      call writeHist(dNdm_rho(k), &
+           file='InvariantMassDistributions_rho_'//intTochar4(nint(time/delta_T))//'.dat',&
+           mul = 1./(nEns*num_runs_sameEnergy))
+      call writeHist(dNdm_omega(k), &
+           file='InvariantMassDistributions_omega_'//intTochar4(nint(time/delta_T))//'.dat',&
+           mul = 1./(nEns*num_runs_sameEnergy))
 
     end subroutine InvariantMassSpectra
-    
+
 
   end subroutine DoHeavyIonAnalysisTime
 
@@ -1094,21 +1500,16 @@ contains
   ! * type(particle), dimension(:,:) :: realParts --- real particle vector
   ! * real :: time --- actual time
   ! * integer :: timestep --- number of time step
-  !
-  ! NOTES
-  ! * This routine is probably abused and its meaning is mixed with
-  !   'DoHeavyIonAnalysisTime'. Thus it should be merged into this one and be
-  !   deleted
   !****************************************************************************
   subroutine HeavyIon_evol(realParts, time, timestep)
 
     use IdTable
     use particleDefinition
     use densitymodule
-    use RMF, only: getRMF_flag, fourMomDen_flag, g_omega, g_rho, g_sigma, &
+    use RMF, only: getRMF_flag, Tens_flag, g_omega, g_rho, g_sigma, &
          ModificationFactor
     use particleProperties, only: hadron
-    use output, only: realTochar,intTochar
+    use output, only: realTochar,intToChar,intToChar4
     use inputGeneral, only: delta_T, eventtype
     use constants, only: pi, hbarc, rhoNull, mN
     use coulomb, only: emfoca
@@ -1116,8 +1517,8 @@ contains
     use initHadron, only: b,z,p_lab,E_bind
     use collisionNumbering, only: GetCountedEvents
     use eventtypes, only: ET_hadron => hadron, HiLepton
-    use thermoDynamics, only: temperatureAt, muAt
-    use histf90, only: histogram, createHist, addHist, writeHist
+    use thermoDyn, only: temperatureAt, muAt
+    use hist, only: histogram, createHist, addHist, writeHist
 
     type(particle), dimension(:,:), intent(in), target  :: realParts
     real, intent(in) :: time
@@ -1136,7 +1537,7 @@ contains
     real :: rhoz_Bar_points,rhoz_AntiBar_points,rhoz_BoundBar_points, &
          rhoz_TargetBar_points,&
          &energy,fnorm
-    real :: mstar, pf, sigma_rad, factor !,Ef
+    real :: mstar, pf, sigma_rad, factor
     real, dimension(1:3) :: p2_aver
 
     ! Check conservation laws:
@@ -1171,6 +1572,9 @@ contains
     type(histogram) :: histMnucleon
     integer :: nNucleons,npoints
 
+    real :: sigmaV
+    real, dimension(0:3) :: omegaV, rhoV
+
     if (initFlag) call init
 
     if (icall==0) then
@@ -1179,31 +1583,35 @@ contains
        write(32,*)'# 1  time'
        write(32,*)'# 2  nucleon multiplicity'
        write(32,*)'# 3  delta'
-       write(32,*)'# 4  Higher Nonstrange Baryonic Resonances'
-       write(32,*)'# 5  pi'
-       write(32,*)'# 6  K'
-       write(32,*)'# 7  Kbar'
-       write(32,*)'# 8  Lambda'
-       write(32,*)'# 9  Lambda free'
-       write(32,*)'# 10 Sigma'
-       write(32,*)'# 11 Sigma free'
-       write(32,*)'# 12 Xi'
-       write(32,*)'# 13 Xi free'
-       write(32,*)'# 14 XiStar'
-       write(32,*)'# 15 XiStar free'
-       write(32,*)'# 16 K^*'
-       write(32,*)'# 17 Kbar^*'
-       write(32,*)'# 18 Y^* (S=-1 only)'
-       write(32,*)'# 19 LambdaBar'
-       write(32,*)'# 20 SigmaBar'
-       write(32,*)'# 21 Ybar^* (S=1 only)'
-       write(32,*)'# 22 XiBar'
-       write(32,*)'# 23 XiBar^*'
-       write(32,*)'# 24 J/Psi'
-       write(32,*)'# 25 D'
-       write(32,*)'# 26 Dbar'
-       write(32,*)'# 27 D^*'
-       write(32,*)'# 28 Dbar^*'
+       write(32,*)'# 4  S11_1535'
+       write(32,*)'# 5  D13_1520'
+       write(32,*)'# 6  Other Nonstrange Baryonic Resonances'
+       write(32,*)'# 7  pi'
+       write(32,*)'# 8  eta'
+       write(32,*)'# 9  rho'
+       write(32,*)'# 10 K'
+       write(32,*)'# 11 Kbar'
+       write(32,*)'# 12 Lambda'
+       write(32,*)'# 13 Lambda free'
+       write(32,*)'# 14 Sigma'
+       write(32,*)'# 15 Sigma free'
+       write(32,*)'# 16 Xi'
+       write(32,*)'# 17 Xi free'
+       write(32,*)'# 18 XiStar'
+       write(32,*)'# 19 XiStar free'
+       write(32,*)'# 20 K^*'
+       write(32,*)'# 21 Kbar^*'
+       write(32,*)'# 22 Y^* (S=-1 only)'
+       write(32,*)'# 23 LambdaBar'
+       write(32,*)'# 24 SigmaBar'
+       write(32,*)'# 25 Ybar^* (S=1 only)'
+       write(32,*)'# 26 XiBar'
+       write(32,*)'# 27 XiBar^*'
+       write(32,*)'# 28 J/Psi'
+       write(32,*)'# 29 D'
+       write(32,*)'# 30 Dbar'
+       write(32,*)'# 31 D^*'
+       write(32,*)'# 32 Dbar^*'
 
        open(33,file='dens.dat',status='unknown')
        write(33,'(A)') '# time rhocen_baryons rhocen_antibaryons ptot '// &
@@ -1214,7 +1622,9 @@ contains
        write(40,*)'# time: energy:  px:  py:  pz:  baryon number:  '// &
             'charge: strangeness:'
 
-       if (getRMF_flag() .and. fourMomDen_flag ) then
+       if (getRMF_flag() .and. Tens_flag ) then
+          open(42,file='Tensor.dat')
+          write(42,*)'# time:   T^00:    T^11:   T^22:   T^33: (GeV/fm^3)'
           open(43,file='BoundSystem.dat')
           write(43,*)'# Properties of the bound system:'
           write(43,*)'# time:   B:   N:   Z:  P(0:3), AGeV:   '// &
@@ -1263,13 +1673,13 @@ contains
           if (pPart%ID == NOP) cycle particle_loop
 
           if (NucleonMassPlot) then
-             if (pPart%ID == 1 .and. .not.pPart%antiparticle) then
+             if (pPart%ID == 1 .and. .not.pPart%anti) then
                 call addHist(histMnucleon, sqrtS(pPart), 1.0)
                 nNucleons = nNucleons+1
              end if
           end if
 
-          factor = merge(-1., 1., pPart%antiparticle)
+          factor = merge(-1., 1., pPart%anti)
           id = pPart%ID*int(factor)
           charge = pPart%charge
           if (abs(id).le.121) then
@@ -1278,7 +1688,7 @@ contains
                 if (IsFree(realParts,i,j,pPart)) parnum_free(id,charge) = parnum_free(id,charge) + 1.
              end if
           end if
-          p(:)=p(:)+pPart%momentum(:)
+          p(:)=p(:)+pPart%mom(:)
           if (isBaryon(pPart%ID)) then
              baryon_number=baryon_number+factor
              strangeness=strangeness+real(hadron(pPart%ID)%strangeness)*factor
@@ -1287,27 +1697,27 @@ contains
           end if
           charge_number=charge_number+real(pPart%charge)
 
-          if (all(abs(pPart%position) < 0.5)) then
+          if (all(abs(pPart%pos) < 0.5)) then
              !       Central baryon density and Qzz in momentum space:
-             if (isBaryon(pPart%ID) .and. .not.pPart%antiparticle) then
+             if (isBaryon(pPart%ID) .and. .not.pPart%anti) then
                 rhobar_points=  rhobar_points + 1.
-                Qzz=Qzz+2.*pPart%momentum(3)**2-pPart%momentum(1)**2-pPart%momentum(2)**2
+                Qzz=Qzz+2.*pPart%mom(3)**2-pPart%mom(1)**2-pPart%mom(2)**2
              end if
              !       Central energy density:
-             endens= endens + pPart%momentum(0)
+             endens= endens + pPart%mom(0)
           end if
 
           if (isBaryon(pPart%ID)) then
 
              !       Average squares of momentum components :
-             p2_aver(1:3)= p2_aver(1:3) + pPart%momentum(1:3)**2
+             p2_aver(1:3)= p2_aver(1:3) + pPart%mom(1:3)**2
 
-             if (.not.pPart%antiparticle) then
+             if (.not.pPart%anti) then
 
                 !         Indexes in large grid:
-                Index1=NINT(pPart%position(1)/gridSpacing(1))
-                Index2=NINT(pPart%position(2)/gridSpacing(2))
-                Index3=NINT(pPart%position(3)/gridSpacing(3))
+                Index1=NINT(pPart%pos(1)/gridSpacing(1))
+                Index2=NINT(pPart%pos(2)/gridSpacing(2))
+                Index3=NINT(pPart%pos(3)/gridSpacing(3))
 
                 if (        abs(Index1).le.gridPoints(1) &
                      & .and. abs(Index2).le.gridPoints(2) &
@@ -1315,23 +1725,23 @@ contains
 
                    if (getRMF_flag()) then
                       factor=ModificationFactor(nucleon,.true.)    ! Modification factor of the antinucleon coupling constants
-                      rhobar_local=(   densityField(Index1,Index2,Index3)%baryon(0)  &
-                           & + factor*totalDensity(Index1,Index2,Index3) )/(1.+factor)  ! density of the baryons
+                      rhobar_local=(   densField(Index1,Index2,Index3)%baryon(0)  &
+                           & + factor*totalDens(Index1,Index2,Index3) )/(1.+factor)  ! density of the baryons
                    else
-                      ! w/o RMF "totalDensity" is actually (baryon-antibaryon) density and
-                      ! densityField(0,0,0)%baryon(0) is (baryon+antibaryon) density (see density.f90: addTodensityfield)
-                      rhobar_local=(   densityField(Index1,Index2,Index3)%baryon(0)  &
-                           & + totalDensity(Index1,Index2,Index3) )/2.                 ! density of the baryons
+                      ! w/o RMF "totalDens" is actually (baryon-antibaryon) density and
+                      ! densField(0,0,0)%baryon(0) is (baryon+antibaryon) density (see density.f90: addTodensField)
+                      rhobar_local=(   densField(Index1,Index2,Index3)%baryon(0)  &
+                           & + totalDens(Index1,Index2,Index3) )/2.                 ! density of the baryons
                    end if
 
                    !cut on density (0.1*rho_sat)
                    if (rhobar_local.gt.0.1*rhoNull) then
                       number_of_baryons(1)=number_of_baryons(1)+1.
                       r2_aver(1)= r2_aver(1) &
-                           & + dot_product(pPart%position,pPart%position)
-                      r_aver(1,:)= r_aver(1,:) + pPart%position(:)
-                      Qzz_aver(1)=Qzz_aver(1) + 2.*pPart%position(3)**2 &
-                           &- pPart%position(1)**2 - pPart%position(2)**2
+                           & + dot_product(pPart%pos,pPart%pos)
+                      r_aver(1,:)= r_aver(1,:) + pPart%pos(:)
+                      Qzz_aver(1)=Qzz_aver(1) + 2.*pPart%pos(3)**2 &
+                           &- pPart%pos(1)**2 - pPart%pos(2)**2
                       if (pPart%ID==1 .and. pPart%charge==0) &
                            & number_of_neutrons(1)=number_of_neutrons(1)+1.
                       if (pPart%ID==1 .and. pPart%charge==1) &
@@ -1342,10 +1752,10 @@ contains
                    if (rhobar_local.gt.0.01*rhoNull) then
                       number_of_baryons(2)=number_of_baryons(2)+1.
                       r2_aver(2) = r2_aver(2) &
-                           & + dot_product(pPart%position,pPart%position)
-                      r_aver(2,:)= r_aver(2,:) + pPart%position(:)
-                      Qzz_aver(2)=Qzz_aver(2) + 2.*pPart%position(3)**2 &
-                           &- pPart%position(1)**2 - pPart%position(2)**2
+                           & + dot_product(pPart%pos,pPart%pos)
+                      r_aver(2,:)= r_aver(2,:) + pPart%pos(:)
+                      Qzz_aver(2)=Qzz_aver(2) + 2.*pPart%pos(3)**2 &
+                           &- pPart%pos(1)**2 - pPart%pos(2)**2
                       if (pPart%ID==1 .and. pPart%charge==0) &
                            & number_of_neutrons(2)=number_of_neutrons(2)+1.
                       if (pPart%ID==1 .and. pPart%charge==1) &
@@ -1354,19 +1764,19 @@ contains
 
                    !cut on binding energy (E<0)
                    if (getRMF_flag()) then
-                      call Particle4Momentum_RMF(pPart,momentum)
+                      momentum = Particle4MomentumRMF(pPart)
                       energy=momentum(0)
                    else
-                      energy=pPart%momentum(0)
+                      energy=pPart%mom(0)
                    end if
-                   place(1:3)= pPart%position(1:3)
-                   impuls(1:3)= pPart%momentum(1:3)
+                   place(1:3)= pPart%pos(1:3)
+                   impuls(1:3)= pPart%mom(1:3)
                    energy = energy + emfoca(place,impuls,pPart%charge,pPart%ID)
                    if ( energy - pPart%mass < 0.) then
                       number_of_baryons(3)=number_of_baryons(3)+1.
                       r2_aver(3) = r2_aver(3) &
-                           & + dot_product(pPart%position,pPart%position)
-                      r_aver(3,:)= r_aver(3,:) + pPart%position(:)
+                           & + dot_product(pPart%pos,pPart%pos)
+                      r_aver(3,:)= r_aver(3,:) + pPart%pos(:)
                       if (pPart%ID==1 .and. pPart%charge==0) &
                            & number_of_neutrons(3)=number_of_neutrons(3)+1.
                       if (pPart%ID==1 .and. pPart%charge==1) &
@@ -1374,8 +1784,8 @@ contains
                    end if
 
                    if (rhobar_local.gt.rho_min_bound) then
-                      place(1:3)= pPart%position(1:3)
-                      impuls(1:3)= pPart%momentum(1:3)
+                      place(1:3)= pPart%pos(1:3)
+                      impuls(1:3)= pPart%mom(1:3)
                       E_Coul_bound = E_Coul_bound + 0.5*emfoca(place,impuls,pPart%charge,pPart%ID) !see notes in evaluateTotal4Momentum_RMF
                    end if
 
@@ -1392,9 +1802,9 @@ contains
 
     if (DensityPlot) then
        if (mod(timestep,5)==0) then
-          call writeDensityPlane('density_YZ_'//intTochar(timestep)//'.dat',1)
-          call writeDensityPlane('density_XZ_'//intTochar(timestep)//'.dat',2)
-          call writeDensityPlane('density_XY_'//intTochar(timestep)//'.dat',3)
+          call writeDensityPlane('density_YZ_'//intTochar4(timestep)//'.dat',1)
+          call writeDensityPlane('density_XZ_'//intTochar4(timestep)//'.dat',2)
+          call writeDensityPlane('density_XY_'//intTochar4(timestep)//'.dat',3)
        end if
     end if
 
@@ -1405,6 +1815,12 @@ contains
                   file='Mnucleon_'//intTochar(timestep)//'.dat', &
                   mul=1.0/nNucleons)
           end if
+       end if
+    end if
+
+    if (do_QRvector) then
+       if (mod(timestep,5)==0) then
+          call doQRvector(realParts,timestep)
        end if
     end if
 
@@ -1424,12 +1840,15 @@ contains
     rhobar_points= rhobar_points*mulfak/1.**3
     endens= endens*mulfak/1.**3
     p2_aver(:)= p2_aver(:)*mulfak
-    r2_aver(:)= r2_aver(:)/number_of_baryons(:)
+    where (number_of_baryons /=0)
+       r2_aver(:)= r2_aver(:)/number_of_baryons(:)
+       Qzz_aver(:)=Qzz_aver(:)/number_of_baryons(:)
+    end where
     do i=1,3
-       r_aver(i,:)  = r_aver(i,:)/number_of_baryons(i)
+       if (number_of_baryons(i)/=0) &
+            r_aver(i,:)  = r_aver(i,:)/number_of_baryons(i)
        r_aver_sq(i) = sqrt(dot_product(r_aver(i,:),r_aver(i,:)))
     end do
-    Qzz_aver(:)=Qzz_aver(:)/number_of_baryons(:)
     p(:)=p(:)*mulfak
     baryon_number=baryon_number*mulfak
     charge_number=charge_number*mulfak
@@ -1456,8 +1875,9 @@ contains
     end if
 
     write(32,5) time,sum(parnum(nucleon,:)),sum(parnum(delta,:)),&
-         sum(parnum(P11_1440:F37_1950,:)),&
-         sum(parnum(pion,:)),sum(parnum(kaon,:)),sum(parnum(kaonBar,:)),&
+         sum(parnum(S11_1535,:)),sum(parnum(D13_1520,:)),&
+         sum(parnum(P11_1440,:))+sum(parnum(S11_1650,:))+sum(parnum(S11_2090,:))+sum(parnum(D13_1700:F37_1950,:)),&
+         sum(parnum(pion,:)),sum(parnum(eta,:)),sum(parnum(rho,:)),sum(parnum(kaon,:)),sum(parnum(kaonBar,:)),&
          sum(parnum(Lambda,:)),sum(parnum_free(Lambda,:)),&
          sum(parnum(SigmaResonance,:)),sum(parnum_free(SigmaResonance,:)),&
          sum(parnum(Xi,:)),sum(parnum_free(Xi,:)),&
@@ -1477,20 +1897,20 @@ contains
     rhoz_bar=0.
     rhoz_antibar=0.
     temp=0.
-    npoints=0 
+    npoints=0
 !    npoints=2
     do k = -npoints,npoints
        do j = -npoints,npoints
           do i = -npoints,npoints
              if (getRMF_flag()) then
                 factor=ModificationFactor(nucleon,.true.)    ! Modification factor of the antinucleon coupling constants
-                rhoz_bar = rhoz_bar + (densityField(i,j,k)%baryon(0)+factor*totalDensity(i,j,k))/(1.+factor)  ! density of the baryons
-                rhoz_antibar = rhoz_antibar + (totalDensity(i,j,k)-densityField(i,j,k)%baryon(0))/(1.+factor)  ! density of the antibaryons
+                rhoz_bar = rhoz_bar + (densField(i,j,k)%baryon(0)+factor*totalDens(i,j,k))/(1.+factor)  ! density of the baryons
+                rhoz_antibar = rhoz_antibar + (totalDens(i,j,k)-densField(i,j,k)%baryon(0))/(1.+factor)  ! density of the antibaryons
              else
-                ! w/o RMF "totalDensity" is actually (baryon-antibaryon) density and
-                ! densityField(i,j,k)%baryon(0) is (baryon+antibaryon) density (see density.f90: addTodensityfield)
-                rhoz_bar = rhoz_bar + (densityField(i,j,k)%baryon(0)+totalDensity(i,j,k))/2.
-                rhoz_antibar =rhoz_antibar + (densityField(i,j,k)%baryon(0)-totalDensity(i,j,k))/2.
+                ! w/o RMF "totalDens" is actually (baryon-antibaryon) density and
+                ! densField(i,j,k)%baryon(0) is (baryon+antibaryon) density (see density.f90: addTodensField)
+                rhoz_bar = rhoz_bar + (densField(i,j,k)%baryon(0)+totalDens(i,j,k))/2.
+                rhoz_antibar =rhoz_antibar + (densField(i,j,k)%baryon(0)-totalDens(i,j,k))/2.
              end if
              temp = temp + temperatureAt((/float(i)*gridSpacing(1),float(j)*gridSpacing(2),float(k)*gridSpacing(3)/))
           end do
@@ -1499,13 +1919,14 @@ contains
     rhoz_bar= rhoz_bar/(2*npoints+1)**3
     rhoz_antibar= rhoz_antibar/(2*npoints+1)**3
     temp=temp/(2*npoints+1)**3
-    
+
     mub = muAt (rhoz_bar, temp)
     write(33,5) time, rhoz_bar, rhoz_antibar, p(:), baryon_number, charge_number, strangeness, temp, mub, Qzz
 
     write(40,5) time,(r_aver_sq(i), sqrt(r2_aver(i)), number_of_baryons(i), i=1,3)
 
-    if (getRMF_flag() .and. fourMomDen_flag ) then
+    if (getRMF_flag() .and. Tens_flag) then
+       write(42,5) time, (Tens(0,0,0,i,i),i=0,3)
        P_bound(:)=0.
        E_kinColl_bound=0.
        B_bound=0.
@@ -1515,18 +1936,18 @@ contains
        do Index1=-gridpoints(1),gridpoints(1)
           do Index2=-gridPoints(2),gridPoints(2)
              do Index3=-gridPoints(3),gridPoints(3)
-                rhobar_local=densityField(Index1,Index2,Index3)%baryon(0)
+                rhobar_local=densField(Index1,Index2,Index3)%baryon(0)
                 if (rhobar_local.gt.rho_min_bound) then
-                   P_bound(0:3)=P_bound(0:3)+fourMomentumDensity(Index1,Index2,Index3,0:3)
-                   m_inv=fourMomentumDensity(Index1,Index2,Index3,0)**2 &
-                        &-dot_product(fourMomentumDensity(Index1,Index2,Index3,1:3),&
-                        &fourMomentumDensity(Index1,Index2,Index3,1:3))
+                   P_bound(0:3)=P_bound(0:3)+mom4Dens(Index1,Index2,Index3,0:3)
+                   m_inv=mom4Dens(Index1,Index2,Index3,0)**2 &
+                        &-dot_product(mom4Dens(Index1,Index2,Index3,1:3),&
+                        &mom4Dens(Index1,Index2,Index3,1:3))
                    m_inv=sqrt(max(0.,m_inv))
-                   E_kinColl_bound=E_kinColl_bound+fourMomentumDensity(Index1,Index2,Index3,0)&
+                   E_kinColl_bound=E_kinColl_bound+mom4Dens(Index1,Index2,Index3,0)&
                         &-m_inv
                    B_bound=B_bound+rhobar_local
-                   N_bound=N_bound+densityField(Index1,Index2,Index3)%neutron(0)
-                   Z_bound=Z_bound+densityField(Index1,Index2,Index3)%proton(0)
+                   N_bound=N_bound+densField(Index1,Index2,Index3)%neutron(0)
+                   Z_bound=Z_bound+densField(Index1,Index2,Index3)%proton(0)
                    rho_bound=rho_bound+rhobar_local**2
                 end if
              end do
@@ -1552,11 +1973,11 @@ contains
     flush(44)
     flush(50)
 
-    !-----------------------------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     ! more detailed output, if flag_outputDetailed=.true.
-    !-----------------------------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     if ( .not. flag_outputDetailed ) return
-    !-----------------------------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
 
     if ( abs(time-delta_T) < 1.e-06 .or. abs(time-nint(time)) < 0.5*delta_T ) then
        flag_output=.true.
@@ -1620,7 +2041,7 @@ contains
                 if (pPart%ID == EOV) exit particle_loop1
                 if (pPart%ID == NOP) cycle particle_loop1
 
-                place(1:3)= pPart%position(1:3)
+                place(1:3)= pPart%pos(1:3)
                 r=sqrt(dot_product(place(1:3),place(1:3)))
 
                 if ( r.gt.r1 .and. r.le.r2 ) then
@@ -1636,25 +2057,25 @@ contains
                         & .and. abs(Index2).le.gridPoints(2) &
                         & .and. abs(Index3).le.gridPoints(3)  ) then
 
-                      rhobar_local=densityField(Index1,Index2,Index3)%baryon(0)
+                      rhobar_local=densField(Index1,Index2,Index3)%baryon(0)
                       rhorad=rhorad+rhobar_local
 
-                      rhorad_n=rhorad_n+densityField(Index1,Index2,Index3)%neutron(0)
-                      rhorad_p=rhorad_p+densityField(Index1,Index2,Index3)%proton(0)
+                      rhorad_n=rhorad_n+densField(Index1,Index2,Index3)%neutron(0)
+                      rhorad_p=rhorad_p+densField(Index1,Index2,Index3)%proton(0)
 
-                      if (allocated(sigmaField)) &
-                           & sigma_rad=sigma_rad+sigmaField(Index1,Index2,Index3)
+                      call getFieldRMF(Index1,Index2,Index3, sigmaV)
+                      sigma_rad=sigma_rad+sigmaV
 
                       if (rhobar_local.gt.1.e-06) then
-                         velColl(1:3)=densityField(Index1,Index2,Index3)%baryon(1:3) &
+                         velColl(1:3)=densField(Index1,Index2,Index3)%baryon(1:3) &
                               &/rhobar_local
                          if (r.gt.1.e-06) velrad1=velrad1+dot_product(velColl(1:3),place(1:3))/r
                       end if
 
-                      if (allocated(fourMomentumDensity)) then
-                         if (fourMomentumDensity(Index1,Index2,Index3,0).gt.1.e-06) then
-                            velColl(1:3)=fourMomentumDensity(Index1,Index2,Index3,1:3) &
-                                 &/fourMomentumDensity(Index1,Index2,Index3,0)
+                      if (allocated(mom4Dens)) then
+                         if (mom4Dens(Index1,Index2,Index3,0).gt.1.e-06) then
+                            velColl(1:3)=mom4Dens(Index1,Index2,Index3,1:3) &
+                                 &/mom4Dens(Index1,Index2,Index3,0)
                             if (r.gt.1.e-06) velrad2=velrad2+dot_product(velColl(1:3),place(1:3))/r
                          end if
                       end if
@@ -1678,7 +2099,7 @@ contains
 
           mstar = mN + g_sigma*sigma_rad
 
-          !********** Pauli blocking check, radial dependence: ****************************
+          !********** Pauli blocking check, radial dependence: ****************
           do i=1,6
              momentum(1:3)=0.
              momentum(0)=sqrt(mN**2+dot_product(momentum(1:3),momentum(1:3)))
@@ -1693,13 +2114,13 @@ contains
           end do
           !********************************************************************
 
-          write(34,5) float(k)*gridSpacing(1), rhorad, rhorad_n, rhorad_p, velrad1, velrad2,&
-               &probability   !, mstar
+          write(34,5) float(k)*gridSpacing(1), rhorad, rhorad_n, rhorad_p, &
+               velrad1, velrad2, probability   !, mstar
 
        end do
 
 
-       !********** Pauli blocking check, momentum dependence: *****************************
+       !********** Pauli blocking check, momentum dependence: *****************
        place(1:3)=0.
        do k=1,201
           do i=1,6
@@ -1728,46 +2149,44 @@ contains
        end if
 
        write(41,'(A)') '# z, fm:    temperature, GeV:'
-       
+
        Loop_over_zGrid1 : do k= -gridpoints(3),gridpoints(3)
 
-          rhoz= densityField(0,0,k)%baryon(0)
+          rhoz= densField(0,0,k)%baryon(0)
 
           !proton & neutron densities
-          rhoz_n=densityField(0,0,k)%neutron(0)
-          rhoz_p=densityField(0,0,k)%proton(0)
+          rhoz_n=densField(0,0,k)%neutron(0)
+          rhoz_p=densField(0,0,k)%proton(0)
 
           if (getRMF_flag()) then
 
              factor=ModificationFactor(nucleon,.true.)    ! Modification factor of the antinucleon coupling constants
 
-             rhoz_bar=(rhoz+factor*totalDensity(0,0,k))/(1.+factor)  ! density of the baryons
+             rhoz_bar=(rhoz+factor*totalDens(0,0,k))/(1.+factor)  ! density of the baryons
 
-             rhoz_antibar=(totalDensity(0,0,k)-rhoz)/(1.+factor)     ! density of the antibaryons
+             rhoz_antibar=(totalDens(0,0,k)-rhoz)/(1.+factor)     ! density of the antibaryons
 
              pf=(1.5*pi**2*max(0.,rhoz_bar))**0.333333*hbarc
 
              pf_p=(3.*pi**2*max(0.,rhoz_p))**0.333333*hbarc
              pf_n=(3.*pi**2*max(0.,rhoz_n))**0.333333*hbarc
 
+             mstar=DiracMass(0,0,k,mN,nucleon,1,.false.)
 
-             mstar=mN+g_sigma*sigmaField(0,0,k)
-
-             !           Ef=sqrt(pf**2+mstar**2)+g_omega*omegaField(0,0,k,0)
-
-             Ef_p=sqrt(pf_p**2+mstar**2)+g_omega*omegaField(0,0,k,0)
-             Ef_n=sqrt(pf_n**2+mstar**2)+g_omega*omegaField(0,0,k,0)
+             call getFieldRMF(0,0,k, omega=omegaV)
+             Ef_p=sqrt(pf_p**2+mstar**2)+g_omega*omegaV(0)
+             Ef_n=sqrt(pf_n**2+mstar**2)+g_omega*omegaV(0)
 
           else
 
-             ! Remember: w/o RMF totalDensity is (baryon-antibaryon) density
-             rhoz_bar=(rhoz+totalDensity(0,0,k))/2.         ! density of the baryons
-             rhoz_antibar=(rhoz-totalDensity(0,0,k))/2.     ! density of the antibaryons
+             ! Remember: w/o RMF totalDens is (baryon-antibaryon) density
+             rhoz_bar=(rhoz+totalDens(0,0,k))/2.         ! density of the baryons
+             rhoz_antibar=(rhoz-totalDens(0,0,k))/2.     ! density of the antibaryons
 
-             rholrf= sqrt(max( densityField(0,0,k)%baryon(0)**2 &
-                  -densityField(0,0,k)%baryon(1)**2 &
-                  -densityField(0,0,k)%baryon(2)**2 &
-                  -densityField(0,0,k)%baryon(3)**2, 0. ))
+             rholrf= sqrt(max( densField(0,0,k)%baryon(0)**2 &
+                  -densField(0,0,k)%baryon(1)**2 &
+                  -densField(0,0,k)%baryon(2)**2 &
+                  -densField(0,0,k)%baryon(3)**2, 0. ))
 
           end if
 
@@ -1788,21 +2207,21 @@ contains
 
                 if (pPart%ID >= pion) cycle particle_loop2   ! Count only (anti)baryons
 
-                place(1:3)= pPart%position(1:3)
+                place(1:3)= pPart%pos(1:3)
 
                 if ( abs(place(1)) <= 0.5*gridSpacing(1) .and. &
                      &abs(place(2)) <= 0.5*gridSpacing(2) .and. &
                      &abs(place(3)-float(k)*gridSpacing(3)) <= 0.5*gridSpacing(3) ) then
 
-                   if ( .not.pPart%antiparticle ) then
+                   if ( .not.pPart%anti ) then
                       rhoz_Bar_points=rhoz_bar_points+1.
                       if (getRMF_flag()) then
-                         call Particle4Momentum_RMF(pPart,momentum)
+                         momentum = Particle4MomentumRMF(pPart)
                          energy=momentum(0)
                       else
-                         energy=pPart%momentum(0)
+                         energy=pPart%mom(0)
                       end if
-                      impuls(1:3)= pPart%momentum(1:3)
+                      impuls(1:3)= pPart%mom(1:3)
                       cpot = emfoca(place,impuls,pPart%charge,pPart%ID)
                       energy=energy+cpot
                       !for testing E_F=E_F(r)
@@ -1843,13 +2262,15 @@ contains
                   & rhoz_Bar_points,rhoz_AntiBar_points,&
                   & rhoz_BoundBar_points,rhoz_TargetBar_points
 
+             call getFieldRMF(0,0,k, sigmaV, omegaV, rhoV)
+
              write(36,5) float(k)*gridSpacing(3), &
                   & pf_p, pf_n, rhoz_p, rhoz_n, &
-                  & -g_sigma*sigmaField(0,0,k), &
-                  & g_omega*omegaField(0,0,k,0), &
-                  & g_rho*rhoField(0,0,k,0),ECoul, &
-                  & (Ef_p+Ecoul+g_rho*rhoField(0,0,k,0)-mN), &
-                  & (Ef_n-g_rho*rhoField(0,0,k,0)-mN)
+                  & sigmaV, mstar, &
+                  & g_omega*omegaV(0), &
+                  & g_rho*rhoV(0),ECoul, &
+                  & (Ef_p+Ecoul+g_rho*rhoV(0)-mN), &
+                  & (Ef_n-g_rho*rhoV(0)-mN)
           else
 
              write(35,5)  float(k)*gridSpacing(3),rhoz_bar,rhoz_antibar,rholrf,rhoz_Bar_points,&
@@ -1858,7 +2279,7 @@ contains
           end if
 
           write(41,5)  float(k)*gridSpacing(3),temperatureAt((/0.,0.,float(k)*gridSpacing(3)/))
-          
+
        end do Loop_over_zGrid1
 
     end if Final_Output
@@ -1868,27 +2289,27 @@ contains
     rho_bar_max=-0.1
     rho_antibar_max=-0.1
     temp_max=-0.1
-    
+
     Loop_over_yGrid2 : do j= -gridpoints(2),gridpoints(2)
        Loop_over_zGrid2 : do k= -gridpoints(3),gridpoints(3)
           Loop_over_xGrid2 : do i= -gridpoints(1),gridpoints(1)
 
-             rhoz= densityField(i,j,k)%baryon(0)
+             rhoz= densField(i,j,k)%baryon(0)
 
              if (getRMF_flag()) then
-                rhoz_bar=(rhoz+factor*totalDensity(i,j,k))/(1.+factor)  ! density of the baryons
-                rhoz_antibar=(totalDensity(i,j,k)-rhoz)/(1.+factor)     ! density of the antibaryons
+                rhoz_bar=(rhoz+factor*totalDens(i,j,k))/(1.+factor)  ! density of the baryons
+                rhoz_antibar=(totalDens(i,j,k)-rhoz)/(1.+factor)     ! density of the antibaryons
              else
-                rhoz_bar=(rhoz+totalDensity(i,j,k))/2.         ! density of the baryons
-                rhoz_antibar=(rhoz-totalDensity(i,j,k))/2.     ! density of the antibaryons
+                rhoz_bar=(rhoz+totalDens(i,j,k))/2.         ! density of the baryons
+                rhoz_antibar=(rhoz-totalDens(i,j,k))/2.     ! density of the antibaryons
              end if
 
              temp=temperatureAt((/float(i)*gridSpacing(1),float(j)*gridSpacing(2),float(k)*gridSpacing(3)/))   ! temperature
-             
+
              if (rhoz_bar.gt.rho_bar_max) rho_bar_max=rhoz_bar
              if (rhoz_antibar.gt.rho_antibar_max) rho_antibar_max=rhoz_antibar
              if (temp.gt.temp_max) temp_max=temp
-             
+
              if (flag_output .and. j.eq.0) then
                 write(38,5)  float(k)*gridSpacing(3),float(i)*gridSpacing(1),&
                      & rhoz_bar, rhoz_antibar, temp
@@ -1904,11 +2325,18 @@ contains
   end subroutine HeavyIon_evol
 
 
-  !*** Determine whether j-th particle of i-th parallel ensemble is free or not
+  !****************************************************************************
+  !****if* HeavyIonAnalysis/IsFree
+  ! NAME
+  ! logical function IsFree(realParts,i,j,teilchen)
+  !
+  ! PURPOSE
+  ! Determine whether j-th particle of i-th parallel ensemble is free or not
+  !****************************************************************************
   logical function IsFree(realParts,i,j,teilchen)
 
     use particleDefinition
-    use densitymodule, only: Particle4Momentum_RMF
+    use densitymodule, only: Particle4MomentumRMF
     use RMF, only: getRMF_flag
     use coulomb, only: emfoca
 
@@ -1924,107 +2352,117 @@ contains
     real, dimension(0:3) :: momentum
     real, dimension(1:3) :: place
 
-    place=teilchen%position
+    place=teilchen%pos
 
     if (imode.eq.1) then
 
        tmp=100.
        do j1=1,size(realParts,dim=2)
-          if(teilchen%perturbative) then
-              dist2=(realParts(i,j1)%position(1)-place(1))**2 &
-                   &+(realParts(i,j1)%position(2)-place(2))**2 &
-                   &+(realParts(i,j1)%position(3)-place(3))**2
+          if(teilchen%pert) then
+              dist2=(realParts(i,j1)%pos(1)-place(1))**2 &
+                   &+(realParts(i,j1)%pos(2)-place(2))**2 &
+                   &+(realParts(i,j1)%pos(3)-place(3))**2
               if (dist2.lt.tmp) tmp=dist2
            else if (j.ne.j1) then
               if(teilchen%event(1).lt.1000000 .or. teilchen%event(1).ne.realParts(i,j1)%event(1)) then
-                 dist2=(realParts(i,j1)%position(1)-place(1))**2 &
-                     &+(realParts(i,j1)%position(2)-place(2))**2 &
-                     &+(realParts(i,j1)%position(3)-place(3))**2
+                 dist2=(realParts(i,j1)%pos(1)-place(1))**2 &
+                     &+(realParts(i,j1)%pos(2)-place(2))**2 &
+                     &+(realParts(i,j1)%pos(3)-place(3))**2
                  if (dist2.lt.tmp) tmp=dist2
               end if
           end if
        end do
-       if (tmp.gt.dstmin**2) then
-          IsFree=.true.
-       else
-          IsFree=.false.
-       end if
+       IsFree = (tmp.gt.dstmin**2)
 
     else if (imode.eq.2) then
 
        if (getRMF_flag()) then
-          call Particle4Momentum_RMF(teilchen,momentum)
+          momentum = Particle4MomentumRMF(teilchen)
           energy=momentum(0)
        else
-          energy=teilchen%momentum(0)
+          energy=teilchen%mom(0)
        end if
        energy=energy+emfoca(place,(/0.,0.,0./),realParts(i,j)%charge,realParts(i,j)%ID)
-       if (energy.gt.teilchen%mass) then
-          IsFree=.true.
-       else
-          IsFree=.false.
-       end if
+       IsFree = (energy.gt.teilchen%mass)
+
 
     end if
 
   end function IsFree
 
+  !****************************************************************************
+  !****is* HeavyIonAnalysis/countParts
+  ! NAME
+  ! subroutine countParts(Parts,time,prefix)
+  !
+  ! PURPOSE
+  ! This counts and prints the number of particles at a specific time step or
+  ! at the end (final).
+  !
+  ! NOTES
+  ! This routine does not work with multiple events per energy, but only
+  ! prints the results of the latest run. So you may average (at least for the
+  ! final output) over all lines of the file.
+  !****************************************************************************
+  subroutine countParts(Parts,time,prefix)
 
-  subroutine countParts(Parts,time, prefix)
-
-    use histMPf90, only: Map2HistMP, Map2HistMP_getN, WriteHistMP_Names
+    use histMP, only: Map2HistMP, Map2HistMP_getN, WriteHistMP_Names
     use particleDefinition, only: particle
+    use eventtypes
+    use inputGeneral, only: eventType
 
     type(particle),dimension(:,:),intent(in), target :: Parts
     real, intent(in) :: time
     character*(*),intent(in) :: prefix
+!    logical, intent(in) :: finalFlag
 
 
-    integer :: nHist, nEns, nPart, i, j, iID
+    integer :: nHist, nEns, nPart, i, j, iID, iSet
     type(particle), POINTER :: pPart
-    real :: mulfak
+    real :: mulfak, w
+    logical, save :: first = .true.
 
-    if (.not.allocated(arrMultSet2)) then
+    !=== allocate arrays at first call ===
 
-       nHist = Map2HistMP_getN(2)
-       allocate( arrMultSet2(0:nHist) )
+    if (first) then
+       if (initFlag) call init
 
-       open(123,file="Mult_Set2.dat", status="unknown")
-       call WriteHistMP_Names(2,123)
-       close(123)
-       open(123,file="final_Mult_Set2.dat", status="unknown")
-       call WriteHistMP_Names(2,123)
-       close(123)
+       do iSet=1,nSet
+          if (.not.useSet(iSet)) cycle
+          nHist = Map2HistMP_getN(iSet)
+          allocate( arrMultSet(iSet)%v(0:nHist) )
 
-       nHist = Map2HistMP_getN(4)
-       allocate( arrMultSet4(0:nHist) )
+          ! open all files as 'new' and write the header:
 
-       open(123,file="Mult_Set4.dat", status="unknown")
-       call WriteHistMP_Names(4,123)
-       close(123)
-       open(123,file="final_Mult_Set4.dat", status="unknown")
-       call WriteHistMP_Names(4,123)
-       close(123)
+          open(123,file='Mult_Set'//achar(48+iSet)//'.dat', status="unknown")
+          call WriteHistMP_Names(iSet,123,"Sum")
+          close(123)
 
-       nHist = Map2HistMP_getN(5)
-       allocate( arrMultSet5(0:nHist) )
+          open(123,file='final_Mult_Set'//achar(48+iSet)//'.dat', status="unknown")
+          call WriteHistMP_Names(iSet,123,"Sum")
+          close(123)
 
-       open(123,file="Mult_Set5.dat", status="unknown")
-       call WriteHistMP_Names(5,123)
-       close(123)
-       open(123,file="final_Mult_Set5.dat", status="unknown")
-       call WriteHistMP_Names(5,123)
-       close(123)
-
+       end do
+       first = .false.
     end if
 
-    arrMultSet2 = 0.0
-    arrMultSet4 = 0.0
-    arrMultSet5 = 0.0
+    !=== reset all values ===
+
+    do iSet=1,nSet
+       if (.not.useSet(iSet)) cycle
+       arrMultSet(iSet)%v = 0.0
+    end do
 
     nEns  = size(Parts,dim=1)
     nPart = size(Parts,dim=2)
-    mulfak = 1.0/nEns
+    select case (eventType)
+    case (HiPion)
+       mulfak = 1.0
+    case default
+       mulfak = 1.0/nEns
+    end select
+
+    !=== count all particles ===
 
     do i=1,nEns
        do j=1,nPart
@@ -2032,55 +2470,116 @@ contains
           if(pPart%Id <  0) exit
           if(pPart%Id == 0) cycle
 
-          arrMultSet2(0) = arrMultSet2(0) + 1.0
-          arrMultSet4(0) = arrMultSet4(0) + 1.0
-          arrMultSet5(0) = arrMultSet5(0) + 1.0
+          w = 1.0
+          if (pPart%pert) w = pPart%perweight
 
-          iID = Map2HistMP(pPart, 2)
-          if (iID>0) then
-             arrMultSet2(iID) = arrMultSet2(iID) + 1.0
-          endif
-          iID = Map2HistMP(pPart, 4)
-          if (iID>0) then
-             arrMultSet4(iID) = arrMultSet4(iID) + 1.0
-          endif
-          iID = Map2HistMP(pPart, 5)
-          if (iID>0) then
-             arrMultSet5(iID) = arrMultSet5(iID) + 1.0
-          endif
+          do iSet=1,nSet
+             if (.not.useSet(iSet)) cycle
+             arrMultSet(iSet)%v(0) = arrMultSet(iSet)%v(0) + w
+
+             iID = Map2HistMP(pPart, iSet)
+             if (iID>0) then
+                arrMultSet(iSet)%v(iID) = arrMultSet(iSet)%v(iID) + w
+             endif
+          end do
 
        end do
     end do
 
+    !=== produce output ===
 
-    open(123,file=prefix//"Mult_Set2.dat",status="old",position='append')
-    write(123,'(f11.5,1P,100E12.4,0P)') time, &
-         & arrMultSet2(1:)*mulfak,arrMultSet2(0)*mulfak
-    close(123)
+    ! all files are opened in append mode...
+    ! this may be difficult for multiple runs per energy, since these are
+    ! listed just behind each other (column 1 is a zikzak)
 
-    open(123,file=prefix//"Mult_Set4.dat",status="old",position='append')
-    write(123,'(f11.5,1P,100E12.4,0P)') time, &
-         & arrMultSet4(1:)*mulfak,arrMultSet4(0)*mulfak
-    close(123)
+    !*****************************************************************
+    !****o* HeavyIonAnalysis/Mult_SetX.dat
+    ! NAME
+    ! file Mult_SetX.dat, X = 1 - 5
+    ! PURPOSE
+    ! This file reports the multiplicity or the inclusive cross section
+    ! (depending of initialization type) for different particle sets
+    ! as function of time.
+    !
+    ! The value X is the particle set (cf. histMP.f90):
+    ! * 1: pi, K, N
+    ! * 2: pi, rho, (div. mes.), K, N, Delta
+    ! * 3: pi, eta, omega, phi, J/psi, K, D
+    ! * 4: "all mesons"
+    ! * 5: "all stable hadrons": pi,K,N,Lambda,Sigma,Xi,Omega
+    !
+    ! Entries:
+    ! * Column #1: dummy
+    ! * Column #2-...: Final state particles.
+    ! * Last Column: sum of all particles
+    !
+    ! NOTES
+    ! The selection, which sets are printed is done by setting the
+    ! corresponding flag in HeavyIonAnalysis/useSet
+    !
+    ! See also Final_Mult_SetX.dat
+    !*****************************************************************
 
-    open(123,file=prefix//"Mult_Set5.dat",status="old",position='append')
-    write(123,'(f11.5,1P,100E12.4,0P)') time, &
-         & arrMultSet5(1:)*mulfak,arrMultSet5(0)*mulfak
-    close(123)
+    !*****************************************************************
+    !****o* HeavyIonAnalysis/Final_Mult_SetX.dat
+    ! NAME
+    ! file Final_Mult_SetX.dat, X = 1 - 5
+    ! PURPOSE
+    ! This file reports the multiplicity or the inclusive cross section
+    ! (depending of initialization type) for different particle sets
+    ! at the end of the run.
+    !
+    ! The value X is the particle set (cf. histMP.f90):
+    ! * 1: pi, K, N
+    ! * 2: pi, rho, (div. mes.), K, N, Delta
+    ! * 3: pi, eta, omega, phi, J/psi, K, D
+    ! * 4: "all mesons"
+    ! * 5: "all stable hadrons": pi,K,N,Lambda,Sigma,Xi,Omega
+    !
+    ! Entries:
+    ! * Column #1: time step (fm)
+    ! * Column #2-...: Final state particles.
+    ! * Last Column: sum of all particles
+    !
+    ! NOTES
+    ! The selection, which sets are printed is done by setting the
+    ! corresponding flag in HeavyIonAnalysis/useSet
+    !
+    ! See also Mult_SetX.dat
+    !*****************************************************************
 
+    do iSet=1,nSet
+       if (.not.useSet(iSet)) cycle
+
+       open(123,file=prefix//'Mult_Set'//achar(48+iSet)//'.dat', &
+            status="old",position='append')
+       write(123,'(f11.5,1P,100E12.4,0P)') time, &
+            arrMultSet(iSet)%v(1:)*mulfak, &
+            arrMultSet(iSet)%v(0)*mulfak
+       close(123)
+
+    end do
 
   end subroutine countParts
 
+  !****************************************************************************
+  !****is* HeavyIonAnalysis/doTmunu
+  ! NAME
+  ! subroutine doTmunu(realParts,timestep)
+  !
+  ! PURPOSE
+  ! do the Tmunu analysis
+  !****************************************************************************
   subroutine doTmunu(realParts,timestep)
 
     use IdTable
     use particleDefinition
     use TmunuDefinition
-    use output, only: intTochar
+    use output, only: intTochar4
     use rotation, only: rotateTo, rotateFrom
     use constants, only: pi
     use densityModule, only: boostToLRF
-    use potentialModule, only: potential_LRF, trueEnergy
+    use potentialMain, only: potential_LRF, trueEnergy
 
     type(particle), dimension(:,:), intent(in), target  :: realParts
     integer, intent(in) :: timestep
@@ -2089,23 +2588,31 @@ contains
 
     integer :: iEns,iPart
     type(particle) :: part
-    type(tTmunuNmu), dimension(:), allocatable, save :: ArrX,ArrY,ArrZ
+    type(tTmunuNmu), dimension(:,:), allocatable, save :: ArrX,ArrY,ArrZ
 
 
     real, parameter :: dX = 0.2
     integer :: iBin
-    integer, parameter :: nBin = 25
+    integer, parameter :: nBin = 100
     real, save :: mulFak = 1.0
 
     type(tTmunuNmu), save :: tTmunuNmu0 ! used to reset the array !
     real :: w
+    integer :: iArr, nArr
+
+    if (.not.BarMes_Tmunu) then
+       nArr = 1
+    else
+       nArr = 2
+    end if
+    iArr = 1
 
 
     if (initFlagTmunu) then
 
-       allocate(ArrX(nBin))
-       allocate(ArrY(nBin))
-       allocate(ArrZ(nBin))
+       allocate(ArrX(nArr,nBin))
+       allocate(ArrY(nArr,nBin))
+       allocate(ArrZ(nArr,nBin))
 
        mulFak = 1.0/(size(realParts,dim=1)*dX**3) ! = 1/(nEns*V)
        initFlagTmunu = .false.
@@ -2129,89 +2636,387 @@ contains
 
           case (1)
              call boostToLRF(part,1)  ! boost from calculation frame to LRF
-             part%momentum(0) = part%momentum(0) - potential_LRF(part)
+             part%mom(0) = part%mom(0) - potential_LRF(part)
              call boostToLRF(part,2)  ! boost from LRF to calculation frame
 
           case (2)
 
-             part%momentum(0) = trueEnergy(part, .true.)
+             part%mom(0) = trueEnergy(part, .true.)
+
+          case (3)
+
+             part%mom(0) = trueEnergy(realParts(iEns,iPart), .true., part)
+
 
           end select
 
           if (rotateZ_Tmunu) then
 
-             part%momentum(1:3) = rotateFrom( part%position(1:3), &
-                  part%momentum(1:3) )
-             part%position(1:3) = rotateFrom( part%position(1:3), &
-                  part%position(1:3) )
+             part%mom(1:3) = rotateFrom( part%pos(1:3), &
+                  part%mom(1:3) )
+             part%pos(1:3) = rotateFrom( part%pos(1:3), &
+                  part%pos(1:3) )
 
-             w = w * dX**2/(4*pi* part%position(3)**2)
+             w = w * dX**2/(4*pi* part%pos(3)**2)
           end if
 
-          if ( part%position(1)>0 &
-               .and. abs(part%position(2))<dX/2 &
-               .and. abs(part%position(3))<dX/2 ) then
-
-             iBin = int( part%position(1) / dX )+1
-             if (iBin <= nBin) call fillTmunu(ArrX(iBin), part)
+          if (BarMes_Tmunu) then
+             if (isBaryon(part%ID)) then
+                iArr = 1
+             else if (isMeson(part%ID)) then
+                iArr = 2
+             else
+                cycle
+             end if
           end if
 
-          if ( part%position(2)>0 &
-               .and. abs(part%position(1))<dX/2 &
-               .and. abs(part%position(3))<dX/2 ) then
+          if ( part%pos(1)>0 &
+               .and. abs(part%pos(2))<dX/2 &
+               .and. abs(part%pos(3))<dX/2 ) then
 
-             iBin = int( part%position(2) / dX )+1
-             if (iBin <= nBin) call fillTmunu(ArrY(iBin), part)
+             iBin = int( part%pos(1) / dX )+1
+             if (iBin <= nBin) call fillTmunu(ArrX(iArr,iBin), part)
           end if
 
-          if ( part%position(3)>0 &
-               .and. abs(part%position(1))<dX/2 &
-               .and. abs(part%position(2))<dX/2 ) then
+          if ( part%pos(2)>0 &
+               .and. abs(part%pos(1))<dX/2 &
+               .and. abs(part%pos(3))<dX/2 ) then
 
-             iBin = int( part%position(3) / dX )+1
-             if (iBin <= nBin) call fillTmunu(ArrZ(iBin), part, w)
+             iBin = int( part%pos(2) / dX )+1
+             if (iBin <= nBin) call fillTmunu(ArrY(iArr,iBin), part)
+          end if
+
+          if ( part%pos(3)>0 &
+               .and. abs(part%pos(1))<dX/2 &
+               .and. abs(part%pos(2))<dX/2 ) then
+
+             iBin = int( part%pos(3) / dX )+1
+             if (iBin <= nBin) call fillTmunu(ArrZ(iArr,iBin), part, w)
           end if
 
        end do
     end do
 
-    open(123,file='Tmunu_'//intTochar(timestep)//'.dat', status="unknown")
-    write(123,'(A)') headTmunu
+    if (iand(selectTmunuFormat,1)==1) then ! ASCII
+       do iArr=1,nArr
+          open(123,file='Tmunu_'//Achar(48+iArr)//'_'//intTochar4(timestep)//'.dat', status="unknown")
+          write(123,'(A)') headTmunu
 
-    do iBin=1,nBin
-       write(123,'(f11.4,1P,100E14.6,0P)') iBin*dX - dX/2, &
-            & ArrX(iBin)%Tmunu(:)*mulfak, &
-            & ArrX(iBin)%Nmu(:)*mulfak, &
-            & ArrX(iBin)%Jmu(:)*mulfak, &
-            & ArrX(iBin)%B*mulfak, ArrX(iBin)%S*mulfak
-    end do
-    write(123,*)
-    write(123,*)
+          do iBin=1,nBin
+             write(123,'(f11.4,1P,100E14.6,0P)') iBin*dX - dX/2, &
+                  & ArrX(iArr,iBin)%Tmunu(:)*mulfak, &
+                  & ArrX(iArr,iBin)%Nmu(:)*mulfak, &
+                  & ArrX(iArr,iBin)%Jmu(:)*mulfak, &
+                  & ArrX(iArr,iBin)%B*mulfak, ArrX(iArr,iBin)%S*mulfak
+          end do
+          write(123,*)
+          write(123,*)
 
-    do iBin=1,nBin
-       write(123,'(f11.4,1P,100E14.6,0P)') iBin*dX - dX/2, &
-            & ArrY(iBin)%Tmunu(:)*mulfak, &
-            & ArrY(iBin)%Nmu(:)*mulfak, &
-            & ArrY(iBin)%Jmu(:)*mulfak, &
-            & ArrY(iBin)%B*mulfak, ArrY(iBin)%S*mulfak
-    end do
-    write(123,*)
-    write(123,*)
+          do iBin=1,nBin
+             write(123,'(f11.4,1P,100E14.6,0P)') iBin*dX - dX/2, &
+                  & ArrY(iArr,iBin)%Tmunu(:)*mulfak, &
+                  & ArrY(iArr,iBin)%Nmu(:)*mulfak, &
+                  & ArrY(iArr,iBin)%Jmu(:)*mulfak, &
+                  & ArrY(iArr,iBin)%B*mulfak, ArrY(iArr,iBin)%S*mulfak
+          end do
+          write(123,*)
+          write(123,*)
 
-    do iBin=1,nBin
-       write(123,'(f11.4,1P,100E14.6,0P)') iBin*dX - dX/2, &
-            & ArrZ(iBin)%Tmunu(:)*mulfak, &
-            & ArrZ(iBin)%Nmu(:)*mulfak, &
-            & ArrZ(iBin)%Jmu(:)*mulfak, &
-            & ArrZ(iBin)%B*mulfak, ArrZ(iBin)%S*mulfak
-    end do
-    write(123,*)
-    write(123,*)
+          do iBin=1,nBin
+             write(123,'(f11.4,1P,100E14.6,0P)') iBin*dX - dX/2, &
+                  & ArrZ(iArr,iBin)%Tmunu(:)*mulfak, &
+                  & ArrZ(iArr,iBin)%Nmu(:)*mulfak, &
+                  & ArrZ(iArr,iBin)%Jmu(:)*mulfak, &
+                  & ArrZ(iArr,iBin)%B*mulfak, ArrZ(iArr,iBin)%S*mulfak
+          end do
+          write(123,*)
+          write(123,*)
+
+          close(123)
+       end do
+    end if
+
+    if (iand(selectTmunuFormat,2)==2) then ! BINARY
+       do iArr=1,nArr
+
+          open(123,file='Tmunu_'//Achar(48+iArr)//'_'//intTochar4(timestep)//'.dat.bin', &
+               status="unknown", form="unformatted")
+          rewind(123)
 
 
-    close(123)
+          do iBin=1,nBin
+             write(123) iBin*dX - dX/2, &
+                  & ArrX(iArr,iBin)%Tmunu(:)*mulfak, &
+                  & ArrX(iArr,iBin)%Nmu(:)*mulfak, &
+                  & ArrX(iArr,iBin)%Jmu(:)*mulfak, &
+                  & ArrX(iArr,iBin)%B*mulfak, ArrX(iArr,iBin)%S*mulfak
+          end do
+
+          ! how to separate data blocks in binary files????
+
+          do iBin=1,nBin
+             write(123) iBin*dX - dX/2, &
+                  & ArrY(iArr,iBin)%Tmunu(:)*mulfak, &
+                  & ArrY(iArr,iBin)%Nmu(:)*mulfak, &
+                  & ArrY(iArr,iBin)%Jmu(:)*mulfak, &
+                  & ArrY(iArr,iBin)%B*mulfak, ArrY(iArr,iBin)%S*mulfak
+          end do
+
+          do iBin=1,nBin
+             write(123) iBin*dX - dX/2, &
+                  & ArrZ(iArr,iBin)%Tmunu(:)*mulfak, &
+                  & ArrZ(iArr,iBin)%Nmu(:)*mulfak, &
+                  & ArrZ(iArr,iBin)%Jmu(:)*mulfak, &
+                  & ArrZ(iArr,iBin)%B*mulfak, ArrZ(iArr,iBin)%S*mulfak
+          end do
+
+          close(123)
+       end do
+    end if
 
   end subroutine doTmunu
 
+  !****************************************************************************
+  !****s* HeavyIonAnalysis/doQRvector
+  ! NAME
+  ! subroutine doQRvector
+  !
+  ! PURPOSE
+  ! calculate the Q- and R-vectors
+  !****************************************************************************
+  subroutine doQRvector(realParts,timestep)
+
+    use particleDefinition
+    use IdTable, only: EOV,NOP
+    use EccAndFlow
+
+    type(particle), dimension(:,:), intent(in), target  :: realParts
+    integer, intent(in) :: timestep
+
+    integer :: iEns,iPart
+    type(particle) :: part
+
+    type(tQRvector), dimension(1:6) :: arrQ
+    type(tQRvector), dimension(1:6) :: arrR
+    integer :: i
+    real :: y, r,phi
+
+    logical, save :: isFirst = .true.
+
+    if (isFirst) then
+       open(765,file='QR_vector.dat', status="unknown")
+       isFirst = .false.
+    end if
+
+    do i=1,6
+       call QRvectorInit(arrR(i), i, i)
+       call QRvectorInit(arrQ(i), i, 0)
+    end do
+    call QRvectorInit(arrR(1), 1, 3) ! this is different!
+
+    do iEns=1,size(realParts,dim=1)
+       do iPart=1,size(realParts,dim=2)
+
+          if (realParts(iEns,iPart)%ID == EOV) exit
+          if (realParts(iEns,iPart)%ID == NOP) cycle
+
+          part = realParts(iEns,iPart) ! create local copy
+
+          if (abs(part%pos(3)) < 0.01) then
+             r = sqrt(part%pos(1)**2+part%pos(2)**2)
+             phi = atan2(part%pos(1),part%pos(2))
+             do i=1,6
+                call QRvectorAdd(arrR(i), r, phi)
+             end do
+          end if
+
+          y = rapidity(part)
+          if (abs(y) < 0.05) then
+             r = sqrt(part%mom(1)**2+part%mom(2)**2)
+             phi = atan2(part%mom(1),part%mom(2))
+             do i=1,6
+                call QRvectorAdd(arrQ(i), r, phi)
+             end do
+          end if
+
+       end do
+    end do
+
+    write(765,*) timestep, (QRvectorW(arrR(i)),i=1,3),(QRvectorVal(arrR(i)),i=1,6), (QRvectorVal(arrQ(i)),i=1,6)
+    flush(765)
+
+  end subroutine doQRvector
+
+
+  !****************************************************************************
+  !****s* HeavyIonAnalysis/getRapBinning
+  ! NAME
+  ! subroutine getRapBinning(nBins, Bins)
+  !
+  ! PURPOSE
+  ! return the array RapBinning and its size
+  !****************************************************************************
+  subroutine getRapBinning(nBins, Bins)
+    use CallStack, only: TRACEBACK
+
+    integer, intent(out) :: nBins
+    real, dimension(:), intent(out) :: Bins
+
+    if (initFlag) call init
+
+    if (ubound(Bins,dim=1) < nRapBinning) &
+         call Traceback("input array too small.")
+    Bins(lbound(Bins,dim=1):lbound(Bins,dim=1)+nRapBinning) &
+         = rapBinning(0:nRapBinning)
+    nBins = nRapBinning
+
+  end subroutine getRapBinning
+
+  !****************************************************************************
+  !****s* HeavyIonAnalysis/calcGlauber
+  ! NAME
+  ! subroutine calcGlauber(realParts)
+  !
+  ! PURPOSE
+  ! This routine uses the initialized particles to do a Glauber-MC calculation
+  ! of nPart.
+  !
+  ! This routine should be called directly after the initialization in
+  ! timestep 0
+  !
+  ! NOTES
+  ! We are doing a very bad trick in abusing the flag %anti of the particles
+  ! in order to indicate, whether the particle is wounded.
+  ! After the calculation, all flags are reset to .false.
+  !****************************************************************************
+  subroutine calcGlauber(realParts,nucA,nucB)
+    use particleDefinition
+    use nucleusDefinition, only: tNucleus
+    use constants, only: pi
+    use initHeavyIon, only: b_HI => b
+
+    type(particle), dimension(:,:), intent(inOut), target :: realParts
+    type(tNucleus), pointer :: nucA,nucB
+
+    integer :: iEns1, iEns2, iA,iB
+    integer :: nEns, nA, nB
+    integer :: nPart
+    type(particle), pointer :: pA, pB
+    real :: s2, sigma
+    real, dimension(0:2) :: SS
+    integer :: iUnit
+    real :: R1=-99.9, R2=-99.9
+
+    real, parameter :: sigma0=23.8 ! in mb, dummy value, to be refined!!!!
+
+    logical, parameter :: doFull = .false.
+
+    if (initFlag) call init
+    if (.not.do_Glauber) return
+
+    nEns = size(realParts,dim=1)
+    nA = nucA%Mass
+    nB = nucB%Mass
+
+
+    !===== Version 1: parallel ensemble =====
+
+    call setWoundedParallel
+    call countWounded
+    R1 = SS(1)/SS(0)
+
+    !===== Version 2: full ensemble =====
+    ! this stuff is numerically very expensive!!!
+
+    if (doFull) then
+       call setWoundedFull
+       call countWounded
+       R2 = SS(1)/SS(0)
+    end if
+
+    write(*,*) 'Glauber: ',b_HI,R1,R2
+    open(newunit=iUnit,file='Glauber.dat',status='unknown')
+    write(iUnit,*) b_HI,R1,R2
+    close(iUnit)
+
+
+  contains
+
+    subroutine setWoundedParallel
+      do iEns1=1,nEns
+         do iA=1,nA
+            pA => realParts(iEns1,iA)
+            do iB=nA+1,nA+nB
+               pB => realParts(iEns1,iB)
+
+               if (pA%anti.and.pB%anti) cycle ! not to check anymore
+
+               ! transversal distance squared:
+               s2 = (pA%pos(1)-pB%pos(1))**2+(pA%pos(2)-pB%pos(2))**2
+
+               ! cross section:
+               sigma = sigma0
+
+               ! check s^2 < sigma/pi: (get fm^2 and mb right!)
+               if (10*pi*s2 < sigma) then
+                  pA%anti = .true.
+                  pB%anti = .true.
+               end if
+
+            end do
+         end do
+      end do
+    end subroutine setWoundedParallel
+
+    subroutine setWoundedFull
+      do iEns1=1,nEns
+         do iA=1,nA
+            pA => realParts(iEns1,iA)
+            do iEns2=1,nEns
+               do iB=nA+1,nA+nB
+                  pB => realParts(iEns2,iB)
+
+                  if (pA%anti.and.pB%anti) cycle ! not to check anymore
+
+                  ! transversal distance squared:
+                  s2 = (pA%pos(1)-pB%pos(1))**2+(pA%pos(2)-pB%pos(2))**2
+
+                  ! cross section:
+                  sigma = sigma0
+
+                  ! check s^2 < sigma/pi: (get fm^2 and mb right!)
+                  if (10*pi*s2*nEns < sigma) then
+                     pA%anti = .true.
+                     pB%anti = .true.
+                  end if
+
+               end do
+            end do
+         end do
+      end do
+    end subroutine setWoundedFull
+
+    subroutine countWounded
+      SS = 0
+      ! probably all 'vectorized' ideas do not work...
+      do iEns1=1,nEns
+         nPart = 0
+         do iA=1,nA+nB
+            if (realParts(iEns1,iA)%anti) nPart=nPart+1
+         end do
+         !       write(*,*) iEns1,nPart
+         SS = SS + (/1., 1.*nPart, 1.*nPart**2/)
+      end do
+      !    write(*,*) SS
+      !    write(*,*) 'nPart = ',SS(1)/SS(0),'+-',sqrt(SS(1)**2-SS(2))/(SS(0)*(SS(0)-1))
+      !    write(*,*) 'nPart = ',SS(1)/SS(0)
+
+
+      !---- here we also reset the %anti-flag:
+      realParts%anti = .false.
+
+    end subroutine countWounded
+
+  end subroutine calcGlauber
 
 end module HeavyIonAnalysis

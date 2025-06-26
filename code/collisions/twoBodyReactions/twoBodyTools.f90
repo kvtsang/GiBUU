@@ -77,20 +77,20 @@ contains
 
     ! Define 4-velocities of both particles
     ! First particle:
-    velocity(0,1)=1./Sqrt(1.-Dot_Product(pair(1)%velocity(1:3),pair(1)%velocity(1:3)))
-    velocity(1:3,1)=pair(1)%velocity(1:3)*velocity(0,1)
+    velocity(0,1)=1./Sqrt(1.-Dot_Product(pair(1)%vel(1:3),pair(1)%vel(1:3)))
+    velocity(1:3,1)=pair(1)%vel(1:3)*velocity(0,1)
     ! Second particle:
-    velocity(0,2)=1./Sqrt(1.-Dot_Product(pair(2)%velocity(1:3),pair(2)%velocity(1:3)))
-    velocity(1:3,2)=pair(2)%velocity(1:3)*velocity(0,2)
+    velocity(0,2)=1./Sqrt(1.-Dot_Product(pair(2)%vel(1:3),pair(2)%vel(1:3)))
+    velocity(1:3,2)=pair(2)%vel(1:3)*velocity(0,2)
 
     !Evaluate the velocity of the CM-frame of both particles:
-    beta(1:3)=(pair(1)%momentum(1:3)+pair(2)%momentum(1:3))/ &
-         &    (pair(1)%momentum(0)+pair(2)%momentum(0))
+    beta(1:3)=(pair(1)%mom(1:3)+pair(2)%mom(1:3))/ &
+         &    (pair(1)%mom(0)+pair(2)%mom(0))
 
     !Boost everything to the CM-frame
 
-    call lorentz(beta,velocity(0:3,1), 'velocity_correction')
-    call lorentz(beta,velocity(0:3,2), 'velocity_correction')
+    call lorentz(beta,velocity(0:3,1))
+    call lorentz(beta,velocity(0:3,2))
 
     beta_12(1:3)=velocity(1:3,1)/velocity(0,1)-velocity(1:3,2)/velocity(0,2)
 
@@ -106,11 +106,11 @@ contains
 
     !Boost momenta to the CM-frame
 
-    momCM_1=pair(1)%momentum
-    call lorentz(beta,momCM_1, 'velocity_correction')
+    momCM_1=pair(1)%mom
+    call lorentz(beta,momCM_1)
 
-    momCM_2=pair(2)%momentum
-    call lorentz(beta,momCM_2, 'velocity_correction')
+    momCM_2=pair(2)%mom
+    call lorentz(beta,momCM_2)
 
     beta_12_vacuum(1:3)=momCM_1(1:3)/SQRT(pair(1)%mass**2+Dot_product(momCM_1(1:3),momCM_1(1:3))) &
          &             -momCM_2(1:3)/SQRT(pair(2)%mass**2+Dot_product(momCM_2(1:3),momCM_2(1:3)))
@@ -150,13 +150,13 @@ contains
 
     if (mode.eq.0) then
        do k=0,3
-          momentum_Total(k)=Sum(partIn(:)%momentum(k))
+          momentum_Total(k)=Sum(partIn(:)%mom(k))
        end do
 
-       betacm = lorentzCalcBeta (momentum_Total, 'get_PInitial')
+       betacm = lorentzCalcBeta (momentum_Total)
 
-       mom(0:3)=partIn(1)%momentum(0:3)
-       call lorentz(betacm,mom,'twoBodyTools')
+       mom(0:3)=partIn(1)%mom(0:3)
+       call lorentz(betacm,mom)
 
        get_PInitial=SQRT(Dot_Product(mom(1:3),mom(1:3)))
     else
@@ -171,88 +171,99 @@ contains
   !****************************************************************************
   !****f* twoBodyTools/sqrtS_Free
   ! NAME
-  ! function sqrtS_Free(teilchen)
+  ! real function sqrtS_Free(part)
   ! PURPOSE
   ! return the "free" sqrt(s) of 2 particles
   ! INPUTS
-  ! * type(particle),intent(in),dimension(1:2) :: teilchen
+  ! * type(particle),intent(in),dimension(1:2) :: part
   ! NOTES
   ! The name "free Sqrt(s)" is according to standard BUU prescription the
   ! following:
   ! Transform everything to CM system and define there the sqrt(s) by
   ! neglecting the potentials. Therefore one wants to take care of the fact,
-  ! that also the Xsections are measured in vacuum, therefore without
-  ! potentials.
+  ! that also the Xsections are measured in vacuum, i.e. without potentials.
+  !
+  ! In order to calculate the boost to the CM system, one uses the medium mass
+  !   M_i = p_i^\mu p_i_\mu
+  ! instead of the vacuum mass m_i /= M_i.
+  ! Then, in the CM-frame, excluding the potentials:
+  !   s_free = (E_1+E_2)**2   with E_i = sqrt[m_i**2+pCM**2].
+  !
   ! RESULT
   ! * Real : The free Sqrt(s)
   !****************************************************************************
-  function sqrtS_Free(teilchen)
+  real function sqrtS_Free(part)
     use particleDefinition
     use lorentzTrafo
-    real :: sqrtS_Free
-    type(particle),intent(in),dimension(1:2) :: teilchen
+    use minkowski, only: abs4sq
+
+    type(particle),intent(in),dimension(1:2) :: part
     real, dimension(1:3) :: betaCM
-    real, dimension(0:3) :: momentum_Total,mom
-    integer :: k
-    real :: mom2
-    logical :: flag
+    real, dimension(0:3) :: mom
+    real, dimension(0:3) :: momTot
+    real :: pcm2
 
-    do k=0,3
-       momentum_Total(k)=Sum(teilchen(:)%momentum(k))
-    end do
+    logical, parameter :: useOld = .false.
 
-!    write(*,*)' part1: ', teilchen(1)%id,  teilchen(1)%charge
-!    write(*,*) teilchen(1)%momentum
-!    write(*,*)' part2: ', teilchen(2)%id,  teilchen(2)%charge
-!    write(*,*) teilchen(2)%momentum
+    if (useOld) then
 
-    betacm = lorentzCalcBeta(momentum_Total, flag, 'sqrtS_Free')
-    if (.not.flag) then
-       sqrtS_free = teilchen(1)%mass + teilchen(2)%mass + 1e-5
-       return
+       momTot = part(1)%mom + part(2)%mom
+
+       betacm = lorentzCalcBeta(momTot)
+       mom(0:3)=part(1)%mom(0:3)
+       call lorentz(betacm,mom)
+
+       ! momentum(1:3) is CM-Momentum
+       ! In CM-frame without potentials: s=(E_1+E_2)**2 with E=SQRT[m**2+pCM**2].
+       ! Therefore:
+       pcm2 = Dot_Product(mom(1:3),mom(1:3))
+       sqrtS_free = sqrt(part(1)%mass**2+pcm2) &
+            &     + sqrt(part(2)%mass**2+pcm2)
+
+    else
+
+       momTot = part(1)%mom + part(2)%mom
+       pcm2 = pCM_sqr(abs4sq(momTot), abs4sq(part(1)%mom), abs4sq(part(2)%mom) )
+       if (pcm2 < 0.) pcm2 = 0.
+
+       sqrtS_free = sqrt(part(1)%mass**2+pcm2) &
+            &     + sqrt(part(2)%mass**2+pcm2)
+
     end if
 
-    mom(0:3)=teilchen(1)%momentum(0:3)
-    call lorentz(betacm,mom,'twoBodyTools')
 
-    ! momentum(1:3) is CM-Momentum
-    ! In CM-frame without potentials: s=(E_1+E_2)**2 with E=SQRT[m**2+pCM**2].
-    ! Therefore:
-    mom2 = Dot_Product(mom(1:3),mom(1:3))
-    sqrtS_free=sqrt(teilchen(1)%mass**2+mom2) &
-         &    +sqrt(teilchen(2)%mass**2+mom2)
   end function sqrtS_Free
 
 
   !****************************************************************************
   !****s* twoBodyTools/searchInInput
   ! NAME
-  ! subroutine searchInInput(teilchenIn,id1,id2,particle_1,particle_2,failFlag)
+  ! subroutine searchInInput(partIn,id1,id2,part1,part2,failFlag)
   ! PURPOSE
-  ! Given two IDs and a particleVector of dimension 2, this routine tries to
-  ! find the given IDs in the particleVector.
+  ! Given two IDs and a particleVector of dimension 2, this routine tries to find
+  ! the given IDs in the particleVector.
   ! INPUTS
-  ! * type(particle),dimension(1,2), intent(in) :: teilchenIn
+  ! * type(particle),dimension(1,2), intent(in) :: partIn
   ! * integer, intent(in) :: id1,id2
   ! OUTPUT
-  ! * type(particle), intent(out) :: particle_1 ! copy of particle which has id1
-  ! * type(particle), intent(out) :: particle_2 ! copy of particle which has id2
-  ! * logical, intent(out) :: failFlag ! .true. if id1 or id2 not be found
+  ! * type(particle), intent(out) :: part1 ! copy of particle which has id1
+  ! * type(particle), intent(out) :: part2 ! copy of particle which has id2
+  ! * logical, intent(out) :: failFlag ! .true. if id1 or id2 could not be found in the particleVector
   !****************************************************************************
-  subroutine searchInInput(partIn,id1,id2,particle_1,particle_2,failFlag)
+  subroutine searchInInput(partIn,id1,id2,part1,part2,failFlag)
     use particleDefinition, only: particle
     type(particle),dimension(1:2), intent(in) :: partIn
     integer, intent(in) :: id1,id2
-    type(particle), intent(out) :: particle_1, particle_2
+    type(particle), intent(out) :: part1, part2
     logical, intent(out) :: failFlag
 
     if ((partIn(1)%ID.eq.id1).and.(partIn(2)%ID.eq.id2)) then
-       particle_1=partIn(1)
-       particle_2=partIn(2)
+       part1=partIn(1)
+       part2=partIn(2)
        failflag=.false.
     else if ((partIn(1)%ID.eq.id2).and.(partIn(2)%ID.eq.id1)) then
-       particle_1=partIn(2)
-       particle_2=partIn(1)
+       part1=partIn(2)
+       part2=partIn(1)
        failflag=.false.
     else
        failflag=.true.
@@ -265,7 +276,7 @@ contains
   !****************************************************************************
   ! cf. interface pCM
   !****************************************************************************
-  real function pCM_1(srts, mass1, mass2)
+  pure real function pCM_1(srts, mass1, mass2)
     real, intent(in) :: srts, mass1, mass2
     real :: s,mass12
     s=srts**2
@@ -311,8 +322,8 @@ contains
   ! OUTPUT
   ! * real :: pCM_sqr ! center of mass momentum squared
   !****************************************************************************
-  real function pCM_sqr(s, msqr1, msqr2)
-    real :: s,msqr1,msqr2
+  pure real function pCM_sqr(s, msqr1, msqr2)
+    real,intent(in) :: s,msqr1,msqr2
     pCM_sqr = (s+msqr1-msqr2)**2/(4.*s)-msqr1
   end function pCM_sqr
 
@@ -333,8 +344,9 @@ contains
   ! OUTPUT
   ! * real :: p_lab ! laboratory momentum
   !****************************************************************************
-  real function p_lab(srts, mass1, mass2)
-    real :: srts,s,mass1,mass2,mass12
+  pure real function p_lab(srts, mass1, mass2)
+    real, intent(in) :: srts,mass1,mass2
+    real :: s,mass12
     s=srts**2
     mass12=mass1**2
     p_lab=sqrt(max(1.e-10,((s-mass12-mass2**2)/(2.*mass2))**2-mass12))
@@ -358,7 +370,7 @@ contains
     use particleDefinition
     type(particle), intent(in) :: part1,part2
     real :: momentum_transfer(0:3)
-    momentum_transfer=part1%momentum-part2%momentum
+    momentum_transfer=part1%mom-part2%mom
     MomentumTransfer2=dot_product(momentum_transfer(1:3),momentum_transfer(1:3)) &
                     &-momentum_transfer(0)**2
   end function MomentumTransfer2
@@ -393,7 +405,7 @@ contains
              a(i)%charge=newCharge
           else if (isBaryon(a(i)%ID)) then
              a(i)%charge=-a(i)%charge
-             a(i)%antiparticle=.true.
+             a(i)%anti=.true.
           end if
        end if
 
@@ -437,23 +449,23 @@ contains
 
     IsChargeExchange=.false.
 
-    if ( part1%Id.eq.part2%Id .and. (part1%antiParticle.eqv.part2%antiParticle) ) then
+    if ( part1%Id.eq.part2%Id .and. (part1%anti.eqv.part2%anti) ) then
 
         if (  part3%Id.eq.part1%Id .and. part4%Id.eq.part1%Id .and. &
-          &  (part3%antiParticle.eqv.part1%antiParticle) .and. &
-          &  (part4%antiParticle.eqv.part1%antiParticle) .and. &
+          &  (part3%anti.eqv.part1%anti) .and. &
+          &  (part4%anti.eqv.part1%anti) .and. &
           & .not.(part3%charge.eq.part1%charge.or.part3%charge.eq.part2%charge) ) IsChargeExchange=.true.
 
     else
 
         if ( part3%Id.eq.part1%Id .and. part4%Id.eq.part2%Id .and. &
-          & (part3%antiParticle.eqv.part1%antiParticle) .and. &
-          & (part4%antiParticle.eqv.part2%antiParticle) .and. &
+          & (part3%anti.eqv.part1%anti) .and. &
+          & (part4%anti.eqv.part2%anti) .and. &
           & part3%charge.ne.part1%charge ) then
              IsChargeExchange=.true.
         else if ( part4%Id.eq.part1%Id .and. part3%Id.eq.part2%Id .and. &
-          &      (part4%antiParticle.eqv.part1%antiParticle) .and. &
-          &      (part3%antiParticle.eqv.part2%antiParticle) .and. &
+          &      (part4%anti.eqv.part1%anti) .and. &
+          &      (part3%anti.eqv.part2%anti) .and. &
           &      part4%charge.ne.part1%charge ) then
              IsChargeExchange=.true.
         end if
@@ -480,7 +492,7 @@ contains
   !
   ! NOTES
   ! * flag(i)=isMeson(partIn(i)%ID)  -> 1,2,3 == BarBar,BarMes,MesMes
-  ! * flag(i)=partIn(i)%antiparticle -> 1,2,3 == BarBar,BarAntiBar,AntiBarAntiBar
+  ! * flag(i)=partIn(i)%anti -> 1,2,3 == BarBar,BarAntiBar,AntiBarAntiBar
   !****************************************************************************
   integer function LogicMatrix(flag1,flag2)
 

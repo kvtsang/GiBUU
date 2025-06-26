@@ -7,7 +7,7 @@
 
 program sum_Hist
 
-  use histf90, only: histogram, ReadHist, WriteHist, sumHist
+  use hist, only: histogram, ReadHist, WriteHist, sumHist
 
   implicit none
 

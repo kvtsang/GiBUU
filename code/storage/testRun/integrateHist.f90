@@ -7,7 +7,7 @@
 program integrate_Hist
 
   use output
-  use histf90
+  use hist
   implicit none
 
   type(histogram) :: hist

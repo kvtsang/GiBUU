@@ -12,7 +12,7 @@ module deuterium
   implicit none
   private
 
-  public :: initDeuterium
+  public :: initDeuterium, wvfct_p_deuteron
 
 
   !****************************************************************************
@@ -28,8 +28,8 @@ module deuterium
   ! * 2 -- Wave functions according to Argonne V18
   !****************************************************************************
 
-  integer, parameter :: bonn = 1
-  integer, parameter :: argonne = 2
+  integer, parameter :: iBonn = 1
+  integer, parameter :: iArgonne = 2
 
 
   !****************************************************************************
@@ -39,18 +39,19 @@ module deuterium
   integer, save :: iParam = 1
   !
   ! PURPOSE
-  ! Choose parameterization of momentum distribution when using the Bonn potential.
+  ! Choose parameterization of momentum distribution when using the Bonn
+  ! potential.
   ! Possible values:
-  ! * 1 --   Full Bonn  (MaH87)
-  ! * 2 --   OBEPQ      (MaH87)
-  ! * 3 --   OBEPQ-A    (Mac89)
-  ! * 4 --   OBEPQ-B    (Mac89)
-  ! * 5 --   OBEPQ-!    (Mac89)
-  ! * 6 --   OBEPR      (MaH87)  self-made
-  ! * 7 --   Paris
+  ! * 1 -- Full Bonn  (MaH87)
+  ! * 2 -- OBEPQ      (MaH87)
+  ! * 3 -- OBEPQ-A    (Mac89)
+  ! * 4 -- OBEPQ-B    (Mac89)
+  ! * 5 -- OBEPQ-!    (Mac89)
+  ! * 6 -- OBEPR      (MaH87)  self-made
+  ! * 7 -- Paris
   ! References:
-  ! MaH87: R. Machleidt et al. Phys. Rep. 149, 1 (1987)
-  ! Mac89: R. Machleidt, Advances in Nucl. Phys. Vol 19
+  ! * MaH87: R. Machleidt et al. Phys. Rep. 149, 1 (1987)
+  ! * Mac89: R. Machleidt, Advances in Nucl. Phys. Vol 19
   !****************************************************************************
 
   integer, parameter, dimension(7) :: ideuteron = (/2,10,11,12,13,20,40/)
@@ -113,10 +114,10 @@ contains
     write(*,*)
     write(*,*) '  Cut-off parameter for Fermi momentum pMax=',pMax
     select case (waveFunction_switch)
-    case (BONN)
+    case (iBonn)
        write(*,*) '  Wave functions according to Bonn potential'
        write(*,*) '    * Parameterization of momentum distribution=',iParam
-    case (ARGONNE)
+    case (iArgonne)
        write(*,*) '  Wave functions according to Argonne V18 potential'
     case (0)
        write(*,*) '  No wave functions: Point-like deuterium without Fermi motion'
@@ -164,7 +165,7 @@ contains
   ! OUTPUT
   ! * type(particle),dimension(:,:) :: teilchen
   !****************************************************************************
-  subroutine initDeuterium (teilchen, nuc, eventNummer, keepNumber, z_shift)
+  subroutine initDeuterium(teilchen, nuc, eventNummer, keepNumber, z_shift)
     use particleDefinition
     use IdTable, only: nucleon
     use nucleusDefinition
@@ -214,13 +215,13 @@ contains
                    exit
                 end if
              end do
-             if (index>2) write(*,*) 'WARNING: index > 2',index
+!             if (index>2) write(*,*) 'WARNING: index > 2',index
              call setToDefault(teilchen(i,index)) !set teilchen to its default values
              Teilchen(i,index)%event=eventNummer
              Teilchen(i,index)%ID=Nucleon
-             Teilchen(i,index)%antiparticle=.false.
-             Teilchen(i,index)%perturbative=.false.
-             Teilchen(i,index)%productionTime=0.
+             Teilchen(i,index)%anti=.false.
+             Teilchen(i,index)%pert=.false.
+             Teilchen(i,index)%prodTime=0.
              Teilchen(i,index)%mass=mN
              if (i==1) then
                 Teilchen(i,index)%charge = chooseCharge(k)
@@ -232,27 +233,27 @@ contains
                 Teilchen(i,index)%number= numberSave
              end if
              if (k==1) then
-                Teilchen(i,index)%position=0.
+                Teilchen(i,index)%pos=0.
                 deuterium_pointerList(i)%part1 =>Teilchen(i,index)
              else
                 deuterium_pointerList(i)%part2 =>Teilchen(i,index)
-                Teilchen(i,index)%position = choosePosition() ! argument of wave function is relative distance
+                Teilchen(i,index)%pos = choosePosition() ! argument of wave function is relative distance
                 ! The first particle was first chosen at the origin. Now we shift the first and second particle by
                 ! half of their relative distance, such that the center of mass is situated at the origin
-                Teilchen(i,index)%position=0.5*Teilchen(i,index)%position
-                deuterium_pointerList(i)%part1%position=-Teilchen(i,index)%position
+                Teilchen(i,index)%pos=0.5*Teilchen(i,index)%pos
+                deuterium_pointerList(i)%part1%pos=-Teilchen(i,index)%pos
                 ! Please note: while the relative position is defined as r=r1-r2,
                 ! the relative momentum is p=1/2(p1-p2) [The reduced mass is mu=m/2].
                 ! Therefore the argument of the wave functionis the proton momentum,
                 ! not half of it.
-                Teilchen(i,index)%momentum(0:3) = chooseMomentum()
-                deuterium_pointerList(i)%part1%momentum(1:3) = -Teilchen(i,index)%momentum(1:3)
-                deuterium_pointerList(i)%part1%momentum(0)   =  Teilchen(i,index)%momentum(0)
+                Teilchen(i,index)%mom(0:3) = chooseMomentum()
+                deuterium_pointerList(i)%part1%mom(1:3) = -Teilchen(i,index)%mom(1:3)
+                deuterium_pointerList(i)%part1%mom(0)   =  Teilchen(i,index)%mom(0)
                 call boostIt (nuc, i)
                 ! Set velocities
-                Teilchen(i,index)%velocity(1:3)=Teilchen(i,index)%momentum(1:3)/Teilchen(i,index)%momentum(0)
-                deuterium_pointerList(i)%part1%velocity(1:3) = &
-                      deuterium_pointerList(i)%part1%momentum(1:3)/deuterium_pointerList(i)%part1%momentum(0)
+                Teilchen(i,index)%vel(1:3)=Teilchen(i,index)%mom(1:3)/Teilchen(i,index)%mom(0)
+                deuterium_pointerList(i)%part1%vel(1:3) = &
+                      deuterium_pointerList(i)%part1%mom(1:3)/deuterium_pointerList(i)%part1%mom(0)
              end if
          end do
 
@@ -278,42 +279,42 @@ contains
                    exit
                 end if
              end do
-             if (index>2) write(*,*) 'WARNING: index > 2',index
+!             if (index>2) write(*,*) 'WARNING: index > 2',index
              call settoDefault(teilchen(i,index)) !set teilchen to its default values
              call setNumber(teilchen(i,index)) ! give each particle a unique number
              Teilchen(i,index)%charge = chooseCharge(k)
              Teilchen(i,index)%event=eventNummer
              Teilchen(i,index)%ID=Nucleon
-             Teilchen(i,index)%antiparticle=.false.
-             Teilchen(i,index)%perturbative=.false.
-             Teilchen(i,index)%in_Formation=.false.
-             Teilchen(i,index)%productionTime=0.
+             Teilchen(i,index)%anti=.false.
+             Teilchen(i,index)%pert=.false.
+             Teilchen(i,index)%inF=.false.
+             Teilchen(i,index)%prodTime=0.
              Teilchen(i,index)%mass=mN
              if (k==1) then
-                Teilchen(i,index)%position=0.
-                Teilchen(i,index)%momentum=0.
+                Teilchen(i,index)%pos=0.
+                Teilchen(i,index)%mom=0.
                 deuterium_pointerList(i)%part1 =>Teilchen(i,index)
              else
-                Teilchen(i,index)%position = choosePosition()  ! argument of wave function is relative distance
+                Teilchen(i,index)%pos = choosePosition()  ! argument of wave function is relative distance
                 ! The first particle was first chosen at the origin. Now we shift the
                 ! first and second particle by  half of their relative distance, such
                 ! that the center of mass is situated at the origin:
-                Teilchen(i,index)%position=0.5*Teilchen(i,index)%position
-                deuterium_pointerList(i)%part1%position=-Teilchen(i,index)%position
+                Teilchen(i,index)%pos=0.5*Teilchen(i,index)%pos
+                deuterium_pointerList(i)%part1%pos=-Teilchen(i,index)%pos
 
                 ! Please note: while the relative position is defined as r=r1-r2,
                 ! the relative momentum is p=1/2(p1-p2) [The reduced mass is mu=m/2].
                 ! Therefore the argument of the wave function is the proton momentum,
                 ! not half of it.
-                Teilchen(i,index)%momentum(0:3) = chooseMomentum()
-                deuterium_pointerList(i)%part1%momentum(1:3) = -Teilchen(i,index)%momentum(1:3)
-                deuterium_pointerList(i)%part1%momentum(0)   =  Teilchen(i,index)%momentum(0)
+                Teilchen(i,index)%mom(0:3) = chooseMomentum()
+                deuterium_pointerList(i)%part1%mom(1:3) = -Teilchen(i,index)%mom(1:3)
+                deuterium_pointerList(i)%part1%mom(0)   =  Teilchen(i,index)%mom(0)
                 deuterium_pointerList(i)%part2 =>Teilchen(i,index)
                 call boostIt (nuc, i)
                 ! Set velocities
-                Teilchen(i,index)%velocity(1:3)=Teilchen(i,index)%momentum(1:3)/Teilchen(i,index)%momentum(0)
-                deuterium_pointerList(i)%part1%velocity(1:3) = &
-                      deuterium_pointerList(i)%part1%momentum(1:3)/deuterium_pointerList(i)%part1%momentum(0)
+                Teilchen(i,index)%vel(1:3)=Teilchen(i,index)%mom(1:3)/Teilchen(i,index)%mom(0)
+                deuterium_pointerList(i)%part1%vel(1:3) = &
+                      deuterium_pointerList(i)%part1%mom(1:3)/deuterium_pointerList(i)%part1%mom(0)
              end if
           end do
           if (producedProtons/=nuc%charge) then
@@ -328,11 +329,27 @@ contains
     call deuteriumPL_getSpectra(deuterium_pointerList,100,101,0.)
     close(100)
     close(101)
+
+    if (nuc%anti) then
+       write(*,*) "converting all nuclei to anti-deuterium..."
+
+       do i=1,size(teilchen,dim=1)  !Loop over all ensembles
+          deuterium_pointerList(i)%part1%charge = -deuterium_pointerList(i)%part1%charge
+          deuterium_pointerList(i)%part1%anti = .true.
+
+          deuterium_pointerList(i)%part2%charge = -deuterium_pointerList(i)%part2%charge
+          deuterium_pointerList(i)%part2%anti = .true.
+       end do
+
+    end if
+
+
+
     call Write_InitStatus("Deuterium",1)
 
   contains
 
-    integer function chooseCharge (k)
+    integer function chooseCharge(k)
       integer, intent(in) :: k
       real :: probabilityProton  !probability to produce a proton
       !Choose randomly the charge of the nucleon in the deuterium target
@@ -345,7 +362,7 @@ contains
       end if
     end function chooseCharge
 
-    function chooseMomentum () result (momentum)
+    function chooseMomentum() result (momentum)
       use constants, only: mN
       real :: p
       real,dimension(0:3) :: momentum
@@ -360,7 +377,7 @@ contains
       momentum(0)=Sqrt(dot_product(momentum(1:3),momentum(1:3))+mN**2)
     end function chooseMomentum
 
-    subroutine boostIt (nucl, i)
+    subroutine boostIt(nucl, i)
         use lorentzTrafo, only: lorentz
         use inputGeneral, only: eventtype
         use eventtypes, only: HeavyIon
@@ -369,17 +386,17 @@ contains
         integer :: i
 
         !Do nothing if nucleus rests in calculation frame :
-        if (sum(abs(nucl%velocity))<0.000001) then
-           ! Write(*,*) 'No boost necessary! Velocity of nucleus:',nucl%velocity
+        if (sum(abs(nucl%vel))<0.000001) then
+           ! Write(*,*) 'No boost necessary! Velocity of nucleus:',nucl%vel
            ! Shift to actual position of center of mass of nucleus
-           deuterium_pointerList(i)%part1%position(1:3)=deuterium_pointerList(i)%part1%position(1:3)+nucl%position
-           deuterium_pointerList(i)%part2%position(1:3)=deuterium_pointerList(i)%part2%position(1:3)+nucl%position
+           deuterium_pointerList(i)%part1%pos(1:3)=deuterium_pointerList(i)%part1%pos(1:3)+nucl%pos
+           deuterium_pointerList(i)%part2%pos(1:3)=deuterium_pointerList(i)%part2%pos(1:3)+nucl%pos
         else
 
-           if (abs(nucl%velocity(1))>0.1 .or. Abs(nucl%velocity(2))>0.1) then
+           if (abs(nucl%vel(1))>0.1 .or. Abs(nucl%vel(2))>0.1) then
               write(*,*) 'Error in deuterium::boostIt'
               write(*,*) 'Velocity of nucleus in transverse direction is not negligible'
-              write(*,*) 'Velocity in x,y:' , nucl%velocity(1:2)
+              write(*,*) 'Velocity in x,y:' , nucl%vel(1:2)
               write(*,*) 'Nucleus: A=', nucl%mass,'Z=', nucl%charge
               write(*,*) 'critical error. Stop program!'
               stop
@@ -387,41 +404,42 @@ contains
 
            ! boost members of nucleus from restframe to calculation frame,
            ! which is moving with -beta seen from the rest frame:
-           call lorentz(-nucl%velocity,deuterium_pointerList(i)%part1%momentum)
-           call lorentz(-nucl%velocity,deuterium_pointerList(i)%part2%momentum)
+           call lorentz(-nucl%vel,deuterium_pointerList(i)%part1%mom)
+           call lorentz(-nucl%vel,deuterium_pointerList(i)%part2%mom)
 
            ! Length contraction of nucleus in z-direction(linear scaling)
            ! Neglect length contraction in transverse direction
-           deuterium_pointerList(i)%part1%position(3)=deuterium_pointerList(i)%part1%position(3)*sqrt(1-nucl%velocity(3)**2)
-           deuterium_pointerList(i)%part2%position(3)=deuterium_pointerList(i)%part2%position(3)*sqrt(1-nucl%velocity(3)**2)
+           deuterium_pointerList(i)%part1%pos(3)=deuterium_pointerList(i)%part1%pos(3)*sqrt(1-nucl%vel(3)**2)
+           deuterium_pointerList(i)%part2%pos(3)=deuterium_pointerList(i)%part2%pos(3)*sqrt(1-nucl%vel(3)**2)
 
            ! Shift to actual position of center of mass of nucleus
-           deuterium_pointerList(i)%part1%position(1:3)=deuterium_pointerList(i)%part1%position(1:3)+nucl%position
-           deuterium_pointerList(i)%part2%position(1:3)=deuterium_pointerList(i)%part2%position(1:3)+nucl%position
+           deuterium_pointerList(i)%part1%pos(1:3)=deuterium_pointerList(i)%part1%pos(1:3)+nucl%pos
+           deuterium_pointerList(i)%part2%pos(1:3)=deuterium_pointerList(i)%part2%pos(1:3)+nucl%pos
         end if
 
         ! shift particles along z-axis to avoid overlapping between projectile & target:
         if (eventType==HeavyIon) then
           if (eventNummer==1) then
-            deuterium_pointerList(i)%part1%position(3)=deuterium_pointerList(i)%part1%position(3)+z_shift
-            deuterium_pointerList(i)%part2%position(3)=deuterium_pointerList(i)%part2%position(3)+z_shift
+            deuterium_pointerList(i)%part1%pos(3)=deuterium_pointerList(i)%part1%pos(3)+z_shift
+            deuterium_pointerList(i)%part2%pos(3)=deuterium_pointerList(i)%part2%pos(3)+z_shift
           else
-            deuterium_pointerList(i)%part1%position(3)=deuterium_pointerList(i)%part1%position(3)-z_shift
-            deuterium_pointerList(i)%part2%position(3)=deuterium_pointerList(i)%part2%position(3)-z_shift
+            deuterium_pointerList(i)%part1%pos(3)=deuterium_pointerList(i)%part1%pos(3)-z_shift
+            deuterium_pointerList(i)%part2%pos(3)=deuterium_pointerList(i)%part2%pos(3)-z_shift
           end if
         end if
 
     end subroutine boostIt
 
     function choosePosition() result (r)
-      use argonneV18, only: argonne_WF_rSpace
+      use argonne, only: argonne_WF_rSpace
 
       real, dimension(1:3) :: r
 
       real, parameter :: maxDist = 20.0 ! very loosely bound system !
       real :: rAbs, Psi2, ws, wd
 
-      if ((WaveFunction_switch==bonn .and. iParam==0) .or. WaveFunction_switch==0) then
+      if ((WaveFunction_switch==iBonn .and. iParam==0) &
+           .or. WaveFunction_switch==0) then
          r=0.
          return
       end if
@@ -429,14 +447,15 @@ contains
       do
          rAbs=rn()*maxDist
 
-         if (WaveFunction_switch==bonn) then
+         select case(WaveFunction_switch)
+         case (iBonn)
             call wvfct_r_deuteron(rAbs,ws,wd,ideuteron(iParam))
             psi2 = (ws**2+wd**2)
-         else if (WaveFunction_switch==argonne) then
+         case (iArgonne)
             psi2= argonne_WF_rSpace(rAbs,argonne_no_pWave)
-         else
+         case default
             write(*,*) 'Wrong waveFunction_switch! STOP',waveFunction_switch
-         end if
+         end select
          if (psi2>1.0) write(*,*) 'Warning in deuterium/choosePosition: psi2 =',psi2,'> 1.0'
          if (rn()*1.0<psi2) exit ! the dummy 1.0 should be okay
       end do
@@ -450,7 +469,7 @@ contains
 
 
   function deuteriumFermi() result(p)
-    use argonneV18, only: argonne_max_kSpace, argonne_WF_kSpace
+    use argonne, only: argonne_max_kSpace, argonne_WF_kSpace
     use random, only: rn
 
     real :: p
@@ -465,7 +484,7 @@ contains
     case (0)
        p=0.
        return
-    case (BONN)
+    case (iBonn)
        if (iParam<1 .or. iParam>7) then
           write(*,*) 'Error in deuteriumFermi: iParam=',iParam
           stop
@@ -487,7 +506,7 @@ contains
           p=xRan/1000.!GeV
           return
        end if
-    case (argonne)
+    case (iArgonne)
        MonteCarlo_argonne : do
           p=rn()*pmax
           psi2= argonne_WF_kSpace(p,argonne_no_pWave)*p**2

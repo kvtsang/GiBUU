@@ -56,7 +56,7 @@ contains
   !****************************************************************************
   subroutine DoColl_nuN_Py(eNev,outPart,flagOK,cross,respectHad,doMSTP23)
 
-    use CollGetLeading
+    use GetLeading
     use EventInfo_HiLep
     use LorentzTrafo
     use rotation
@@ -213,7 +213,7 @@ contains
        PMAS(156,1)=0.002 ! Mass of diquark
     end if
 
-    call Init_VM_Mass(Wfree,eNev%nucleon%position)
+    call Init_VM_Mass(Wfree,eNev%nucleon%pos)
 
     if (eNev%nucleon_free%charge.gt.0) then
        call PYNAME(2212,cTarget)          ! Target is proton
@@ -234,21 +234,21 @@ contains
 
     !...set incoming vectors
 
-    call CalcXY(eNev%lepton_in%momentum,eNev%lepton_out%momentum,&
-         & eNev%nucleon_free%momentum, x_wish, y_wish, flagXY)
+    call CalcXY(eNev%lepton_in%mom,eNev%lepton_out%mom,&
+         & eNev%nucleon_free%mom, x_wish, y_wish, flagXY)
     if (.not.flagXY) call TRACEBACK('Error in CalcXY')
 
-!    write(*,*) 'wish: ', x_wish, eNev%QSquared
+!    write(*,*) 'wish: ', x_wish, eNev%Q2
 
     CKIN(21) = 1.0
     CKIN(23) = x_wish
     CKIN(24) = x_wish*1.001
 
-    CKIN(35) = eNev%QSquared
-    CKIN(36) = eNev%QSquared*1.001
+    CKIN(35) = eNev%Q2
+    CKIN(36) = eNev%Q2*1.001
 
-    pB = eNev%lepton_in%momentum
-    pT = eNev%nucleon_free%momentum
+    pB = eNev%lepton_in%mom
+    pT = eNev%nucleon_free%mom
 
     call eNeV_GetLeptonCM(eNev, betacm,phi,theta,phiLepton)
 !    theta = 0.0
@@ -339,8 +339,8 @@ contains
        if (iTry.ge.20) then
           if (DoPr(-1)) then
              write(*,'(A,i4)')       'DoColl_nuN: itry=',iTry
-             write(*,'(A,1P,3e13.5)')'          : ',eNev%lepton_in%momentum(0),&
-                  & eNev%lepton_out%momentum(0),eNev%QSquared
+             write(*,'(A,1P,3e13.5)')'          : ',eNev%lepton_in%mom(0),&
+                  & eNev%lepton_out%mom(0),eNev%Q2
           end if
 
           N = 0
@@ -398,9 +398,9 @@ contains
 
     cross = cross / ((CKIN(36)-CKIN(35))*(CKIN(24)-CKIN(23)))
     ! Transform from dsigma/dxdQ2 into dsigma/dxdy:
-    cross = cross * eNev%QSquared*eNev%lepton_in%momentum(0)/eNev%boson%momentum(0)
+    cross = cross * eNev%Q2*eNev%lepton_in%mom(0)/eNev%boson%mom(0)
     ! Transform from dsigma/dxdy into dsigma/dcostdEprime:
-    cross = cross * eNev%lepton_out%momentum(0)/(mN*eNev%boson%momentum(0))
+    cross = cross * eNev%lepton_out%mom(0)/(mN*eNev%boson%mom(0))
 
     call ResetPyVars
 
@@ -418,7 +418,7 @@ contains
     call PYEDIT(1)            ! clean up event list
 
     !...Copy Particles to ouput-vector:
-    call SetVectorFromPYJETS(outPart, eNev%QSquared)
+    call SetVectorFromPYJETS(outPart, eNev%Q2)
 
     ! A final check:
     if (doCheckW) then
@@ -482,7 +482,7 @@ contains
 !!$  subroutine DoColl_nuN_Py_fixMC(eNev,outPart,flagOK, doMassless, cross)
 !!$
 !!$    use constants, only: pi
-!!$    use CollGetLeading
+!!$    use GetLeading
 !!$    use EventInfo_HiLep
 !!$    use LorentzTrafo
 !!$    use rotation
@@ -628,7 +628,7 @@ contains
 !!$       PMAS(156,1)=0.020 ! Mass of diquark
 !!$    endif
 !!$
-!!$    call Init_VM_Mass(Wfree,eNev%nucleon%position)
+!!$    call Init_VM_Mass(Wfree,eNev%nucleon%pos)
 !!$
 !!$    if (eNev%nucleon_free%charge.gt.0) then
 !!$       call PYNAME(2212,cTarget)          ! Target is proton
@@ -638,8 +638,8 @@ contains
 !!$
 !!$    !...set incoming vectors (free kinematics)
 !!$
-!!$    pB = eNev%lepton_in%momentum
-!!$    pT = eNev%nucleon_free%momentum
+!!$    pB = eNev%lepton_in%mom
+!!$    pT = eNev%nucleon_free%mom
 !!$
 !!$    call eNeV_GetLeptonCM(eNev, betacm,phi,theta,phiLepton)
 !!$!    theta = 0.0
@@ -653,8 +653,8 @@ contains
 !!$    call rotateZY(0.0,phiLepton,pB(1:3),pB(1:3))
 !!$    call rotateZY(0.0,phiLepton,pT(1:3),pT(1:3))
 !!$
-!!$    pKprime = eNev%lepton_out%momentum
-!!$    pQ = eNev%boson%momentum
+!!$    pKprime = eNev%lepton_out%mom
+!!$    pQ = eNev%boson%mom
 !!$
 !!$!    write(*,'(A," = ",1P,4e13.5)') 'pK     ',pB
 !!$!    write(*,'(A," = ",1P,4e13.5)') 'pT     ',pT
@@ -686,8 +686,8 @@ contains
 !!$    P(2,5)   = eNev%nucleon_free%mass
 !!$
 !!$
-!!$    call CalcXY(eNev%lepton_in%momentum,eNev%lepton_out%momentum,&
-!!$         & eNev%nucleon_free%momentum, x_wish, y_wish, flagXY)
+!!$    call CalcXY(eNev%lepton_in%mom,eNev%lepton_out%mom,&
+!!$         & eNev%nucleon_free%mom, x_wish, y_wish, flagXY)
 !!$    if (.not.flagXY) call TRACEBACK('Error in CalcXY')
 !!$
 !!$!    write(*,*) 'wish: x,y:',x_wish,y_wish
@@ -696,7 +696,7 @@ contains
 !!$    !...Initialize Pythia
 !!$
 !!$    MSTP(111) = 0          ! master switch fragmentation/decay
-!!$    call PYINIT('5MOM', cNu(eNev%idFamily), cTarget, eNev%lepton_in%momentum(0))
+!!$    call PYINIT('5MOM', cNu(eNev%idFamily), cTarget, eNev%lepton_in%mom(0))
 !!$
 !!$    DistMin = 99.9 ! DUMMY
 !!$
@@ -803,7 +803,7 @@ contains
 !!$
 !!$    call PYEDIT(1)            ! clean up event list
 !!$
-!!$    call SetVectorFromPYJETS(outPart, eNev%QSquared)
+!!$    call SetVectorFromPYJETS(outPart, eNev%Q2)
 !!$    call ResetPyVars
 !!$    flagOK = .TRUE.
 !!$
@@ -844,7 +844,7 @@ contains
 !!$  !****************************************************************************
 !!$  subroutine DoColl_nuN_Py_Free(eNev,outPart,flagOK, doMassless, cross)
 !!$
-!!$    use CollGetLeading
+!!$    use GetLeading
 !!$    use EventInfo_HiLep
 !!$    use LorentzTrafo
 !!$    use rotation
@@ -954,7 +954,7 @@ contains
 !!$       PMAS(156,1)=0.020 ! Mass of diquark
 !!$    end if
 !!$
-!!$    call Init_VM_Mass(Wfree,eNev%nucleon%position)
+!!$    call Init_VM_Mass(Wfree,eNev%nucleon%pos)
 !!$
 !!$    if (eNev%nucleon_free%charge.gt.0) then
 !!$       call PYNAME(2212,cTarget)          ! Target is proton
@@ -971,8 +971,8 @@ contains
 !!$    ! BlaBlaBla!!! electron_out=electron_in at the moment, therefore
 !!$    ! all angles arbitrary!!!
 !!$
-!!$    pB = eNev%lepton_in%momentum
-!!$    pT = eNev%nucleon_free%momentum
+!!$    pB = eNev%lepton_in%mom
+!!$    pT = eNev%nucleon_free%mom
 !!$
 !!$    phi = atan2(eNev%pcm(2),eNeV%pcm(1))
 !!$    theta = atan2(sqrt(eNev%pcm(1)**2+eNev%pcm(2)**2),eNev%pcm(3))
@@ -995,7 +995,7 @@ contains
 !!$    !...Initialize Pythia
 !!$
 !!$    MSTP(111) = 0          ! master switch fragmentation/decay
-!!$    call PYINIT('3MOM', cNu(eNev%idFamily), cTarget, eNev%lepton_in%momentum(0))
+!!$    call PYINIT('3MOM', cNu(eNev%idFamily), cTarget, eNev%lepton_in%mom(0))
 !!$
 !!$    do iEv=1,nEv
 !!$       if (useJetSetVec) call GetJetsetVecINIT
@@ -1015,7 +1015,7 @@ contains
 !!$          return ! -> FAILURE
 !!$       end if
 !!$
-!!$       call PYINIT('3MOM', cNu(eNev%idFamily), cTarget, eNev%lepton_in%momentum(0))
+!!$       call PYINIT('3MOM', cNu(eNev%idFamily), cTarget, eNev%lepton_in%mom(0))
 !!$       if (useJetSetVec) call GetJetsetVecINIT
 !!$       call PYEVNT
 !!$
@@ -1072,12 +1072,12 @@ contains
 !!$
 !!$    !...Set initial event kinematics
 !!$
-!!$    eNev%lepton_out%momentum(1:3) = P(iL_lep,1:3)
-!!$    eNev%lepton_out%momentum(0)   = P(iL_lep,4)
-!!$    eNev%boson%momentum = eNev%lepton_in%momentum-eNev%lepton_out%momentum
-!!$    eNev%QSquared     = -abs4Sq(eNev%boson%momentum)
-!!$    eNev%W            = abs4(eNev%boson%momentum+eNev%nucleon%momentum)
-!!$    eNev%W_free       = abs4(eNev%boson%momentum+eNev%nucleon_free%momentum)
+!!$    eNev%lepton_out%mom(1:3) = P(iL_lep,1:3)
+!!$    eNev%lepton_out%mom(0)   = P(iL_lep,4)
+!!$    eNev%boson%mom = eNev%lepton_in%mom-eNev%lepton_out%mom
+!!$    eNev%Q2     = -abs4Sq(eNev%boson%mom)
+!!$    eNev%W            = abs4(eNev%boson%mom+eNev%nucleon%mom)
+!!$    eNev%W_free       = abs4(eNev%boson%mom+eNev%nucleon_free%mom)
 !!$
 !!$!    call write_electronNucleon_event(eNev,.FALSE.,.FALSE.)
 !!$
@@ -1085,7 +1085,7 @@ contains
 !!$
 !!$    !...Copy Particles to ouput-vector
 !!$
-!!$    call SetVectorFromPYJETS(outPart, eNev%QSquared)
+!!$    call SetVectorFromPYJETS(outPart, eNev%Q2)
 !!$
 !!$    flagOK = .TRUE.
 !!$
@@ -1318,14 +1318,14 @@ contains
     real :: nu,Q2,W,Wfree,eps,fT
     real, parameter :: hc2 = 10*hbarc**2 ! = 0.389 mb GeV^2
 
-    call CalcXY(eNev%lepton_in%momentum,eNev%lepton_out%momentum,&
-         & eNev%nucleon_free%momentum, x, y, flagXY)
+    call CalcXY(eNev%lepton_in%mom,eNev%lepton_out%mom,&
+         & eNev%nucleon_free%mom, x, y, flagXY)
     if (.not.flagXY) call TRACEBACK('Error in CalcXY')
 
     call eNeV_GetKinV(eNev, nu,Q2,W,Wfree,eps,fT)
 
-    srts2 = 2*mN*eNev%lepton_in%momentum(0)
-!    srts2 = abs4sq(eNev%lepton_in%momentum+eNev%nucleon_free%momentum)
+    srts2 = 2*mN*eNev%lepton_in%mom(0)
+!    srts2 = abs4sq(eNev%lepton_in%mom+eNev%nucleon_free%mom)
 
     call pypdfl(2212, x,Q2,xq)
 
@@ -1373,7 +1373,7 @@ contains
     end select
 
     ! Transform from dsigma/dxdy into dsigma/dcostdEprime:
-    sigma = sigma * eNev%lepton_out%momentum(0)/(mN*eNev%boson%momentum(0))
+    sigma = sigma * eNev%lepton_out%mom(0)/(mN*eNev%boson%mom(0))
 
 
   end function AnaEstimate
@@ -1402,15 +1402,15 @@ contains
     real, parameter :: hc2 = 10*hbarc**2 ! = 0.389 mb GeV^2
     real :: r2GA
 
-    call CalcXY(eNev%lepton_in%momentum,eNev%lepton_out%momentum,&
-         & eNev%nucleon_free%momentum, x, y, flagXY)
+    call CalcXY(eNev%lepton_in%mom,eNev%lepton_out%mom,&
+         & eNev%nucleon_free%mom, x, y, flagXY)
     if (.not.flagXY) call TRACEBACK('Error in CalcXY')
 
     call eNeV_GetKinV(eNev, nu,Q2,W,Wfree,eps,fT)
 
 !    eps = (1-y)/(1-y+0.5*y**2)
 
-    sigma = eNev%lepton_out%momentum(0)*alphaQED*hc2/pi &
+    sigma = eNev%lepton_out%mom(0)*alphaQED*hc2/pi &
          & * y*(1-x)/Q2 * 1/(1-eps) & !         & * (1-x)/Q2 * (1+(1-y)**2)/y &
          & * 4*pi*alphaQED/(Q2*(1-x))
 

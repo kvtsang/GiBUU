@@ -282,6 +282,7 @@ contains
   ! * function value
   ! NOTES
   ! * if channel==2p2hQE|2p2hDelta, no checks are possible; alsways .true.
+  ! * channel no given in Electron_origin.f90
   !****************************************************************************
   logical function checkEvent(eN,f,channel)
     use particleDefinition
@@ -326,14 +327,14 @@ contains
     ! Total Momentum:
     ! ===============
 
-    ! do not use boson%momentum here, since this may be modified by the
+    ! do not use boson%mom here, since this may be modified by the
     ! RemovePot routines
- !   write(*,*) 'nucleon-mom=',eN%nucleon%momentum
- !   write(*,*) 'lepton-mom_in=',eN%lepton_in%momentum
- !   write(*,*) 'lepton-mom_out=',eN%lepton_out%momentum
-    mom_in =eN%nucleon%momentum+eN%lepton_in%momentum-eN%lepton_out%momentum
+ !   write(*,*) 'nucleon-mom=',eN%nucleon%mom
+ !   write(*,*) 'lepton-mom_in=',eN%lepton_in%mom
+ !   write(*,*) 'lepton-mom_out=',eN%lepton_out%mom
+    mom_in =eN%nucleon%mom+eN%lepton_in%mom-eN%lepton_out%mom
     do j=0,3
-       mom_out(j)=sum(f%momentum(j), mask= f%ID.ne.0)
+       mom_out(j)=sum(f%mom(j), mask= f%ID.ne.0)
     end do
     if (maxVal(abs(mom_in-mom_out)).gt.1e-5) then
        write(*,*) 'Momentum not conserved in eventGen_en_lowEnergy!!! ',channel
@@ -341,7 +342,7 @@ contains
        write(*,'(A,1P,5e13.4)') 'IN:  ', mom_in
        write(*,'(A,1P,5e13.4)') 'OUT: ', mom_out
        write(*,*)
-       write(*,'(A,1P,5e13.4)') 'IN*: ', eN%nucleon%momentum+eN%boson%momentum
+       write(*,'(A,1P,5e13.4)') 'IN*: ', eN%nucleon%mom+eN%boson%mom
        write(*,*)
 
        call write_electronNucleon_event(eN)
@@ -351,12 +352,18 @@ contains
 
        write(*,*) 'Final state particles at hadronic vertex:'
        do j=lbound(f,dim=1),ubound(f,dim=1)
-    !      if (f(j)%ID.ne.0) call WriteParticle_debug(f(j))
-	   call WriteParticle_debug(f(j))
+          ! if (f(j)%ID.ne.0) call WriteParticle_debug(f(j))
+          call WriteParticle_debug(f(j))
        end do
        checkEvent=.false.
 !       call TRACEBACK()
     end if
+
+
+    !   if (.not. checkEvent) then
+	!   write (*,*) 'conservation violated'
+	!   stop
+	!   end if
 
   end function checkEvent
 
@@ -438,7 +445,7 @@ contains
     use eN_event, only: eNeV_GetKinV!,eNeV_CheckForDIS
 !    use PythiaSpecFunc       , only: Init_VM_Mass
 
-    use photonXSections, only: calcXS_gammaN2VN
+    use photonXS, only: calcXS_gammaN2VN
     use mediumDefinition
     use dichteDefinition
     use mediumModule, only: mediumAt,getMediumCutOff
@@ -490,7 +497,7 @@ contains
 
     !===== 1: Calculate cross section:
 
-    media=mediumAt(eN%nucleon%position)
+    media=mediumAt(eN%nucleon%pos)
 
     select case (XSscenario)
     case (1) ! === PYTHIA-like ===
@@ -525,7 +532,7 @@ contains
 
     end select
 
-    fT = fT/ ( 1e3* pi/(eN%lepton_out%momentum(0)*eN%lepton_in%momentum(0)))
+    fT = fT/ ( 1e3* pi/(eN%lepton_out%mom(0)*eN%lepton_in%mom(0)))
     XS = XS*fT ! prevent the XS from dividing by flux
 
     !===== 2: Generate final state:
@@ -537,21 +544,21 @@ contains
     OutPart%ID     = (/ rho, nucleon/)
     OutPart%Charge = (/ 0,   eN%nucleon%Charge /)
 
-    OutPart%perturbative= .true.
+    OutPart%pert= .true.
     OutPart%perWeight   = XS ! perturbative weight
 
     do i=1,2
-       OutPart(i)%position=eN%nucleon%position
+       OutPart(i)%pos=eN%nucleon%pos
        OutPart(i)%event=pert_numbering(eN%nucleon)
     end do
 
-    density=densityAt(eN%nucleon%position)
+    density=densityAt(eN%nucleon%pos)
     if (density%baryon(0).gt.getMediumCutOff()/100. .and. .not.getRMF_flag() ) then
-      betaToLRF = lorentzCalcBeta (density%baryon, 'init_VMDrho')
+      betaToLRF = lorentzCalcBeta(density%baryon)
     else
       betaToLRF=0.
     end if
-    betaToCM = lorentzCalcBeta (pairIN(1)%momentum + pairIN(2)%momentum)
+    betaToCM = lorentzCalcBeta(pairIN(1)%mom + pairIN(2)%mom)
 
     call setKinematics(W,Wfree,betaToLRF,betaToCM,media,pairIN, OutPart,flagOK)
 
@@ -568,7 +575,7 @@ contains
 !    call WriteParticle(6,2,OutPart)
 
     call PIL_rhoDiffractive_PUT(outPart(1)%number,&
-         & .true.,epsR,outPart(2)%momentum)
+         & .true.,epsR,outPart(2)%mom)
 
 !    call write_electronNucleon_event(eN)
 !    call WriteParticle(6,1,OutPart)
@@ -623,10 +630,10 @@ contains
     if (Wfree.le.Wcut1) return
     if (.not.eNeV_CheckForDIS(eN)) return ! avoid infinite loop
 
-    call Init_VM_Mass(Wfree,eN%nucleon%position)
+    call Init_VM_Mass(Wfree,eN%nucleon%pos)
     call DoColl_gammaN_Py(eN,OutPart,flagOK, rVMD, DoDifr, Cross,EventClass,minW=1.0)
 
-    fT = fT/ ( 1e3* pi/(eN%lepton_out%momentum(0)*eN%lepton_in%momentum(0)))
+    fT = fT/ ( 1e3* pi/(eN%lepton_out%mom(0)*eN%lepton_in%mom(0)))
     if (flagOK) XS = 1000*Cross(0)
     if (Wfree.le.Wcut2) XS = XS*(Wfree-Wcut1)/(Wcut2-Wcut1) ! some adhoc W dependence
 
@@ -671,7 +678,6 @@ contains
     use nBodyPhaseSpace, only: momenta_in_3BodyPS
     use ParamEP, only: CalcParamEP
     use energyCalc, only: energyCorrection
-    use mediumModule, only: mediumAt
 
     type(electronNucleon_event) , intent(in)  :: eN
     type(particle), dimension(3), intent(out) :: OutPart
@@ -683,8 +689,6 @@ contains
     real :: nu,Q2,W,Wfree,eps,fT
     real, dimension(0:3) :: ptot
     real, dimension(1:3) :: betaCMToLab = 0.0
-!     type(medium)         :: mediumDUMMY    ! use as DUMMY
-    type(medium)         :: mediumAtPosition
 
     real, dimension(0:3) :: sig2Pi !,sigRes_2pi
 
@@ -698,7 +702,7 @@ contains
     OutPart%ID=0
     OutPart%perweight=0.0
 
-    if (eN%QSquared.ge.5.0) return
+    if (eN%Q2.ge.5.0) return
 
     call eNeV_GetKinV(eN, nu,Q2,W,Wfree,eps,fT)
     qnuk = eN%nucleon_free%charge
@@ -717,7 +721,7 @@ contains
     OutPart(1)%mass=mN
     OutPart(2:3)%mass=mPi
 
-    OutPart(1:3)%antiparticle=.false.
+    OutPart(1:3)%anti=.false.
     OutPart(1:3)%scaleCS=1.
 
     randomNumber=rn()*sig2Pi(0)
@@ -733,21 +737,19 @@ contains
 
     end if
 
-    p3 = momenta_in_3BodyPS (Wfree, OutPart(1:3)%mass)
+    p3 = momenta_in_3BodyPS(Wfree, OutPart(1:3)%mass)
 
     do i=1,3
-       OutPart(i)%momentum(1:3)=p3(:,i)
-       OutPart(i)%momentum(0)=FreeEnergy(OutPart(i))
+       OutPart(i)%mom(1:3)=p3(:,i)
+       OutPart(i)%mom(0)=FreeEnergy(OutPart(i))
     end do
 
     !===== 4: boost the event to the gamma* N system:
 
-    mediumAtPosition=mediumAt(eN%nucleon%position)
-
-    ptot = eN%nucleon%momentum+eN%boson%momentum
+    ptot = eN%nucleon%mom+eN%boson%mom
     betaCMToLab = ptot(1:3)/ptot(0)
 
-    call energyCorrection(W, (/0.,0.,0./), betaCMToLab, mediumAtPosition,OutPart,flagOK)
+    call energyCorrection(W, betaCMToLab, OutPart,flagOK)
 
     !write(*,*) sqrts(OutPart), W
     if (.not.flagOK) then
@@ -769,7 +771,7 @@ contains
 
     !===== 7:  prevent the 2Pi-BG XS from dividing by flux
 
-    XS = XS*fT/ ( 1e3* pi/(eN%lepton_out%momentum(0)*eN%lepton_in%momentum(0)))
+    XS = XS*fT/ ( 1e3* pi/(eN%lepton_out%mom(0)*eN%lepton_in%mom(0)))
     OutPart(1:3)%perWeight=XS
 
     !===== 8:  set some additional fields:
@@ -827,7 +829,7 @@ contains
 
     nu = (Wfree**2-mN**2)/(2*mN)
     gammaMomentum = (/nu,0.0,0.0,nu/)
-    ptot = gammaMomentum + nucleon_free%momentum
+    ptot = gammaMomentum + nucleon_free%mom
     betaCMToLab = ptot(1:3)/ptot(0)
 
     call gamma2pi(nucleon_free%charge,Wfree,sig2pi,betaCMToLab,mediumDUMMY,posDUMMY)
@@ -921,7 +923,7 @@ contains
     XS = 0.0
     OutPart%ID=0
     OutPart%perweight=0.0
-    if (eN%QSquared.ge.5.0) return
+    if (eN%Q2.ge.5.0) return
 
    ! Check for Monte-Carlo-Integrations:
     deltaMonteCarlo=1.
@@ -1114,7 +1116,7 @@ contains
     XS = 0.0
     OutPart%ID=0
     OutPart%perweight=0.0
-    if (eN%QSquared.ge.5.0) return
+    if (eN%Q2.ge.5.0) return
 
     sigma=0.
     ! Evaluate Xsection for each resonance
@@ -1179,8 +1181,8 @@ contains
     OutPart%Charge = (/pionCharge, initNuc%charge-pionCharge/)
     OutPart%Mass =   (/mPi,        mN/)
 
-    OutPart(1)%momentum = kf
-    OutPart(2)%momentum = pf
+    OutPart(1)%mom = kf
+    OutPart(2)%mom = pf
 
     OutPart%perWeight    = xSection ! perturbative weight
 
@@ -1225,7 +1227,7 @@ contains
 
     OutPart(:)%ID      = ID
     OutPart(:)%charge  = initNuc%charge
-    OutPart(1)%momentum= pf
+    OutPart(1)%mom= pf
     OutPart(:)%mass    = mass
     OutPart(:)%perWeight   = xSection ! perturbative weight
 
@@ -1254,9 +1256,9 @@ contains
     number = pert_numbering(initNuc)
 
     do i=1,size(OutPart)
-       OutPart(i)%position=initNuc%position
+       OutPart(i)%pos=initNuc%pos
        OutPart(i)%event=number   ! Important for collision term: Particles won't collide immediately with InitNuc.
-       OutPart(i)%perturbative = .true.
+       OutPart(i)%pert = .true.
     end do
 
   end subroutine setOutPartDefaults

@@ -12,18 +12,20 @@ program test
   call InitParticleProperties
 
 !  call test_NN_tot
-!  call test_NN_NNpi
+!!  call test_NN_NNpi
 
-  call testBarBar_BarBar
+!  call testBarBar_BarBar
 !  call testBarBar_BarBar_chooseCharge
-!   call testDimi
+!!   call testDimi
 
 !   call test_NN_NNeta
 !   call test_NN_NNpieta
 !   call test_NN_NNrho
 !   call test_NN_NNomega
 !   call test_NN_NNpiomega
-!   call test_np_deta
+   call test_np_deta
+
+!  call testhypNuc_hypNuc
 
 contains
 
@@ -50,11 +52,11 @@ subroutine test_NN_tot
   teilchenIn%ID = nucleon
   teilchenIn%mass = mN
 
-  teilchenIn(1)%momentum = (/ mN, 0., 0., 0. /)
-  teilchenIn(2)%momentum = (/ mN, 0., 0., 0. /)
+  teilchenIn(1)%mom = (/ mN, 0., 0., 0. /)
+  teilchenIn(2)%mom = (/ mN, 0., 0., 0. /)
 
   ! force initialization of module 'master_2body'
-  print *,HiEnergyContrib(2.0,teilchenIn%Id,teilchenIn%antiParticle)
+  print *,HiEnergyContrib(2.0,teilchenIn%Id,teilchenIn%anti)
 
   write(*,*) '##########################################################'
   write(*,*) 'Testing pp -> X'
@@ -63,25 +65,39 @@ subroutine test_NN_tot
   teilchenIn%charge = (/1,1/)
 
   do i=1,6000
-    teilchenIn(2)%momentum(3) = i * deltaP  ! p_lab
-    teilchenIn(2)%momentum(0) = Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+    teilchenIn(2)%mom(3) = i * deltaP  ! p_lab
+    teilchenIn(2)%mom(0) = Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
     srts = sqrtS(teilchenIn)
-    if (HiEnergyContrib(srts,teilchenIn%ID,teilchenIn%antiParticle)>=1.0) exit
+    if (HiEnergyContrib(srts,teilchenIn%ID,teilchenIn%anti)>=1.0) exit
     call XsectionBarBar(srts,teilchenIN,mediumATcollision,teilchenOUT,sigmaTot,sigmaElast,pauliIncluded,"pp")
   end do
 
   write(*,*) '##########################################################'
+  write(*,*) 'Testing nn -> X'
+  write(*,*) '##########################################################'
+
+  teilchenIn%charge = (/0,0/)
+
+  do i=1,6000
+    teilchenIn(2)%mom(3) = i * deltaP  ! p_lab
+    teilchenIn(2)%mom(0) = Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
+    srts = sqrtS(teilchenIn)
+    if (HiEnergyContrib(srts,teilchenIn%ID,teilchenIn%anti)>=1.0) exit
+    call XsectionBarBar(srts,teilchenIN,mediumATcollision,teilchenOUT,sigmaTot,sigmaElast,pauliIncluded,"nn")
+ end do
+
+   write(*,*) '##########################################################'
   write(*,*) 'Testing pn -> X'
   write(*,*) '##########################################################'
 
   teilchenIn%charge = (/1,0/)
 
   do i=1,6000
-    teilchenIn(2)%momentum(3) = i * deltaP  ! p_lab
-    teilchenIn(2)%momentum(0) = Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
-    srts = sqrtS(teilchenIn)
-    if (HiEnergyContrib(srts,teilchenIn%ID,teilchenIn%antiParticle)>=1.0) exit
-    call XsectionBarBar(srts,teilchenIN,mediumATcollision,teilchenOUT,sigmaTot,sigmaElast,pauliIncluded,"pn")
+     teilchenIn(2)%mom(3) = i * deltaP  ! p_lab
+     teilchenIn(2)%mom(0) = Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
+     srts = sqrtS(teilchenIn)
+     if (HiEnergyContrib(srts,teilchenIn%ID,teilchenIn%anti)>=1.0) exit
+     call XsectionBarBar(srts,teilchenIN,mediumATcollision,teilchenOUT,sigmaTot,sigmaElast,pauliIncluded,"pn")
   end do
 
   write(*,*) '##########################################################'
@@ -289,19 +305,19 @@ subroutine testbarBar_barBar
   teilchenIN(1:2)%charge = 1
   idOut = (/nucleon,nucleon/)
 
-  teilchenIn(1)%momentum(1:3)=0.
-  teilchenIn(1)%momentum(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%momentum(1:3),teilchenIn(1)%momentum(1:3)))
-  teilchenIn(2)%momentum(1:3)=0.
+  teilchenIn(1)%mom(1:3)=0.
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%mom(1:3),teilchenIn(1)%mom(1:3)))
+  teilchenIn(2)%mom(1:3)=0.
 
   Open(100,File='barBar_Test_protProt.dat')
   write(100,*) '# srts, pLab, sigma proton proton-> proton proton'
   write(*,*) 'nuk nuk -> nuk  nuk'
   Do i=1,2000
-     teilchenIn(2)%momentum(1)=i*0.0025
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(100,'(3F12.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(100,'(3F12.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   end Do
   close(100)
 
@@ -312,11 +328,11 @@ subroutine testbarBar_barBar
   write(100,*) '# srts, pLab, sigma neutron neutron-> neutron neutron'
   write(*,*) 'nuk nuk -> nuk  nuk'
   Do i=1,2000
-     teilchenIn(2)%momentum(1)=i*0.0025
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(100,'(3F12.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(100,'(3F12.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   end Do
   close(100)
 
@@ -327,11 +343,11 @@ subroutine testbarBar_barBar
   write(100,*) '# srts, pLab, sigma neutron proton-> neutron proton'
   write(*,*) 'nuk nuk -> nuk  nuk'
   Do i=1,2000
-     teilchenIn(2)%momentum(1)=i*0.0025
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(100,'(3F12.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(100,'(3F12.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   end Do
   close(100)
 
@@ -345,11 +361,11 @@ subroutine testbarBar_barBar
   write(101,*) '# srts, pLab, sigma proton proton-> nucleon Delta'
   write(*,*) 'nuk nuk -> nuk  delta'
   Do i=1,2000
-     teilchenIn(2)%momentum(1)=i*0.0025
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(101,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(101,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   End do
   close(101)
 
@@ -363,11 +379,11 @@ subroutine testbarBar_barBar
   write(101,*) '# srts, pLab, sigma proton delta+-> nucleon nucleon'
   write(*,*) 'nuk nuk -> nuk  delta'
   Do i=1,2000
-     teilchenIn(2)%momentum(1)=i*0.0025
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(101,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(101,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   End do
   close(101)
 
@@ -381,11 +397,11 @@ subroutine testbarBar_barBar
   write(101,*) '# srts, pLab, sigma proton delta+-> nucleon delta'
   write(*,*) 'nuk nuk -> nuk  delta'
   Do i=1,2000
-     teilchenIn(2)%momentum(1)=i*0.0025
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(101,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(101,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   End do
   close(101)
 
@@ -401,11 +417,11 @@ subroutine testbarBar_barBar
   write(102,*) '# srts, pLab, sigma proton neutron-> Delta Delta'
   write(*,*) 'nuk nuk -> delta  delta'
   Do i=1,200
-     teilchenIn(2)%momentum(1)=i*0.05
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.05
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(102,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(102,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   End do
   close(102)
 
@@ -417,17 +433,17 @@ subroutine testbarBar_barBar
   teilchenIn(1:2)%mass = hadron(delta)%mass
   idOut = (/nucleon,nucleon/)
 
-  teilchenIn(1)%momentum(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%momentum(1:3),teilchenIn(1)%momentum(1:3)))
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%mom(1:3),teilchenIn(1)%mom(1:3)))
 
   Open(103,File='barBar_Test_deltadelta_nuknuk.dat')
   write(103,*) '# srts, pLab, sigma proton neutron <- Delta Delta'
   write(*,*) 'delta  delta -> nuk nuk'
   Do i=1,200
-     teilchenIn(2)%momentum(1)=i*0.02
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.02
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(103,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(103,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   End do
   close(103)
 
@@ -439,17 +455,17 @@ subroutine testbarBar_barBar
   teilchenIn(1:2)%mass = mN
   idOut = (/nucleon,P11_1440/)
 
-  teilchenIn(1)%momentum(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%momentum(1:3),teilchenIn(1)%momentum(1:3)))
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%mom(1:3),teilchenIn(1)%mom(1:3)))
 
   Open(104,File='barBar_Test_nuknuk_nukP11.dat')
   write(104,*) '# srts, pLab, sigma proton neutron -> nucleon P11_1440'
   write(*,*) 'nuk nuk -> nuk P11_1440'
   Do i=1,200
-     teilchenIn(2)%momentum(1)=i*0.02
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.02
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
-     write(104,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(104,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
   End do
   close(104)
 
@@ -465,13 +481,13 @@ subroutine testbarBar_barBar
   write(105,*) '# srts, pLab, sigma proton neutron <- nucleon P11_1440'
   write(*,*) 'nuk nuk -> nuk P11_1440'
   Do i=1,200
-     teilchenIn(2)%momentum(1)=i*0.02
-     teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+     teilchenIn(2)%mom(1)=i*0.02
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
      srts=sqrtS(teilchenIn(1),teilchenIn(2))
 
      idOut=(/nucleon,nucleon/)
-     write(105,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
-     !write(*,'(3F10.3)') srts, teilchenIn(2)%momentum(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     write(105,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
+     !write(*,'(3F10.3)') srts, teilchenIn(2)%mom(1),sigmaBB(teilchenIN,idOut,vacuum,srts,pauliIncluded)
 
   End do
   close(104)
@@ -503,44 +519,44 @@ subroutine testbarBar_barBar_chooseCharge
   teilchenIn%ID=nucleon
   teilchenIN%charge=1
   teilchenIn(1)%mass=mN
-  teilchenIn(1)%momentum(1:3)=0.
-  teilchenIn(1)%momentum(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%momentum(1:3),teilchenIn(1)%momentum(1:3)))
+  teilchenIn(1)%mom(1:3)=0.
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%mom(1:3),teilchenIn(1)%mom(1:3)))
 
   teilchenIn(2)%mass=mN
-  teilchenIn(2)%momentum(1:3)=0.
-  teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+  teilchenIn(2)%mom(1:3)=0.
+  teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
 
   idOut=(/Delta, nucleon/)
 
   count=0
-  do i=1,1000
+  do i=1,100000
      chargeOut = chooseCharge(teilchenIN,idOut)
 !     Write (*,*) chargeOut
      if (chargeOut(1)==1) count=count+1
   End do
-  write(*,*) 'Probability for 1,1:', count/1000.
+  write(*,*) 'Probability for 1,1:', count/100000.
 
 
   !!! Proton Delta+ -> Delta nucleon
   teilchenIn%ID=(/nucleon,delta/)
   teilchenIN%charge=1
   teilchenIn(1)%mass=mN
-  teilchenIn(1)%momentum(1:3)=0.
-  teilchenIn(1)%momentum(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%momentum(1:3),teilchenIn(1)%momentum(1:3)))
+  teilchenIn(1)%mom(1:3)=0.
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%mom(1:3),teilchenIn(1)%mom(1:3)))
 
   teilchenIn(2)%mass=hadron(delta)%mass
-  teilchenIn(2)%momentum(1:3)=0.
-  teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%momentum(1:3),teilchenIn(2)%momentum(1:3)))
+  teilchenIn(2)%mom(1:3)=0.
+  teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
 
   idOut=(/Delta, nucleon/)
 
   count=0
-  do i=1,1000
+  do i=1,100000
      chargeOut = chooseCharge(teilchenIN,idOut)
 !     Write (*,*) chargeOut
      if (chargeOut(1)==1) count=count+1
   End do
-  write(*,*) 'Probability for 1,1:', count/1000.
+  write(*,*) 'Probability for 1,1:', count/100000.
 
 end subroutine testbarBar_barBar_chooseCharge
 
@@ -855,17 +871,142 @@ end subroutine testdimi
     use barBar_Main, only : eta_deuteron
     use constants, only: mN
     integer :: i
-    real :: srts
+    real :: srts, h,h0
 
     Open(201,File='eta_deuteron.dat')
 
-    do i=1,300
-      srts = 2.*mN + 0.400 + i*0.001
-      write (201,'(2F10.6)') srts, eta_deuteron(srts)
+    do i=1,600
+      srts = 2.*mN + 0.400 + i*0.0005
+      !      write (201,'(2F10.6)') srts, eta_deuteron(srts)
+      h0 = eta_deuteron(srts)
+      h = simple_eta_deuteron(srts)
+      write(201,'(5F10.6)') srts, h0,h,h0-h
     end do
 
     close(201)
 
   end subroutine
+
+!***********************************************************************
+!***********************************************************************
+
+  real function simple_eta_deuteron(srts)
+
+    use constants, only: mN
+    use particleProperties, only: hadron
+    use IdTable, only: eta
+    use inputGeneral, only: path_to_input
+    !    use spline, only: Bsplint2
+
+    real, intent(in) :: srts
+    logical, save :: first = .true.
+    real, save :: sigma_field(100,1:2)
+    real :: Q, w, Qmax, dQ
+    integer :: iQ
+
+    integer :: ios, i
+    character(1000) :: filename
+
+    if (first) then
+
+      filename = trim(path_to_input) // "/eta_deuteron_spline.txt"
+
+      open(100,file=trim(filename),status='old',ioStat=ios)
+
+      if (ios/=0) then
+        write(*,*) 'ERROR in eta_deuteron'
+        write(*,*) 'File', filename, " is not available"
+        stop
+      end if
+
+      ! read data from file
+      ! first column: Q in MeV
+      ! second columb: cross section in microbarn
+      do i=1,100
+        read(100,*) sigma_field(i,1), sigma_field(i,2)
+!         print *,i,sigma_field(i,1:2)
+      end do
+
+      close(100)
+      first = .false.
+
+    end if
+
+
+    Q = (srts - 2*mN - hadron(eta)%mass)*1.0E3  ! excess energy in MeV
+
+    Qmax = sigma_field(100,1)
+    dQ = Qmax/99
+
+    if (Q < 0.) then
+       simple_eta_deuteron = 0.
+    else if (Q > Qmax) then
+       simple_eta_deuteron = sigma_field(100,2)
+    else
+       iQ = floor(Q/Qmax*99)+1
+       if (iQ<99) then
+          w = (Q-sigma_field(iQ,1))/dQ
+          simple_eta_deuteron = (1.-w)*sigma_field(iQ,2)+w*sigma_field(iQ+1,2)
+       else
+          simple_eta_deuteron = sigma_field(100,2)
+       end if
+
+!       write(*,*) Q,iQ,sigma_field(iQ,1),w
+
+!      eta_deuteron = Bsplint2(sigma_field(1:100,1),sigma_field(1:100,2),Q)
+    end if
+
+    simple_eta_deuteron = simple_eta_deuteron * 1.0E-3  ! convert to mb
+!    simple_eta_deuteron = 0.0
+
+
+  end function simple_eta_deuteron
+
+!***********************************************************************
+!***********************************************************************
+
+
+subroutine testhypNuc_hypNuc
+  ! to test the module hypNuc_hypNuc
+  use particleDefinition
+  use particleProperties, only: hadron
+  use IdTable, only: nucleon, Lambda
+  use hypNuc_hypNuc, only: hypNuc_hypNuc_Main
+  use constants, only: mN
+
+  type(particle), dimension(1:2) :: teilchenIN
+  real, dimension(1:4)              :: Sigma_YN         ! Cross section for Hyperon N -> Hyperon N
+  real :: srts
+  integer :: i
+
+  write(*,*) '##########################################################'
+  write(*,*) 'Testing hypNuc_hypNuc: hypNuc_hypNuc_Main'
+  write(*,*) '##########################################################'
+
+  !*******************************************************************************
+
+  ! (1) p Lambda -> X
+  teilchenIn(1:2)%ID = (/nucleon,Lambda/)
+  teilchenIn(1:2)%mass = (/mn,hadron(Lambda)%mass/)
+  teilchenIN(1:2)%charge = (/1,0/)
+
+  teilchenIn(1)%mom(1:3)=0.
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+Dot_Product(teilchenIn(1)%mom(1:3),teilchenIn(1)%mom(1:3)))
+  teilchenIn(2)%mom(1:3)=0.
+
+  Open(100,File='hypNuc_Test_pL.dat')
+  write(*,*) '# Lambda p collision, partial cross sections in mb'
+  write(100,*) '# srts, pLab,  Lambda proton,  Sigma^+ neutron,  Sigma^0 proton'
+  Do i=1,2000
+     teilchenIn(2)%mom(1)=i*0.0025
+     teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+Dot_Product(teilchenIn(2)%mom(1:3),teilchenIn(2)%mom(1:3)))
+     srts=sqrtS(teilchenIn(1),teilchenIn(2))
+     Sigma_YN = hypNuc_hypNuc_Main (srts,teilchenIn)
+     write(100,'(5F12.3)') srts, teilchenIn(2)%mom(1), Sigma_YN(1:3)
+  end Do
+  close(100)
+
+end subroutine testhypNuc_hypNuc
+
 
 end program test

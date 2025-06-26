@@ -222,7 +222,7 @@ contains
        else
           nDelta=2
        end if
-       if (partIn(nDelta)%antiparticle) then
+       if (partIn(nDelta)%anti) then
           I3_Delta=2*partIn(nDelta)%charge+1  ! twice I3 projection by Gell-Mann - Nishidjima formula
        else
           I3_Delta=2*partIn(nDelta)%charge-1

@@ -314,6 +314,37 @@ module initHiLepton
   ! the hadron beam energy, if iExperiment=EIC
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* initHiLepton/equalWeights_Mode
+  ! SOURCE
+  integer, save :: equalWeights_Mode = 0
+  !
+  ! PURPOSE
+  ! possible values are:
+  ! * 0: default perweight mode is used (default)
+  ! * 1: default perweight mode is used, but max is printed
+  ! * 2: MC rejection method is used.
+  !
+  ! In the default mode, the perweights of the final particles are given by
+  ! cross section/(A * numEnsembles)
+  !
+  ! If equalWeightsMode==2, then the perweights are given by
+  ! equalWeights_Max/(A * numEnsembles)
+  !
+  !****************************************************************************
+
+
+  !****************************************************************************
+  !****g* initHiLepton/equalWeights_Max
+  ! SOURCE
+  real, save :: equalWeights_Max = -1e99
+  !
+  ! PURPOSE
+  ! The maximum value the MC-rejection method is done against.
+  !****************************************************************************
+
+  real, save :: ww = -99.9 ! for equalWeights mode
+
 contains
 
   !****************************************************************************
@@ -359,7 +390,7 @@ contains
 
     use particleDefinition
     use nucleusDefinition
-    use baryonPotentialModule, only: getNoPertPot_baryon
+    use baryonPotentialMain, only: getNoPertPot_baryon
     use checks, only: ChecksCallEnergy
     use CollHistory, only: CollHist_ClearArray,CollHist_UpdateHist
     use constants, only: mN
@@ -369,8 +400,8 @@ contains
     use EventInfo_HiLep, only: EventInfo_HiLep_Init,EventInfo_HiLep_Store, &
          EventInfo_HiLep_Dump
     use hadronFormation, only: forceInitFormation
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use insertion, only: FindLastUsed, setIntoVector
     use ParamEP, only: ParamEP_R1990
     use pauliBlockingModule, only: checkPauli
@@ -382,6 +413,7 @@ contains
     use residue, only: InitResidue, ResidueAddPH, ResidueSetWeight
     use collisionNumbering, only:  real_numbering
     use RMF, only: getRMF_flag
+    use callstack, only: traceback
 
     type(particle), dimension(:,:),intent(inout),TARGET :: rParts
     type(particle), dimension(:,:),intent(inout),TARGET :: pParts
@@ -506,7 +538,7 @@ contains
     weight1 = 1.0 ! Only for h2D_nuQ2_FluxW !!!
     weight2 = 1.0 ! Only for h2D_nuQ2_FluxW !!!
 
-    ! Initialize target residue determination (for analysis only):
+    ! Initialize target residue determination:
     if (realRun) then
        pArr => rParts
        call InitResidue(nEns,1,targetNuc%mass,targetNuc%charge)
@@ -516,7 +548,7 @@ contains
     end if
 
     ! setting last collision time of all target nucleons to the past:
-    rParts%lastCollisionTime = -9.9 ! DUMMY value
+    rParts%lastCollTime = -9.9 ! DUMMY value
 
     do iEns=1,nEns
        if (realRun) iiPart = int(rn()*nPart)+1 ! int just cuts the digits!
@@ -532,7 +564,7 @@ contains
 
           if (getRMF_flag()) then
              E0=FreeEnergy(target)
-             target%momentum(0)=E0
+             target%mom(0)=E0
           end if
 
           nTries2 = 0
@@ -565,7 +597,7 @@ contains
 !!$          call write_electronNucleon_event(eNev_RunData, .false.)
 
           call eNeV_GetKinV(eNev_RunData, nu,Q2,W,Wfree,eps)
-          phiLep = atan2(eNev_RunData%lepton_in%momentum(2),eNev_RunData%lepton_in%momentum(1))
+          phiLep = atan2(eNev_RunData%lepton_in%mom(2),eNev_RunData%lepton_in%mom(1))
 
           R = ParamEP_R1990(W,Q2)
           call AddHist2D(h2D_nuQ2_Eps, (/nu,Q2/), 1.0,eps)
@@ -574,7 +606,7 @@ contains
           call AddHist2D(h2D_nuQ2_Flux, (/nu,Q2/), 1.0)
           call AddHist2D(h2D_nuQ2_FluxW, (/nu,Q2/), weight2, weight1)
 
-          ptot = eNev_RunData%boson%momentum +(/mN,0.,0.,0./)
+          ptot = eNev_RunData%boson%mom +(/mN,0.,0.,0./)
 
           call AddHist2D(h2D_WvsWfree, (/W,Wfree/), 1.0)
           call AddHist2D(h2D_WvsW0,    (/W,sqrt(ptot(0)**2-sum(ptot(1:3)**2)) /), 1.0)
@@ -583,13 +615,13 @@ contains
           if (ModusCalcFluxNorm) cycle ParticleLoop ! do not really generate events
 
           ! save W & position for calls of VM_Mass (Otherwise VM_Mass doesn't know about srts!!)
-          call Init_VM_Mass(Wfree,target%position)
+          call Init_VM_Mass(Wfree,target%pos)
 
 !          write(*,'(i3,A,1P,10g12.5)') ipart,'  nu,Q2,Ebeam,eps,W = ',nu,Q2,Ebeam,eps,W
 
           !...shadowing
           if (shadow) then
-             scaleVMD = AeffCalc(targetNuc,target%position,nu,Q2)
+             scaleVMD = AeffCalc(targetNuc,target%pos,nu,Q2)
           else
              scaleVMD = 1.
           end if
@@ -627,6 +659,35 @@ contains
 
              if (.not.flagOK) cycle RetryLoop
 
+             ! In the 'equal-weights-mode', we have to do an additional
+             ! rejection:
+             if(equalWeights_Mode>0) then
+
+                if (abs(XS_tot)> ww) then
+                   ww = abs(XS_tot)
+                   write(87,*) ww
+                   flush(87)
+                end if
+
+                if(equalWeights_Mode>1) then
+                   if (XS_tot > equalWeights_Max) then
+                      write(*,*) 'XS_tot > equalWeights_Max: ',&
+                           XS_tot,equalWeights_Max
+                      call TRACEBACK("You have to increase 'equalWeights_Max'.")
+                   end if
+
+                   if (XS_tot < rn()*equalWeights_Max) &
+                        cycle ParticleLoop ! ==> event rejected
+
+                   XS_Arr     = XS_Arr     * equalWeights_Max/XS_tot
+                   XS_Arr_low = XS_Arr_low * equalWeights_Max/XS_tot
+
+                   XS_tot = sign(equalWeights_Max, XS_tot)   ! --> perweight
+
+                end if
+
+             end if
+
              outPart%perWeight = XS_tot
 
              !...test charge, baryon, energy and momentum conservation
@@ -648,7 +709,7 @@ contains
 
           if (useProductionPos) call setProductionPos(outPart)
 
-          ! Add a hole in the target nucleus (analysis only):
+          ! Add a hole in the target nucleus:
           call ResidueAddPH(outPart(1)%firstEvent,rParts(iEns,iPart))
           call ResidueSetWeight(outPart(1)%firstEvent,outPart(1)%perweight)
 
@@ -658,7 +719,7 @@ contains
 
           posOut = 0
           if (realRun) then
-             outPart%perturbative = .false.
+             outPart%pert = .false.
              number=real_numbering()
              outPart%event(1)=number
              outPart%event(2)=number
@@ -678,7 +739,7 @@ contains
 
           iNr = iPart
           if (realRun) iNr = -1
-          call EventInfo_HiLep_Store(iEns,iNr,XS_tot,nu,Q2,eps,channel,Ebeam,phiLep,W,target%position)
+          call EventInfo_HiLep_Store(iEns,iNr,XS_tot,nu,Q2,eps,channel,Ebeam,phiLep,W,target%pos,target%mom,target%charge)
 
           !...Delete particles with small momenta !!!
 
@@ -686,7 +747,7 @@ contains
              if (posOut(2,i).lt.1) cycle
              pPart => pArr(posOut(1,i),posOut(2,i))
              if (pPart%ID <= 0) cycle
-             if (DOT_PRODUCT(pPart%momentum(1:3),pPart%momentum(1:3)) .lt. minimumMomentum**2) then
+             if (DOT_PRODUCT(pPart%mom(1:3),pPart%mom(1:3)) .lt. minimumMomentum**2) then
                 if (DoPr(1)) write(*,*) '~~~ Deleting particle (momentum too small).'
                 if (DoPr(1)) call WriteParticle(6,posOut(1,i),posOut(2,i),pPart)
                 pPart%ID = 0
@@ -703,17 +764,17 @@ contains
 !!$
 !!$             if (pPart%ID .ne. 103) cycle ! only rho
 !!$             if (pPart%charge .ne. 0) cycle ! only rho0
-!!$             if (pPart%momentum(0) .lt. 0.9*nu) cycle ! only rho0 with z>0.9
+!!$             if (pPart%mom(0) .lt. 0.9*nu) cycle ! only rho0 with z>0.9
 !!$
-!!$             call AddHist(h_RhoTP, pPart%productionTime,XS_tot)
-!!$             call AddHist(h_RhoTF, pPart%formationTime,XS_tot)
+!!$             call AddHist(h_RhoTP, pPart%prodTime,XS_tot)
+!!$             call AddHist(h_RhoTF, pPart%formTime,XS_tot)
 !!$
 !!$          end do
 
           !... Some statistics per target nucleon:
 
-          bZ = target%position(3)
-          bT = sqrt(target%position(1)**2+target%position(2)**2)
+          bZ = target%pos(3)
+          bT = sqrt(target%pos(1)**2+target%pos(2)**2)
           call AddHist2D(h2D_shad,(/bZ,bT/),XS_Arr(1),scaleVMD(1)*XS_Arr(1))
           call AddHist2D(h2D_Pos, (/bZ,bT/),XS_tot)
 
@@ -743,7 +804,7 @@ contains
     if (DoPr(2)) write(*,*) '^^'
 
     W = sqrt(max(0., mN**2+2*mN*nu-Q2))
-!    write(165,'(20ES14.5)') nu,Q2,W,eps, Sum_XS*mul1, Sum_XS_Arr_low*mul1, Sum_XS_Arr*mul1
+    write(165,'(20ES14.5)') nu,Q2,W,eps, Sum_XS*mul1, Sum_XS_Arr_low*mul1, Sum_XS_Arr*mul1
 
     if (DoStatistics) then
 
@@ -820,6 +881,8 @@ contains
     ! * user_qsqmax
     ! * user_maxw
     ! * earlyPauli
+    ! * equalWeights_Mode
+    ! * equalWeights_Max
     !**************************************************************************
     NAMELIST /HiLeptonNucleus/ iExperiment,shadow, &
          minimumMomentum, ModusCalcFluxNorm, iDetector, &
@@ -832,7 +895,8 @@ contains
          user_xBmin, &
          user_qsqmin, user_qsqmax, &
          user_maxw, &
-         earlyPauli
+         earlyPauli, &
+         equalWeights_Mode, equalWeights_Max
 
     character(40), dimension(0:20) :: NN
     character(40), dimension(0: 5) :: ND
@@ -917,6 +981,14 @@ contains
     write(*,*) '  realRun            =',realRun
     write(*,*) '  DoStatistics       =',DoStatistics
     write(*,*) '  EarlyPauli         =',EarlyPauli
+    write(*,*)
+
+    write(*,*) '  equalWeights:',equalWeights_Mode, equalWeights_Max
+    if(equalWeights_Mode>1) then
+       if (equalWeights_Max <= 0.) then
+          call TRACEBACK("You have to give 'equalWeights_Max'.")
+       end if
+    end if
     write(*,*)
 
     if (realRun) then
@@ -1305,168 +1377,20 @@ contains
   subroutine initFixedKin
 
     use eN_eventDefinition, only: write_electronNucleon_event
-    use eN_event, only: eNeV_GetKinV,eNev_SetProcess, &
-         eNev_init_exW,eNev_init_eWQ,eNev_init_exQ,eNev_init_enQ, &
-         eNev_init_sWQ,eNev_init_sxQ,eNev_init_snQ, &
-         eNev_init_BWQ,eNev_init_BWx,eNev_init_BnQ
+    use eN_event, only: eNev_readFixedKin, eNev_GetKinV
     use ParamEP, only: ParamEP_R1990
-    use output, only: Write_ReadingInput
     use callstack, only: traceback
 
-    !**************************************************************************
-    !****g* initFixedKin/nu
-    ! SOURCE
-    real :: nu = -99.9
-    ! PURPOSE
-    ! Photon energy [GeV]
-    !**************************************************************************
-
-    !**************************************************************************
-    !****g* initFixedKin/Q2
-    ! SOURCE
-    real :: Q2 = -99.9
-    ! PURPOSE
-    ! transfer four momentum squared [GeV^2]
-    !**************************************************************************
-
-    !**************************************************************************
-    !****g* initFixedKin/eps
-    ! SOURCE
-    real :: eps =-99.9
-    ! PURPOSE
-    ! Photon polarisation [1]
-    !**************************************************************************
-
-    !**************************************************************************
-    !****g* initFixedKin/srts
-    ! SOURCE
-    real :: srts = -99.9
-    ! PURPOSE
-    ! sqrt(s) of electron nucleon system [GeV]
-    !**************************************************************************
-
-    !**************************************************************************
-    !****g* initFixedKin/W
-    ! SOURCE
-    real :: W = -99.9
-    ! PURPOSE
-    ! sqrt(s) of photon nucleon system [GeV]
-    !**************************************************************************
-
-    !**************************************************************************
-    !****g* initFixedKin/xBj
-    ! SOURCE
-    real :: xBj = -99.9
-    ! PURPOSE
-    ! Bjorken x [1]
-    !**************************************************************************
-
-    integer :: ios
     logical :: flagOK
-    real :: R
+    real :: nu,Q2,W,eps,Ebeam, R
 
-    !**************************************************************************
-    !****n* initHiLepton/HiPhotonKinematics
-    ! NAME
-    ! NAMELIST /HiPhotonKinematics/
-    ! PURPOSE
-    ! Namelist for initHiLepton in the case of iExperiment=0 includes:
-    ! * nu
-    ! * Q2
-    ! * eps
-    ! * srts
-    ! * W
-    ! * xBj
-    ! * Ebeam
-    ! NOTES
-    ! you have to give a valid combination of three of them.
-    !**************************************************************************
-    NAMELIST /HiPhotonKinematics/ nu,Q2,eps,srts,W,xBj,Ebeam
-
-    iDetector = 90
-    Ebeam = -99.9
-
-    call Write_ReadingInput('HiPhotonKinematics',0)
-    rewind(5)
-    read(5,nml=HiPhotonKinematics,iostat=ios)
-    call Write_ReadingInput('HiPhotonKinematics',0,ios)
-
-    call eNev_SetProcess(eNev_InitData, 1,1)  ! set to EM and electron
-
-    flagOK = .false.
-    if (eps .gt. 0) then
-       if(W.gt.0 .and. xBj.gt.0) then
-          write(*,*) 'eNev_init_exW(eps,xBj,W)'
-          write(*,*) '       ',eps,xBj,W
-          call eNev_init_exW(eNev_InitData,eps,xBj,W,flagOK)
-
-       else if (W .gt. 0) then
-          write(*,*) 'eNev_init_eWQ(eps,W,Q2)'
-          write(*,*) '       ',eps,W,Q2
-          call eNev_init_eWQ(eNev_InitData, eps,W,Q2, flagOK)
-
-       else if (xBj .gt. 0) then
-          write(*,*) 'eNev_init_exQ(eps,xBj,Q2)'
-          write(*,*) '       ',eps,xBj,Q2
-          call eNev_init_exQ(eNev_InitData, eps,xBj,Q2, flagOK)
-
-       else if (nu .gt. 0) then
-          write(*,*) 'eNev_init_enQ(eps,nu,Q2)'
-          write(*,*) '       ',eps,nu,Q2
-          call eNev_init_enQ(eNev_InitData, eps,nu,Q2, flagOK)
-
-       else
-          call TRACEBACK('you must provide W or xBj or nu!')
-       end if
-    else if (srts .gt. 0) then
-       if (W .gt. 0) then
-          write(*,*) 'eNev_init_sWQ(srts,W,Q2)'
-          write(*,*) '       ',srts,W,Q2
-          call eNev_init_sWQ(eNev_InitData, srts,W,Q2, flagOK)
-
-       else if (xBj .gt. 0) then
-          write(*,*) 'eNev_init_sxQ(srts,xBj,Q2)'
-          write(*,*) '       ',srts,xBj,Q2
-          call eNev_init_sxQ(eNev_InitData, srts,xBj,Q2, flagOK)
-
-       else if (nu .gt. 0) then
-          write(*,*) 'eNev_init_snQ(srts,nu,Q2)'
-          write(*,*) '       ',srts,nu,Q2
-          call eNev_init_snQ(eNev_InitData, srts,nu,Q2, flagOK)
-
-       else
-           call TRACEBACK('you must provide W or xBj or nu!')
-       end if
-    else if (Ebeam .gt. 0) then
-
-       if (xBj .gt. 0) then
-          write(*,*) 'eNev_init_BWx(Ebeam,W,xBj)'
-          write(*,*) '       ',Ebeam,W,xBj
-          call eNev_init_BWx(eNev_InitData, Ebeam,W,xBj, flagOK)
-
-       else if (W .gt. 0) then
-          write(*,*) 'eNev_init_BWQ(Ebeam,W,Q2)'
-          write(*,*) '       ',Ebeam,W,Q2
-          call eNev_init_BWQ(eNev_InitData, Ebeam,W,Q2, flagOK)
-
-       else if (nu .gt. 0) then
-          write(*,*) 'eNev_init_BnQ(Ebeam,nu,Q2)'
-          write(*,*) '       ',Ebeam,nu,Q2
-          call eNev_init_BnQ(eNev_InitData, Ebeam,nu,Q2, flagOK)
-
-       else
-          call TRACEBACK('you must provide W or xBj or nu!')
-       end if
-    else
-       call TRACEBACK('you must provide eps or srts or Ebeam!')
-    end if
-
+    call eNev_readFixedKin(eNev_InitData, flagOK)
     if (.not.flagOK) call TRACEBACK('kinematics not allowed!')
 
     call write_electronNucleon_event(eNev_InitData, .false., .true.)
 
     call eNeV_GetKinV(eNev_InitData, nu,Q2,W,eps=eps)
-    Ebeam = eNev_InitData%lepton_in%momentum(0)
+    Ebeam = eNev_InitData%lepton_in%mom(0)
     write(*,*) '  nu   =',nu
     write(*,*) '  Q2   =',Q2
     write(*,*) '  W    =',W
@@ -1475,8 +1399,6 @@ contains
     R = ParamEP_R1990(W,Q2)
     write(*,*) '  R1990=',R
 
-
-    call Write_ReadingInput('HiPhotonKinematics',1)
 
     numin = nu - 0.1
     numax = nu + 0.1
@@ -1676,7 +1598,7 @@ contains
        if (.not.flagOK) cycle fluxLoop
        call eNeV_Set_PhiLepton(eNev,rn()*2.*pi)
 
-       eNev%nucleon%momentum = pTarget%momentum
+       eNev%nucleon%mom = pTarget%mom
 
        call eNeV_GetKinV(eNev, nu,Q2,W,fT=wtest)
 
@@ -1688,8 +1610,8 @@ contains
        weight1 = wtest
 
        if (AccFlag) then
-          pLepScatt=sqrt(Dot_product(eNev%lepton_out%momentum(1:3),eNev%lepton_out%momentum(1:3)))
-          thetaLepScatt=theta_in(eNev%lepton_in%momentum(1:3),eNev%lepton_out%momentum(1:3),2)
+          pLepScatt=sqrt(Dot_product(eNev%lepton_out%mom(1:3),eNev%lepton_out%mom(1:3)))
+          thetaLepScatt=theta_in(eNev%lepton_in%mom(1:3),eNev%lepton_out%mom(1:3),2)
           wtest=wtest*AccWeight(iDetector, &
                eNev%lepton_out%ID,eNev%lepton_out%charge, &
                pLepScatt,thetaLepScatt)
@@ -2065,9 +1987,10 @@ contains
   logical function checkConservation(eNev,outPart,channel)
 
     use particleDefinition
-    use baryonPotentialModule, only: getNoPertPot_baryon
+    use baryonPotentialMain, only: getNoPertPot_baryon
     use Electron_origin, only: origin_2p2hQE,origin_2p2hDelta
     use output, only: DoPr
+    use RMF, only: getRMF_flag
 
     type(electronNucleon_event),intent(in)   :: eNev
     type(particle),dimension(:),intent(inout):: outPart
@@ -2095,15 +2018,15 @@ contains
     call setToDefault(outSUM)
     outSUM_nBaryon = 0
 
-    inMomentum = eNev%boson%momentum + eNev%nucleon_free%momentum
+    inMomentum = eNev%boson%mom + eNev%nucleon_free%mom
 
 
     do i=1,size(outPart)
        if (outPart(i)%ID <= 0) cycle
        outSUM%charge  = outSUM%charge  + outPart(i)%charge
-       outSUM%momentum= outSUM%momentum+ outPart(i)%momentum
+       outSUM%mom= outSUM%mom+ outPart(i)%mom
        if (outPart(i)%ID .lt. 100) then
-          if (outPart(i)%antiparticle) then
+          if (outPart(i)%anti) then
              outSUM_nBaryon = outSUM_nBaryon - 1
           else
              outSUM_nBaryon = outSUM_nBaryon + 1
@@ -2123,31 +2046,33 @@ contains
 
     if (outSUM_nBaryon .ne. 1) then
        if (DoPr(2)) write(*,'(A,i5,l3)') 'Problem in initHiLepton: baryon number not conserved',&
-            outSUM_nBaryon, eNev%nucleon%antiparticle
+            outSUM_nBaryon, eNev%nucleon%anti
        return
     end if
 
-    if ((.not.realRun).and.(getNoPertPot_baryon())) then
+    if (.not.getRMF_flag()) then
+       if ((.not.realRun).and.(getNoPertPot_baryon())) then
 
-       !...energy:
+          !...energy:
+          if ( abs(outSUM%mom(0)-inMomentum(0)) .gt. 1e-2*inMomentum(0)) then
+             if (DoPr(2)) write(*,'(A,1P,2e14.5)') &
+                  'Problem in initHiLepton: energy not conserved',&
+                  outSUM%mom(0),inMomentum(0)
+             return
+          end if
 
-       if ( abs(outSUM%momentum(0)-inMomentum(0)) .gt. 1e-2*inMomentum(0)) then
-          if (DoPr(2)) write(*,'(A,1P,2e14.5)') 'Problem in initHiLepton: energy not conserved',&
-               outSUM%momentum(0),inMomentum(0)
-          return
+          !...momentum:
+          if (doMom) then
+             do i=1,3
+                if ( abs(outSUM%mom(i)-inMomentum(i)) .gt. max(1e-3,1e-2*abs(inMomentum(i)))) then
+                   if (DoPr(2)) write(*,'(A,1P,i3,2e14.5)') &
+                        'Problem in initHiLepton: mom not conserved',&
+                        i,outSUM%mom(i),inMomentum(i)
+                   return
+                end if
+             end do
+          end if
        end if
-
-       !...momentum:
-       if (doMom) then
-          do i=1,3
-             if ( abs(outSUM%momentum(i)-inMomentum(i)) .gt. max(1e-3,1e-2*abs(inMomentum(i)))) then
-                if (DoPr(2)) write(*,'(A,1P,i3,2e14.5)') 'Problem in initHiLepton: mom not conserved',&
-                     i,outSUM%momentum(i),inMomentum(i)
-                return
-             end if
-          end do
-       end if
-
     end if
 
     checkConservation = .TRUE.

@@ -105,9 +105,9 @@ contains
           Ex           = TheSource(NumEns,j)%ExEnergy
 
           if (EventType .ne. 2) then
-             beta(1)      = TheSource(NumEns,j)%velocity(1)
-             beta(2)      = TheSource(NumEns,j)%velocity(2)
-             beta(3)      = TheSource(NumEns,j)%velocity(3)
+             beta(1)      = TheSource(NumEns,j)%vel(1)
+             beta(2)      = TheSource(NumEns,j)%vel(2)
+             beta(3)      = TheSource(NumEns,j)%vel(3)
           else
              beta(:) = 0.0 ! for p+X E_exc is calculated in target rest frame!!!
                            ! Do not boost 4-momenta of SMM fragments for p+X !!!
@@ -185,7 +185,7 @@ contains
                    write(*,*) 'Termination of the program'
                    STOP
                 endif
-                Pos(1:3) = Ort(:,m) + TheSource(NumEns,j)%position(:)
+                Pos(1:3) = Ort(:,m) + TheSource(NumEns,j)%pos(:)
                 call Get_VelocityFieldAt(Pos,collectiveFlow)
                 beta(1:3) = collectiveFlow(1:3) !radial flow profile
                 if ((1.-Dot_Product(beta,beta)) .le.0.0000001) then
@@ -204,9 +204,9 @@ contains
                    call checks(1,pin(0),'nach boost')
                 endif
 
-                FragmentVector(ii,l)%position(:)  = Ort(:,m) + TheSource(NumEns,j)%position(:)
-                FragmentVector(ii,l)%momentumLRF(:) = pinLRF(:) !p^mu in moving frame
-                FragmentVector(ii,l)%momentum(:)  = pin(:)   !p^mu in global CMS-frame
+                FragmentVector(ii,l)%pos(:)  = Ort(:,m) + TheSource(NumEns,j)%pos(:)
+                FragmentVector(ii,l)%momLRF(:) = pinLRF(:) !p^mu in moving frame
+                FragmentVector(ii,l)%mom(:)  = pin(:)   !p^mu in global CMS-frame
                 FragmentVector(ii,l)%Mass         = Afinal(m)*0.940 !see notes !!!
                 FragmentVector(ii,l)%MassNumber   = Afinal(m)
                 FragmentVector(ii,l)%ChargeNumber = Zfinal(m)
@@ -227,8 +227,8 @@ contains
                 pin(1:3)   = beta(1:3) *gamma * SourceMass
                 pin(0)     = sqrt(SourceMass**2+dot_product(pin(1:3),pin(1:3)))
 
-                FragmentVector(ii,l)%position(:)  = TheSource(NumEns,j)%position(:)
-                FragmentVector(ii,l)%momentum(:)  = pin(:)   !p^mu in global CMS-frame
+                FragmentVector(ii,l)%pos(:)  = TheSource(NumEns,j)%pos(:)
+                FragmentVector(ii,l)%mom(:)  = pin(:)   !p^mu in global CMS-frame
                 FragmentVector(ii,l)%Mass         = SourceMass
                 FragmentVector(ii,l)%MassNumber   = SourceSize
                 FragmentVector(ii,l)%ChargeNumber = SourceCharge

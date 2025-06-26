@@ -123,20 +123,20 @@ contains
     if (present(processID))process_ID=processID
 
     charge_nucOut=eN%nucleon%charge-pionCharge
-    if (process_ID.eq.CC) charge_nucOut=charge_nucOut+1  
+    if (process_ID.eq.CC) charge_nucOut=charge_nucOut+1
     !for negatively charged outgoing lepton
-    if (process_ID.eq.antiCC) charge_nucOut=charge_nucOut-1  
+    if (process_ID.eq.antiCC) charge_nucOut=charge_nucOut-1
     !for positively charged outgoing lepton
 
-    li=eN%lepton_in%momentum
-    lf=eN%lepton_out%momentum
-    q =eN%boson%momentum
+    li=eN%lepton_in%mom
+    lf=eN%lepton_out%mom
+    q =eN%boson%mom
     if (present(pionNucleonSystem)) then
        call getKinematics_eN(eN,pionCharge,charge_nucOut,phi_k,theta_k,&
-            & k,pf,twoRoots,success,pionNucleonSystem)       
-            
+            & k,pf,twoRoots,success,pionNucleonSystem)
+
        if (success) then
-          theta_k_lab=theta_In( k(1:3),en%boson%momentum(1:3))
+          theta_k_lab=theta_In( k(1:3),en%boson%mom(1:3))
           if (pionNucleonSystem.ne.2) then
              ! Check
              if (abs((theta_k_lab-theta_k)/theta_k).gt.1E-5) then
@@ -148,17 +148,17 @@ contains
        end if
     else
        call getKinematics_eN(eN,pionCharge,charge_nucOut,phi_k,theta_k,&
-            & k,pf,twoRoots,success)                  
+            & k,pf,twoRoots,success)
     end if
     if (debug)  write(*,*) 'After getKinematics:', success
-      
-      
+
+
     if (.not.success) then
        ! No solution to energy/momentum conservation
        dSigma=0.
        return
     else
-       pin=eN%nucleon%momentum
+       pin=eN%nucleon%mom
        ! If W too small, then return:
        if (eN%W_free.lt.1.076) then
           if (debug) write(*,*) 'W_free.lt.1.076',eN%W_free
@@ -207,8 +207,8 @@ contains
        mf_N=sqrt(pair(pf,pf))
        mi_N=sqrt(pair(pin,pin))
 
-       electron_velocity=eN%lepton_in%momentum(1:3)/eN%lepton_in%momentum(0)
-       relativeVelocity=absVec(electron_velocity-eN%nucleon%velocity)
+       electron_velocity=eN%lepton_in%mom(1:3)/eN%lepton_in%mom(0)
+       relativeVelocity=absVec(electron_velocity-eN%nucleon%vel)
 
        if (debug) write(*,*) 'mi,mf,relativeVelocity',mf_n,mi_n,relativevelocity
 
@@ -233,7 +233,7 @@ contains
              & matrixElement_eN(pin,pf,li,lf,k,q,pionCharge,charge_nucOut,process_ID,eN%W_free)&
              & /abs( &
              & kvec_abs/k(0)+(kvec_abs-Dot_product(pin(1:3)+q(1:3),k(1:3))/kvec_abs)/pf(0) &
-             &  * (1.+1./pfVec_ABS*(2.*pfVec_ABS/Pf_freeEnergy*V_out  & 
+             &  * (1.+1./pfVec_ABS*(2.*pfVec_ABS/Pf_freeEnergy*V_out  &
              & +2.*Pf_freeEnergy*dV_out+2.*V_out*dV_out)) )
        end if
 
@@ -243,18 +243,18 @@ contains
           write(*,*) '+ ... =',(kvec_abs-Dot_product(pin(1:3)+q(1:3),k(1:3))/kvec_abs)/pf(0) &
                &  * (1.+1./pfVec_ABS*(2.*pfVec_ABS/Pf_freeEnergy*V_out+2*Pf_freeEnergy*dV_out &
                & +V_out*dV_out))
-          write(*,*) '1>> ... ?', 1./pfVec_ABS*(2.*pfVec_ABS/Pf_freeEnergy*V_out & 
+          write(*,*) '1>> ... ?', 1./pfVec_ABS*(2.*pfVec_ABS/Pf_freeEnergy*V_out &
                &  +2*Pf_freeEnergy*dV_out+2.*V_out*dV_out)
        end if
 
        ! 1/GeV**2=1/1000**2/MeV**2=1/1000**2/(1/197 fm**2)=(197/1000)**2 fm**2
-       ! = (197/1000)**2 * 10 mb 
-       
+       ! = (197/1000)**2 * 10 mb
+
        dSigma=dsigma*hbarc**2.*10
 
        if (present(pionNucleonSystem)) then
           if (pionNucleonSystem.eq.2) then
-             ! Transform dOmega_pion(Calculation Frame) to 
+             ! Transform dOmega_pion(Calculation Frame) to
              ! dOmega_pion(Center of Mass Frame of photon nucleon system)
              ! boost pion to CM system
              kcm=k
@@ -271,7 +271,7 @@ contains
 
        if (twoRoots) then
           ! There were two solutions for the kinematics from which we picked randomly one. So we
-          ! now need to multiply the cross section by 2, such that we get on average 
+          ! now need to multiply the cross section by 2, such that we get on average
           ! sigma(kinematics1)+sigma(kinematics2)
           dsigma=dsigma*2.
        end if
@@ -293,7 +293,7 @@ contains
     real   , intent(in) :: W_free
     integer, intent(in) :: charge_pionOut,charge_nucOut
     ! in- and outgoing four-momenta in lab frame:
-    real, dimension(0:3),intent(in) :: pi_lab, pf_lab, li_lab,lf_lab,k_lab,q_lab 
+    real, dimension(0:3),intent(in) :: pi_lab, pf_lab, li_lab,lf_lab,k_lab,q_lab
     integer, intent(in),optional :: processID
     real, dimension(0:3) :: pi, pf, li,lf,k,q ! in- and outgoing four-momenta in cm frame
     !real  :: Mi, Mf ! masses of nucleons
@@ -331,7 +331,7 @@ contains
 
     ! Transforming everything to CM-Frame of the hadronic vertex:
 
-    betatoCM = lorentzCalcBeta (q_lab+pi_lab, 'matrixElement')
+    betatoCM = lorentzCalcBeta(q_lab+pi_lab)
 
     li=li_lab
     lf=lf_lab
@@ -339,12 +339,12 @@ contains
     pi=pi_lab
     pf=pf_lab
     k =k_lab
-    call lorentz(betaToCM, li, 'matrixElement')
-    call lorentz(betaToCM, lf, 'matrixElement')
-    call lorentz(betaToCM, pi, 'matrixElement')
-    call lorentz(betaToCM, pf, 'matrixElement')
-    call lorentz(betaToCM, q , 'matrixElement')
-    call lorentz(betaToCM, k , 'matrixElement')
+    call lorentz(betaToCM, li)
+    call lorentz(betaToCM, lf)
+    call lorentz(betaToCM, pi)
+    call lorentz(betaToCM, pf)
+    call lorentz(betaToCM, q )
+    call lorentz(betaToCM, k )
 
     if (debug) then
        write(*,'(A)')'###############################################'
@@ -421,20 +421,20 @@ contains
             A=-getA(0,0,theta,s_Vacuum,-pair(q,q))-  &
               & sqrt(2.)*getA(-1,1,theta,s_Vacuum,-pair(q,q))&
               & +getA(0,1,theta,s_Vacuum,-pair(q,q))
-         end select  
-         
+         end select
+
       case (antiCC)
-      
-        select case (charge_pionout)  
+
+        select case (charge_pionout)
         case (-1)
            A=sqrt(2.)*getA(0,1,theta,s_Vacuum,-pair(q,q))&
                  & -getA(-1,1,theta,s_Vacuum,-pair(q,q))
-        case (0) 
+        case (0)
            A=+getA(0,0,theta,s_Vacuum,-pair(q,q))+  &
               & sqrt(2.)*getA(-1,1,theta,s_Vacuum,-pair(q,q))&
               & -getA(0,1,theta,s_Vacuum,-pair(q,q))
-        end select                
-           
+        end select
+
 
       case (NC)
          write(*,*) 'MAidlike BG not yet implemented -> stop'

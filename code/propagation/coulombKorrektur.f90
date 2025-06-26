@@ -10,21 +10,24 @@ module CoulombKorrektur
   implicit none
   private
 
-  public :: coulombPropagation, Coulpropa, CoulpropaTwo
+  public :: coulombPropagation
+  public :: Coulpropa
+  public :: CoulpropaTwo
 
 contains
 
 
   !****************************************************************************
-  !****s* coulombKorrektur/coulombPropagatioon
+  !****s* coulombKorrektur/coulombPropagation
   ! NAME
   ! subroutine coulombPropagation(teilchen)
   ! PURPOSE
-  ! This routine does a simple coulomb propagation for a particle vector in the field of the target nucleus.
+  ! This routine does a simple coulomb propagation for a particle vector in
+  ! the field of the target nucleus.
   ! USES
   ! CoulPropa
   !****************************************************************************
-  subroutine coulombPropagation (teilchen)
+  subroutine coulombPropagation(teilchen)
     use particleDefinition
     use nucleusDefinition
     use nucleus, only: getTarget
@@ -47,10 +50,10 @@ contains
 
     do i=lbound(teilchen, dim=1),ubound(teilchen, dim=1)
        do j=lbound(teilchen, dim=2),ubound(teilchen, dim=2)
-          mom=teilchen(i,j)%momentum(1:3)
-          call Coulpropa(teilchen(i,j)%position,mom,teilchen(i,j)%charge,teilchen(i,j)%mass,targetNucX%charge,3.,propagationTime)
-          teilchen(i,j)%momentum(1:3)=mom
-          teilchen(i,j)%momentum(0)=SQRT(teilchen(i,j)%mass**2+Dot_Product(mom,mom))
+          mom=teilchen(i,j)%mom(1:3)
+          call Coulpropa(teilchen(i,j)%pos,mom,teilchen(i,j)%charge,teilchen(i,j)%mass,targetNucX%charge,3.,propagationTime)
+          teilchen(i,j)%mom(1:3)=mom
+          teilchen(i,j)%mom(0)=SQRT(teilchen(i,j)%mass**2+Dot_Product(mom,mom))
        end do
     end do
   end subroutine coulombPropagation
@@ -60,52 +63,66 @@ contains
   !****************************************************************************
   !****s* coulombKorrektur/coulPropa
   ! NAME
-  ! subroutine Coulpropa(r,p,charge,mass,externalCharge,distance,propagationTime)
+  ! subroutine Coulpropa(r,p,charge,mass,externalCharge,distance,
+  ! propagationTime, printout)
+  !
   ! PURPOSE
-  ! This routine does a simple coulomb propagation for a particle with charge "charge".
+  ! This routine does a simple coulomb propagation for a particle with charge
+  ! "charge".
   ! A point charge of strength "externalCharge" is assumed to sit in the origin.
-  ! The propagation is terminated when
-  ! ... "propagtionTime" is not present as input given and the particle is closer
-  ! than "distance" to the origin or when it's starting to move away from the origin. This mode is
-  ! used to correct the trajectories of incoming particles.
-  ! ... "propagationTime" is present as input and the propagationTime is reached. This mode is used
-  ! to correct the trajectories of outgoing particles.
+  ! The propagation is terminated when:
+  ! * "propagtionTime" is not present as input given and the particle is
+  !   closer than "distance" to the origin or when it's starting to move away
+  !   from the origin. This mode is used to correct the trajectories of incoming
+  !   particles.
+  ! * "propagationTime" is present as input and the propagationTime is
+  !   reached. This mode is used to correct the trajectories of outgoing
+  !   particles.
+  !
+  ! NOTES
   ! Relativistic kinematics!
+  !
   ! INPUTS
-  ! real mass   : mass of particle
-  ! integer charge : charge of particle
-  ! integer ExternalCharge  : fixed charge at origin
-  ! real distance  : minimal distance to which the particle is propagated
-  !             towards the origin where the point charge is assumed to sit
-  ! real propagationTime : optional argument
-  ! real (1:3) r,p  : position and momentum of particle at start
+  ! * real(1:3) :: r  -- position of particle at start
+  ! * real(1:3) :: p  -- momentum of particle at start
+  ! * real :: mass   -- mass of particle
+  ! * integer :: charge --  charge of particle
+  ! * integer :: ExternalCharge -- fixed charge at origin
+  ! * real :: distance -- minimal distance to which the particle is propagated
+  !   towards the origin where the point charge is assumed to sit
+  ! * real, optional :: propagationTime -- total time to propagate the particle
+  ! * logical, optional :: printout --
+  !
   ! OUTPUT
-  ! real (1:3) r,p : position and momentum of particle after propagation
+  ! * real(1:3) :: r,p -- position and momentum of particle after propagation
   !****************************************************************************
-  subroutine Coulpropa (r, p, charge, mass, externalCharge, distance, propagationTime, printout_in)
+  subroutine Coulpropa(r, p, charge, mass, externalCharge, distance, propagationTime, printout_in)
+
     use constants, only: alphaQED, hbarc
-    real,dimension(3), intent(inout) :: r,p !initial position and momentum of propagated particle
-    real, intent(in)    :: mass             !mass of particle
-    integer, intent(in) :: charge           !charge of particle
-    integer, intent(in) :: ExternalCharge   !fixed charge at origin
-    real, intent(in)    ::distance          !minimal distance to which the particle is propagated towards the origin where the point charge is assumed to sit
-    real, intent(in),optional :: propagationTime     !total time to propagate the particle
-    logical, optional :: printout_in
+
+    real,dimension(3), intent(inout) :: r,p
+    real, intent(in)    :: mass
+    integer, intent(in) :: charge
+    integer, intent(in) :: ExternalCharge
+    real, intent(in)    ::distance
+    real, intent(in), optional :: propagationTime
+    logical, intent(in), optional :: printout_in
     ! Propagation :
     integer :: nt=100000000             ! maximal number of time steps
     real, parameter    :: dt=0.2        ! time step size in fm/c
     real,dimension(3) :: grad           ! Gradient of Coulomb potential
     real :: E                           ! Energy
     !Predictor-Corrector method:
-    logical, parameter :: predCor=.true.   ! Switch on predictor/corrector method
-    real,dimension(3)  :: rp,pp            ! predicted position and momentum
-    real,dimension(3)  :: gradPredictor    ! predicted gradient of Coulomb Potential
-    real               :: EPredictor       ! predicted Energy
+    logical, parameter :: predCor=.true. ! Switch on predictor/corrector method
+    real,dimension(3)  :: rp,pp          ! predicted position and momentum
+    real,dimension(3)  :: gradPredictor  ! predicted gradient of Coulomb Pot.
+    real               :: EPredictor     ! predicted Energy
+
     logical            :: printout
-    !Printout :
-    integer, parameter :: printSteps=10  !printSteps*dt is difference in time for the printout
+    ! Printout :
+    integer, parameter :: printSteps=10  ! printSteps*dt is difference in time for the printout
     integer :: i
-    real :: rsave                         !variable used to save the distance to the origin for the next time step
+    real :: rsave    ! save the distance to the origin for the next time step
 
     if (present(printout_in)) then
        printout=printout_in
@@ -178,42 +195,46 @@ contains
   !****************************************************************************
   !****s* coulombKorrektur/coulpropaTwo
   ! NAME
-  ! subroutine CoulpropaTwo(r1,p1,charge1,mass1,r2,p2,charge2,mass2,distance,propagationTime)
+  ! subroutine CoulpropaTwo(r1,p1,charge1,mass1,r2,p2,charge2,mass2,distance)
+  !
   ! PURPOSE
   ! This routine does a simple propagation for two point charges which interact
-  ! with each other via the coulomb force. Relativistic kinematics!
-  ! The propagation is terminated when
-  ! ... the particles are closer than "distance" to each other or when they are starting
-  ! to move away from each other.
-  ! ... or when the propagationTime is over.
+  ! with each other via the coulomb force.
+  !
+  ! NOTES
+  ! Relativistic kinematics!
+  !
   ! INPUTS
-  ! real mass1,mass2   : masses of particle
-  ! integer charge1,charge2 : charges of particle
-  ! real distance  : minimal distance to which the particle is propagated
-  !             towards the origin where the point charge is assumed to sit
-  ! real propagationTime : optional argument
-  ! real (1:3) r1,p1,r2,p2  : position and momentum of particles before propagation
+  ! * real :: mass1,mass2  -- masses of particle
+  ! * integer :: charge1,charge2 -- charges of particle
+  ! * real(1:3) :: r1,p1,r2,p2 -- position and momentum of particles before
+  !   propagation
+  ! * real :: distance -- minimal distance to which the particles are propagated
+  !
   ! OUTPUT
-  ! real (1:3) r1,p1,r2,p2  : position and momentum of particles after propagation
+  ! * real(1:3) :: r1,p1,r2,p2 -- position and momentum of particles after
+  !   propagation
   !****************************************************************************
-  subroutine CoulpropaTwo (r1, p1, charge1, mass1, r2, p2, charge2, mass2, distance)!,propagationTime)
+  subroutine CoulpropaTwo(r1, p1, charge1, mass1, r2, p2, charge2, mass2, distance)!,propagationTime)
+
     use constants, only: alphaQED, hbarc
-    real, intent(in)                  :: distance          ! minimal distance of approach of both point charges
-    real, dimension(3), intent(inout) :: r1,p1             ! initial position and momentum of particle 1
-    real, dimension(3), intent(inout) :: r2,p2             ! initial position and momentum of particle 2
-    real, intent(in)                  :: mass1,mass2       ! masses of charges  1&2
-    integer, intent(in)               :: charge1,charge2   ! charges of charges 1&2
-    !real, intent(in), optional        :: propagationTime   ! total time to propagate the particle
+
+    real, intent(in)                  :: distance
+    real, dimension(3), intent(inout) :: r1,p1
+    real, dimension(3), intent(inout) :: r2,p2
+    real, intent(in)                  :: mass1,mass2
+    integer, intent(in)               :: charge1,charge2
+    !real, intent(in), optional        :: propagationTime
     !propagation
     integer, parameter :: nt=100000000 ! maximal number of time steps
     real, parameter    :: dt=0.05      ! in fm/c
-    real,dimension(3) :: grad1,grad2  ! Gradient of Coulomb potential for charge 1 and 2
-    real :: E1,E2                     ! Energies of particle 1&2
+    real,dimension(3)  :: grad1,grad2  ! Gradient of Coulomb potential for charge 1 and 2
+    real :: E1,E2                      ! Energies of particle 1&2
     !predictor-corrector-method
-    logical, parameter :: predCor=.false.              ! Switch on predictor/corrector method
-    real,dimension(3) :: pp1,rp1,pp2,rp2               ! predicted momenta and positions
+    logical, parameter :: predCor=.false. ! Switch on predictor/corrector method
+    real,dimension(3) :: pp1,rp1,pp2,rp2  ! predicted momenta and positions
     real,dimension(3) :: gradPredictor1,gradPredictor2 ! predicted gradients of Coulomb potential
-    real :: EPredictor1,EPredictor2                    ! predicted energies
+    real :: EPredictor1,EPredictor2       ! predicted energies
     !printout
     logical, parameter :: printout=.false. ! switch to turn off printout
     integer, parameter :: steps=10         ! steps*dt defines when to print out the particles' positions

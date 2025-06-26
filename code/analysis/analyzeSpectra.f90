@@ -7,7 +7,7 @@
 !******************************************************************************
 module analyzeSpectra
 
-  use histf90
+  use hist
 
   implicit none
 
@@ -109,7 +109,7 @@ contains
     logical, intent(in) :: finalFlag
 
     type(histogramMC) :: hists
-    integer :: i,j, nEns, nPart, ID
+    integer :: i,j, nEns, nPart !, ID
     type(particle), POINTER :: pPart
     real :: mom
 
@@ -162,7 +162,7 @@ contains
 
              if (pertID(pPart%Id)) then
 !                mom = absMom(pPart)
-                mom = pPart%momentum(0)
+                mom = pPart%mom(0)
                 call AddHistMC(hists, mom, pPart%Id, 1.0)
              end if
 

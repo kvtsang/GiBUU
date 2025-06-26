@@ -45,22 +45,24 @@ contains
   subroutine DoInABoxAnalysisTime(realPart,timestep)
     use particleDefinition
     use output, only: Write_ReadingInput, intTochar4
-    use histMPf90
-    use histf90
+    use histMP
+    use hist
     use densityModule, only: gridsize
+    use twoBodyStatistics, only: rate
 
     type(particle), dimension(:,:), intent(in), target :: realPart
     integer, intent(in) :: timestep
 
     logical, save :: startFlag = .true.
     integer, save :: nHist
-    type(histogramMP), save :: hist
+    type(histogramMP), save :: hMP
     type(histogram), save :: zDens
     real, dimension(:,:), allocatable, save :: arrQ2_all, arrQ2_formed
 
     type(particle), pointer :: pPart
     integer :: nEns,nPart, i,j, iID, ios
     real :: wForm, Q2, mulfak
+    type(particle), dimension(1:2) :: dummy
 
     !**************************************************************************
     !****n* InABoxAnalysis/InABoxAnalysis
@@ -86,17 +88,17 @@ contains
 
        if (.not. Enable) return
 
-       call CreateHistMP(hist, "dN/dp", 0., 2., 0.01, 2)
+       call CreateHistMP(hMP, "dN/dp", 0., 2., 0.01, 2)
 
        nHist = Map2HistMP_getN(2)
        allocate(arrQ2_all(0:nHist,2))
        allocate(arrQ2_formed(0:nHist,2))
 
        open(123,file="Q2_all_formed.dat", status="unknown")
-       call WriteHistMP_Names(hist,123)
+       call WriteHistMP_Names(hMP,123)
        close(123)
        open(123,file="N_all_formed.dat", status="unknown")
-       call WriteHistMP_Names(hist,123)
+       call WriteHistMP_Names(hMP,123)
        close(123)
 
        call CreateHist(zDens, "density along z direction", -gridsize(3), gridsize(3), 1.)
@@ -104,7 +106,7 @@ contains
 
     if (.not. Enable) return
 
-    call ClearHistMP(hist)
+    call ClearHistMP(hMP)
     arrQ2_all = 0.0
     arrQ2_formed = 0.0
 
@@ -121,17 +123,17 @@ contains
           if (pPart%Id <  0) exit
           if (pPart%Id <= 0) cycle
 
-          if (pPart%in_Formation) then
+          if (pPart%inF) then
              wForm = 0.0
           else
              wForm = 1.0
           end if
 
-          call AddHistMP(hist, pPart, absMom(pPart), 1.0, wForm)
+          call AddHistMP(hMP, pPart, absMom(pPart), 1.0, wForm)
 
-          call AddHist(zDens, pPart%position(3), 1.)
+          call AddHist(zDens, pPart%pos(3), 1.)
 
-          Q2 = 2*pPart%momentum(3)**2 - pPart%momentum(1)**2 - pPart%momentum(2)**2
+          Q2 = 2*pPart%mom(3)**2 - pPart%mom(1)**2 - pPart%mom(2)**2
 
           arrQ2_all(0,1) = arrQ2_all(0,1) + 1.0
           arrQ2_all(0,2) = arrQ2_all(0,2) + Q2
@@ -152,8 +154,8 @@ contains
     end do
 
     if (mod(timestep,Interval)==0) then
-      call WriteHistMP(hist,  file='p_all_'   //intTochar4(timestep)//'.dat', mul=mulfak, iColumn=1)
-      call WriteHistMP(hist,  file='p_formed_'//intTochar4(timestep)//'.dat', mul=mulfak, iColumn=3)
+      call WriteHistMP(hMP,  file='p_all_'   //intTochar4(timestep)//'.dat', mul=mulfak, iColumn=1)
+      call WriteHistMP(hMP,  file='p_formed_'//intTochar4(timestep)//'.dat', mul=mulfak, iColumn=3)
       call WriteHist  (zDens, file='zDensity.'//intTochar4(timestep)//'.dat', mul=mulfak)
     end if
 
@@ -174,6 +176,8 @@ contains
                                       arrQ2_all(1:nHist,2), arrQ2_all(0,2),&
                                       arrQ2_formed(1:nHist,2), arrQ2_formed(0,2)
     close(123)
+
+    call rate(dummy,dummy,timestep*1.0,.true.)
 
   end subroutine DoInABoxAnalysisTime
 

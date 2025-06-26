@@ -6,7 +6,7 @@
 ! https://gibuu.hepforge.org
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =           2 ! Pion induced (low energy)
       numEnsembles    =         200
@@ -20,19 +20,20 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./init/initPion.f90
 &pionNucleus
-      UseCoulomb      = T      ! coulomb correction of incoming state
-      CoulombDistance =  400.0 ! distance for the coulomb correction (=infinity)
-      distance        =    7.8 ! distance of pions to nucleus
-      impact_parameter= -0.100 ! <0: impact-parameter integration
-      charge          =     -1 ! charge of pions
-      numberPions     =    100 ! number of pions per ensemble
-      ekin_lab        =  0.180 ! kinetic energy
-      delta_ekin_lab  =  0.010 ! step size
-/
+      UseCoulomb      = T       ! coulomb correction of incoming state
+      CoulombDistance =  400.0  ! distance for the coulomb correction (=infty)
+      distance        =    7.8  ! distance of pions to nucleus
+      impact_parameter= -0.100  ! <0: impact-parameter integration
+      charge          =     -1  ! charge of pions
+      numberPions     =    100  ! number of pions per ensemble
+      ekin_lab        =  0.180  ! kinetic energy
+      delta_ekin_lab  =  0.010  ! step size
+      /
 
 
 ! file: ./density/nucleus.f90
@@ -56,7 +57,7 @@
 
 ! file: ./database/particleProperties.f90
 &initDatabase
-      propagationSwitch = 0 ! 0=all resonances with more than 1 star
+      propagationSwitch = 0     ! 0=all resonances with more than 1 star
 /
 
 ! file: ./potential/baryonPotential.f90
@@ -70,12 +71,12 @@
 /
 ! file: ./density/density.f90
 &initDensity
-      densitySwitch   = 2 ! 2: static density
+      densitySwitch   = 2       ! 2: static density
 /
 
 ! file: ./density/pauliBlocking.f90
 &initPauli
-      pauliSwitch     = 2 ! 0: no Pauli blocking, 1: dynamic, 2: analytic
+      pauliSwitch     = 2       ! 0: no Pauli blocking, 1: dynamic, 2: analytic
 /
 
 ! file: ./propagation/propagation.f90
@@ -85,15 +86,15 @@
 
 ! file: ./width/baryonWidthMedium.f90
 &width_Baryon
-      mediumSwitch       = T ! use in medium width for all baryons
-      mediumSwitch_Delta = T ! use in medium width for Delta
+      mediumSwitch       = T    ! use in medium width for all baryons
+      mediumSwitch_Delta = T    ! use in medium width for Delta
 /
 
 
 
 ! file: ./numerics/random.f90
 &initRandom
-      SEED=230899                ! Seed for the random number
+      SEED=230899               ! Seed for the random number
 /
 
 ! file: ./collisions/collisionTerm.f90

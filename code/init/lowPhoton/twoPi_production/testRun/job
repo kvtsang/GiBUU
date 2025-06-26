@@ -26,7 +26,7 @@ propagationSwitch=0        ! 0=all resonances with more than 1 star, 1=only delt
 $end
 
 $input
-numEnsembles= 30   ! number of ensembles
+numEnsembles= -30   ! number of ensembles
 eventtype   = 3    ! 2=PionA, 3=photon A
 numTimeSteps= 120  ! number of time steps
 delta_T     = 0.25 ! time step size
@@ -63,7 +63,7 @@ $end
 $mesonPotential
 vectorMesonPot=0   ! Switch for medium-modification of vector mesons
                    !    1=Brown-Rho-Scaling
-                   !    2=Brown-Rho-Scaling with momentum dependence 
+                   !    2=Brown-Rho-Scaling with momentum dependence
                    !     according to Kondtradyuk (page 162,effenberger dr.-thesis)
                    !    else=no modification
 vectorMesonPot=0   ! Switch for offshell-potential (so called fake-potential)
@@ -98,7 +98,7 @@ $end
 !************************************************************
 
 $target
-target_Z=13,   
+target_Z=13,
 target_A=27
 densitySwitch_Static=1     ! 1=Woods-Saxon, 2=according NPA 554 (Oset)
 $end
@@ -161,7 +161,7 @@ $end
 !****************************************************
 
 $initThermoDynamics
-temperatureSwitch=1 
+temperatureSwitch=1
 ! 1=groundstate calculations (T=0,mu=E_F)
 ! 2=the full procedure according to testparticle density (real particles only!)
 $end

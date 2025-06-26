@@ -9,7 +9,7 @@ $end
 
 $RMF_input
   RMF_flag = .true.     ! if .true. then use relativistic mean field
-  N_set    = 2          ! Number of the parameter set
+  N_set    = 34          ! Number of the parameter set
 $end
 
 $input
@@ -55,7 +55,7 @@ $end
 $mesonPotential
 vectorMesonPot=0   ! Switch for medium-modification of vector mesons
                    !    1=Brown-Rho-Scaling
-                   !    2=Brown-Rho-Scaling with momentum dependence 
+                   !    2=Brown-Rho-Scaling with momentum dependence
                    !     according to Kondtradyuk (page 162,effenberger dr.-thesis)
                    !    else=no modification
 vectorMesonPot=0   ! Switch for offshell-potential (so called fake-potential)
@@ -90,7 +90,7 @@ $end
 !************************************************************
 
 $target      !Only relevant for eventtypes 0,1 and 3 (??????)
-target_Z=82 
+target_Z=82
 target_A=207
 fermimotion=.true.
 $end
@@ -154,7 +154,7 @@ $end
 $HiPhotonNucleus         ! EVENTTYPE = 13
 shadow=.true.		 ! account for nuclear shadowing
 FRITIOF=.false.		 ! generate Events in the transition region
-nu=20.			 ! photon energy	
+nu=20.			 ! photon energy
 Delta_nu=5.		 ! increase of photon energy
 Q2=1.e-03		 ! photon virtuality
 epsilon=0.99		 ! photon polarization
@@ -164,9 +164,9 @@ $end
 !************************************************************
 
 $HiLeptonNucleus         ! EVENTTYPE = 14
-iExperiment=1		 ! Type of Experiment 
-			 ! 1:HERMES D,N,Kr; 
-			 ! 2:HERMES Ne; 
+iExperiment=1		 ! Type of Experiment
+			 ! 1:HERMES D,N,Kr;
+			 ! 2:HERMES Ne;
 			 ! 3:HERMES H
 shadow=.true.		 ! account for nuclear shadowing
 FRITIOF=.false.		 ! generate Events in the transition region
@@ -222,7 +222,7 @@ $end
 !****************************************************
 
 $initThermoDynamics
-temperatureSwitch=1 
+temperatureSwitch=1
 ! 1=groundstate calculations (T=0,mu=E_F)
 ! 2=the full procedure according to testparticle density (real particles only!)
 $end

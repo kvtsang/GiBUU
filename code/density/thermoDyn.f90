@@ -1,11 +1,11 @@
 !******************************************************************************
-!****m* /thermoDynamics
+!****m* /thermoDyn
 ! NAME
-! module thermoDynamics
+! module thermoDyn
 ! PURPOSE
 ! Includes routines for the determination of temperature T and chemical potential mu.
 !******************************************************************************
-module thermoDynamics
+module thermoDyn
   implicit none
   private
 
@@ -14,7 +14,7 @@ module thermoDynamics
 
 
   !****************************************************************************
-  !****g*  thermoDynamics/temperatureSwitch
+  !****g*  thermoDyn/temperatureSwitch
   ! SOURCE
   !
   integer,save :: temperatureSwitch = 1
@@ -26,7 +26,7 @@ module thermoDynamics
 
 
   !****************************************************************************
-  !****g*  thermoDynamics/linearExtrapolation
+  !****g*  thermoDyn/linearExtrapolation
   ! SOURCE
   !
   logical,save :: linearExtrapolation=.true.
@@ -53,7 +53,7 @@ Contains
     integer, dimension (1:3) :: gridPoints
 
     !**************************************************************************
-    !****n*  thermoDynamics/initThermoDynamics
+    !****n*  thermoDyn/initThermoDynamics
     ! NAME
     ! NAMELIST initThermoDynamics
     ! PURPOSE
@@ -68,8 +68,8 @@ Contains
     read(5,nml=initThermoDynamics,iostat=ios)
     call Write_ReadingInput('initThermoDynamics',0,ios)
 
-    write(*,*) 'Set temperature switch to ',temperatureSwitch,'.'
-    write(*,*) 'Set linear extrapolation switch to ',linearExtrapolation,'.'
+    write(*,*) 'temperature switch   = ',temperatureSwitch
+    write(*,*) 'linear extrapolation = ',linearExtrapolation
     call Write_ReadingInput('initThermoDynamics',1)
 
     if (temperatureSwitch == 2) then
@@ -92,7 +92,7 @@ Contains
 
 
   !****************************************************************************
-  !****s*  thermoDynamics/upDateTemperature
+  !****s*  thermoDyn/upDateTemperature
   ! PURPOSE
   ! Calculation of local 'temperature'.
   !****************************************************************************
@@ -132,7 +132,7 @@ Contains
     subroutine evaluatePSquared
 
       use IdTable, only: isBaryon
-      use densitymodule, only: gridSpacing, gridPoints, numberLargePoints, smallergridpoints, smearingWeights, boostToLRF
+      use densitymodule, only: gridSpacing, gridPoints, nLargePoints, nSmallPoints, smearingWeights, boostToLRF
 
       type(particle) :: baryon
 
@@ -147,31 +147,31 @@ Contains
          do j=1,Size(Teilchen,dim=1) ! Loop over all Ensembles
 
             ! Count only baryons, but no antibaryons :
-            if ((.not. isBaryon(teilchen(j,i)%ID)) .or. teilchen(j,i)%antiparticle) cycle
+            if ((.not. isBaryon(teilchen(j,i)%ID)) .or. teilchen(j,i)%anti) cycle
 
             !position in large grid:
-            posOrig=NINT(Teilchen(j,i)%position(1:3)/gridSpacing)
+            posOrig=NINT(Teilchen(j,i)%pos(1:3)/gridSpacing)
             !position in small grid:
-            indexSmall=NINT((Teilchen(j,i)%position(1:3)/gridSpacing-posOrig)*(2.*SmallergridPoints+1.))
+            indexSmall=NINT((Teilchen(j,i)%pos(1:3)/gridSpacing-posOrig)*(2.*nSmallPoints+1.))
 
             ! Test for errors:
-            if ((abs(indexSmall(1)).gt.smallergridpoints)&
-                 &.or.(abs(indexSmall(2)).gt.smallergridpoints)&
-                 &.or.(abs(indexSmall(3)).gt.smallergridpoints)) then
+            if ((abs(indexSmall(1)).gt.nSmallPoints)&
+                 &.or.(abs(indexSmall(2)).gt.nSmallPoints)&
+                 &.or.(abs(indexSmall(3)).gt.nSmallPoints)) then
                write(*,*) 'Problem in updateTemperature, module density.f90'
                write(*,*) IndexSmall, 'too big, choose different grid'
                stop
             end if
 
-            small=1+(SmallergridPoints+indexSmall(3))                               &
-                 &  +(SmallergridPoints+indexSmall(2))*(2*SmallerGridPoints+1)       &
-                 &  +(SmallergridPoints+indexSmall(1))*(2*SmallerGridPoints+1)**2
+            small=1+(nSmallPoints+indexSmall(3))                               &
+                 &  +(nSmallPoints+indexSmall(2))*(2*nSmallPoints+1)       &
+                 &  +(nSmallPoints+indexSmall(1))*(2*nSmallPoints+1)**2
             large=0
 
             !Smearing particle over points in Neighborhood:
-            do Index1=posOrig(1)-numberLargePoints,posOrig(1)+numberlargePoints
-               do Index2=posOrig(2)-numberLargePoints,posOrig(2)+numberlargePoints
-                  do Index3=posOrig(3)-numberLargePoints,posOrig(3)+numberlargePoints
+            do Index1=posOrig(1)-nLargePoints,posOrig(1)+nLargePoints
+               do Index2=posOrig(2)-nLargePoints,posOrig(2)+nLargePoints
+                  do Index3=posOrig(3)-nLargePoints,posOrig(3)+nLargePoints
                      large=large+1
                      if ((abs(Index1).le.gridPoints(1)) &
                           &.and.(abs(Index2).le.gridPoints(2)) &
@@ -180,7 +180,7 @@ Contains
                         !Evaluate pSquared in local restframe
                         baryon=teilchen(j,i)
                         call boostToLRF(baryon,1)
-                        momSquare=Dot_Product(baryon%momentum(1:3),baryon%momentum(1:3))
+                        momSquare=Dot_Product(baryon%mom(1:3),baryon%mom(1:3))
                         pSquared(Index1,Index2,Index3)=pSquared(Index1,Index2,Index3) &
                              &   +momSquare*smearingWeights(small,large)
                      end if
@@ -202,21 +202,21 @@ Contains
     !**************************************************************************
     subroutine evaluateTemperature
 
-      use densitymodule, only: gridspacing, gridpoints, densityField
+      use densitymodule, only: gridspacing, gridpoints, densField
       use minkowski, only: abs4
 
       integer :: ix,iy,iz
       real :: rhoLRF, pSquaredAverage  ! density in LRF and <p**2>
 
       temperature(:,:,:)=0.
-      
+
       do ix=-gridPoints(1),gridPoints(1)
          do iy=-gridPoints(2),gridPoints(2)
             do iz=-gridPoints(3),gridPoints(3)
                if (pSquared(ix,iy,iz)>0.) then
-                  if (densityField(ix,iy,iz)%baryon(0)>1.e-02) then
-                     pSquaredAverage=pSquared(ix,iy,iz)/densityField(ix,iy,iz)%baryon(0)
-                     rhoLRF=abs4(densityField(ix,iy,iz)%baryon)
+                  if (densField(ix,iy,iz)%baryon(0)>1.e-02) then
+                     pSquaredAverage=pSquared(ix,iy,iz)/densField(ix,iy,iz)%baryon(0)
+                     rhoLRF=abs4(densField(ix,iy,iz)%baryon)
                      temperature(ix,iy,iz)=tempe(pSquaredAverage,rhoLRF)
                   end if
                end if
@@ -224,7 +224,7 @@ Contains
          end do
       end do
 
-      
+
       if (debugFlag) then
          open(10,file='temperaturesReal.dat')
          open(20,File='TemperatureZAxis.dat')
@@ -248,7 +248,7 @@ Contains
 
 
   !****************************************************************************
-  !****f*  thermoDynamics/temperatureAt
+  !****f*  thermoDyn/temperatureAt
   ! PURPOSE
   ! Evaluates temperature at some space point r. Therefore it uses the values
   ! which are stored in the field temperature(-gridPoints(1:3):gridPoints(1:3)).
@@ -335,7 +335,7 @@ Contains
 
 
   !****************************************************************************
-  !****f*  thermoDynamics/tempe
+  !****f*  thermoDyn/tempe
   ! NAME
   ! real function tempe (p2av, rho)
   ! INPUTS
@@ -397,7 +397,7 @@ Contains
       write(*,*) '**In initTempe'
 
       allocate(temSave(1:maxIndex_rho,0:maxIndex_p2av))
-      
+
       do i=1,maxIndex_rho  ! loop over density
          rho=float(i)*delta_rho*rhoNull*hbarc**3
          temp=0.
@@ -415,7 +415,7 @@ Contains
             end do
          end do
       end do
-      
+
       if (debugFlag) then
          open(10,File='Temperature.dat')
          write(10,*) '# rho[fm^-3],<p^2>/rho,temperature[GeV]'
@@ -426,7 +426,7 @@ Contains
          end do
          close(10)
       end if
-      
+
       init=.false.
 
     end subroutine initTempe
@@ -435,7 +435,7 @@ Contains
 
 
   !****************************************************************************
-  !****f*  thermoDynamics/muAt
+  !****f*  thermoDyn/muAt
   ! PURPOSE
   ! Determine chemical potential as function of temperature and rho.
   ! Everything in GeV!!!
@@ -446,20 +446,20 @@ Contains
   real function muAt (rho, temp)
 
     use constants, only: pi,mn
- 
+
     real, intent(in) :: rho, temp
 
     real  :: pf,mum(2),R,f(3),mu,aux
     real, parameter :: eps=1e-04 !Exactness of result for mu
     logical :: flag
     integer :: iter
-    integer, parameter :: imode=2   ! 1 - bisection method , 2 - Newton method 
+    integer, parameter :: imode=2   ! 1 - bisection method , 2 - Newton method
 
     if(rho.lt.1.e-06) then
        muAt=0.
        return
     end if
-    
+
     pf=(1.5*pi**2*rho)**(1./3.)
     mum(1)=sqrt(pf**2+mn**2)
 
@@ -467,7 +467,7 @@ Contains
        muAt=mum(1)
        return
     end if
-    
+
     R=1./rho**0.333333   ! interparticle distance (GeV^-1)
 
     if(R .gt. 2.*pi/sqrt(3.*mn*temp)) then  ! Boltzmann limit
@@ -479,12 +479,12 @@ Contains
           stop
        end if
 !       write(*,*)' Boltzmann limit, mu : ', mum(1)
-    end if     
+    end if
 
     select case(imode)
 
-    case(1)   
-    
+    case(1)
+
        !Starting values:
        mum(1)=-5.
        mum(2)=5.
@@ -493,12 +493,12 @@ Contains
        if (f(1)*f(2).gt.0) then
           write(*,*) 'problems with f(1),f(2)',f(1),f(2),rho,temp
        end if
-   
+
        flag=.true.
        do while(flag)
           mu=(mum(1)+mum(2))/2.
           f(3)=integral(temp,mu,1)-rho
-   
+
           if (f(3)*f(1).gt.0) then
              mum(1)=mu
              f(1)=f(3)
@@ -512,15 +512,15 @@ Contains
 
     case(2)
 
-       iter=0   
-       do 
+       iter=0
+       do
           iter=iter+1
           f(1)=integral(temp,mum(1),1)-rho
 
 !          write(*,*)' iter, mum(1), f(1) : ', iter, mum(1), f(1)
-          
-          if(abs(f(1)).lt.1.e-07) exit 
-          
+
+          if(abs(f(1)).lt.1.e-07) exit
+
           f(3)=integral(temp,mum(1),3)
 
           if(abs(f(3)).gt.1.e-06) mum(2)=mum(1)-f(1)/f(3)
@@ -532,19 +532,19 @@ Contains
              write(*,*)' rho, temp : ', rho, temp
              exit
           end if
-          
+
        end do
 
        muAt=mum(1)
 
     end select
-    
-          
+
+
   end function muAt
 
 
   !****************************************************************************
-  !****f*  thermoDynamics/integral
+  !****f*  thermoDyn/integral
   ! NAME
   ! real function integral(temperature,mu,Switch)
   ! PURPOSE
@@ -576,7 +576,7 @@ Contains
     pmax=max(sqrt(max((10*temperature+max(0.,mu))**2-mN**2,0.)),0.1)
 
 !    write(*,*)' pmax : ', pmax
-    
+
     !Number of points for Riemann-Integral
     np=int(pmax/dp)+1
 
@@ -602,7 +602,7 @@ Contains
                    value=p**2*b/(b+1.)**2/temperature
                 case(4)
                    value=p**2/b
-             end select     
+             end select
           else
              value=0.
           end if
@@ -618,7 +618,7 @@ Contains
                    value=p**4
                 case(3)
                    value=0.
-             end select   
+             end select
           end if
 
        else
@@ -633,4 +633,4 @@ Contains
   end function integral
 
 
-end module thermoDynamics
+end module thermoDyn

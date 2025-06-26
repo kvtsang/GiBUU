@@ -1,9 +1,9 @@
 !******************************************************************************
-!****m* /CollGetLeading
+!****m* /GetLeading
 ! PURPOSE
 ! Recontruct the number of leading quraks for a JetSet fragmentation
 !******************************************************************************
-module CollGetLeading
+module GetLeading
 
   IMPLICIT NONE
   private
@@ -16,7 +16,7 @@ module CollGetLeading
 contains
 
   !****************************************************************************
-  !****s* CollGetLeading/GetLeading_PY
+  !****s* GetLeading/GetLeading_PY
   ! NAME
   ! subroutine GetLeading_PY
   !
@@ -817,4 +817,4 @@ contains
 
 
 
-end module CollGetLeading
+end module GetLeading

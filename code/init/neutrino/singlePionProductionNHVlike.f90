@@ -357,21 +357,21 @@ contains
     ! set up incoming nucleon
     ! ******************************
     call setToDefault(nucleon_in)
-    nucleon_in%position=position
-    nucleon_in%momentum=p_in
+    nucleon_in%pos=position
+    nucleon_in%mom=p_in
     nucleon_in%mass=mN                  ! baremass mass
-    !nucleon_in%momentum(0)=freeEnergy(nucleon_in)! E=sqrt(p(1:3)^2+m_0^2)
+    !nucleon_in%mom(0)=freeEnergy(nucleon_in)! E=sqrt(p(1:3)^2+m_0^2)
     nucleon_in%ID=nucleon
     nucleon_in%charge =charge_in
-    nucleon_in%antiparticle=.false.
-    nucleon_in%perturbative=.true.
+    nucleon_in%anti=.false.
+    nucleon_in%pert=.true.
 
     ! ******************************
     ! solve delta-function for  kinematics
     ! ******************************
 
 
-    betaTOCM(1:3)=(q(1:3)+nucleon_in%momentum(1:3))/(q(0)+nucleon_in%momentum(0))
+    betaTOCM(1:3)=(q(1:3)+nucleon_in%mom(1:3))/(q(0)+nucleon_in%mom(0))
 
     if (sqrt(Dot_Product(betaTOCM,betaTOCM))>1.) then
        sig=0
@@ -657,14 +657,14 @@ contains
     ! set up incoming nucleon
     ! ******************************
     call setToDefault(nucleon_in)
-    nucleon_in%position=position
-    nucleon_in%momentum=p_in
+    nucleon_in%pos=position
+    nucleon_in%mom=p_in
     nucleon_in%mass=mN
-    !nucleon_in%momentum(0)=freeEnergy(nucleon_in)! E=sqrt(p(1:3)^2+m_0^2)
+    !nucleon_in%mom(0)=freeEnergy(nucleon_in)! E=sqrt(p(1:3)^2+m_0^2)
     nucleon_in%ID=nucleon
     nucleon_in%charge =charge_in
-    nucleon_in%antiparticle=.false.
-    nucleon_in%perturbative=.true.
+    nucleon_in%anti=.false.
+    nucleon_in%pert=.true.
 
     ! ******************************
     ! set kinematics in the CM frame
@@ -674,7 +674,7 @@ contains
 
     ! 4-vector of the vector boson in the CM frame
     qCM=q
-    call lorentz(betaTOCM, qCM, ' getKinematics_eN')
+    call lorentz(betaTOCM, qCM)
 
     ! polar angle of pion
     sinThetaPi_star_qz=sqrt((1.-cosThetaPi_star_qz)*(1.+cosThetaPi_star_qz))
@@ -725,10 +725,10 @@ contains
 
     ! 4-vector of the outgoin pion in the lab frame
     p_pion=p_pion_star
-    call lorentz(-betaTOCM, p_pion, ' Nieves1piN_elepton_ct_star')
+    call lorentz(-betaTOCM, p_pion)
     ! 4-vector of the outgoin nucleon in the lab frame
     p_out=p_out_star
-    call lorentz(-betaTOCM, p_out,  ' Nieves1piN_elepton_ct_star')
+    call lorentz(-betaTOCM, p_out)
 
 
 

@@ -9,7 +9,7 @@
 ! (propagation & collisions) and analysis.
 !
 ! COPYRIGHT
-! (C) 2005-2023 The GiBUU Team (see full list of authors below)
+! (C) 2005-2025 The GiBUU Team (see full list of authors below)
 !
 ! The GiBUU code is licensed under the GNU General Public License (GPL v2).
 ! See accompanying LICENSE file or http://www.gnu.org/licenses/gpl-2.0.html.
@@ -71,7 +71,7 @@ program GiBUU
   use statistics, only: splashInfo
   use version, only: printVersion
   use CallStack, only: traceback
-  use EventOutputAnalysis, only: CheckRootLinked
+  use EventOutputAnalysis, only: CheckRootLinked, CheckHepMC3Linked
 
   implicit none
 
@@ -148,6 +148,7 @@ program GiBUU
   write(*,chapter) 'Init database: finished'
   call ChecksSetDefaulSwitches(EventType)
   call CheckRootLinked
+  call CheckHepMC3Linked
 
   raiseEnergy=.false.
   delta_T_max=delta_T
@@ -227,12 +228,12 @@ contains
          printParticleVectors
 
     use initInABox, only: initializeInABox, BoostToEps
-    use initInABoxDelta, only: InitInABoxDelta_init
+    use initInABoxDelta, only: InitializeInABoxDelta
     use initBox, only: initializeBox
     use initPion, only: InitPionInduced
     use initHiPion, only: InitHiPionInduced
     use initLowPhoton, only: initialize_lowPhoton, lowPhotonInit_getRealRun
-    use lowElectron, only: init_lowElectron
+    use initLowElectron, only: init_lowElectron
     use initHiLepton, only: InitHiLeptonInduced
     use initHeavyIon, only: initHeavyIonCollision
     use initElementary, only: initElementaryCollision
@@ -242,7 +243,7 @@ contains
     use initExternal, only: initializeExternal, ExternalIsPerturbative
 
     use nucleus, only: getTarget, getProjectile
-    use densityModule, only: updateDensity, updateRMF, storeFields
+    use densityModule, only: updateDensity, updateRMF, storeFieldsRMF
     use RMF, only: getRMF_flag
     use yukawa, only: updateYukawa
     use coulomb, only: updateCoulomb
@@ -254,9 +255,10 @@ contains
     use PILCollected, only: PILCollected_ZERO
     use initNucleus_in_PS, only: initNucPhaseSpace, shiftBack
     use groundStateAnalysis, only: countMass
-    use baryonPotentialModule, only: HandPotentialToDensityStatic
+    use baryonPotentialMain, only: HandPotentialToDensityStatic
     use deuterium_PL, only: deuteriumPL_assign
     use collisionNumbering, only: PrepareCollisionList
+    use HeavyIonAnalysis, only: calcGlauber
 
     logical, intent(in) :: energyRaiseFlag
     integer :: lengthReal = 0  ! max number of real particles per ensemble
@@ -268,7 +270,7 @@ contains
       select case (eventType)
       case (elementary, Box)
          if (.not. associated(targetNuc)) then
-            allocate(targetNuc) ! dummy target, only %velocity is used
+            allocate(targetNuc) ! dummy target, only %vel is used
          end if
 
       case default
@@ -279,6 +281,8 @@ contains
             write(*,*) 'we now have to readjust the density'
             call handPotentialToDensityStatic(targetNuc)
          end if
+
+         call targetNuc%printGlauber()
 
       end select
 
@@ -341,6 +345,9 @@ contains
 
       !...Allocate the vectors
 
+      write(*,*) 'Length of real         vector=', lengthReal
+      write(*,*) 'Length of perturbative vector=', lengthPert
+
       allocate(realparticles(1:numEnsembles,1:lengthReal))
       allocate(pertparticles(1:numEnsembles,1:lengthPert))
 
@@ -391,9 +398,10 @@ contains
        ! shift back coordinates along z-axis (see notes in initNucPhaseSpace):
        call shiftBack(realparticles)
 
+       call updateDensity(realParticles)
+
        if (.not.getRMF_flag()) then
 
-          call updateDensity(realParticles)
           call updateCoulomb
           call updateYukawa(.true.)
 
@@ -402,7 +410,7 @@ contains
           call updateRMF(realParticles,.true.)
           if (doPr(2)) write(*,*) 'Do delta_T propag to get baryon 4-current'
           call propagate_cascade(realParticles,delta_T)
-          call storeFields
+          call storeFieldsRMF
           call updateRMF(realParticles)
           call updateCoulomb
 
@@ -413,7 +421,7 @@ contains
        call setUpTarget(.false.)
        call initPionInduced(pertParticles,energyRaiseFlag,targetNuc)
 
-    case (RealPhoton) ! 3= photon nucleus collision
+    case (RealPhoton)
 
        call setUpTarget()
        call deuteriumPL_assign(realParticles)
@@ -444,11 +452,11 @@ contains
        call initHiLeptonInduced(realParticles,pertParticles,targetNuc)
 
        if (.not.getRMF_flag()) then
-
+          ! nothing to do
        else
 
           call updateRMF(realParticles)
-          call storeFields
+          call storeFieldsRMF
           call updateCoulomb
 
        end if
@@ -471,7 +479,7 @@ contains
        case (inABox_pion)
           call initPionInduced(pertParticles,energyRaiseFlag)
        case (inABox_delta)
-          call initInABoxDelta_init(pertParticles,.true.)
+          call initializeInABoxDelta(pertParticles,.true.)
        case default
           call traceback('error inAbox')
        end select
@@ -479,6 +487,7 @@ contains
     case (Box)
 
        call initializeBox(realParticles)
+       call updateDensity(realParticles)
 
     case (ExternalSource)
 
@@ -492,7 +501,7 @@ contains
           call updateYukawa(.true.)
        else
           call updateRMF(realParticles,.true.)
-          call storeFields
+          call storeFieldsRMF
        end if
 
     case (groundState)
@@ -517,7 +526,7 @@ contains
        else
 
           call updateRMF(realParticles)
-          call storeFields
+          call storeFieldsRMF
           call updateCoulomb
 
        end if
@@ -564,6 +573,9 @@ contains
 
     call PrepareCollisionList(realParticles, pertParticles)
 
+    if (eventType==HeavyIon) &
+         call calcGlauber(realParticles,targetNuc,projectileNuc)
+
   end subroutine initConfig
 
   !****************************************************************************
@@ -584,7 +596,7 @@ contains
   subroutine setUpTarget(doUpdateEnergies)
 
     use initNucleus_in_PS, only: initNucPhaseSpace
-    use densityModule, only: updateDensity, updateRMF, storeFields
+    use densityModule, only: updateDensity, updateRMF, storeFieldsRMF
     use coulomb, only: updateCoulomb
     use yukawa, only: updateYukawa
     use propagation, only: updateVelocity
@@ -596,6 +608,15 @@ contains
     logical :: doUE
 
     call initNucPhaseSpace(realparticles,targetNuc)
+
+    !**************************************************************************
+    !****o* GiBUU/DensTab_target.dat
+    ! NAME
+    ! file DensTab_target.dat
+    ! PURPOSE
+    ! Density tabulation of the target nucleus at initialization.
+    !**************************************************************************
+    call targetNuc%writeStaticDens('DensTab_target.dat')
 
     if (.not.getRMF_flag()) then
 
@@ -611,7 +632,7 @@ contains
     else
 
        call updateRMF(realParticles,.true.)
-       call storeFields
+       call storeFieldsRMF
        call updateCoulomb
 
     end if
@@ -641,7 +662,7 @@ contains
          CheckGridSize !,ChecksCallOccupied
     use collisionTerm, only: collideMain, forceDecays
     use insertion, only: GarbageCollection
-    use thermoDynamics, only: updateTemperature
+    use thermoDyn, only: updateTemperature
     use energyCalc, only: updateEnergies
     use hadronFormation, only: formation
     use collisionNumbering, only: writeCountedEvents, &
@@ -658,8 +679,8 @@ contains
     use BoxAnalysis, only: doBoxAnalysisTime
     use transportGivenParticleAnalysis, only: transportGivenParticle_analyze
     use InABoxAnalysis, only: doInABoxAnalysisTime
-    use InABoxAnalysisPion, only: InABoxAnalysisPion_count
-    use InABoxAnalysisDelta, only: InABoxAnalysisDelta_count
+    use InABoxPionAnalysis, only: InABoxPionAnalysis_count
+    use InABoxDeltaAnalysis, only: InABoxDeltaAnalysis_count
     use Dilepton_Analysis, only: Dilep_Decays
     use FreezeoutAnalysis, only: doFreezeoutAnalysisPerTime
     use EventOutputAnalysis, only: doEventOutput
@@ -667,10 +688,12 @@ contains
     use radiativeDeltaDecay, only: doRadiativeDeltaDecay
     use inputGeneral, only: numTimeSteps, printParticleVectorTime, &
          variableTimeStep, time_max, povray_switch, freezeRealParticles, &
-         checkGridSize_Flag, doFragmentNucleons
+         checkGridSize_Flag, doFragmentNucleons, &
+         delta_T, timeForOutput, timeSequence
     use deuterium_PL, only: deuteriumPL_assign
     use FragmentNucleons, only: doAddFragmentNucleons
     use analyzeSpectra, only: doAnalyzeSpectra
+    use output, only: intToChar4
 
     integer :: timeStep
     real :: time,delta_T_new
@@ -715,9 +738,9 @@ contains
     case (inABox)
       call doInABoxAnalysisTime(realParticles, 0)
     case (inABox_pion)
-      call InABoxAnalysisPion_count(pertParticles,time)
+      call InABoxPionAnalysis_count(pertParticles,time)
     case (inABox_delta)
-      call InABoxAnalysisDelta_count(pertParticles,time)
+      call InABoxDeltaAnalysis_count(pertParticles,time)
     end select
 
     TimeStep=0
@@ -811,7 +834,7 @@ contains
        end select
 
        call doFreezeoutAnalysisPerTime(timestep,time, &
-            pertParticles,realParticles)
+            realParticles,pertParticles)
 
        ! event output at particular timestep:
        call doEventOutput(realparticles, pertParticles, timestep)
@@ -880,9 +903,9 @@ contains
 
        select case (eventtype)
        case (inABox_pion)
-          call InABoxAnalysisPion_count(pertParticles,time)
+          call InABoxPionAnalysis_count(pertParticles,time)
        case (inABox_delta)
-          call InABoxAnalysisDelta_count(pertParticles,time)
+          call InABoxDeltaAnalysis_count(pertParticles,time)
        case (HeavyIon,groundState,ExternalSource)
           call HeavyIon_evol(realparticles, time, timestep)
        case (hadron)
@@ -900,6 +923,16 @@ contains
           select case (eventType)
           case (HeavyIon,Hadron,groundState,ExternalSource)
              call doHeavyIonAnalysisTime(realParticles, time)
+          case default
+             if (time>timeForOutput) then
+                if (abs(time-nint(time/timeSequence)*timeSequence) < 0.2*delta_T) then
+                   ! this is similar to 'mod', but uses 'nint' instead of 'int'
+                   ! 0.2 as some eps
+                   call writeParticleVector('RealParticles_'//intToChar4(timeStep),realParticles)
+                   call writeParticleVector('PertParticles_'//intToChar4(timeStep),pertParticles)
+
+                end if
+             end if
           end select
 
        end if
@@ -970,7 +1003,7 @@ contains
 
     end select
 
-    call doFreezeoutAnalysisPerTime(timestep,time,pertParticles,realParticles)
+    call doFreezeoutAnalysisPerTime(timestep,time,realParticles,pertParticles)
 
 !     call ChecksCallOccupied(realParticles,pertParticles,'At the end of the run: ')
     if (doPR(1)) call timeMeasurement() ! Print stopWatch
@@ -998,10 +1031,11 @@ contains
     use inputGeneral, only: FinalCoulombCorrection, printParticleVectors, &
          numTimeSteps
     use CoulombKorrektur, only: CoulombPropagation
-    use pionXsection, only: pionXsectionAnalysis
+    use LoPionAnalysis, only: doLoPionAnalysis
     use HiLeptonAnalysis, only: doHiLeptonAnalysis
     use HiPionAnalysis, only: doHiPionAnalysis
-    use InABoxAnalysisPion, only: InABoxAnalysisPion_eval
+    use InABoxPionAnalysis, only: InABoxPionAnalysis_eval
+    use InABoxDeltaAnalysis, only: InABoxDeltaAnalysis_eval
     use lowphotonanalysis, only: analyze_Photon
     use HeavyIonAnalysis, only: doHeavyIonAnalysis
     use ElementaryAnalysis, only: doElementaryAnalysis
@@ -1014,7 +1048,9 @@ contains
     use Dilepton_Analysis, only: Dilep_write_CS
     use radiativeDeltaDecay, only: radiativeDeltaDecay_write_CS
     use EventOutputAnalysis, only: doEventOutput
+    use BoxAnalysis, only: doBoxAnalysisTime
     use analyzeSpectra, only: doAnalyzeSpectra
+    use FreezeoutAnalysis, only: doFreezeoutAnalysisFinalize
     use residue, only: OutputResidue
 
     logical, intent(in) :: finalizeFlag, beforeRUN
@@ -1028,6 +1064,13 @@ contains
        case (HiLepton)
           call doHiLeptonAnalysis(realparticles,pertParticles, &
                targetNuc%mass,finalizeFlag,beforeRUN)
+       case (neutrino)
+          if (neutrinoInit_getRealRun()) then
+             call neutrino_Analyze(realParticles,finalizeFlag,num_runs_sameEnergy,beforeRUN)
+          else
+             call neutrino_Analyze(pertParticles,finalizeFlag,num_runs_sameEnergy,beforeRUN)
+          end if
+
        end select
 
        return ! leave this routine !!!
@@ -1056,7 +1099,7 @@ contains
 
     case (LoPion)
        write(*,*) '   Main : Calling pion induced analysis routine'
-       call  pionXsectionAnalysis(pertParticles,finalizeFlag)
+       call doLoPionAnalysis(pertParticles,finalizeFlag)
 
     case (RealPhoton)
        if (printParticleVectors) then
@@ -1089,6 +1132,7 @@ contains
     case (HiPion)
        call Dilep_write_CS()
        call doHiPionAnalysis(pertParticles,finalizeFlag)
+       call doHeavyIonAnalysis(realparticles,pertParticles,finalizeFlag)
 
     case (HiLepton)
        call doHiLeptonAnalysis(realparticles,pertParticles, &
@@ -1097,13 +1141,20 @@ contains
        call doHeavyIonAnalysis(realparticles,pertParticles,finalizeFlag)
 
     case (inABox_pion)
-       if (finalizeFlag) call InABoxAnalysisPion_eval()
+       if (finalizeFlag) call InABoxPionAnalysis_eval()
+
+    case (inABox_Delta)
+       write(*,*) 'calling analysis',finalizeFlag
+       if (finalizeFlag) call InABoxDeltaAnalysis_eval()
 
     case (groundState)
        call doHeavyIonAnalysis(realparticles,pertParticles,finalizeFlag)
 
     case (transportGivenParticle)
        call radiativeDeltaDecay_write_CS(pertParticles)
+
+    case (Box)
+       call doBoxAnalysisTime(realparticles, -1)
 
     end select
 
@@ -1143,6 +1194,8 @@ contains
     call doAnalyzeSpectra(realparticles, pertParticles, numTimeSteps+1,&
          0.0, finalizeFlag)
 
+    call DoFreezeoutAnalysisFinalize(realparticles, pertParticles)
+
     call OutputResidue
 
   end subroutine analysis
@@ -1162,8 +1215,8 @@ contains
     use mesonWidth, only: cleanupMeson => cleanUp
     use densityModule, only: cleanupDensity => cleanup
     use yukawa, only: cleanupYukawa => cleanup
-    use thermoDynamics, only: cleanupThermo => cleanup
-    use parametrizationsBarMes, only: cleanupBarMes => cleanup
+    use thermoDyn, only: cleanupThermo => cleanup
+    use parametrizationBarMes, only: cleanupBarMes => cleanup
     use initLowPhoton, only: cleanupLowPhoton => cleanup
     use PILCollected, only: PILCollected_DeAllocate
     use selfenergy_baryons, only: cleanupRealParts => cleanup

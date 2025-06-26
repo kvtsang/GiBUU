@@ -41,37 +41,37 @@ Module particleDefinition
   !
   Type particle
      sequence
-     real, dimension (1:3) :: position=0.
-     real, dimension (0:3) :: momentum=0.
-     real, dimension (1:3) :: velocity=0.            ! velocity=dr/dt in calculation frame
+     real, dimension (1:3) :: pos=0.
+     real, dimension (0:3) :: mom=0.
+     real, dimension (1:3) :: vel=0.           ! velocity=dr/dt in calc frame
      real                  :: mass=0.
      ! Note :
      ! This is not the invariant mass p^mu p_mu, but the bare mass of the particle without the self-energy shift:
      ! => p(0)      =   sqrt[mass+scalarPot)**2+p(1:3)**2]
      ! => p^mu p_mu =   (mass+scalarPot)**2
-     real                  :: lastCollisionTime=0.   ! time of last collision
-     real                  :: productionTime=0.      ! time of production
-     real                  :: formationTime=0.       ! time of formation
-     real                  :: perWeight=0.           ! perturbative weight
-     real                  :: scaleCS=1.             ! scaling factor for hadron cross section (during formation)
-     real                  :: offshellParameter=0.
+     real                  :: lastCollTime=0.  ! time of last collision
+     real                  :: prodTime=0.      ! time of production
+     real                  :: formTime=0.      ! time of formation
+     real                  :: perWeight=0.     ! perturbative weight
+     real                  :: scaleCS=1.       ! scaling factor for hadron cross section (during formation)
+     real                  :: offshellPar=0.
      integer               :: ID=0
-     integer               :: number=0               ! unique number for every particle
-     integer               :: charge =0
-     integer,dimension(1:2):: event=0                ! Number of event in which the particle was generated,
-                                                     ! changes during the run.
-                                                     ! cf. "collisionNumbering.f90" for details.
-     integer               :: firstEvent=0           ! Number of first event, important for perturbative particles
-                                                     ! to track particle back to its production event.
-                                                     ! should stay constant during the run if the value is >0!
-                                                     ! is inherited to reaction products of the particle.
-     integer               :: history=0              ! Variable to store the collision history of a particle
-     logical               :: antiparticle=.false.
-     logical               :: perturbative=.false.
-     logical               :: in_Formation=.false.
+     integer               :: number=0         ! unique number for every particle
+     integer               :: charge=0
+     integer,dimension(1:2):: event=0          ! Number of event in which the particle was generated,
+                                               ! changes during the run.
+                                               ! cf. "collisionNumbering.f90" for details.
+     integer               :: firstEvent=0     ! Number of first event, important for perturbative particles
+                                               ! to track particle back to its production event.
+                                               ! should stay constant during the run if the value is >0!
+                                               ! is inherited to reaction products of the particle.
+     integer               :: history=0        ! Variable to store the collision history of a particle
+     logical               :: anti=.false.
+     logical               :: pert=.false.
+     logical               :: inF =.false.     ! ='in formation'
 
 #ifdef WITHPRODUCTIONPOS
-     real, dimension (1:3) :: ProductionPos=0.       ! position where particle was produced
+     real, dimension (1:3) :: prodPos=0.       ! position where particle was produced
 #endif
 
   End Type particle
@@ -191,10 +191,25 @@ Module particleDefinition
   ! overhead.
   !****************************************************************************
 
-  public :: particle,sqrtS,setToDefault,freeEnergy,KineticEnergy,absPos,absMom,rapidity,IsSamePart
-  public :: getNumber,setNumber,setnumberguess,resetNumberGuess,AcceptGuessedNumbers,countParticles
+  public :: particle
+  public :: sqrtS
+  public :: setToDefault
+  public :: freeEnergy
+  public :: KineticEnergy
+  public :: absPos
+  public :: absMom
+  public :: rapidity
+  public :: IsSamePart
+  public :: getNumber
+  public :: setNumber
+  public :: setnumberguess
+  public :: resetNumberGuess
+  public :: AcceptGuessedNumbers
+  public :: countParticles
   public :: setNumbersToDefault
-  public :: useProductionPos, setProductionPos, getProductionPos
+  public :: useProductionPos
+  public :: setProductionPos
+  public :: getProductionPos
 
 contains
 
@@ -211,7 +226,7 @@ contains
   !****************************************************************************
   pure real function FreeEnergy(x)
     type(particle), intent(in) :: x
-    FreeEnergy=sqrt(x%mass**2+sum(x%momentum(1:3)**2))
+    FreeEnergy=sqrt(x%mass**2+sum(x%mom(1:3)**2))
   end function FreeEnergy
 
 
@@ -230,7 +245,7 @@ contains
   !****************************************************************************
   pure real function kineticEnergy(x)
     type(particle), intent(in) :: x
-    kineticEnergy=sqrt(x%mass**2+sum(x%momentum(1:3)**2))-x%mass
+    kineticEnergy=sqrt(x%mass**2+sum(x%mom(1:3)**2))-x%mass
   end function kineticEnergy
 
 
@@ -249,7 +264,7 @@ contains
   !****************************************************************************
   pure real function absMom(x)
     type(particle), intent(in) :: x
-    absMom=sqrt(sum(x%momentum(1:3)**2))
+    absMom=sqrt(sum(x%mom(1:3)**2))
   end function absMom
 
 
@@ -268,7 +283,7 @@ contains
   !****************************************************************************
   pure real function absPos(x)
     type(particle), intent(in) :: x
-    absPos=sqrt(sum(x%position(1:3)**2))
+    absPos=sqrt(sum(x%pos(1:3)**2))
   end function absPos
 
 
@@ -287,7 +302,7 @@ contains
   !****************************************************************************
   pure real function rapidity(x)
     type(particle), intent(in) :: x
-    rapidity = 0.5 * log((x%momentum(0)+x%momentum(3))/(x%momentum(0)-x%momentum(3)))
+    rapidity = 0.5 * log((x%mom(0)+x%mom(3))/(x%mom(0)-x%mom(3)))
   end function rapidity
 
 
@@ -296,7 +311,7 @@ contains
   !****************************************************************************
   pure real function sqrtSOne(x) !Sqrt(s) of one particle
     type(particle), intent(in) :: x
-    sqrtSOne=sqrt(x%momentum(0)**2-sum(x%momentum(1:3)**2))
+    sqrtSOne=sqrt(x%mom(0)**2-sum(x%mom(1:3)**2))
   end function sqrtSOne
 
   !----------------------------------------------------------------------------
@@ -304,10 +319,10 @@ contains
     type(particle), intent(in) :: x
     character(*),intent(in)  :: T
     real :: momentumSquare
-    momentumSquare=x%momentum(0)**2-sum(x%momentum(1:3)**2)
+    momentumSquare=x%mom(0)**2-sum(x%mom(1:3)**2)
     if (momentumSquare < sqrtSCut) then
        write(*,'(A,A)') 'ATTENTION: argument of sqrtS too negative: ',T
-       write(*,'(1X,4e12.5)') x%momentum
+       write(*,'(1X,4e12.5)') x%mom
        write(*,'(1X,A,e12.5)') ' ---> ',momentumSquare
        sqrtSOneT = 0.0
     else
@@ -319,7 +334,7 @@ contains
   pure real function sqrtSTwo(x,y) !Sqrt(s) of two particles
     type(particle), intent(in) :: x,y
     real :: ptot(0:3)
-    ptot = x%momentum + y%momentum
+    ptot = x%mom + y%mom
     sqrtSTwo=sqrt(ptot(0)**2-sum(ptot(1:3)**2))
   end function sqrtSTwo
 
@@ -329,12 +344,12 @@ contains
 !     character(*),intent(in)  :: T
 !     real :: momentumSquare
 !     real :: ptot(0:3)
-!     ptot = x%momentum + y%momentum
+!     ptot = x%mom + y%mom
 !     momentumSquare=ptot(0)**2-sum(ptot(1:3)**2)
 !     if (momentumSquare < sqrtSCut) then
 !        write(*,'(A,A)') 'ATTENTION: argument of sqrtS too negative: ',T
-!        write(*,'(1X,4e12.5)') x%momentum
-!        write(*,'(1X,4e12.5)') y%momentum
+!        write(*,'(1X,4e12.5)') x%mom
+!        write(*,'(1X,4e12.5)') y%mom
 !        write(*,'(1X,A,e12.5)') ' ---> ',momentumSquare
 !        sqrtSTwoT = 0.0
 !     else
@@ -346,7 +361,7 @@ contains
   pure real function sqrtSThree(x,y,z) !Sqrt(s) of three particles
     type(particle), intent(in) :: x,y,z
     real :: ptot(0:3)
-    ptot = x%momentum + y%momentum + z%momentum
+    ptot = x%mom + y%mom + z%mom
     sqrtSThree=sqrt(ptot(0)**2-sum(ptot(1:3)**2))
   end function sqrtSThree
 
@@ -356,13 +371,13 @@ contains
 !     character(*),intent(in)  :: T
 !     real :: momentumSquare
 !     real :: ptot(0:3)
-!     ptot = x%momentum + y%momentum + z%momentum
+!     ptot = x%mom + y%mom + z%mom
 !     momentumSquare=ptot(0)**2-sum(ptot(1:3)**2)
 !     if (momentumSquare < sqrtSCut) then
 !        write(*,'(A,A)') 'ATTENTION: argument of sqrtS too negative: ',T
-!        write(*,'(1X,4e12.5)') x%momentum
-!        write(*,'(1X,4e12.5)') y%momentum
-!        write(*,'(1X,4e12.5)') z%momentum
+!        write(*,'(1X,4e12.5)') x%mom
+!        write(*,'(1X,4e12.5)') y%mom
+!        write(*,'(1X,4e12.5)') z%mom
 !        write(*,'(1X,A,e12.5)') ' ---> ',momentumSquare
 !        sqrtSThreeT = 0.0
 !     else
@@ -377,7 +392,7 @@ contains
     real :: ptot(0:3)
     ptot = 0.
     do i=1,size(Part,dim=1)
-       ptot = ptot + Part(i)%momentum
+       ptot = ptot + Part(i)%mom
     end do
     sqrtSVec=sqrt(ptot(0)**2-sum(ptot(1:3)**2))
   end function sqrtSVec
@@ -391,7 +406,7 @@ contains
     real :: momentumSquare
     ptot = 0.
     do i=1,size(Part,dim=1)
-       ptot = ptot + Part(i)%momentum
+       ptot = ptot + Part(i)%mom
     end do
     momentumSquare=ptot(0)**2-sum(ptot(1:3)**2)
     if (momentumSquare < sqrtSCut) then
@@ -417,11 +432,12 @@ contains
   ! OUTPUT
   ! Returns "teilchen" with all structure elements set to the default values.
   ! NOTE
-  ! This routine is elemental, i.e. it can be applied to scalars as well as arrays.
+  ! This routine is elemental, i.e. it can be applied to scalars as well as
+  ! arrays.
   !****************************************************************************
   elemental subroutine setToDefault(teilchen)
     type(particle),intent(inOut) :: teilchen
-     teilchen = p0
+    teilchen = p0
   end subroutine setToDefault
 
 
@@ -460,13 +476,14 @@ contains
   !****************************************************************************
   !****s* particleDefinition/resetNumberGuess
   ! NAME
-  ! subroutine resetNumberGuess()
+  ! subroutine resetNumberGuess(wasGuessed)
   ! PURPOSE
   ! forget all preliminary set "unique" numbers of particles
   !
   ! cf. "setNumberGuess"
   ! INPUTS
-  ! * logical, OPTIONAL :: WasGuessed -- possible value for the Flag lastNumberWasGuessed
+  ! * logical, OPTIONAL :: wasGuessed -- possible value for the Flag
+  !   lastNumberWasGuessed
   !****************************************************************************
   subroutine resetNumberGuess(WasGuessed)
     logical, intent(in), optional :: WasGuessed
@@ -511,9 +528,9 @@ contains
 
     if (teilchen%number > 0) then
        if (teilchen%number .ne. number) then
-          write(*,*) '!!!! setNumber: number wrong !!!',teilchen%number,number,numberGuess
+          write(*,*) '!!!! setNumber: number wrong !!!',&
+               teilchen%number,number,numberGuess
           call TRACEBACK(user_exit_code=-1)
-!          stop
        end if
     end if
 
@@ -578,14 +595,18 @@ contains
   ! NAME
   ! logical function IsSamePart(x,y)
   ! PURPOSE
-  ! Compare two particles and return .TRUE., if ID, Charge and antiparticle
-  ! flag are equal.
+  ! Compare two particles and return .TRUE., if:
+  ! * ID,
+  ! * Charge and
+  ! * antiparticle flag
+  ! are equal.
   ! INPUTS
   ! * type(particle), intent(in) :: x,y
   !****************************************************************************
   pure logical function IsSamePart(x,y)
     type(particle), intent(in) :: x,y
-    IsSamePart = (x%ID==y%ID) .and. (x%charge==y%charge) .and. (x%antiparticle.eqv.y%antiparticle)
+    IsSamePart = (x%ID==y%ID) &
+         .and. (x%charge==y%charge) .and. (x%anti.eqv.y%anti)
   end function IsSamePart
 
 
@@ -597,7 +618,7 @@ contains
   ! Counts how many particles with ID "id" are in a given particle vector "p".
   ! INPUTS
   ! * type(particle), dimension(:,:), intent(in) :: p -- particle vector
-  ! * integer, intent(in) :: id                       -- ID
+  ! * integer, intent(in) :: id                       -- ID to check for
   ! OUTPUT
   ! * count
   !****************************************************************************
@@ -622,7 +643,7 @@ contains
 
 #ifdef WITHPRODUCTIONPOS
     type(particle), intent(inOut) :: p
-    p%ProductionPos = p%position
+    p%prodPos = p%pos
 #else
     type(particle), intent(in) :: p
     ! no function
@@ -635,7 +656,7 @@ contains
     type(particle), dimension(:), intent(inOut) :: p
     integer :: i
     do i=lbound(p,dim=1),ubound(p,dim=1)
-       p(i)%ProductionPos = p(i)%position
+       p(i)%prodPos = p(i)%pos
     end do
 #else
     type(particle), dimension(:), intent(in) :: p
@@ -660,7 +681,7 @@ contains
     real, dimension(1:3) :: getProductionPos ! the return value
 
 #ifdef WITHPRODUCTIONPOS
-    getProductionPos = p%ProductionPos
+    getProductionPos = p%prodPos
 #else
     real, dimension(1:3), parameter :: dummy = (/-99.9, -99.9, -99.9 /)
     getProductionPos = dummy

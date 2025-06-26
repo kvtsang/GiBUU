@@ -21,6 +21,7 @@
   path_To_Input   = '~/GiBUU/buuinput'
 
   continousBoundaries = T
+  version = 2025
 /
 
 &initInABox
@@ -77,4 +78,9 @@
 
 &angular_distribution
   NNisotropic = T
+/
+
+! file: code/numerics/random.f90
+&initRandom
+      Seed = 45678              ! seed for the random number
 /

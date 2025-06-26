@@ -85,16 +85,16 @@ contains
     p1%mass=mN
     p2%mass=mN
     p3%mass=mPi
-    p2%momentum(1:3)=(/0.1,0.,0./)
-    p1%momentum(1:3)=(/0.,0.,0./)
-    p3%momentum(1:3)=(/0.,0.,0./)
+    p2%mom(1:3)=(/0.1,0.,0./)
+    p1%mom(1:3)=(/0.,0.,0./)
+    p3%mom(1:3)=(/0.,0.,0./)
 
-    p1%momentum(0)=p1%mass
-    p2%momentum(0)=sqrt(p2%mass**2+Dot_Product(    p2%momentum(1:3),    p2%momentum(1:3)))
+    p1%mom(0)=p1%mass
+    p2%mom(0)=sqrt(p2%mass**2+Dot_Product(    p2%mom(1:3),    p2%mom(1:3)))
 
     do i=1,100
-       p3%momentum(0)=p3%mass+0.005*i
-       p3%momentum(1)=sqrt((p3%momentum(0))**2-p3%mass**2)
+       p3%mom(0)=p3%mass+0.005*i
+       p3%mom(1)=sqrt((p3%mom(0))**2-p3%mass**2)
        srts=sqrtS(p1,p2,p3)
        pcm=SQRT(Max(0.,srts**2/4.-mN**2))
        write(*,'(3(A,F8.3))') 'SQRT(s)=', srts,' PCM=',pcm,'elab=',0.005*i

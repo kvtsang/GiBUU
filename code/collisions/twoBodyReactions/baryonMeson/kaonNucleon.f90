@@ -97,7 +97,7 @@ contains
   ! Initialize output
   partOut(:)%ID=0                    ! ID of produced particles
   partOut(:)%charge=0                ! Charge of produced particles
-  partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+  partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
   partOut(:)%mass=0.                 ! Mass of produced particles
 
   ! (1) Check  Input
@@ -110,19 +110,19 @@ contains
     end if
   end if
 
-  if (kaon_particle%antiParticle) then   ! This must not happen!
-    write(*,*) 'kaon is antiparticle in "kaonNuc"!!!',partIn%ID,partIn%antiparticle
+  if (kaon_particle%anti) then   ! This must not happen!
+    write(*,*) 'kaon is antiparticle in "kaonNuc"!!!',partIn%ID,partIn%anti
     stop
   end if
 
-  if (kaon_particle%Id==kaonBar .and. partNucl%antiParticle) then
+  if (kaon_particle%Id==kaonBar .and. partNucl%anti) then
     ! Invert all particles in antiparticles:
     partNucl%Charge=-partNucl%Charge
-    partNucl%antiparticle=.false.
+    partNucl%anti=.false.
     kaon_particle%Charge=-kaon_particle%Charge
     kaon_particle%Id=kaon
     antiParticleInput=.true.
-  else if (kaon_particle%Id==kaonBar .or. partNucl%antiParticle) then
+  else if (kaon_particle%Id==kaonBar .or. partNucl%anti) then
     write(*,*) 'In kaonNuc: Kbar N and K Nbar collisions must be treated by another routine !', partIn%ID
     stop
   else
@@ -186,7 +186,7 @@ contains
 
   subroutine evaluateXsections
 
-    use parametrizationsBarMes, only: sigelkp, kppbg, kpnbg, sigCEXkp, sigCEXk0
+    use parametrizationBarMes, only: sigelkp, kppbg, kpnbg, sigCEXkp, sigCEXk0
     use constants, only: mN, mPi, mK
 
     real :: plab

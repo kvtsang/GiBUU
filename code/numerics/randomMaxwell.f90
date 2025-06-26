@@ -22,6 +22,8 @@ module randomMaxwell
   real :: fpM,logfpM
   real :: mass_
 
+  real, parameter :: eps = 1e-9
+
 contains
 
   !****************************************************************************
@@ -90,7 +92,7 @@ contains
     end do
 
     do
-       if (x(2)-x(1) < 1e-4) exit ! accuracy reached
+       if (x(2)-x(1) < eps) exit ! accuracy reached
        x(3) = (x(1)+x(2))/2
        y(3) = funkZero(x(3))
 
@@ -132,7 +134,7 @@ contains
     end do
 
     do
-       if (x(2)-x(1) < 1e-4) exit ! accuracy reached
+       if (x(2)-x(1) < eps) exit ! accuracy reached
        x(3) = (x(1)+x(2))/2
        y(3) = funkZero(x(3))
 

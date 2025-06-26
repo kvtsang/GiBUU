@@ -3,9 +3,10 @@
 ! module deuterium_PL
 !
 ! PURPOSE
-! This module defines a pointerList to store informations of a deuterium initialization.
-! We must remember which particles belong together and this information is then used in
-! the module "baryonPotential".
+! This module defines a pointerList to store informations of a deuterium
+!  initialization.
+! We must remember which particles belong together and this information is
+! then used in the module "baryonPotential".
 !
 ! NOTES
 ! This whole module can not be used in:
@@ -15,6 +16,8 @@
 module deuterium_PL
 
   use particleDefinition, only: particle
+  use callStack, only: traceback
+
   implicit none
   private
 
@@ -41,16 +44,55 @@ module deuterium_PL
   !
   type(type_deuteriumPL), allocatable, dimension(:), public :: deuterium_pointerList
   !
+  ! NOTES
+  ! This list will be initialized and filled e.g. in deuterium.f90, where
+  ! the initialization of the (target) 'nucleus' happens
   !****************************************************************************
 
-
+  !****************************************************************************
+  !****t* deuterium_PL/deuterium_pertOrigin
+  ! PURPOSE
+  ! ???
+  !
+  ! SOURCE
+  !
   type(particle), pointer, public :: deuterium_pertOrigin
-  integer, public                 :: deuterium_pertOrigin_flag
-  integer, public                 :: deuteriumPL_ensemble
+  !
+  ! NOTES
+  ! used in collisionTerm.f90
+  !****************************************************************************
 
+  !****************************************************************************
+  !****t* deuterium_PL/deuterium_pertOrigin_flag
+  ! PURPOSE
+  ! ???
+  !
+  ! SOURCE
+  !
+  integer, public :: deuterium_pertOrigin_flag
+  !
+  ! NOTES
+  ! used in collisionTerm.f90
+  !****************************************************************************
+
+  !****************************************************************************
+  !****t* deuterium_PL/deuteriumPL_ensemble
+  ! PURPOSE
+  ! ???
+  !
+  ! SOURCE
+  !
+  integer, public :: deuteriumPL_ensemble
+  !
+  ! NOTES
+  ! used in collisionTerm.f90
+  !****************************************************************************
 
   public :: get_DeuteriumPotential
-  public :: deuteriumPL_clear, deuteriumPL_getSpectra, deuteriumPL_inUse, deuteriumPL_assign
+  public :: deuteriumPL_clear
+  public :: deuteriumPL_getSpectra
+  public :: deuteriumPL_inUse
+  public :: deuteriumPL_assign
 
 contains
 
@@ -88,8 +130,8 @@ contains
     use IdTable, only: nucleon
     use particleDefinition
     use output, only: DoPr, writeParticle_debug
-    use callStack, only: traceback
-    type(particle), dimension(:,:),target :: realP
+
+    type(particle), dimension(:,:), target, intent(in) :: realP
     integer :: i,j,numNucs
 
     if (.not. deuteriumPL_inUse()) return
@@ -97,30 +139,32 @@ contains
     if (DoPr(1)) write(*,*) 'DEUTERIUM RUN: Assign particles to pointerlist...'
 
     do i=lbound(realP,dim=1),ubound(realP,dim=1)
-      numNucs=0
-      do j=lbound(realP,dim=2),ubound(realP,dim=2)
-        if (realP(i,j)%ID /= nucleon) cycle
-        numNucs=numNucs+1
-        select case (numNucs)
-        case (1)
-          deuterium_pointerList(i)%part1 => realP(i,j)
-        case (2)
-          deuterium_pointerList(i)%part2 => realP(i,j)
-        case default
-          write(*,*) 'ERROR: More than two nucleons in deuterium ! ensemble #', i
-          call writeParticle_debug (deuterium_pointerList(i)%part1)
-          call writeParticle_debug (deuterium_pointerList(i)%part2)
-          call writeParticle_debug (realP(i,j))
+       numNucs=0
+       do j=lbound(realP,dim=2),ubound(realP,dim=2)
+          if (realP(i,j)%ID /= nucleon) cycle
+          numNucs=numNucs+1
+          select case (numNucs)
+          case (1)
+             deuterium_pointerList(i)%part1 => realP(i,j)
+          case (2)
+             deuterium_pointerList(i)%part2 => realP(i,j)
+          case default
+             write(*,*) 'ERROR: More than two nucleons in deuterium!'
+             write(*,*) 'ensemble #', i
+             call writeParticle_debug(deuterium_pointerList(i)%part1)
+             call writeParticle_debug(deuterium_pointerList(i)%part2)
+             call writeParticle_debug(realP(i,j))
+             call traceback()
+          end select
+       end do
+       if (numNucs<2) then
+          write(*,*) 'ERROR: Less than two nucleons in deuterium!'
+          write(*,*) 'ensemble #', i, '  count=', numNucs
+          do j=lbound(realP,dim=2),ubound(realP,dim=2)
+             if (realP(i,j)%ID > 0) call writeParticle_debug(realP(i,j))
+          end do
           call traceback()
-        end select
-      end do
-      if (numNucs<2) then
-        write(*,*) 'ERROR: Less than two nucleons in deuterium ! ensemble #', i, "count=", numNucs
-        do j=lbound(realP,dim=2),ubound(realP,dim=2)
-          if (realP(i,j)%ID > 0) call writeParticle_debug (realP(i,j))
-        end do
-        call traceback()
-      end if
+       end if
     end do
 
     if (DoPr(1)) write(*,*) '... done'
@@ -139,21 +183,22 @@ contains
   ! * Relative momentum and position spectra
   !
   ! INPUTS
-  ! * type (type_deuteriumPL),dimension(:) :: pl
+  ! * type(type_deuteriumPL),dimension(:) :: pl
   ! * integer :: file_mom,file_dist  -- file identifiers for momentum/position histograms
   ! * real :: time    -- time
   !****************************************************************************
   subroutine deuteriumPL_getSpectra(pl,file_mom,file_dist,time)
-    use histf90
+    use hist
     use vector, only: absVec
-    use argonneV18, only: argonne_deuteriumPot
+    use argonne, only: argonne_deuteriumPot
     use constants, only: mN
     use particleDefinition, only: freeEnergy
 
-    type (type_deuteriumPL),dimension(:) :: pl
+    type(type_deuteriumPL),dimension(:), intent(in) :: pl
+    integer, intent(in) :: file_mom,file_dist
+    real, intent(in) :: time
+
     type(histogram) :: momentumHist, distanceHist
-    integer :: file_mom,file_dist
-    ! set density to dynamic
     !real :: abs_mom,abs_dist
     real :: integral
     integer :: i
@@ -161,7 +206,6 @@ contains
     real :: radius,radius_squares,radius_error
     real :: rms,rms_squares,rms_error
     real, dimension (0:3) :: totalMom
-    real :: time
     logical :: firstFlag=.true.
 
     if (allocated(deuterium_pointerlist)) then
@@ -182,21 +226,22 @@ contains
        rms_squares=0.
        call CreateHist(momentumHist, 'momentum distribution',0.,0.5,0.002)
        call CreateHist(distanceHist, 'distance distribution',0.,15.,0.05)
-       do i= lbound(pl,dim=1),ubound(pl,dim=1)
-          call AddHist(momentumHist,absVec(pl(i)%part1%momentum(1:3)-pl(i)%part2%momentum(1:3)),1.)
-          absDist=absVec(pl(i)%part1%position(1:3)-pl(i)%part2%position(1:3))
+       do i=lbound(pl,dim=1),ubound(pl,dim=1)
+          call AddHist(momentumHist,absVec(pl(i)%part1%mom(1:3)-pl(i)%part2%mom(1:3)),1.)
+          absDist=absVec(pl(i)%part1%pos(1:3)-pl(i)%part2%pos(1:3))
           call AddHist(distanceHist,absDist,1.)
           radius=radius+absDist
           radius_squares=radius_squares+absDist**2
           rms=rms+absDist**2
           rms_squares=rms_squares+absDist**4
           integral=integral+1.
-          totalMom=totalMom+pl(i)%part1%momentum+pl(i)%part2%momentum
-          bindingEnergy=bindingEnergy+freeEnergy(pl(i)%part1)+freeEnergy(pl(i)%part2)+argonne_deuteriumPot(absDist)&
-               &- 2* mN
-          bindingEnergy_squares=bindingEnergy_squares+(freeEnergy(pl(i)%part1)&
-               & +freeEnergy(pl(i)%part2)+argonne_deuteriumPot(absDist)&
-               &- 2* mN)**2
+          totalMom=totalMom+pl(i)%part1%mom+pl(i)%part2%mom
+          bindingEnergy=bindingEnergy &
+               + freeEnergy(pl(i)%part1) + freeEnergy(pl(i)%part2) &
+               + argonne_deuteriumPot(absDist) - 2*mN
+          bindingEnergy_squares=bindingEnergy_squares &
+               +(freeEnergy(pl(i)%part1) + freeEnergy(pl(i)%part2) &
+               & + argonne_deuteriumPot(absDist) - 2*mN)**2
        end do
 
        call WriteHist(momentumHist,file_Mom,mul=1./integral)
@@ -263,195 +308,186 @@ contains
   function get_DeuteriumPotential(p) result(pot)
     use particleDefinition
     use vector, only: absVec
-    use argonneV18, only: argonne_deuteriumPot
+    use argonne, only: argonne_deuteriumPot
 
     type(particle) :: p
+    type(particle), POINTER :: pP1, pP2 ! local pointers as abbrev.
     real :: pot,r
     integer :: i
-    logical :: success
+    real, parameter :: rEps = 0.00000001
+
 
     pot=0.
-    success=.false.
 
-    if (.not.p%perturbative) then
+    if (.not.p%pert) then
+       ! ===== real particle =====
 
        if (deuterium_pertOrigin_flag.eq.99) then
           ! 2 Body collisions
-          r=absVec(deuterium_pointerList(deuteriumPL_ensemble)%part1%position(1:3)&
-               & -deuterium_pointerList(deuteriumPL_ensemble)%part2%position(1:3))
-          if (r.lt.0.00000001) then
-             write(*,*) 'Real Event'
-             write(*,'(A,3F10.4)') 'Partner ',deuterium_pointerList(deuteriumPL_ensemble)%part1%position(1:3)
-             write(*,'(A,3F10.4)') 'Original',deuterium_pointerList(deuteriumPL_ensemble)%part2%position(1:3)
-             write(*,*)
-             write(*,*) 'Error in REAL_search (2). STOP',deuterium_pertOrigin
-             stop
+          pP1 => deuterium_pointerList(deuteriumPL_ensemble)%part1
+          pP2 => deuterium_pointerList(deuteriumPL_ensemble)%part2
+          r = absVec(pP1%pos(1:3) - pP2%pos(1:3))
+          if (r < rEps) then
+             write(*,*) 'Real Event ', deuterium_pertOrigin
+             write(*,'(A,3F10.4)') 'Partner ',pP1%pos(1:3)
+             write(*,'(A,3F10.4)') 'Original',pP2%pos(1:3)
+             call traceback('Error in REAL_search (2). STOP')
           end if
           pot=argonne_deuteriumPot(r)
-          success=.true.
-          return
+          return ! ==> solution found
        end if
 
-       if (.not.success) then
-          !       write(*,*) 'Direct search'
-          directSearch: do i=lbound(deuterium_pointerList,dim=1),ubound(deuterium_pointerList,dim=1)
-             if (equalParticles(deuterium_pointerList(i)%part1,p)) then
-                r=absVec(deuterium_pointerList(i)%part2%position(1:3)&
-                     & -p%position(1:3))
-                pot=argonne_deuteriumPot(r)
-                success=.true.
-                exit directSearch
-             else if (equalParticles(deuterium_pointerList(i)%part2,p)) then
-                r=absVec(deuterium_pointerList(i)%part1%position(1:3)&
-                     & -p%position(1:3))
-                pot=argonne_deuteriumPot(r)
-                success=.true.
-                exit directSearch
-             end if
-          end do directSearch
-       else
-          return
-       end if
+       do i=lbound(deuterium_pointerList,dim=1),ubound(deuterium_pointerList,dim=1)
+          pP1 => deuterium_pointerList(i)%part1
+          pP2 => deuterium_pointerList(i)%part2
 
-       if (.not.success) then
-          if (associated(deuterium_pertOrigin)) then
-             realSearch: do i=lbound(deuterium_pointerList,dim=1),ubound(deuterium_pointerList,dim=1)
-                if (equalParticles(deuterium_pointerList(i)%part1,deuterium_pertOrigin)) then
-                   r=absVec(deuterium_pointerList(i)%part2%position(1:3)&
-                        & -p%position(1:3))
-                   if (r.lt.0.00000001) then
-                      write(*,*) 'Perturbative Event'
-                      write(*,'(A,3F10.4)') 'Partner ',deuterium_pointerList(i)%part2%position(1:3)
-                      write(*,'(A,3F10.4)') 'Original',deuterium_pointerList(i)%part1%position(1:3)
-                      write(*,'(A,3F10.4)') 'Particle',p%position
-                      write(*,*)
-
-                      write(*,*) 'Error in pert_search (1). STOP',deuterium_pertOrigin_flag
-                      stop
-                   end if
-                   pot=argonne_deuteriumPot(r)
-                   success=.true.
-                   exit realSearch
-                else if (equalParticles(deuterium_pointerList(i)%part2,deuterium_pertOrigin)) then
-                   r=absVec(deuterium_pointerList(i)%part1%position(1:3)&
-                        & -p%position(1:3))
-                   if (r.lt.0.00000001) then
-                      write(*,*) 'Perturbative Event'
-                      write(*,'(A,3F10.4)') 'Partner ',deuterium_pointerList(i)%part1%position(1:3)
-                      write(*,'(A,3F10.4)') 'Original',deuterium_pointerList(i)%part2%position(1:3)
-                      write(*,'(A,3F10.4)') 'Particle',p%position
-                      write(*,*)
-                      write(*,*) 'Error in pert_search (2). STOP',deuterium_pertOrigin_flag
-                      stop
-                   end if
-                   pot=argonne_deuteriumPot(r)
-                   success=.true.
-                   exit realSearch
-                end if
-             end do realSearch
+          if (equalParticles(pP1,p)) then
+             r = absVec(pP2%pos(1:3) - p%pos(1:3))
+             pot=argonne_deuteriumPot(r)
+             return ! ==> solution found
+          else if (equalParticles(pP2,p)) then
+             r = absVec(pP1%pos(1:3) - p%pos(1:3))
+             pot=argonne_deuteriumPot(r)
+             return ! ==> solution found
           end if
-       end if
+       end do
 
-       if (.not.success) then
-          write(*,*) 'Could not find particle (REAL)',deuterium_pertOrigin_flag
-          pot=0.
-          success=.false.
-          return
-       end if
-
-    else
 
        if (associated(deuterium_pertOrigin)) then
-          pertSearch: do i=lbound(deuterium_pointerList,dim=1),ubound(deuterium_pointerList,dim=1)
-             if (equalParticles(deuterium_pointerList(i)%part1,deuterium_pertOrigin)) then
-                r=absVec(deuterium_pointerList(i)%part2%position(1:3)&
-                     & -p%position(1:3))
-                if (r.lt.0.00000001) then
-                   write(*,*) 'Perturbative Event'
-                   write(*,'(A,3F10.4)') 'Partner ',deuterium_pointerList(i)%part2%position(1:3)
-                   write(*,'(A,3F10.4)') 'Original',deuterium_pointerList(i)%part1%position(1:3)
-                   write(*,'(A,3F10.4)') 'Particle',p%position
-                   write(*,*)
+          do i=lbound(deuterium_pointerList,dim=1),ubound(deuterium_pointerList,dim=1)
 
-                   write(*,*) 'Error in pert_search (1). STOP',deuterium_pertOrigin_flag
-                   stop
+             pP1 => deuterium_pointerList(i)%part1
+             pP2 => deuterium_pointerList(i)%part2
+             if (equalParticles(pP1,deuterium_pertOrigin)) then
+                r=absVec(pP2%pos(1:3) - p%pos(1:3))
+                if (r < rEps) then
+                   write(*,*) 'Perturbative Event',deuterium_pertOrigin_flag
+                   write(*,'(A,3F10.4)') 'Partner ',pP2%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Original',pP1%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Particle',p%pos
+                   call traceback('Error in pert_search (1). STOP')
                 end if
                 pot=argonne_deuteriumPot(r)
-                success=.true.
-                exit pertSearch
-             else if (equalParticles(deuterium_pointerList(i)%part2,deuterium_pertOrigin)) then
-                r=absVec(deuterium_pointerList(i)%part1%position(1:3)&
-                     & -p%position(1:3))
-                if (r.lt.0.00000001) then
-                   write(*,*) 'Perturbative Event'
-                   write(*,'(A,3F10.4)') 'Partner ',deuterium_pointerList(i)%part1%position(1:3)
-                   write(*,'(A,3F10.4)') 'Original',deuterium_pointerList(i)%part2%position(1:3)
-                   write(*,'(A,3F10.4)') 'Particle',p%position
-                   write(*,*)
-                   write(*,*) 'Error in pert_search (2). STOP',deuterium_pertOrigin_flag
-                   stop
+                return ! ==> solution found
+             else if (equalParticles(pP2,deuterium_pertOrigin)) then
+                r=absVec(pP1%pos(1:3) - p%pos(1:3))
+                if (r < rEps) then
+                   write(*,*) 'Perturbative Event',deuterium_pertOrigin_flag
+                   write(*,'(A,3F10.4)') 'Partner ',pP1%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Original',pP2%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Particle',p%pos
+                   call traceback('Error in pert_search (2). STOP')
                 end if
                 pot=argonne_deuteriumPot(r)
-                success=.true.
-                exit pertSearch
+                return ! ==> solution found
              end if
-          end do pertSearch
-       else
-          pot=0.
+          end do
        end if
+
+       ! ----- no solution found! -----
+
+       write(*,*) 'Could not find particle (REAL)',deuterium_pertOrigin_flag
+!       call traceback('no solution found')
+       return ! ==> no solution found !?!
+
+    else
+       ! ===== perturbative particle =====
+
+       if (associated(deuterium_pertOrigin)) then
+          do i=lbound(deuterium_pointerList,dim=1),ubound(deuterium_pointerList,dim=1)
+             pP1 => deuterium_pointerList(i)%part1
+             pP2 => deuterium_pointerList(i)%part2
+             if (equalParticles(pP1,deuterium_pertOrigin)) then
+                r=absVec(pP2%pos(1:3) - p%pos(1:3))
+                if (r < rEps) then
+                   write(*,*) 'Perturbative Event',deuterium_pertOrigin_flag
+                   write(*,'(A,3F10.4)') 'Partner ',pP2%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Original',pP1%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Particle',p%pos
+                   call traceback('Error in pert_search (1). STOP')
+                end if
+                pot=argonne_deuteriumPot(r)
+                return ! ==> solution found
+             else if (equalParticles(pP2,deuterium_pertOrigin)) then
+                r=absVec(pP1%pos(1:3) - p%pos(1:3))
+                if (r < rEps) then
+                   write(*,*) 'Perturbative Event',deuterium_pertOrigin_flag
+                   write(*,'(A,3F10.4)') 'Partner ',pP1%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Original',pP2%pos(1:3)
+                   write(*,'(A,3F10.4)') 'Particle',p%pos
+                   call traceback('Error in pert_search (2). STOP')
+                end if
+                pot=argonne_deuteriumPot(r)
+                return ! ==> solution found
+             end if
+          end do
+       end if
+
+       ! ----- no solution found! -----
+
+       write(*,*) 'Could not find particle (PERT)',deuterium_pertOrigin_flag
+       !       call traceback('no solution found')
+       return ! ==> no solution found !?!
 
     end if
 
   contains
 
-      !************************************************************************
-      !****s* get_DeuteriumPotential/equalParticles
-      ! NAME
-      ! logical function equalParticles(a,b)
-      !
-      ! PURPOSE
-      ! Checks whether two particles are equal. Works only if all particles have different
-      ! %number entry (i.e. not in fullEnsemble mode)!!!
-      !
-      ! INPUTS
-      ! type(particle) :: a,b
-      !************************************************************************
-      logical function equalParticles(a,b)
-        use output, only: WriteParticle_debug
+    !************************************************************************
+    !****s* get_DeuteriumPotential/equalParticles
+    ! NAME
+    ! logical function equalParticles(a,b)
+    !
+    ! PURPOSE
+    ! Checks whether two particles are equal.
+    ! Works only if all particles have different
+    ! %number entry (i.e. not in fullEnsemble mode)!!!
+    !
+    ! INPUTS
+    ! type(particle) :: a,b
+    !************************************************************************
+    logical function equalParticles(a,b)
+      use output, only: WriteParticle_debug
 
-        type(particle) :: a,b
-        real,parameter :: eps_pos=0.5
-        real,parameter :: eps_mom=0.5
-        logical, parameter :: debug=.false.
+      type(particle), intent(in) :: a,b
 
-        equalParticles=.false.
+      real, parameter :: eps_pos=0.5
+      real, parameter :: eps_mom=0.5
+      logical, parameter :: debug=.false.
+      ! if debug=T, then only output is produced, but no checks are done.
+      ! i.e., eps_XXX are ignored
 
-        if (a%number.eq.b%number) then
-           if (debug) then
-              write(*,*)
-              equalParticles=.true.
-              write(*,*) a%position-b%position
-              write(*,*) a%momentum-b%momentum
-              write(*,*) a%number, b%number
-              return
-           end if
-           if (AbsVec(a%position-b%position).gt.eps_pos) then
-              write(*,*) 'WARNING: PARTICLES NOT EQUAL: Positions'
-              write(*,*) 'diff=',a%position-b%position
-              call WriteParticle_debug(a)
-              call WriteParticle_debug(b)
-           end if
-           if (AbsVec(a%momentum(1:3)-b%momentum(1:3)).gt.eps_mom) then
-              write(*,*) 'WARNING: PARTICLES NOT EQUAL: Momenta'
-              write(*,*) 'diff=',a%momentum(1:3)-b%momentum(1:3)
-              call WriteParticle_debug(a)
-              call WriteParticle_debug(b)
-           end if
-           equalParticles=.true.
-           return
-        end if
+      equalParticles=.false.
 
-      end function equalParticles
+      if (a%number.eq.b%number) then
+
+         if (debug) then
+            write(*,*)
+            write(*,*) a%pos-b%pos
+            write(*,*) a%mom-b%mom
+            write(*,*) a%number, b%number
+            equalParticles=.true.
+            return
+         end if
+
+         if (AbsVec(a%pos-b%pos).gt.eps_pos) then
+            write(*,*) 'WARNING: PARTICLES NOT EQUAL: Positions'
+            write(*,*) 'diff=',a%pos-b%pos
+            call WriteParticle_debug(a)
+            call WriteParticle_debug(b)
+         end if
+         if (AbsVec(a%mom(1:3)-b%mom(1:3)).gt.eps_mom) then
+            write(*,*) 'WARNING: PARTICLES NOT EQUAL: Momenta'
+            write(*,*) 'diff=',a%mom(1:3)-b%mom(1:3)
+            call WriteParticle_debug(a)
+            call WriteParticle_debug(b)
+         end if
+
+         equalParticles=.true.
+         return
+      end if
+
+    end function equalParticles
 
   end function get_DeuteriumPotential
 

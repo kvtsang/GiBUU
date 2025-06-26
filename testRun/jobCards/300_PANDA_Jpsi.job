@@ -10,7 +10,7 @@
 ! * Theodoros.Gaitanos@theo.physik.uni-giessen.de
 !------------------------------------------------------------------------------
 
-! file: code/inputOutput/input.f90
+! file: code/inputOutput/inputGeneral.f90
 &input
       eventtype       =         300 ! hadron induced
       numEnsembles    =        1000
@@ -28,6 +28,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: code/init/initHadron.f90
@@ -60,7 +61,7 @@
 !      Z=  6, A= 12 ! C
 !      Z=  7, A= 14 ! N
 !      Z= 10, A= 20 ! Ne
-      Z= 13, A= 27, densitySwitch_Static=2 ! Al
+      Z= 13, A= 27, densitySwitch_Static=2, ReAdJustForConstBinding=F ! Al
 !      Z= 16, A= 32 ! S
 !      Z= 20, A= 40 ! Ca
 !      Z= 26, A= 56 ! Fe

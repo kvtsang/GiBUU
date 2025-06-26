@@ -1,6 +1,6 @@
 program TryTransform
   use random
-  use histf90
+  use hist
 
   integer :: iMC,nMC
   type(histogram) :: h1, h2

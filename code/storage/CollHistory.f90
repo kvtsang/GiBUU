@@ -263,8 +263,9 @@ contains
   !****************************************************************************
   subroutine CollHist_UpdateHist(partIn, partOut, posIn, posOut, weight)
     use particleDefinition
-    use PreEvList, only: CreateSortedPreEvent, PreEvList_INSERT, PreEvList_PrintEntry
-    !use CallStack
+    use PreEvList, only: CreateSortedPreEvent, PreEvList_INSERT, &
+         PreEvList_PrintEntry
+    use CallStack, only: traceback
 
     type(particle), dimension(:), intent(in) :: partIn
     type(particle), dimension(:), intent(in) :: partOut
@@ -284,12 +285,11 @@ contains
     ! Create PreEvent and find it in the list:
 
     if (.not.CreateSortedPreEvent(partIn,preEvIn)) then
-       write(*,*) 'Problems in CollHist_UpdateHist: preEvIn. STOP!'
-       stop
+       call traceback('Problems in CollHist_UpdateHist: preEvIn. STOP!')
     end if
     if (.not.CreateSortedPreEvent(partOut,preEvOut)) then
-       write(*,*) 'Problems in CollHist_UpdateHist: preEvOut. STOP!'
-       stop
+       return
+       !call traceback('Problems in CollHist_UpdateHist: preEvOut. STOP!')
     end if
 
     nPartIn = size(preEvIn)
@@ -308,8 +308,7 @@ contains
        call PreEvList_INSERT(CollList1,Entry,iEntry)
 
        if (iEntry.eq.10000) then
-          write(*,*) 'Problems in CollHist_UpdateHist: iEntry=10000'
-          stop
+          call traceback('Problems in CollHist_UpdateHist: iEntry=10000')
        end if
 
     case (2)
@@ -321,8 +320,7 @@ contains
        iEntry = iEntry+10000
 
     case default
-       write(*,*) 'something fishy'
-       stop
+       call traceback('something fishy')
     end select
 
     if (verb) then

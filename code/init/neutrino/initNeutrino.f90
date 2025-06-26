@@ -26,16 +26,15 @@ module initNeutrino
   public :: getNeutrinoInfo
   public :: nuXsectionMode, process_ID, flavor_ID
   public :: nuExp
-  public :: equalWeights_Mode
-  public :: includeQE, includeDELTA, includeRES, include1pi, includeDIS, &
-       & include2p2hQE, include2p2hDelta, include2pi
+  public :: includeQE, includeDelta, includeRes, include1pi, includeDIS, &
+       include2p2hQE, include2p2hDelta, include2pi
   public :: neutrinoInit_getRealRun
   public :: cleanup
 
   public :: get_init_namelist
   public :: get_runtime_vars
   public :: max_finalstate_ID, max_Hist,includeHist,K2Hist,   &
-          &  numberOfExperiments, OscLength,isOsc
+       numberOfExperiments, OscLength,isOsc
   public :: cost_min,cost_max,delta_cost, Elept_min,Elept_max,delta_Elept
   public :: pL_min,pL_max,pT_min,pT_max, delta_pL,delta_pT
 
@@ -80,23 +79,24 @@ module initNeutrino
   ! possible values:
   ! * 0 = integratedSigma: required input: enu
   ! * 1 = dSigmadCosThetadElepton: required input: enu, costheta, elepton
-  ! * 2 = dSigmadQsdElepton: required input: enu, Qs, elepton
-  ! * 3 = dSigmadQs: required input: enu, Qs
+  ! * 2 = dSigmadQ2dElepton: required input: enu, Q2, elepton
   ! * 4 = dSigmadCosTheta: required input: enu, costheta
   ! * 5 = dSigmadElepton: required input: enu, elepton
   ! * 6 = dSigmaMC: required input: enu
-  ! * 7 = dSigmadW: required input: enu, W
+  ! * 7 = dSigmaMC_dW: required input: enu, W
+  ! * 3 = dSigmaMC_dQ2: required input: enu, Q2
+  ! * 8 = fixedGamma: required input: 3 variables (only EM)
   !
   ! calculation for specific experiments taking into account the flux
   ! (choose your favorite experiment with flag nuExp):
   ! * 10 = EXP_dSigmadEnu
   ! * 11 = EXP_dSigmadCosThetadElepton
-  ! * 12 = EXP_dSigmadQsdElepton
-  ! * 13 = EXP_dSigmadQs
+  ! * 12 = EXP_dSigmadQ2dElepton
   ! * 14 = EXP_dSigmadCosTheta
   ! * 15 = EXP_dSigmadElepton
   ! * 16 = EXP_dSigmaMC
-  ! * 17 = EXP_dSigmadW
+  ! * 17 = EXP_dSigmaMC_dW
+  ! * 13 = EXP_dSigmaMC_dQ2
   !****************************************************************************
 
   !****************************************************************************
@@ -131,11 +131,11 @@ module initNeutrino
   ! * 23 = NOvA ND
   ! * 24 = T2K on axis
   ! * 25 = MINERvA, 2016 flux
+  ! * 26 = FASERnu
   ! * 99 = user provided input file
   !****************************************************************************
 
-  integer, parameter :: numberOfExperiments=25
-
+  integer, parameter :: numberOfExperiments=26
 
 
   character*(*), dimension(0:numberOfExperiments), parameter ::  sExp  = (/ &
@@ -153,18 +153,19 @@ module initNeutrino
         "BNB nue                ", "BNB nuebar             ", &
         "BNB numu               ", "BNB numubar            ", &
         "NOvA ND                ", "T2K on axis            ", &
-        "MINERvA, 2016 flux     " /)
+        "MINERvA, 2016 flux     ", "FASERnu                " &
+        /)
 
 
   real, dimension(0:numberOfExperiments), parameter :: OscLength = &
   (/ 0., 0.541, 0., 250., 0., 0.541, 735., 735., 810., 295., 0., 735., 735., &
-     0.5, 0.5, 1300., 1300., 2300., 0.6262,0.,0.,0.,0.,0.,0.,0. /)
+     0.5, 0.5, 1300., 1300., 2300., 0.6262,0.,0.,0.,0.,0.,0.,0.,0./)
   ! oscillation length for various experiments in kilometers
 
   logical, dimension(0:numberOfExperiments), parameter:: Osc = &
   (/ .FALSE.,.FALSE.,.FALSE.,.TRUE.,.FALSE.,.FALSE.,.TRUE.,.TRUE.,.TRUE.,&
      .TRUE.,.FALSE.,.TRUE.,.TRUE.,.FALSE.,.FALSE.,.TRUE.,.TRUE.,.TRUE.,.TRUE.,&
-     .FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE. /)
+     .FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE./)
   ! OSC is true for oscillation experiments, false otherwise
   !
 
@@ -186,17 +187,17 @@ module initNeutrino
   !****************************************************************************
 
   !****************************************************************************
-  !****g* initNeutrino/includeDELTA
+  !****g* initNeutrino/includeDelta
   ! SOURCE
-  logical, save :: includeDELTA = .true.
+  logical, save :: includeDelta = .true.
   ! PURPOSE
   ! include Delta excitation
   !****************************************************************************
 
   !****************************************************************************
-  !****g* initNeutrino/includeRES
+  !****g* initNeutrino/includeRes
   ! SOURCE
-  logical, save :: includeRES = .true.
+  logical, save :: includeRes = .true.
   ! PURPOSE
   ! include excitation of higher resonances
   !****************************************************************************
@@ -261,6 +262,16 @@ module initNeutrino
   logical, save :: printAbsorptionXS = .false.
   ! PURPOSE
   ! flag to produce output about inclusive (absorption) cross sections
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initNeutrino/printInclHist
+  ! SOURCE
+  logical, save :: printInclHist = .true.
+  ! PURPOSE
+  ! flag to produce additional output about inclusive cross sections
+  !
+  ! only checked, if printAbsorptionXS = T
   !****************************************************************************
 
   !****************************************************************************
@@ -331,7 +342,7 @@ module initNeutrino
   ! SOURCE
   real, save :: delta_cost = 0.1      ! for MB,T2K, for higher energies smaller
   ! PURPOSE
-  !if detailed_diff_output is TRUE:
+  ! if detailed_diff_output is TRUE:
   ! stepsize of cos(theta) of outgoing leptons, used in 2D dsigma/dEdcos(theta)
   !****************************************************************************
 
@@ -341,10 +352,9 @@ module initNeutrino
   ! SOURCE
   real, save :: Elept_min = 0.0
   ! PURPOSE
-  !if detailed_diff_output is TRUE:
-  ! stepsize of min. energy of outgoing leptons, used in 2D dsigma/dEdcos(theta)
+  ! if detailed_diff_output is TRUE:
+  ! minimal energy of outgoing leptons, used in 2D dsigma/dEdcos(theta)
   !****************************************************************************
-
 
   !****************************************************************************
   !****g* neutrinoAnalysis/Elept_max
@@ -352,10 +362,8 @@ module initNeutrino
   real, save :: Elept_max = 2.0     ! for MB,T2K, for higher energies larger
   ! PURPOSE
   ! if detailed_diff_output or printAbsorption are TRUE:
-  ! stepsize of
   ! maximal energy of outgoing leptons, used in 2D dsigma/dEdcos(theta)
   !****************************************************************************
-
 
   !****************************************************************************
   !****g* neutrinoAnalysis/delta_Elept
@@ -366,13 +374,14 @@ module initNeutrino
   ! stepsize of energy of outgoing leptons, used in 2D dsigma/dEdcos(theta)
   !****************************************************************************
 
+
   !****************************************************************************
   !****g* neutrinoAnalysis/pL_min
   ! SOURCE
   real, save :: pL_min = 0.0
   ! PURPOSE
   ! if detailed_diff or printAbsorption are TRUE:
-  ! min. long. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
+  ! minimal long. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
   !****************************************************************************
 
 
@@ -382,7 +391,7 @@ module initNeutrino
   real, save :: pL_max = 20.0
   ! PURPOSE
   ! if detailed_diff_output or printAbsorption are TRUE:
-  ! maximum long. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
+  ! maximal long. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
   !****************************************************************************
 
 
@@ -395,15 +404,15 @@ module initNeutrino
   ! stepsize of long. momentum of outgoing leptons, used in 2D dsigma/dpLdpT
   !****************************************************************************
 
+
   !****************************************************************************
   !****g* neutrinoAnalysis/pT_min
   ! SOURCE
   real, save :: pT_min = 0.0
   ! PURPOSE
   ! if detailed_diff or printAbsorption are TRUE:
-  ! min. transv. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
+  ! minimal transv. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
   !****************************************************************************
-
 
   !****************************************************************************
   !****g* neutrinoAnalysis/pT_max
@@ -411,9 +420,8 @@ module initNeutrino
   real, save :: pT_max = 2.5
   ! PURPOSE
   ! if detailed_diff_output or printAbsorption are TRUE:
-  ! maximum transv. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
+  ! maximal transv. momentum  of outgoing leptons, used in 2D dsigma/dpLdpT
   !****************************************************************************
-
 
   !****************************************************************************
   !****g* neutrinoAnalysis/delta_pT
@@ -423,6 +431,38 @@ module initNeutrino
   ! if detailed_diff_output or printAbsorption are TRUE:
   ! binwidth of transv. momentum of outgoing leptons, used in 2D dsigma/dpLdpT
   !****************************************************************************
+
+  !****************************************************************************
+  !****g* neutrinoAnalysis/Q2_Max
+  ! SOURCE
+  real, save :: Q2_Max = 100.
+  ! PURPOSE
+  ! maximal value of Q2 in Q2-distribution
+  !****************************************************************************
+
+  ! !****************************************************************************
+  ! !****g* neutrinoAnalysis/delta_Q2
+  ! ! SOURCE
+  ! real, save :: delta_Q2 = 0.1
+  ! ! PURPOSE
+  ! ! binwidth in Q2-distribution
+  ! !****************************************************************************
+
+  ! !****************************************************************************
+  ! !****g* neutrinoAnalysis/numax
+  ! ! SOURCE
+  ! real, save :: numax = 1000
+  ! ! PURPOSE
+  ! ! max value in nu-distribution (energy-transfer distribution)
+  ! !****************************************************************************
+
+  ! !****************************************************************************
+  ! !****g* neutrinoAnalysis/delta_nu
+  ! ! SOURCE
+  ! real, save :: delta_nu = 10
+  ! ! PURPOSE
+  ! ! bin width in nu-distribution (energy-transfer distribution)
+  ! !****************************************************************************
 
   !****************************************************************************
   !****g* initNeutrino/FileNameFlux
@@ -441,6 +481,24 @@ module initNeutrino
   ! SOURCE
   !
   character(1000), save :: FileNameFlux = ''
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initNeutrino/Enumax
+  ! PURPOSE
+  ! maximum of neutrino energy in flux distribution, in GeV
+  ! SOURCE
+  real , save :: Enumax = 100.
+  !
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initNeutrino/delta_Enumax
+  ! PURPOSE
+  ! bin width of neutrino energy in flux distribution, in GeV
+  ! SOURCE
+  real , save :: delta_Enumax = 0.02
+  !
   !****************************************************************************
 
   !****************************************************************************
@@ -501,16 +559,16 @@ module initNeutrino
 
   logical, dimension(0:max_Hist), save :: includeHist
 
-  ! needed for checkEvent:
+  ! needed only for checkEvent:
   integer,dimension(1:max_finalstate_ID),parameter :: eOrigin = (/&
        1,2,3,4,5,6,7,8,9,10, &
        11,12,13,14,15,16,17,18,19,20, &
        21,22,23,24,25,26,27,28,29,30, &
        31,origin_singlePi,origin_singlePi,origin_DIS, &
        origin_2p2hQE, origin_2p2hDelta, origin_doublePi /)
+  ! origin_singlePi appears twice because of 2 possible final pion charges
 
-
-  real, save :: ww = -99.9
+  real, save :: ww = -99.9 ! for equalWeights mode
 
 contains
 
@@ -526,6 +584,7 @@ contains
     use output
     use esample
     use inputGeneral, only: path_To_Input, ExpandPath
+    use neutrinoParms, only: setDefault_Res
 
     integer :: ios
 
@@ -540,8 +599,8 @@ contains
     ! * nuXsectionMode
     ! * nuExp
     ! * includeQE
-    ! * includeDELTA
-    ! * includeRES
+    ! * includeDelta
+    ! * includeRes
     ! * include1pi
     ! * include2pi
     ! * includeDIS
@@ -550,21 +609,24 @@ contains
     ! * sigmacut
     ! * realRun
     ! * printAbsorptionXS
+    ! * printInclHist
     ! * FileNameFlux
+    ! * Enumax
+    ! * delta_Enumax
     ! * storeNucleon
     ! * equalWeights_Mode
     ! * equalWeights_Max
     !**************************************************************************
     NAMELIST /neutrino_induced/  process_ID,flavor_ID,nuXsectionMode,nuExp, &
-         includeQE,includeDELTA,includeRES,include1pi,includeDIS,&
+         includeQE,includeDelta,includeRes,include1pi,includeDIS,&
          include2p2hQE, include2p2hDelta, include2pi, storeNucleon, &
-         sigmacut, realRun, printAbsorptionXS, FileNameFlux, &
-         equalWeights_Mode, equalWeights_Max
+         sigmacut, realRun, printAbsorptionXS, printInclHist, FileNameFlux, &
+         Enumax,delta_Enumax,equalWeights_Mode, equalWeights_Max
 
     !**************************************************************************
     !****n* initNeutrino/lepton_bin
     ! NAME
-    ! NAMELIST /lepton_bin
+    ! NAMELIST /lepton_bin/
     ! PURPOSE
     ! This Namelist includes:
     ! * cost_min
@@ -573,25 +635,17 @@ contains
     ! * Elept_min
     ! * Elept_max
     ! * delta_Elept
-    !
-    ! parameters that control the binning in the 2D cross sections
-    ! d2sigma/(dE dcostheta)
-    ! E limits for lepton energies:
-    ! Elept_min = minimal value of lepton energy
-    ! Elept_max = maximal value of lepton energy
-    ! delta_Elept = bin width in Elept
-    ! cos(theta) = cost limits for lepton angles:
-    ! cost_min = minimal value of cost
-    ! cost_max = maximal value of cost
-    ! delta_cost = bin width in cost
-	! pL_min = minimal value of longitudinal lepton momentum
-	! pL_max = maximum value of longitudinal lepton momentum
-	! delta_pL = bin width in pL
-	! pT_min = minimal value of transverse lepton momentum
-	! pT_max = maximum value of transverse lepton momentum
-	! delta_pT = binwidth in pT
-    !***************************************************************************
-    NAMELIST /lepton_bin/ cost_min,cost_max,delta_cost,Elept_min,Elept_max,delta_Elept,pL_min,pL_max,delta_pL,pT_min,pT_max,delta_pT
+    ! * pL_min
+    ! * pL_max
+    ! * delta_pL
+    ! * pT_min
+    ! * pT_max
+    ! * delta_pT
+    ! * Q2_Max
+    !**************************************************************************
+    NAMELIST /lepton_bin/ cost_min,cost_max,delta_cost, &
+         Elept_min,Elept_max,delta_Elept,pL_min,pL_max,delta_pL, &
+         pT_min,pT_max,delta_pT,Q2_Max !,delta_Q2,numax,delta_nu
 
     if (.not.readinputflag) return
 
@@ -599,13 +653,6 @@ contains
     rewind(5)
     read(5,nml=neutrino_induced,IOSTAT=ios)
     call Write_ReadingInput("neutrino_induced",0,ios)
-
-    ! ! block not-implemented values:
-    ! if (include2pi .and. process_ID /= 1) then
-       ! write(*,*) "2pi bg for neutrinos not implemented, turned off"
-       ! include2pi = .FALSE.
-    ! end if
-    ! write(*,*) 'include2pi =', include2pi
 
     select case (flavor_ID)
     case (electron,muon,taulepton)
@@ -624,23 +671,24 @@ contains
        write(*,'(A,A,i5)') ' ...Process: ','***unknown*** ',process_ID
        call TRACEBACK()
     end select
+    call setDefault_Res(process_ID)
 
     write(*,'(a,2I3)') ' nuXsectionMode,nuExp:',nuXsectionMode,nuExp
 
     write(*,*)
     write(*,'(a,L2)')' ...include QE        : ',includeQE
-    write(*,'(a,L2)')' ...include Delta     : ',includeDELTA
-    write(*,'(a,L2)')' ...include higher RES: ',includeRES
+    write(*,'(a,L2)')' ...include Delta     : ',includeDelta
+    write(*,'(a,L2)')' ...include higher RES: ',includeRes
     write(*,'(a,L2)')' ...include 1pi       : ',include1pi
     write(*,'(a,L2)')' ...include 2pi       : ',include2pi
     write(*,'(a,L2)')' ...include DIS       : ',includeDIS
     write(*,'(a,L2)')' ...include 2p2h QE   : ',include2p2hQE
     write(*,'(a,L2)')' ...include 2p2h Delta: ',include2p2hDelta
-
+    write(*,*)
 
     if (include2p2hDelta) call notInRelease("2p2p Delta")
 
-    if (nuXsectionMode.ge.10) then
+    if (nuXsectionMode >= 10) then
        select case (nuExp)
        case (1:numberOfExperiments)
           write(*,*) '##### calculation is done for the ',trim(sExp(nuExp)),&
@@ -664,13 +712,14 @@ contains
              & nuexp,nuXsectionmode
           call TRACEBACK()
        end select
+    else
+       if (nuExp > 0) then
+          write(*,*) 'combination nuExp>0.and.nuXsectionMode<10 makes no sense -> STOP', &
+               & nuexp,nuXsectionmode
+          call TRACEBACK()
+       end if
     end if
 
-    if (nuExp.gt.0.and.nuXsectionMode.lt.10) then
-       write(*,*) 'combination nuExp.gt.0.and.nuXsectionMode.lt.10 makes no sense -> STOP', &
-          & nuexp,nuXsectionmode
-       call TRACEBACK()
-    end if
 
     select case (nuExp)
     case (1)
@@ -709,12 +758,19 @@ contains
        call TRACEBACK('wrong number for storeNucleon')
     end select
 
-    write(*,*) 'equalWeights:',equalWeights_Mode, equalWeights_Max
-    if(equalWeights_Mode>1) then
+    select case (equalWeights_Mode)
+    case (0)
+       write(*,*) 'equalWeights:',equalWeights_Mode
+    case (1:2)
+       write(*,*) 'equalWeights:',equalWeights_Mode, equalWeights_Max
        if (equalWeights_Max <= 0.) then
           call TRACEBACK("You have to give 'equalWeights_Max'.")
        end if
-    end if
+    case default
+       call TRACEBACK('wrong number for equalWeights_Mode')
+    end select
+
+    write(*,*) 'Enumax=',Enumax,'delta_Enumax=',delta_Enumax
 
     if (realRun) write(*,*) '#### REAL RUN ####'
 
@@ -735,13 +791,10 @@ contains
 
     readinputflag = .false.
 
-
   end subroutine readInput
 
   !****************************************************************************
   !****************************************************************************
-
-
   subroutine cleanUp
     use formfactors_A_main, only: cleanupMAID => cleanup
 
@@ -781,21 +834,22 @@ contains
   !****************************************************************************
   subroutine init_neutrino(realParticles,pertParticles,raiseFlagIn,&
        & num_runs_sameEnergy,targetNuc)
+
     use particleDefinition
     use random, only: rn
     use idtable
     use pauliBlockingModule, only: checkPauli
-    use neutrinoXsection
+    use neutrinoSigma
     use propagation, only: gradients,updateVelocity
     use collisionNumbering, only: pert_numbering,real_numbering
     use insertion, only: setIntoVector
     use inputGeneral, only: fullEnsemble
     use output, only: WriteParticleVector,WriteParticle_debug,IntToChar
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use neutrinoInfoStorage
     use neutrinoProdInfo, only: neutrinoProdInfo_Init,neutrinoProdInfo_Store
-    use offShellPotential
+    use offShellPotential, only: setOffShellParameter
     use expNeutrinoFluxes, only: getFluxEnu
     use esample
     use eN_eventDefinition
@@ -816,14 +870,16 @@ contains
 
     logical :: raiseFlag
 
-    integer :: numtry=0
+    integer :: numtry=0, ntrials=0
     integer,dimension(1:max_finalstate_ID)       :: numberofsuccess=0
     integer,dimension(1:max_finalstate_ID), save :: numberofsuccessfinal=0
     real :: sigtot!,sig
     real, dimension(1:max_finalstate_ID) ::  sigma=0.
 
     type(particle),dimension(1:max_finalstate_ID,1:2),target :: OutPart
-    type(particle),dimension(1:20),target :: OutPartDIS
+    type(particle),dimension(1:30),target :: OutPartDIS
+! The dimension of OutPartDIS must be larger than the number of final
+! state particles produced by PYTHIA string decays. 30 works for 4.4 TeV eA reactions
     type(particle),dimension(1:3), target :: OutPart2pi
     type(particle),dimension(:), pointer :: pOutPart
     type(particle),dimension(:), allocatable :: finalstate
@@ -896,6 +952,7 @@ contains
        numberofcalls=1
        sigabsArrFinal = 0.
        numberofsuccessfinal=0
+       ntrials=0
     end if
 
     sigabsArr = 0.
@@ -924,8 +981,8 @@ contains
 
     select case (nuExp)
     case (1)
-       if (nuXsectionMode.eq.EXP_dSigmadQs&
-            & .or.nuXsectionMode.eq.EXP_dSigmadEnu&
+       if (nuXsectionMode.eq.EXP_dSigmaMC_dQ2 &
+            & .or.nuXsectionMode.eq.EXP_dSigmadEnu &
             & .or.nuXsectionMode.eq.EXP_dSigmaMC) then
           call neutrinoInfoStorage_Init(numtry)
        end if
@@ -938,7 +995,6 @@ contains
 
     ! set the overall kinematics (most of it as dummy):
     call eNev_SetProcess(eNev0, process_ID,flavor_ID)
-
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -975,7 +1031,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!   BOUND NUCLEON LOOP   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
        loopNucleon: do j = lbound(realParticles,dim=2),ubound(realParticles,dim=2)
-
+          ntrials = ntrials+1
           if (realParticles(i,j)%ID.ne.nucleon) cycle
           if (realRun) then
              ! Only allow for a collision with the chosen nucleon.
@@ -1016,11 +1072,11 @@ contains
           call resetNumberGuess()
 
 !!$          ! workaround for Christine (Hang Qi):
-!!$          if (eNev1%Qsquared < 2.0) then
-!!$             write(*,*) "Q2 too small:", eNev1%Qsquared
+!!$          if (eNev1%Q2 < 2.0) then
+!!$             write(*,*) "Q2 too small:", eNev1%Q2
 !!$             cycle loopNucleon
 !!$          else
-!!$             write(*,*) "Q2 okay:", eNev1%Qsquared
+!!$             write(*,*) "Q2 okay:", eNev1%Q2
 !!$          end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1046,9 +1102,9 @@ contains
              ! Set pointer to array, where outgoing particles to store:
              ! (2pi needs larger array, DIS even larger)
              select case (k)
-             case (DIS_CH)
+             case (chDIS)
                 pOutPart => OutPartDIS(:)
-             case (twoPion)
+             case (chTwoPion)
                 pOutPart => OutPart2pi(:)
              case default
                 pOutPart => OutPart(k,:)
@@ -1065,12 +1121,8 @@ contains
                 call Xsec_dSigmadCosThetadElepton(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k))
 
-             case (dSigmadQsdElepton)
-                call Xsec_dSigmadQsdElepton(eNev(k), k, &
-                     &  raiseFlag,raiseVal,pOutPart,sigma(k))
-
-             case (dSigmadQs)
-                call Xsec_SigmaMC_Qs(eNev(k), k, &
+             case (dSigmadQ2dElepton)
+                call Xsec_dSigmadQ2dElepton(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k))
 
              case (dSigmadCosTheta)
@@ -1085,11 +1137,20 @@ contains
                 call Xsec_SigmaMC(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k))
 
-             case (dSigmadW)
+             case (dSigmaMC_dW)
                 call Xsec_SigmaMC_W(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k))
 
-            !cross sections for specific experiments with given flux
+             case (dSigmaMC_dQ2)
+                call Xsec_SigmaMC_Q2(eNev(k), k, &
+                     &  raiseFlag,raiseVal,pOutPart,sigma(k))
+
+             case (fixedGamma)
+                call Xsec_fixedGamma(eNev(k), k, &
+                     &  raiseFlag,raiseVal,pOutPart,sigma(k))
+
+
+            ! cross sections for specific experiments with given flux:
 
              case (EXP_dSigmadEnu)
                 call Xsec_integratedSigma(eNev(k), k, &
@@ -1099,12 +1160,8 @@ contains
                 call Xsec_dSigmadCosThetadElepton(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k), flux_enu)
 
-             case (EXP_dSigmadQsdElepton)
-                call Xsec_dSigmadQsdElepton(eNev(k), k, &
-                     &  raiseFlag,raiseVal,pOutPart,sigma(k), flux_enu)
-
-             case (EXP_dSigmadQs)
-                call Xsec_SigmaMC_Qs(eNev(k), k, &
+             case (EXP_dSigmadQ2dElepton)
+                call Xsec_dSigmadQ2dElepton(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k), flux_enu)
 
              case (EXP_dSigmadCosTheta)
@@ -1119,8 +1176,12 @@ contains
                 call Xsec_SigmaMC(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k), flux_enu)
 
-             case (EXP_dSigmadW)
+             case (EXP_dSigmaMC_dW)
                 call Xsec_SigmaMC_W(eNev(k), k, &
+                     &  raiseFlag,raiseVal,pOutPart,sigma(k), flux_enu)
+
+             case (EXP_dSigmaMC_dQ2)
+                call Xsec_SigmaMC_Q2(eNev(k), k, &
                      &  raiseFlag,raiseVal,pOutPart,sigma(k), flux_enu)
 
 
@@ -1163,7 +1224,8 @@ contains
              if (debugflag) write(*,'(A,i7.3)') ' countsigmacutoff=',&
                   & countsigmacutoff
              if (debugflag) write(*,'(2(A,g12.5))') &
-                  & 'In initNeutrino.f90: sigtot=',sigtot,' is less than sigmacut=',&
+                  & 'In initNeutrino.f90: sigtot=',sigtot,&
+                  &' is less than sigmacut=',&
                   & sigmacut
              cycle loopNucleon
           end if
@@ -1175,7 +1237,7 @@ contains
 !!!!!!!!!!!!!!   DO THE MC-DECISION   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
           k = MonteCarloChoose(sigma,totalWeight)
-
+          ! write(*,*) 'MonteCarlo k =', k,'sigma(k)=',sigma(k)
           ! The field 'sigma' contains the cross sections of the various
           ! subprocesses, as calculated above, 'total weight' gives the total
           ! cross section, summed over all subprocesses.
@@ -1213,9 +1275,9 @@ contains
           case (0)
              write(*,*) 'Problem initNeutrino: no event generated:', sigma
              call TRACEBACK()
-          case (DIS_CH)
+          case (chDIS)
              pOutPart => OutPartDIS(:)
-          case (twoPion)
+          case (chTwoPion)
              pOutPart => OutPart2pi(:)
           case default
              pOutPart => OutPart(k,:)
@@ -1224,9 +1286,9 @@ contains
           allocate(finalstate(size(pOutPart)))
           finalstate = pOutPart
 
-          finalState%perturbative=(.not.realRun)
-          finalState%firstEvent=FirstEvent           ! Number of first event,
-                                                     ! stays constant during run.
+          finalState%pert=(.not.realRun)
+          finalState%firstEvent=FirstEvent         ! Number of first event,
+                                                   ! stays constant during run
           finalState%perweight=totalWeight/float(numtry)
           finalState%history=0
 
@@ -1236,7 +1298,8 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
           fak1 = totalWeight/float(numtry)
-          call doStoreNeutrinoInfo(firstEvent, k, fak1, eNev(k))
+          call doStoreNeutrinoInfo(firstEvent, k, fak1, eNev(k), &
+               ntrials, sum(numberOfSuccess), totalWeight)
 
           call fillHist(k, fak1, eNev(k))
 
@@ -1249,33 +1312,29 @@ contains
           select case (k)
           case default ! ==== single-pi, DIS, 2p2h, two-pi-backg
 
-             finalstate%offshellparameter=0.
+             finalstate%offshellPar=0.
              call updateVelocity(finalstate)
 
           case (:31)    ! ==== RES or QE
 
-             finalstate%offshellparameter=0.
-             if (get_useOffShellPotentialBaryons()) then
-                finalstate%offshellparameter=getOffShellParameter(k,   &
-                     & finalstate(1)%mass,finalstate(1)%momentum, &
-                     & RealParticles(i,j)%position,success)
-                if (.not.success) then
-                   if (debugflag) write(*,*) 'offshell parameter > max_offshellparameter &
-                        & in initNeutrino => sig=0'
-                   failuresO=failuresO+1
-                   deallocate(finalstate)
-                   cycle loopNucleon
-                end if
+             call setOffShellParameter(finalstate(1),success)
+             if (.not.success) then
+                if (debugflag) write(*,*) &
+                     'offshell parameter > max_offshellparameter &
+                     & in initNeutrino => sig=0'
+                failuresO=failuresO+1
+                deallocate(finalstate)
+                cycle loopNucleon
              end if
 
              call gradients(finalstate(1),grad_P) ! Evaluate dH/dp
-             finalstate(1)%velocity=grad_P
+             finalstate(1)%vel=grad_P
              if (1. - Dot_Product(grad_P(1:3),grad_P(1:3)) .le. 0.) then
                 write(*,'(A,5G13.5)')'problems in initNeutrino: &
                      & velocity**2 greater or equal 1.', &
                      & k, Dot_Product(grad_P(1:3) &
                      & ,grad_P(1:3)), finalstate(1)%mass,&
-                     & finalstate(1)%offshellparameter,sigma(k)/float(numtry)
+                     & finalstate(1)%offshellPar,sigma(k)/float(numtry)
                 if (debugflag) then
                    call WriteParticle_debug(finalstate(1))
                    write(*,*)
@@ -1313,12 +1372,12 @@ contains
           call ResidueAddPH(firstEvent,realParticles(i,j))
           call ResidueSetWeight(firstEvent,finalstate(1)%perweight)
 
-          if (k==QE2p2h) &
+          if (k==chQE2p2h) &
                call ResidueAddPH(firstEvent,eNev(k)%nucleon2)
 
           ! set the particles in the particle vector:
 
-          if (k.ne.DIS_CH) call resetNumberGuess()
+          if (k.ne.chDIS) call resetNumberGuess()
           NumbersAlreadySet = AcceptGuessedNumbers()
 
           if (fullEnsemble) then
@@ -1420,7 +1479,7 @@ contains
 
 
     if (printAbsorptionXS) then      ! inclusive X-sections are printed
-       call writeInclHist()
+       if (printInclHist) call writeInclHist()
     end if
 
     write(*,*) '################### NEUTRINO INIT FINISHED #######################'
@@ -1440,7 +1499,7 @@ contains
       !---------------------------------------------------------------------
       ! setting up some arrays for switching on/off the channels
       !---------------------------------------------------------------------
-      includeHist = (/.true.,includeQE, includeDELTA, includeRES, &
+      includeHist = (/.true.,includeQE, includeDelta, includeRes, &
            include1pi, includeDIS, include2p2hQE, include2p2hDelta, &
            include2pi /)
 
@@ -1451,24 +1510,24 @@ contains
          case (nucleon)
             if (.not.includeQE) cycle
          case (delta)
-            if (.not.includeDELTA) cycle
+            if (.not.includeDelta) cycle
          case (P11_1440:F37_1950)
-            if (.not.includeRES) cycle
-         case (onePionCH_n,onePionCH_p)
+            if (.not.includeRes) cycle
+         case (chOnePionN,chOnePionP)
             if (.not.include1pi) cycle
-         case (DIS_CH)
+         case (chDIS)
             if (.not.includeDIS) cycle
-         case (QE2p2h)
+         case (chQE2p2h)
             if (.not.include2p2hQE) cycle
-         case (delta2p2h)
+         case (chDelta2p2h)
             if (.not.include2p2hDelta) cycle
-         case (twoPion)
+         case (chTwoPion)
             if (.not.include2pi) cycle
          end select
 
          select case (k) ! === check for inclusion of resonance
-         case (S11_2090,D13_2080,G17_2190,P11_2100,P13_1900,F15_2000,S31_1900,D33_1940, &
-               & D35_1930,D35_2350,P31_1750,F35_1750)
+         case (S11_2090,D13_2080,G17_2190,P11_2100,P13_1900,F15_2000,S31_1900,&
+              D33_1940,D35_1930,D35_2350,P31_1750,F35_1750)
             cycle
          end select
 
@@ -1487,8 +1546,8 @@ contains
       write(10,*)'# flavor_ID  : ',sFamily(flavor_ID)
       write(10,*)'# '
       write(10,'(a,L2)')' #...include QE        : ',includeQE
-      write(10,'(a,L2)')' #...include Delta     : ',includeDELTA
-      write(10,'(a,L2)')' #...include higher RES: ',includeRES
+      write(10,'(a,L2)')' #...include Delta     : ',includeDelta
+      write(10,'(a,L2)')' #...include higher RES: ',includeRes
       write(10,'(a,L2)')' #...include 1pi       : ',include1pi
       write(10,'(a,L2)')' #...include 2pi       : ',include2pi
       write(10,'(a,L2)')' #...include DIS       : ',includeDIS
@@ -1513,7 +1572,7 @@ contains
       ! The file shows the absorption cross section for lepton
       ! ( neutrino or charged lepton) scattering for the sum of all channels
       ! which were set to TRUE in the namelist "neutrino_induced"
-      ! ( QE+Delta+highRES+1pi+DIS if includeQE, includeDELTA, includeRES,
+      ! ( QE+Delta+highRES+1pi+DIS if includeQE, includeDelta, includeRes,
       ! include1pi, includeDIS were TRUE)
       !
       ! For process_ID=CC and NC  the units 10^{-38} cm^2 for integrated xsec
@@ -1524,8 +1583,8 @@ contains
       !
       ! Columns:
       ! * #1: variable which was raised
-      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQs mode, Elepton for
-      !   nuXsectionMode=2=dSigmadQsdElepton  and so on)
+      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQ2 mode, Elepton for
+      !   nuXsectionMode=2=dSigmadQ2dElepton  and so on)
       ! * #2: cross section
       !************************************************************************
       open(10,File='neutrino_absorption_cross_section.dat')
@@ -1544,8 +1603,8 @@ contains
       ! Columns:
       ! * #1: variable which was raised (the same as
       !   neutrino_absorption_cross_section.dat)
-      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQs mode, Elepton for
-      !   nuXsectionMode=2=dSigmadQsdElepton )
+      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQ2 mode, Elepton for
+      !   nuXsectionMode=2=dSigmadQ2dElepton )
       ! * #2: cross section, sum over all channels  (the same as
       !   neutrino_absorption_cross_section.dat)
       ! * #3: cross section for QE events (the same as column 2 in
@@ -1591,8 +1650,7 @@ contains
       ! The same structure as neutrino_absorption_cross_section.dat,
       ! but only for 2p2h events (=the first interaction was 2p2h)
       !************************************************************************
-
-	  if (include2p2hQE) then
+      if (include2p2hQE) then
          open(10,File='neutrino_absorption_cross_section_2p2h.dat')
          write(10,*) '#  raiseVal, xsection'
          close(10)
@@ -1606,7 +1664,7 @@ contains
       ! The Delta production events (=the first interaction was
       ! production of the Delta resonance)
       !************************************************************************
-      if (includeDELTA) then
+      if (includeDelta) then
          open(10,File='neutrino_absorption_cross_section_Delta.dat')
          write(10,*) '#  raiseVal, xsection'
          close(10)
@@ -1623,17 +1681,20 @@ contains
       ! Columns:
       ! * #1: variable which was raised (the same as
       !   neutrino_absorption_cross_section.dat)
-      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQs mode, Elepton for
-      !   nuXsectionMode=2=dSigmadQsdElepton )
+      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQ2 mode, Elepton for
+      !   nuXsectionMode=2=dSigmadQ2dElepton )
       ! * #2: cross section, sum over all higher resonances beyond the Delta
-      ! * #3 - 31: contribution of individual nucleon resonances beyond the Delta
+      ! * #3 - 31: contribution of individual nucleon resonances beyond Delta
       !   Individual resonance numbers in Module IdTable
       !   3: P11(1440), 4: S11(1535), ..., 7: D13(1520), ... etc
       !
       !************************************************************************
-      if (includeRES) then
+      if (includeRes) then
          open(10,File='neutrino_absorption_cross_section_highRES.dat')
          write(10,*) '#  raiseVal, sum, single contribution xsection'
+         write(10,*) '#  columns 3 - 31 give results for N* > Delta &
+              &resonances from module IdTable'
+         write(10,'(A9,30I13)') '#       ',(k,k=2,31)
          close(10)
       end if
 
@@ -1700,8 +1761,8 @@ contains
       ! Columns:
       ! * #1: variable which was raised (the same as
       !   neutrino_absorption_cross_section.dat)
-      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQs mode, Elepton for
-      !   nuXsectionMode=2=dSigmadQsdElepton )
+      !   (e.g. Q^2 for nuXsectionMode=3=dSigmadQ2 mode, Elepton for
+      !   nuXsectionMode=2=dSigmadQ2dElepton )
       ! * #2: QE channel
       ! * #3: Delta production
       ! * #4: P_{11}(1440) production
@@ -1726,10 +1787,10 @@ contains
 
       MCmode = ((nuXsectionMode.eq.dSigmaMC)&
            & .or.(nuXsectionMode.eq.EXP_dSigmaMC) &
-           & .or.(nuXsectionMode.eq.dSigmadQs) &
-           & .or.(nuXsectionMode.eq.EXP_dSigmadQs) &
-           & .or.(nuXsectionMode.eq.dSigmadW) &
-           & .or.(nuXsectionMode.eq.EXP_dSigmadW) )
+           & .or.(nuXsectionMode.eq.dSigmaMC_dQ2) &
+           & .or.(nuXsectionMode.eq.EXP_dSigmaMC_dQ2) &
+           & .or.(nuXsectionMode.eq.dSigmaMC_dW) &
+           & .or.(nuXsectionMode.eq.EXP_dSigmaMC_dW) )
 
 
 
@@ -1737,16 +1798,18 @@ contains
          ! create a histogram for the sampled energies
          ! the histogram reflects the distribution of sampled energies;
          ! this distribution is determined by the original flux distribution
-         call CreateHist(energyInit, 'initialized energy',0.,150.,0.02)
+         call CreateHist(energyInit, 'initialized energy',0.,Enumax,delta_Enumax)
       end if
 
-      ! this is to estimate the "reasonable" numax in the neutrino
-      ! experiments in order to use it for initiallisation of histograms
+      ! this is to estimate the "reasonable" energy transfer in the neutrino
+      ! experiments in order to use it for initialisation of histograms
       ! for differential absorption cross sections
       if (nuExp.gt.0) then
          numax = getNuMaxExp()
       else
-         call get_xsection_namelist(XsectionMode=nuXsectionMode,Genu=numax)
+      ! if nuExp = 0 then numax is set to enu
+         call get_sigma_namelist(XsectionMode=nuXsectionMode,Genu=numax)
+
       end if
 
 
@@ -1760,17 +1823,20 @@ contains
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!      write(*,*) 'In initialization of the histograms for absorption xsec:'
-!      write(*,*) '    numax=', numax
+    ! now set parameters for binning
       numax = max(numax,1e-10)
-      Q2max = 2*mN*numax+mN**2       ! rough estimate
-      W2max = Q2max                  ! rough estimate
-      Q2max = min(10.0,Q2max)
+      W2max = mN**2 + 2*mN*numax     ! rough estimate
+      Q2max = 2*mN*numax             ! rough estimate
+      Q2max = min(Q2_Max,Q2max)
+
+      write(*,*) 'In initialization of the histograms for absorption xsec:'
+      write(*,*) '    numax=', numax, '   Q2max=', Q2max, '   W2max=',W2max
+
       do iHist=0,8
          if (.not.includeHist(iHist)) cycle
          call CreateHist2D(hSigmaMC_nuQ2(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs nu and Q2 ', &
-              & (/0.,0./),(/numax,Q2max/),(/0.1,0.1/))
+              & (/0.,0./),(/numax,Q2max/),(/numax/100.,Q2max/500.0/))
          call CreateHist2D(hSigmaMC_EprimeCost(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs Eprime and cost ', &
               & (/Elept_min,cost_min/),(/Elept_max,cost_max/),(/delta_Elept,delta_cost/))
@@ -1788,13 +1854,13 @@ contains
               & (/0.,0./),(/2.1,2.1/),(/1.0/100,1.0/100/))
          call CreateHist(hSigmaMC_nu(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs nu ', &
-              & 0.,numax,0.01)
+              & 0.,numax,numax/100.)
          call CreateHist(hSigmaMC_qz(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs qz=sqrt(nu^2+Q2) ', &
-              & 0.,numax,0.01)
+              & 0.,numax,numax/100.)
          call CreateHist(hSigmaMC_Q2(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs Q2 ', &
-              & 0.,Q2max,0.01)
+              & 0.,Q2max,Q2max/500.)
          call CreateHist(hSigmaMC_X(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs X_Bjorken ', &
               & 0.,2.0,0.01)
@@ -1804,10 +1870,10 @@ contains
          call CreateHist(hSigmaMC_Wrec(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs Wrec = &
               & sqrt(mN^2 +2*mN*nu - Q2) ', &
-              & 0.,sqrt(W2max),0.02)
+              & 0.,sqrt(W2max),sqrt(W2max)/100.)
          call CreateHist(hSigmaMC_Wfree(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs Wfree', &
-              & 0.,sqrt(W2max),0.02)
+              & 0.,sqrt(W2max),sqrt(W2max)/100.)
          call CreateHist(hSigmaMC_W(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs W', &
               & 0.,sqrt(W2max),0.02)
@@ -1862,7 +1928,7 @@ contains
          close(10)
       end if
 
-	  if (include2p2hQE) then
+      if (include2p2hQE) then
          open(10,File='neutrino_absorption_cross_section_2p2h.dat',&
               & position='append')
          if (numberofcalls.ne.1) backspace(10)
@@ -1870,7 +1936,7 @@ contains
          close(10)
       end if
 
-      if (includeDELTA) then
+      if (includeDelta) then
          open(10,File='neutrino_absorption_cross_section_Delta.dat',&
               & position='append')
          if (numberofcalls.ne.1) backspace(10)
@@ -1878,7 +1944,7 @@ contains
          close(10)
       end if
 
-      if (includeRES) then
+      if (includeRes) then
          open(10,File='neutrino_absorption_cross_section_highRES.dat',&
               & position='append')
          if (numberofcalls.ne.1) backspace(10)
@@ -1905,7 +1971,7 @@ contains
          close(10)
       end if
 
-	  if (include2pi) then
+      if (include2pi) then
          open(10,File='neutrino_absorption_cross_section_2pi.dat',&
               & position='append')
          if (numberofcalls.ne.1) backspace(10)
@@ -1934,28 +2000,31 @@ contains
     ! PURPOSE
     ! store the neutrino and the nucleon info
     !**************************************************************************
-    subroutine doStoreNeutrinoInfo(firstEvent, k, fak, eNev)
+    subroutine doStoreNeutrinoInfo(firstEvent, k, fak, eNev, &
+         ntrials, nsuccess, weight)
       use eN_eventDefinition
 
-      integer, intent(in) :: firstEvent, k
-      real, intent(in) :: fak
+      integer, intent(in) :: firstEvent, k, ntrials, nsuccess
+      real, intent(in) :: fak, weight
       type(electronNucleon_event),intent(in) :: eNeV
 
       select case (storeNucleon)
       case (1)
          call neutrinoProdInfo_Store(firstEvent, k, fak,&
-              eNev%lepton_in%momentum,&
-              eNev%lepton_out%momentum,&
-              eNev%boson%momentum,&
-              eNev%nucleon_free%momentum,&
-              eNev%nucleon_free%charge)
+              eNev%lepton_in%mom,&
+              eNev%lepton_out%mom,&
+              eNev%boson%mom,&
+              eNev%nucleon_free%mom,&
+              eNev%nucleon_free%charge,&
+              ntrials, nsuccess, weight)
       case (2)
          call neutrinoProdInfo_Store(firstEvent, k, fak,&
-              eNev%lepton_in%momentum,&
-              eNev%lepton_out%momentum,&
-              eNev%boson%momentum,&
-              eNev%nucleon%momentum,&
-              eNev%nucleon%charge)
+              eNev%lepton_in%mom,&
+              eNev%lepton_out%mom,&
+              eNev%boson%mom,&
+              eNev%nucleon%mom,&
+              eNev%nucleon%charge,&
+              ntrials, nsuccess, weight)
       end select
 
     end subroutine doStoreNeutrinoInfo
@@ -1975,15 +2044,15 @@ contains
       iHist = K2Hist(k)
 
       call AddHist2D(hSigmaMC_nuQ2(0),hSigmaMC_nuQ2(iHist),&
-           (/eNev%boson%momentum(0),eNev%Qsquared/), fak)
+           (/eNev%boson%mom(0),eNev%Q2/), fak)
       call AddHist(hSigmaMC_nu(0),hSigmaMC_nu(iHist),&
-           eNev%boson%momentum(0), fak)
+           eNev%boson%mom(0), fak)
       call AddHist(hSigmaMC_qz(0),hSigmaMC_qz(iHist),&
-           sqrt(eNev%boson%momentum(0)**2+eNev%Qsquared), fak)
+           sqrt(eNev%boson%mom(0)**2+eNev%Q2), fak)
       call AddHist(hSigmaMC_Q2(0),hSigmaMC_Q2(iHist),&
-           eNev%Qsquared, fak)
+           eNev%Q2, fak)
       call AddHist(hSigmaMC_Xrec(0),hSigmaMC_Xrec(iHist),&
-           eNev%Qsquared/(2*mN*eNev%boson%momentum(0)), fak)
+           eNev%Q2/(2*mN*eNev%boson%mom(0)), fak)
 
       if (eNev%W > 0) then
          call AddHist(hSigmaMC_W(0),hSigmaMC_W(iHist),&
@@ -2001,9 +2070,9 @@ contains
               eNev%W_rec, fak)
       end if
 
-      Eprime = eNev%lepton_out%momentum(0)
+      Eprime = eNev%lepton_out%mom(0)
       cost = eNeV_Get_CostLepton(eNev)
-      plept = abs3(eNev%lepton_out%momentum)
+      plept = abs3(eNev%lepton_out%mom)
       pL = plept * cost
       pT = plept * sqrt(1. - cost**2)
       Wrec = eNev%W_rec
@@ -2021,9 +2090,9 @@ contains
            (/pT,Wrec/), fak)
 
       if (.not.MCmode) then
-         call CalcXY(eNev%lepton_in%momentum, &
-              eNev%lepton_out%momentum,&
-              eNev%nucleon%momentum, MC_x,MC_y, flagDUMMY)
+         call CalcXY(eNev%lepton_in%mom, &
+              eNev%lepton_out%mom,&
+              eNev%nucleon%mom, MC_x,MC_y, flagDUMMY)
       end if
 
       call AddHist2D(hSigmaMC_XY(0),hSigmaMC_XY(iHist),&
@@ -2382,25 +2451,25 @@ contains
   !****s* initNeutrino/get_init_namelist
   ! NAME
   ! subroutine get_init_namelist(process_ID, flavor_ID,
-  ! nuXsectionMode, nuExp, debugflag, includeQE, includeDELTA, includeRES,
+  ! nuXsectionMode, nuExp, debugflag, includeQE, includeDelta, includeRes,
   ! include1pi, realRun)
   !
   ! PURPOSE
   ! This subroutine returns any entry of the neutrino init namelist.
   !
   ! OUTPUT
-  ! * logical, optional :: debugflag,includeQE,includeDELTA,
-  !   includeRES,include1pi,realRun
+  ! * logical, optional :: debugflag,includeQE,includeDelta,
+  !   includeRes,include1pi,realRun
   ! * integer, optional :: process_ID,flavor_ID,nuXsectionMode,nuExp
   !
   !****************************************************************************
   subroutine get_init_namelist(Gprocess_ID,Gflavor_ID, &
        & GnuXsectionMode, &
-       & GnuExp,Gdebugflag,GincludeQE,GincludeDELTA,GincludeRES,Ginclude1pi,&
+       & GnuExp,Gdebugflag,GincludeQE,GincludeDelta,GincludeRes,Ginclude1pi,&
        & GrealRun, outLepton_ID, outLepton_charge)
 
     logical, optional, intent(out) :: Gdebugflag, &
-         & GincludeQE,GincludeDELTA,GincludeRES,Ginclude1pi,GrealRun
+         & GincludeQE,GincludeDelta,GincludeRes,Ginclude1pi,GrealRun
     integer, optional, intent(out) :: Gprocess_ID,Gflavor_ID, &
          & GnuXsectionMode, GnuExp, outLepton_ID, outLepton_charge
 
@@ -2412,8 +2481,8 @@ contains
     if (present(GnuExp)) GnuExp=nuExp
     if (present(Gdebugflag)) Gdebugflag=debugflag
     if (present(GincludeQE)) GincludeQE=includeQE
-    if (present(GincludeDELTA)) GincludeDELTA=includeDELTA
-    if (present(GincludeRES)) GincludeRES=includeRES
+    if (present(GincludeDelta)) GincludeDelta=includeDelta
+    if (present(GincludeRes)) GincludeRes=includeRes
     if (present(Ginclude1pi)) Ginclude1pi=include1pi
     if (present(GrealRun)) GrealRun=realRun
 
@@ -2488,7 +2557,7 @@ contains
          & 30.0, 30.0, 30.0, 30.0, &  ! MINERvA-numu, MINERvA-antinumu,DUNE-nu,DUNE-barnu
          & 30.0, 300.0,      &        ! LBNO-nu, NOMAD
          & 7.5, 7.5, 7.5, 7.5, &      ! BNB-nue,BNB-nuebar,BNBnumu,BNBnumubar
-         & 15., 20., 20. /)           ! NOvA, T2K, MINERvA 2016
+         & 15., 20., 20., 2000./)     ! NOvA, T2Koa, MINERvA 2016,FASER
 
 
 

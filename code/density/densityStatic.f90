@@ -25,7 +25,8 @@ module densityStatic
   ! PURPOSE
   ! If this switch is 'true', then the density of the proton and neutron centers
   ! will be tabulated that is different from the matter density.
-  ! NOTE: presently relevant only for densitySwitch_static=2 (Luis routine)
+  ! NOTES
+  ! presently relevant only for densitySwitch_static=2 (Luis routine)
   !****************************************************************************
 
   public :: staticDensity,staticDensityInit,densityLuis
@@ -37,7 +38,7 @@ contains
   !****************************************************************************
   !****s* densityStatic/staticDensityInit
   ! NAME
-  ! subroutine staticDensityInit (nuc)
+  ! subroutine staticDensityInit(nuc)
   ! PURPOSE
   ! decide, which density parametrisation is used. Then tabulate this and
   ! also set the extreme values for the MC decision.
@@ -46,10 +47,10 @@ contains
   ! OUTPUT
   ! * type(tNucleus) :: nuc
   !****************************************************************************
-  subroutine staticDensityInit (nuc)
-    
+  subroutine staticDensityInit(nuc)
+
     use output, only: Write_ReadingInput
-    
+
     type(tNucleus),pointer :: nuc
 
     NAMELIST /initStaticDensity/ useCentroids
@@ -64,7 +65,7 @@ contains
     write(*,*)' useCentroids : ', useCentroids
 
     call Write_ReadingInput("initStaticDensity",1)
-    
+
     if (nuc%mass <= 2) then
        if (nuc%densityswitch_static > 0) then
           write(*,*)
@@ -78,51 +79,44 @@ contains
 
 
     select case (nuc%densitySwitch_static)
-    case (0)
-       ! Density=0.
+    case (0) ! Density=0.
        call TabulateZero(nuc)
 
-    case (1) ! Static Woods-Saxon distribution
+    case (1) ! Woods-Saxon distribution, proton=neutron
        call TabulateDensityWoodsSaxon(nuc)
 
-    case (2) ! Static density prescription implemented by L.Alvarez-Russo
-            ! corresponds to Oset's papers, e.g. NPA 554, 509 (1993)
-
+    case (2) ! prescription implemented by L.Alvarez-Russo
+             ! corresponds to Oset's papers, e.g. NPA 554, 509 (1993)
        call TabulateDensityLuis(nuc)
 
-    case (3) ! Static density prescription according to Horst Lenske
-            ! Implements different radii for neutrons and protons
-
+    case (3) ! Woods-Saxon distribution,
+             ! different parameters for neutrons and protons
        call TabulateDensityLenske(nuc)
 
     case (4) ! Static Harmonic Oscilator Shell model
-
        call TabulateDensityHarmOsc(nuc)
 
     case (5) ! Fermi gas model with no surface term
-
        call TabulateSphere(nuc)
 
-    case (6) !Static Density based on LDA, implemented by Birger Steinmueller
-
+    case (6) ! based on LDA, implemented by Birger Steinmueller
        call TabulateDensityBirger(nuc)
 
-    case (7) !Static Density based on LDA + Welke potential
-
+    case (7) ! based on LDA + Welke potential
        call TabulateDensityBirgerWelke(nuc)
 
-    case (8) !Static Density prescription according Relativistic Thomas-Fermi
-            !Valid only in RMF-mode
+    case (8) ! prescription according Relativistic Thomas-Fermi
+             ! Valid only in RMF-mode
        call TabulateDensityExRTF(nuc)
 
     case default
+       write(*,*) 'wrong DensitySwitch_static:', nuc%densitySwitch_static
+       call Traceback('STOP')
 
-       write(*,*) 'Error in static density: DensitySwitch_static is not well defined', nuc%densitySwitch_static
-       call Traceback('Severe Error : STOP')
     end select
 
-    call SearchMaxVals(nuc)
-    call NucleusAverageDensity(nuc)
+    call nuc%SearchMaxVals()
+    call nuc%writeAverageDens()
 
   end subroutine staticDensityInit
 
@@ -145,15 +139,12 @@ contains
 
     type(tNucleus),pointer :: nuc
 
-    integer :: i
-
     call Write_InitStatus('density tabulation (density=0.)',0)
     write(*,'(A,F8.4)') '    dr   =',nuc%dx
     write(*,'(A,F8.4)') '    r_max=',nuc%dx*float(nuc%maxIndex)
 
-    do i=0,nuc%MaxIndex
-       nuc%densTab(i,1:2) = 0.
-    end do
+    nuc%densTab = 0.
+
     call Write_InitStatus('density tabulation (density=0.)',1)
 
   end subroutine TabulateZero
@@ -180,7 +171,7 @@ contains
 
     type(tNucleus),pointer :: nuc
 
-    real :: x,ratio!,h
+    real :: x
     integer :: i
     real, parameter :: epsilon=0.001
 
@@ -188,7 +179,7 @@ contains
     write(*,'(A,F8.4)') '    dr   =',nuc%dx
     write(*,'(A,F8.4)') '    r_max=',nuc%dx*float(nuc%maxIndex)
 
-    if (nuc%radius.lt.epsilon) then
+    if (nuc%radius(0).lt.epsilon) then
        write(*,*) 'SEVERE ERROR: This nucleus is not well defined.'
        write(*,*) 'Radius=',nuc%radius
        write(*,*) 'A=',nuc%mass,'  Z= ',nuc%charge
@@ -196,15 +187,12 @@ contains
        call Traceback('Stop')
     end if
 
-    ratio = float(nuc%charge)/float(nuc%mass)
+    nuc%densTab = 0.
 
     do i=0,nuc%MaxIndex
        x = i*nuc%dx
-       if (x.le.nuc%radius) then
-          nuc%densTab(i,1) = nuc%density * ratio
-          nuc%densTab(i,2) = nuc%density * (1-ratio)
-       else
-          nuc%densTab(i,1:2) = 0.
+       if (x.le.nuc%radius(0)) then
+          nuc%densTab(i,:) = nuc%density
        end if
     end do
     call Write_InitStatus('density tabulation (Sphere)',1)
@@ -215,21 +203,25 @@ contains
   !****************************************************************************
   !****s* densityStatic/TabulateDensityWoodsSaxon
   ! NAME
-  ! subroutine TabulateDensityWoodsSaxon (nuc)
+  ! subroutine TabulateDensityWoodsSaxon(nuc)
   ! PURPOSE
   ! Tabulate the Woods-Saxon distribution. Tabulates the static density
   ! to make it available faster for later use.
+  !
+  ! parameters for protons and neutrons are equal
+  !
   ! INPUTS
   ! * type(tNucleus) :: nuc
   ! OUTPUT
   ! * type(tNucleus) :: nuc
   !****************************************************************************
-  subroutine TabulateDensityWoodsSaxon (nuc)
-    use output, only: write_initstatus
+  subroutine TabulateDensityWoodsSaxon(nuc)
+    use output, only: write_initstatus, paragraph
+    use constants, only: pi
 
     type(tNucleus),pointer :: nuc
 
-    real :: x,h,ratio
+    real :: x,h,ratio,s
     integer :: i
     real, parameter :: epsilon=0.001
 
@@ -237,22 +229,49 @@ contains
     write(*,'(A,F8.4)') '    dr   =',nuc%dx
     write(*,'(A,F8.4)') '    r_max=',nuc%dx*float(nuc%maxIndex)
 
-    if (nuc%surface<epsilon .or. nuc%radius<epsilon) then
+    if (nuc%surface(0)<epsilon .or. nuc%radius(0)<epsilon) then
        write(*,*) 'SEVERE ERROR: This nucleus is not well defined.'
-       write(*,*) 'Radius=',nuc%radius,'   Surface=',nuc%surface
+       write(*,*) 'Radius=',nuc%radius(0),'   Surface=',nuc%surface(0)
        write(*,*) 'A=',nuc%mass,'  Z= ',nuc%charge
        write(*,*) 'Not possible to use that nucleus for Woods-Saxon density.'
        call Traceback('Stop')
     end if
 
-    ratio = float(nuc%charge)/float(nuc%mass)
+    ! check input values overwriting default numbers:
+    if ((nuc%radius_input(1) > 0).or.(nuc%surface_input(1) > 0)) then
+       write(*,*) "some parameters are overwritten by the input!"
 
+       if (nuc%radius_input(1) > 0)  nuc%radius  = nuc%radius_input(1)
+       if (nuc%surface_input(1) > 0) nuc%surface = nuc%surface_input(1)
+       nuc%density = -99.9 ! here as dummy
+    end if
+
+
+    ratio = float(nuc%charge)/float(nuc%mass)
+    s = 0
     do i=0,nuc%MaxIndex
        x = i*nuc%dx
-       h = nuc%density /(1.+exp((x-nuc%radius)/nuc%surface))
-       nuc%densTab(i,1) = h * ratio
-       nuc%densTab(i,2) = h * (1-ratio)
+       h = nuc%density(0) /(1.+exp((x-nuc%radius(0))/nuc%surface(0)))
+       s = s + x**2*h
+       nuc%densTab(i,:) = h * (/ 1., ratio, 1-ratio /)
     end do
+
+    if (nuc%density(0) <0 ) then
+       write(*,*) '...nuc%density will be adjusted'
+       s = s * nuc%dx * 4*pi
+       h = float(nuc%mass)/s
+       nuc%densTab = nuc%densTab * h
+       nuc%density = nuc%density * h
+    end if
+
+    nuc%density(1:2) = nuc%density(0) * (/ ratio, 1-ratio /)
+
+    write(*,paragraph) ' Parameters: '
+    write(*,'(A)')       '              Baryon:  Proton: Neutron:'
+    write(*,'(A,3F9.4)') '    rho_max=',nuc%density
+    write(*,'(A,3F9.4)') '    radius =',nuc%radius
+    write(*,'(A,3F9.4)') '    surface=',nuc%surface
+
     call Write_InitStatus('density tabulation (Woods-Saxon)',1)
 
   end subroutine TabulateDensityWoodsSaxon
@@ -286,9 +305,12 @@ contains
     integer :: i
     logical :: okay
 
-    integer, parameter:: PossibleA(2:8) = (/   4, -1,     9,   11,    12, -1,    16/)
-    real,    parameter:: rCh(2:8) =       (/1.74, -1., 2.519, 2.37, 2.446, -1., 2.724/)
-    real,    parameter:: d2(2:8)   = (rCh**2-0.81**2) / (2.5-4./PossibleA)
+    integer, parameter:: PossibleA(2:8) = &
+         (/   4, -1,     9,   11,    12, -1,    16/)
+    real,    parameter:: rCh(2:8) = &
+         (/1.74, -1., 2.519, 2.37, 2.446, -1., 2.724/)
+    real,    parameter:: d2(2:8) = &
+         (rCh**2-0.81**2) / (2.5-4./PossibleA)
 
 
     call Write_InitStatus('density tabulation (Harm. Osc.)',0)
@@ -322,8 +344,7 @@ contains
        h3 = x**2/d2(nuc%charge)
        h = h1 * (1+h2*h3) * exp(-h3)
 
-       nuc%densTab(i,1) = h * ratio
-       nuc%densTab(i,2) = h * (1-ratio)
+       nuc%densTab(i,:) = h * (/ 1., ratio, 1.-ratio /)
     end do
     call Write_InitStatus('density tabulation (Harm. Osc.)',1)
 
@@ -333,7 +354,7 @@ contains
   !****************************************************************************
   !****s* densityStatic/TabulateDensityLenske
   ! NAME
-  ! subroutine TabulateDensityLenske (nuc)
+  ! subroutine TabulateDensityLenske(nuc)
   ! PURPOSE
   ! Tabulate the density distribution according to Woods-Saxon distribution
   ! but with refined charge radii for proton and neutron according to H. Lenske.
@@ -345,27 +366,80 @@ contains
   ! NOTES
   ! Everything in fm.
   !****************************************************************************
-  subroutine TabulateDensityLenske (nuc)
+  subroutine TabulateDensityLenske(nuc)
+    use constants, only: pi
     use nucD, only: dfs
-    use output, only: write_initstatus
+    use output, only: write_initstatus, paragraph
 
     type(tNucleus),pointer :: nuc
 
     real, dimension(1:3) :: radius, surface, rhoMax
-    real :: x
+    real, dimension(1:2) :: h,s
+    real :: x, ratio=0.
     integer :: i
 
     call Write_InitStatus('density tabulation (Lenske & Woods-Saxon)',0)
-    write(*,'(A,F8.4)') '    dr   =',nuc%dx
-    write(*,'(A,F8.4)') '    r_max=',nuc%dx*float(nuc%maxIndex)
+    write(*,'(A,F8.4)') '    dr     =',nuc%dx
+    write(*,'(A,F8.4)') '    r_max  =',nuc%dx*float(nuc%maxIndex)
 
     call DFS(nuc%mass,nuc%charge,radius,surface,rhoMax)
 
+    ! reorder the arrays:
+    nuc%radius =  (/ radius(3), radius(1), radius(2) /)
+    nuc%surface = (/ surface(3), surface(1), surface(2) /)
+    nuc%density = (/ rhoMax(3), rhoMax(1), rhoMax(2) /)
+
+    ratio = float(nuc%charge)/float(nuc%mass)
+
+    if ((any(nuc%radius_input > 0)).or.(any(nuc%surface_input > 0))) then
+       write(*,*)
+       write(*,*) "some parameters are overwritten by the input!"
+
+       if (nuc%radius_input(1) > 0)  nuc%radius(1)  = nuc%radius_input(1)
+       if (nuc%radius_input(2) > 0)  nuc%radius(2)  = nuc%radius_input(2)
+       if (nuc%surface_input(1) > 0) nuc%surface(1) = nuc%surface_input(1)
+       if (nuc%surface_input(2) > 0) nuc%surface(2) = nuc%surface_input(2)
+
+       nuc%radius(0)  = ratio*nuc%radius(1)  + (1.-ratio)*nuc%radius(2)
+       nuc%surface(0) = ratio*nuc%surface(1) + (1.-ratio)*nuc%surface(2)
+
+       nuc%density = -99.9 ! here as dummy
+    end if
+
+
+    ! one could use the approximation of the normalization
+    ! 4pi /int dr r^2/(1+exp((r-R)/a)) ~= 4pi/3 R^3(1+pi^2(a/R)^2)
+    ! (neglecting terms O( exp(-R/a) ))
+    ! cf. Bohr&Mottelson, Nuclear Structure (1998), p.160
+
+    s = 0
     do i=0,nuc%MaxIndex
        x = i*nuc%dx
-       nuc%densTab(i,1) = rhoMax(1)/(1+exp((x-radius(1))/surface(1)))
-       nuc%densTab(i,2) = rhoMax(2)/(1+exp((x-radius(2))/surface(2)))
+       h = nuc%density(1:2)/(1+exp((x-nuc%radius(1:2))/nuc%surface(1:2)))
+       nuc%densTab(i,1:2) = h
+       s = s + x**2*h
     end do
+
+    if (nuc%density(0) <0 ) then
+       write(*,*) '...nuc%density will be adjusted'
+
+       s = s * nuc%dx * 4*pi
+       h = float(nuc%mass)/s * (/ratio, 1.-ratio/)
+       nuc%densTab(:,1) = nuc%densTab(:,1) * h(1)
+       nuc%densTab(:,2) = nuc%densTab(:,2) * h(2)
+       nuc%density(1:2) = nuc%density(1:2) * h(1:2)
+    end if
+
+    nuc%densTab(:,0) = nuc%densTab(:,1)+nuc%densTab(:,2)
+    nuc%density(0) = nuc%density(1) + nuc%density(2)
+
+    write(*,*)
+    write(*,paragraph) ' Parameters: '
+    write(*,'(A)')       '              Baryon:  Proton: Neutron:'
+    write(*,'(A,3F9.4)') '    rho_max=',nuc%density
+    write(*,'(A,3F9.4)') '    radius =',nuc%radius
+    write(*,'(A,3F9.4)') '    surface=',nuc%surface
+
     call Write_InitStatus('density tabulation (Lenske & Woods-Saxon)',1)
 
   end subroutine TabulateDensityLenske
@@ -377,8 +451,8 @@ contains
   ! subroutine TabulateDensityLuis(nuc)
   ! PURPOSE
   ! Tabulate the density distribution of matter (p and n)
-  ! and the density of centers ( p and n number densities )
-  ! following J. Nieves et al., Pionic atoms... NPA554
+  ! and the density of centers (p and n number densities) following
+  ! J.Nieves, E.Oset, C.Garcia-Recio, Nucl.Phys.A 554 (1993) 509
   !
   ! Tabulates the static density to make it available faster for later use
   ! INPUTS
@@ -407,6 +481,8 @@ contains
        x = i*nuc%dx
        call densityLuis(x,nuc%charge,nuc%mass,nuc%densTab(i,1),nuc%densTab(i,2),rp,ap,rho0p,rn,an,rho0n)
     end do
+    nuc%densTab(:,0) = nuc%densTab(:,1)+nuc%densTab(:,2)
+
 
     write(*,paragraph) ' Parameters: '
     write(*,'(A,3(1x,F8.4))') ' rp, ap, rho0p : ', rp,ap,rho0p
@@ -452,75 +528,11 @@ contains
        nuc%densTab(i,1) = RTF_dens(i,1)
        nuc%densTab(i,2) = RTF_dens(i,2)
     end do
+    nuc%densTab(:,0) = nuc%densTab(:,1)+nuc%densTab(:,2)
+
     call Write_InitStatus('density tabulation (ExRTF Lenske)',1)
 
   end subroutine TabulateDensityExRTF
-
-
-  !****************************************************************************
-  !****s* densityStatic/SearchMaxVals
-  ! NAME
-  ! subroutine SearchMaxVals(nuc)
-  !
-  ! PURPOSE
-  ! go through the tabulated distributions to search for the extrema
-  !
-  !****************************************************************************
-  subroutine SearchMaxVals(nuc)
-    use constants, only:pi
-
-    type(tNucleus),pointer :: nuc
-
-    integer :: i,j
-    real :: x, maxV(2), maxX
-    real :: Sum(0:3,3)
-
-    maxV = 0.
-    maxX = 0.
-    Sum = 0.
-
-
-    do i=0,nuc%MaxIndex
-       x = i*nuc%dx
-       if (nuc%densTab(i,1) > maxV(1)) maxV(1) = nuc%densTab(i,1)
-       if (nuc%densTab(i,2) > maxV(2)) maxV(2) = nuc%densTab(i,2)
-       if (nuc%densTab(i,1)+nuc%densTab(i,2) > 1e-6) maxX = x
-
-       do j=0,2
-          Sum(j,1) = Sum(j,1)+x**(j+2)*nuc%densTab(i,1)
-          Sum(j,2) = Sum(j,2)+x**(j+2)*nuc%densTab(i,2)
-          Sum(j,3) = Sum(j,3)+x**(j+2)*(nuc%densTab(i,1)+nuc%densTab(i,2))
-       end do
-
-       Sum(3,1) = Sum(3,1)+x**2*nuc%densTab(i,1)**2
-       Sum(3,2) = Sum(3,2)+x**2*nuc%densTab(i,2)**2
-       Sum(3,3) = Sum(3,3)+x**2*(nuc%densTab(i,1)+nuc%densTab(i,2))**2
-
-
-    end do
-
-    Sum = Sum*nuc%dx
-
-    nuc%MaxDist = maxX
-    nuc%MaxDens = maxV
-
-    write(*,*) 'Extrema for MC:'
-    write(*,*) '    MaxDist = ',nuc%MaxDist
-    write(*,*) '    MaxDens = ',nuc%MaxDens
-
-    write(*,*) 'Integrations:'
-    write(*,'("   ",A8,4A13)')  ' ', 'rho d^3r', 'rho r d^3r', 'rho r^2 d^3r', 'rho^2 d^3r'
-    write(*,'("   ",A8,4f13.3)') 'Proton:  ',Sum(0:3,1)*4.*pi
-    write(*,'("   ",A8,4f13.3)') 'Neutron: ',Sum(0:3,2)*4.*pi
-    write(*,'("   ",A8,4f13.3)') 'Baryon:  ',Sum(0:3,3)*4.*pi
-    write(*,*)
-
-    if (nuc%radius < 0.001) then
-       nuc%radius = sqrt(Sum(2,3)/Sum(0,3))
-       write(*,*) 'Attention! Setting radius to ',nuc%radius
-    end if
-
-  end subroutine SearchMaxVals
 
 
   !****************************************************************************
@@ -530,8 +542,8 @@ contains
   ! PURPOSE
   ! gives density in the restframe of the nucleus "nucl" at position "r"
   ! INPUTS
-  ! * real, dimension(1:3),intent(in) :: r -- position where density should be calculated
-  ! * type(tNucleus),pointer    :: nucl    -- nucleus which is regarded
+  ! * real, dimension(1:3) :: r -- position where density should be calculated
+  ! * type(tNucleus),pointer :: nucl    -- nucleus which is regarded
   ! USAGE
   ! (dichte)=staticDensity(...)
   !****************************************************************************
@@ -566,7 +578,7 @@ contains
           i = min(nint(sqrtR/nucl%dx),nucl%maxIndex)
           staticdensity%proton(0)  = nucl%densTab(i,1)
           staticdensity%neutron(0) = nucl%densTab(i,2)
-          staticdensity%baryon(0)  = nucl%densTab(i,1)+nucl%densTab(i,2)
+          staticdensity%baryon(0)  = nucl%densTab(i,0)
        end if
 
        ! set flux to zero (lrf):
@@ -576,8 +588,9 @@ contains
 
     case default
 
-       write(*,*) 'Error in static density: DensitySwitch_static is not well defined',&
-            & nucl%densitySwitch_static
+       write(*,*) 'Error in static density: ', &
+            'DensitySwitch_static is not well defined',&
+            nucl%densitySwitch_static
        call Traceback('Severe Error : STOP')
     end select
 
@@ -591,16 +604,19 @@ contains
   ! NAME
   ! subroutine densityLuis(r,z,a,rhop,rhon,rp,ap,rho0p,rn,an,rho0n)
   ! PURPOSE
-  ! * This routine calculates the proton and neutron densities
-  ! * following J. Nieves et al., Pionic atoms... NPA554, 509 (1993)
-  ! * returns per default the density of matter, set useCentroids=.true. to switch to density of centers
+  ! This routine calculates the proton and neutron densities following
+  ! J.Nieves, E.Oset, C.Garcia-Recio, Nucl.Phys.A 554 (1993) 509
+  !
+  ! returns per default the density of matter, set useCentroids=.true. to
+  ! switch to density of centers
+  !
   ! INPUTS
-  ! * real, intent(in)::r  -- radius (fm)
-  ! * integer, intent(in)::z  -- charge of the nucleus
-  ! * integer, intent(in)::a  -- atomic number
+  ! * real    :: r  -- radius (fm)
+  ! * integer :: z  -- charge of the nucleus
+  ! * integer :: a  -- atomic number
   ! RESULT
-  ! * real, intent(out):: rhop,rhon -- Proton and neutron densities (fm^-3) at r
-  ! * real, intent(out):: rp,ap,rho0p,rn,an,rho0n -- parameters of the density distributions
+  ! * real :: rhop,rhon -- Proton and neutron densities (fm^-3) at r
+  ! * real :: rp,ap,rho0p,rn,an,rho0n -- parameters of the density distributions
   !****************************************************************************
   subroutine densityLuis(r,z,a,rhop,rhon,rp,ap,rho0p,rn,an,rho0n)
     use constants, only: pi
@@ -700,6 +716,9 @@ contains
     end function antz
 
     subroutine denspar(z,a,rp,ap,rn,an)
+      ! this subroutine gives parameters for the harmonic oscillator
+      ! form of densities indicated by HO or for the WS form,
+      ! taken from Nieves et al, Nucl. Phys. A554 (1993 509, Table I
       implicit none
       integer, intent(in)::z,a
       real, intent(out)::rp,ap,rn,an
@@ -713,27 +732,25 @@ contains
          ap=0.631
          rn=2.11
          an=1.000
-      case (5)   ! B(10)
+      case (5)   ! B(10)    HO
          rp=1.72
          ap=0.837
          rn=rp
-         an=ap       
-      case (6)   ! C(12)
+         an=ap
+      case (6)   ! C(12)    HO
          rp=1.692
          ap=1.082
          rn=rp
          an=ap
-         !Print *,"Im Kohlenstoff"
-         !Stop
       case (8)
          if (a.eq.16) then
-            !             O(16)
+            !             O(16)  HO
             rp=1.833
             ap=1.544
             rn=1.815
             an=1.529
          else
-            !             O(18)
+            !             O(18)  HO
             rp=1.881
             ap=1.544
             rn=1.975
@@ -831,7 +848,7 @@ contains
          an=0.549
       case default
          write(*,*) "For this core the density distribution according to NPA554 is not yet implemented!!"
-		 write(*,*) "use another density distribution by setting densitySwitch_Static=1 in nl &target!!"
+         write(*,*) "use another density distribution by setting densitySwitch_Static=1 in nl &target!!"
          write(*,*) z
 
          call Traceback('Stop')
@@ -867,6 +884,7 @@ contains
     write(*,'(A,F8.4)') '    r_max=',nuc%dx*float(nuc%maxIndex)
 
     call DFLDA(nuc)
+    nuc%densTab(:,0) = nuc%densTab(:,1)+nuc%densTab(:,2)
 
     write(*,*) 'Chemical Potential', nuc%chemPot
 
@@ -902,6 +920,7 @@ contains
     write(*,'(A,F8.4)') '    r_max=',nuc%dx*float(nuc%maxIndex)
 
     call DFLDAWelke(nuc)
+    nuc%densTab(:,0) = nuc%densTab(:,1)+nuc%densTab(:,2)
 
     write(*,*) 'Chemical Potential', nuc%chemPot
 
@@ -931,7 +950,7 @@ contains
   ! readjusted.
   !
   ! This routine is called by
-  ! baryonPotentialModule/HandPotentialToDensityStatic
+  ! baryonPotentialMain/HandPotentialToDensityStatic
   !
   !
   ! INPUTS
@@ -955,32 +974,18 @@ contains
 
     integer :: i
     real :: x, rho, pF
-
-    real :: SumP,SumN, facP,facN, pFN, pFP
+    real :: pFN, pFP
     integer, save :: nCall = 0
+    real, dimension(2) :: Sum,fac
 
     nCall = nCall+1
 
     if (verbose) then
        write(*,*) 'in Readjust...'
-
-       open(113,file='ReAdjust.orig.'//IntToChar(nCall)//'.dat', status='unknown')
-       rewind(113)
-       write(113,'("#",A12,10A13)') 'x','rhoN','rhoP','potN','potP','potC','pF_N','pF_P','pF_B'
-       do i=0,nuc%MaxIndex
-          x = i*nuc%dx
-          pFN = (3*pi**2*(nuc%densTab(i,2)))**(1./3.)*hbarc
-          pFP = (3*pi**2*(nuc%densTab(i,1)))**(1./3.)*hbarc
-          pF  = (3*pi**2*(nuc%densTab(i,1)+nuc%densTab(i,2))/2)**(1./3.)*hbarc
-          write(113,'(10f13.5)') x,nuc%densTab(i,2),nuc%densTab(i,1),&
-               PotN(i),PotP(i),PotC(i), &
-               pFN, pFP, pF
-       end do
-       close(113)
+       call printFile("orig")
     end if
 
-    SumP = 0
-    SumN = 0
+    Sum = 0
     do i=0,nuc%MaxIndex
        x = i*nuc%dx
 
@@ -992,10 +997,7 @@ contains
           pF = sqrt(pF)
           rho = (pF/hbarc)**3/(3*pi**2)
           nuc%densTab(i,1) = rho
-          SumP = SumP + x**2*rho
-
-!          write(*,*) x,pF,rho
-
+          Sum(1) = Sum(1) + x**2*rho
        end if
 
 
@@ -1007,36 +1009,39 @@ contains
           pF = sqrt(pF)
           rho = (pF/hbarc)**3/(3*pi**2)
           nuc%densTab(i,2) = rho
-          SumN = SumN + x**2*rho
+          Sum(2) = Sum(2) + x**2*rho
        end if
     end do
 
-    if (verbose) then
-       write(*,*) 'P: ',SumP*4*pi*nuc%dx,nuc%charge
-       write(*,*) 'N: ',SumN*4*pi*nuc%dx,nuc%mass-nuc%charge
-    end if
-
-    if ((SumP.eq.0).or.(SumN.eq.0)) then
+    if ((Sum(1).eq.0).or.(Sum(2).eq.0)) then
        call Traceback('Failure!')
     end if
 
+    Sum = Sum*4*pi*nuc%dx
+
+    if (verbose) then
+       write(*,*) 'P: ',Sum(1),nuc%charge
+       write(*,*) 'N: ',Sum(2),nuc%mass-nuc%charge
+    end if
+
+
     ! Ensure normalization to mass number:
 
-    facN=(nuc%mass-nuc%charge)/(SumN*4*pi*nuc%dx)
-    facP=(nuc%charge)/(SumP*4*pi*nuc%dx)
+    fac(1)=(nuc%charge)/Sum(1)
+    fac(2)=(nuc%mass-nuc%charge)/Sum(2)
 
     ! method 1: just set the normalization
 
     if (verbose) then
-       write(*,*) 'Scaling rhoN by ',facN
-       write(*,*) 'Scaling rhoP by ',facP
+       write(*,*) 'Scaling rhoN by ',fac(2)
+       write(*,*) 'Scaling rhoP by ',fac(1)
     end if
 
-    nuc%densTab(:,2)=nuc%densTab(:,2)*facN
-    nuc%densTab(:,1)=nuc%densTab(:,1)*facP
+    nuc%densTab(:,2)=nuc%densTab(:,2)*fac(2)
+    nuc%densTab(:,1)=nuc%densTab(:,1)*fac(1)
+    nuc%densTab(:,0)=nuc%densTab(:,1)+nuc%densTab(:,2)
 
-    nuc%facN = facN
-    nuc%facP = facP
+    nuc%fac = fac
 
     ! method 2: rescale the radius
 
@@ -1044,25 +1049,32 @@ contains
 !    nuc%dx = nuc%dx*facN**(1./3.)
 
 
-    call SearchMaxVals(nuc)
-    call NucleusAverageDensity(nuc)
+    call nuc%searchMaxVals()
+    call nuc%writeAverageDens()
 
     if (verbose) then
-       open(113,file='ReAdjust.new.'//IntToChar(nCall)//'.dat', status='unknown')
-       rewind(113)
-       write(113,'("#",A12,10A13)') 'x','rhoN','rhoP','potN','potP','potC','pF_N','pF_P','pF_B'
-       do i=0,nuc%MaxIndex
-          x = i*nuc%dx
-          pFN = (3*pi**2*(nuc%densTab(i,2)))**(1./3.)*hbarc
-          pFP = (3*pi**2*(nuc%densTab(i,1)))**(1./3.)*hbarc
-          pF  = (3*pi**2*(nuc%densTab(i,1)+nuc%densTab(i,2))/2)**(1./3.)*hbarc
-          write(113,'(10f13.5)') x,nuc%densTab(i,2),nuc%densTab(i,1),&
-               PotN(i),PotP(i),PotC(i), &
-               pFN, pFP, pF
-       end do
-       close(113)
+       call printFile("new")
     end if
 
+  contains
+    subroutine printFile(text)
+      character(*), intent(in) :: text
+
+      open(113,file='ReAdjust.'//trim(text)//'.'//IntToChar(nCall)//'.dat', &
+           status='unknown')
+      rewind(113)
+      write(113,'("#",A12,10A13)') 'x','rhoN','rhoP','potN','potP','potC',&
+           'pF_N','pF_P','pF_B'
+      do i=0,nuc%MaxIndex
+         x = i*nuc%dx
+         pFN = (3*pi**2*(nuc%densTab(i,2)))**(1./3.)*hbarc
+         pFP = (3*pi**2*(nuc%densTab(i,1)))**(1./3.)*hbarc
+         pF  = (3*pi**2*(nuc%densTab(i,0))/2)**(1./3.)*hbarc
+         write(113,'(10f13.5)') x,nuc%densTab(i,2),nuc%densTab(i,1),&
+              PotN(i),PotP(i),PotC(i), pFN, pFP, pF
+      end do
+      close(113)
+    end subroutine printFile
 
   end subroutine ReAdjust
 

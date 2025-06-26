@@ -89,7 +89,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -100,16 +100,16 @@ contains
 
     if (abs(partPion%charge).gt.1) write(*,*) 'wrong pion charge in pionNuc', partPion%charge
 
-    if (partPion%antiParticle) then
+    if (partPion%anti) then
        ! This case is not considered yet
-       write(*,*) 'pion is antiparticle in "pionNuc"!!!',partIn%ID,partIn%antiparticle
+       write(*,*) 'pion is antiparticle in "pionNuc"!!!',partIn%ID,partIn%anti
        stop
     end if
 
-    if (P11_1440_particle%antiParticle) then
+    if (P11_1440_particle%anti) then
        ! Invert all particles in antiparticles
        P11_1440_particle%Charge        =  -P11_1440_particle%Charge
-       P11_1440_particle%antiparticle  = .false.
+       P11_1440_particle%anti  = .false.
        partPion%Charge          =  -partPion%Charge
        antiParticleInput=.true.
     else
@@ -166,8 +166,8 @@ contains
       logical :: perturbative
       !real :: sigmaTotal_HE,sigmaElast_HE
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.

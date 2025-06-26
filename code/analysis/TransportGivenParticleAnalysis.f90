@@ -26,8 +26,8 @@ contains
     use inputGeneral, only: numEnsembles,numTimeSteps,num_Runs_SameEnergy
     use nucleusDefinition
     use nucleus, only: getTarget
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use output, only: intToChar
     use minkowski, only: abs4
 
@@ -91,7 +91,7 @@ contains
        do i=lbound(Particles,dim=1),ubound(Particles,dim=1)
           do j=lbound(Particles,dim=2),ubound(Particles,dim=2)
              if (Particles(i,j)%ID.ne.id) cycle
-             call AddHist(SF(k),abs4(Particles(i,j)%momentum),&
+             call AddHist(SF(k),abs4(Particles(i,j)%mom),&
                   Particles(i,j)%perweight*Ninv)
           end do
        end do
@@ -103,11 +103,11 @@ contains
              if (Particles(i,j)%ID.ne.id) cycle
              if (plot_z_coord) then
                 call AddHist2D(SF_vsRadius(k), &
-                     (/abs4(Particles(i,j)%momentum),particles(i,j)%position(3)/), &
+                     (/abs4(Particles(i,j)%mom),particles(i,j)%pos(3)/), &
                      Particles(i,j)%perweight*Ninv)
              else
                 call AddHist2D(SF_vsRadius(k), &
-                     (/abs4(Particles(i,j)%momentum),absPos(particles(i,j))/), &
+                     (/abs4(Particles(i,j)%mom),absPos(particles(i,j))/), &
                      Particles(i,j)%perweight*Ninv)
              end if
           end do

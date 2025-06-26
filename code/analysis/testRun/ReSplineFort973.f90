@@ -1,6 +1,6 @@
 program main
 
-  use hist2df90
+  use hist2d
 
   implicit none
 

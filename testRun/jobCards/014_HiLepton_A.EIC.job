@@ -6,10 +6,10 @@
 ! https://gibuu.hepforge.org
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =          14 ! HiLepton
-      numEnsembles    =          20
+      numEnsembles    =         -20
       numTimeSteps    =         200
       delta_T         = 0.1         ! time step size
 
@@ -25,6 +25,7 @@
 !      DoPrLevel(1) = .FALSE. ! set this for production runs
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./density/nucleus.f90
@@ -150,4 +151,3 @@
 !      mass(101) = 0.140
 !      width(103)=0.100
 /
-

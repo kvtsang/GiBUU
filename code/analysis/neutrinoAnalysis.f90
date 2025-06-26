@@ -9,16 +9,17 @@
 module neutrinoAnalysis
 
   use AnaEvent
-  use histf90
-  use hist2Df90
+  use hist
+  use hist2D
   use initNeutrino, only: max_Hist, includeHist, K2Hist, &
       get_init_namelist,OscLength,isOsc,process_ID
   use AnaEventDefinition
   use CALLSTACK
   use Oscill_Parameters
-  use initNeutrino, only: cost_min,cost_max,delta_cost,Elept_min,Elept_max, &
-                          delta_Elept
+  use initNeutrino, only: cost_min,cost_max,delta_cost, &
+       Elept_min,Elept_max,delta_Elept
   use constants, only: mN
+  use PreEvListDefinition
 
   implicit none
   private
@@ -72,7 +73,7 @@ module neutrinoAnalysis
   ! produced
   !****************************************************************************
 
- !*****************************************************************************
+  !****************************************************************************
   !****g* neutrinoAnalysis/forDmeson
   ! SOURCE
   logical, save :: forDmeson =.false.
@@ -329,7 +330,7 @@ module neutrinoAnalysis
   real, save :: EkinMin=0.
   ! PURPOSE
   ! if detailed_diff_output is TRUE:
-  ! Maximal kinetic energy for dsigma/dEkin for hadrons
+  ! minimal kinetic energy for dsigma/dEkin for hadrons
   !****************************************************************************
 
   !****************************************************************************
@@ -440,13 +441,59 @@ module neutrinoAnalysis
   !****************************************************************************
 
   !****************************************************************************
-  !****g* neutrinoAnalysis/inclusiveAnalysis
+  !****g* neutrinoAnalysis/applyCuts
   ! SOURCE
   !
-  logical, save ::  inclusiveAnalysis=.true.
+  integer, save :: applyCuts = 0
   ! PURPOSE
-  ! if flag "inclusiveAnalysis" is set to true, we keep all particles
-  ! in FinalEvents.dat, independent of if they are bound or not
+  ! This parameter encodes 'binary', which cuts should be applied:
+  ! * 1: lepton_acceptance
+  ! * 2: isBound
+  ! * 4: isBelowThreshold
+  !
+  ! Instead of having three indipendent flags (with values=0 or 1) as
+  ! e.g. labelled 'doLepton', 'doIsBound', 'doBelowThr', applyCuts combines
+  ! them formally into one number as
+  !   applyCuts = 1*doLepton + 2*doIsBound + 4*doBelowThr
+  ! So by setting any number between 0 and 7, one can individually switch on
+  ! and off each of these cuts.
+  !
+  ! 'lepton_acceptance' uses the input parameters:
+  ! * kineticEnergyDetectionThreshold_lepton (for all kind of outgoing leptons)
+  ! * AngleUpperDetectionThresholdDegrees_lepton
+  !
+  ! 'isBound' tests, whether kinetic energy plus potential is <0
+  !
+  ! 'isBelowThreshold' uses the input parameters:
+  ! * kineticEnergyDetectionThreshold_lepton (only for muons)
+  ! * AngleUpperDetectionThresholdDegrees_lepton (only for muons)
+  ! * kineticEnergyDetectionThreshold_nucleon (only for nucleons)
+  ! * AngleUpperDetectionThresholdDegrees_nucleon (only for nucleons)
+  ! * kineticEnergyDetectionThreshold_chargedpion (only for charged pion)
+  ! * AngleUpperDetectionThresholdDegrees_chargedpion (only for charged pion)
+  ! * kineticEnergyDetectionThreshold_neutralpion (only for neutral pions)
+  ! * AngleUpperDetectionThresholdDegrees_neutralpion (only for neutral pions)
+  !
+  ! Some examples:
+  ! * To generate full inclusive output, set the value applyCuts=0
+  ! * To generate output where bound nucleons are dropped, set applyCuts=2
+  ! * To generate output with specific experimental cuts for the outgoing
+  !   hadrons, set applyCuts=4 or applyCuts=6 and set the corresponding
+  !   threshold parameters accordingly.
+  ! * If in the experiment also cuts on the outgoing lepton are used, set
+  !   applyCuts=7 and set the corresponding threshold parameters accordingly.
+  !
+  !
+  ! NOTES
+  ! These cuts affects the output into the file "FinalEvents.dat".
+  !
+  ! The cut 'lepton_acceptance' (de-)selects the full event, while the other
+  ! two cuts only decide whether a specific particle is accepted or not.
+  !
+  ! The kinetic energy of a bound nucleon is < 0. Therefore using the
+  ! default value kineticEnergyDetectionThreshold_nucleon=0.0 also tests,
+  ! whether the particle is bound or not. Set the parameter to a large negative
+  ! value to become ineffective.
   !****************************************************************************
 
   !****************************************************************************
@@ -476,7 +523,7 @@ module neutrinoAnalysis
   logical, save ::  calorimetric_analysis=.false.
   ! PURPOSE
   ! do calorimetric energy-transfer and neutrino-energy reconstruction
-  ! (for each QE, Delta, ...)  as in the MINOS experiment
+  ! (for each QE, Delta, ...) 
   !****************************************************************************
 
   !****************************************************************************
@@ -497,8 +544,6 @@ module neutrinoAnalysis
   logical, save ::  specificEvent_analysis=.false.
   ! PURPOSE
   ! do analysis for specific final states
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -508,8 +553,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=1,
   ! no_pi (for example, for QE-like MiniBooNE)
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -518,8 +561,6 @@ module neutrinoAnalysis
   logical, save ::  p_Xn_no_pi=.false.
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=2
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -529,8 +570,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=3, 1 pi+ X nucleons
   ! mesons of other flavor
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -540,8 +579,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=4
   ! >=1 pi+  X other pions (incl pi+) X nucleons
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -551,8 +588,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=5,
   ! 1 pi0 X nucleons, plus mesons of other flavor
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -562,8 +597,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=6,
   ! >=1 pi0  X other pions X nucleons, (pi0 K2K)
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -573,19 +606,15 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=7
   ! 1 pi-  X other pions X nucleons
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
-   !***************************************************************************
+  !***************************************************************************
   !****g* neutrinoAnalysis/piminus_MULTI
   ! SOURCE
   logical, save ::  piminus_MULTI=.false.
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=8
   ! >=1 pi-  X other pions X nucleons
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -595,8 +624,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states:  specificEvent=9
   ! 2 protons, X neutrons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -606,8 +633,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=10
   ! 1 neutron, 1 proton, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -617,8 +642,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=11
   ! 2 neutrons, X protons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -628,8 +651,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=12
   ! 2 protons, X neutrons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -639,8 +660,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=13
   ! 2 neutrons, X protons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -650,8 +669,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=14
   ! 3 protons, X neutrons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -661,8 +678,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=15
   ! 4 protons, X neutrons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -672,8 +687,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=16
   ! 1 proton, 0 neutron, 0 pion
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -683,8 +696,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=17
   ! 1 neutron, 0 proton, 0 pion
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -694,8 +705,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=18,
   ! 0 proton, X neutrons, 0 pions
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -709,8 +718,6 @@ module neutrinoAnalysis
   ! Such events (very rare at DUNE energies) could be counted as exclusive
   ! single-meson cross section.
   ! This could be cured by extending the list of stable mesons
-  !
-  ! value can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   logical, save :: excl_pi0=.false.
@@ -718,15 +725,13 @@ module neutrinoAnalysis
   logical, save :: excl_piminus=.false.
 
 
-!****************************************************************************
+  !****************************************************************************
   !****g* neutrinoAnalysis/full_incl
   ! SOURCE
   logical, save :: full_incl=.true.
   ! PURPOSE
   ! do analysis for specific final states: specificEvent=22
   ! fully inclusive event, all hadrons in final state
-  !
-  ! value can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -736,8 +741,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! if .true,
   ! do analysis for specific analysis for QE-like event with 1 mu, 0 pi, X p
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -762,8 +765,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states:
   ! binning for reconstruction of Q2 and Enu
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -773,8 +774,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states:
   ! binning for reconstruction of Q2 and Enu
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -784,8 +783,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states:
   ! max values for reconstruction of Q2 and Enu
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
   !****************************************************************************
@@ -795,8 +792,6 @@ module neutrinoAnalysis
   ! PURPOSE
   ! do analysis for specific final states:
   ! max values for reconstruction of Q2 and Enu
-  !
-  ! values can be changed in the namelist nl_specificEvent
   !****************************************************************************
 
 
@@ -810,12 +805,33 @@ module neutrinoAnalysis
   !****************************************************************************
 
   !****************************************************************************
+  !****g* neutrinoAnalysis/outputEvents_lepIn
+  ! SOURCE
+  !
+  logical, save  :: outputEvents_lepIn = .false.
+  ! PURPOSE
+  ! If outputEvents == .true., then also the incoming lepton is written as a
+  ! documentation line if this flag is .true.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* neutrinoAnalysis/outputEvents_Residuum
+  ! SOURCE
+  !
+  logical, save  :: outputEvents_Residuum = .false.
+  ! PURPOSE
+  ! If outputEvents == .true., then also the residuum is written as a
+  ! documentation line if this flag is .true.
+  !****************************************************************************
+
+  !****************************************************************************
   !****g* neutrinoAnalysis/Xsection_analysis
   ! SOURCE
   !
   logical, save  :: Xsection_analysis = .false.
   ! PURPOSE
-  ! If .true. then files "..._total_Xsection_..."  and "..._dSigmadEkin_..." are printed.
+  ! If .true. then files "..._total_Xsection_..."  and "..._dSigmadEkin_..."
+  ! are printed.
   !****************************************************************************
 
   !****************************************************************************
@@ -829,11 +845,29 @@ module neutrinoAnalysis
   !****************************************************************************
 
   !****************************************************************************
-  !****g* Dilepton_Analysis/fileNamePipe
+  !****g* neutrinoAnalysis/fileNamePipe
   ! SOURCE
   character(len=1000), save :: fileNamePipe = ""
   ! PURPOSE
   ! name of the pipe to be used
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* neutrinoAnalysis/DoOutChannels
+  ! SOURCE
+  !
+  logical, save :: DoOutChannels = .false.
+  ! PURPOSE
+  ! switch on/off: reporting of all final state channels
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* neutrinoAnalysis/OutChannelsFak
+  ! SOURCE
+  !
+  real, save :: OutChannelsFak = 1.0
+  ! PURPOSE
+  ! additional scaling of the cross section output of OutChanbels analysis
   !****************************************************************************
 
 
@@ -926,7 +960,8 @@ module neutrinoAnalysis
   logical :: initHists
   logical, dimension(1:max_speEvent), save :: includeSpeEvent
 
-
+  type(tPreEvListEntry), save :: preEv
+  type(tPreEvList), save :: ListPreEv, ListPreEvB
 
 
 contains
@@ -969,17 +1004,21 @@ contains
     ! * AngleUpperDetectionThresholdDegrees_chargedpion
     ! * kineticEnergyDetectionThreshold_neutralpion
     ! * AngleUpperDetectionThresholdDegrees_neutralpion
-    ! * inclusiveAnalysis
+    ! * applyCuts
     ! * Fissum_analysis
     ! * ZeroPion_analysis
     ! * calorimetric_analysis
     ! * radialScale
     ! * reconstruct_neutrino_energy
     ! * outputEvents
+    ! * outputEvents_lepIn
+    ! * outputEvents_Residuum
     ! * specificEvent_analysis
     ! * Xsection_analysis
     ! * doPipe
     ! * fileNamePipe
+    ! * DoOutChannels
+    ! * OutChannelsFak
     !**************************************************************************
     NAMELIST /neutrinoAnalysis/ &
          detailed_diff_output, include_W_dist, &
@@ -991,12 +1030,13 @@ contains
          AngleUpperDetectionThresholdDegrees_chargedpion,&
          kineticEnergyDetectionThreshold_neutralpion, &
          AngleUpperDetectionThresholdDegrees_neutralpion,&
-         inclusiveAnalysis, Fissum_analysis,            &
+         applyCuts, Fissum_analysis,            &
          ZeroPion_analysis, calorimetric_analysis, &
          radialScale, reconstruct_neutrino_energy, &
-         outputEvents, specificEvent_analysis, &
-         Xsection_analysis, &
-         doPipe, fileNamePipe
+         outputEvents, outputEvents_lepIn, outputEvents_Residuum, &
+         specificEvent_analysis, Xsection_analysis, &
+         doPipe, fileNamePipe, &
+         DoOutChannels, OutChannelsFak
 
     !**************************************************************************
     !****n* neutrinoAnalysis/W_distributions
@@ -1057,19 +1097,23 @@ contains
     ! * p_no_pi
     ! * n_no_pi
     ! * Xn_no_pi
+    ! * excl_pi0
+    ! * excl_piplus
+    ! * excl_piminus
+    ! * full_incl
     ! * binsizeQ2
     ! * binsizeEnu
     ! * maxQ2
     ! * maxEnu
     ! * excl_hadron
     ! * QEp
-    ! * full_incl
     !**************************************************************************
-    NAMELIST /nl_specificEvent/ no_pi, p_Xn_no_pi, piplus, piplus_MULTI, &
-         pi0, pi0_MULTI, piminus, piminus_MULTI, &
+    NAMELIST /nl_specificEvent/ no_pi, p_Xn_no_pi, &
+         piplus, piplus_MULTI, pi0, pi0_MULTI, piminus, piminus_MULTI, &
          pp_no_pi, pn_no_pi, nn_no_pi, pp_Xn_no_pi, nn_Xp_no_pi, &
          ppp_Xn_no_pi, pppp_Xn_no_pi, p_no_pi, n_no_pi, Xn_no_pi, &
-         binsizeQ2, binsizeEnu, maxQ2, maxEnu,excl_hadron, QEp,full_incl
+         excl_pi0, excl_piplus, excl_piminus, full_incl, &
+         binsizeQ2, binsizeEnu, maxQ2, maxEnu, excl_hadron, QEp
 
     !**************************************************************************
     !****n* neutrinoAnalysis/detailed_diff
@@ -1108,6 +1152,12 @@ contains
     write(*,*) '  calorimetric_analysis =', calorimetric_analysis
     write(*,*) '  specificEvent_analysis=', specificEvent_analysis
     write(*,*) '  reconstruct_neutrino_energy=', reconstruct_neutrino_energy
+    write(*,*) '  DoOutChannels         = ', DoOutChannels
+    write(*,*) '  OutputEvents          = ', OutputEvents
+    if (OutputEvents) then
+       write(*,*) '  OutputEvents_lepIn    = ', outputEvents_lepIn
+       write(*,*) '  OutputEvents_Residuum = ', outputEvents_Residuum
+    end if
 
     if (doPipe) then
        if (len_trim(fileNamePipe)>0) then
@@ -1207,13 +1257,17 @@ contains
             & '    p_no_pi=      ', p_no_pi, &
             & '    n_no_pi=      ', n_no_pi, &
             & '    Xn_no_pi=     ', Xn_no_pi, &
-            & '    excl_hadron   ', excl_hadron, &
+            & '    excl_pi0=     ', excl_pi0, &
+            & '    excl_piplus=  ', excl_piplus, &
+            & '    excl_piminus= ', excl_piminus, &
+            & '    full_incl=    ', full_incl, &
+            & '    excl_hadron=  ', excl_hadron, &
             & '    QEp           ', QEp
-        if(QEp) then
+       if(QEp) then
           pcut = sqrt(kineticEnergyDetectionThreshold_nucleon**2  &
                &  + 2*mN*kineticEnergyDetectionThreshold_nucleon)
           write (*,*) 'pcut = ', pcut
-        end if
+       end if
 
  ! The switch excl_hadron selects truly exclusive 1-meson events
  ! ie. exactly 1 meson with fixed charged and no other mesons of any kind
@@ -1240,8 +1294,8 @@ contains
          & piminus, piminus_MULTI,pp_no_pi, pn_no_pi, nn_no_pi, pp_Xn_no_pi,&
          & nn_Xp_no_pi, ppp_Xn_no_pi, pppp_Xn_no_pi,p_no_pi, n_no_pi, Xn_no_pi,&
          & excl_pi0,excl_piplus,excl_piminus,full_incl/)
-	! These specific events are used only in calculations of cross sections
-    ! that involve lepton variables	
+    ! These specific events are used only in calculations of cross sections
+    ! that involve lepton variables
 
   end subroutine readinput
 
@@ -1250,130 +1304,120 @@ contains
 
 
   subroutine cleanUp
-    integer :: i,j
-    do i=1,numStableParts
-       do j=-2,2
-          call RemoveHist(dE_hists(i,j))
-          call RemoveHist(dE_hists_QE(i,j))
-          call RemoveHist(dE_hists_Delta(i,j))
-          call RemoveHist(dE_hists_highRes(i,j))
-          call RemoveHist(dE_hists_1piBG(i,j))
-          call RemoveHist(dE_hists_2piBG(i,j))
-          call RemoveHist(dE_hists_DIS(i,j))
-          call RemoveHist(dE_hists_gen0(i,j))
-          call RemoveHist(dE_hists_Multi(i,j))
-          call RemoveHist(dE_hists_QE_Multi(i,j))
-          call RemoveHist(dE_hists_Delta_Multi(i,j))
-          call RemoveHist(dE_hists_highRes_Multi(i,j))
-          call RemoveHist(dE_hists_1piBG_Multi(i,j))
-          call RemoveHist(dE_hists_DIS_Multi(i,j))
-          call RemoveHist(dE_hists_gen0_Multi(i,j))
-          !
-          call RemoveHist(dE_hists_1X(i,j))
-          call RemoveHist(dE_hists_QE_1X(i,j))
-          call RemoveHist(dE_hists_Delta_1X(i,j))
-          call RemoveHist(dE_hists_highRes_1X(i,j))
-          call RemoveHist(dE_hists_1piBG_1X(i,j))
-          call RemoveHist(dE_hists_2piBG_1X(i,j))
-          call RemoveHist(dE_hists_DIS_1X(i,j))
-          call RemoveHist(dE_hists_gen0_1X(i,j))
-          call RemoveHist(dE_hists_2X(i,j))
-          call RemoveHist(dE_hists_QE_2X(i,j))
-          call RemoveHist(dE_hists_Delta_2X(i,j))
-          call RemoveHist(dE_hists_highRes_2X(i,j))
-          call RemoveHist(dE_hists_1piBG_2X(i,j))
-          call RemoveHist(dE_hists_DIS_2X(i,j))
-          call RemoveHist(dE_hists_gen0_2X(i,j))
-          !
-          call RemoveHist(dTheta_hists(i,j))
-          call RemoveHist(dPhi_hists(i,j))
-          call RemoveHist(dTheta_hists_QE(i,j))
-          call RemoveHist(dPhi_hists_QE(i,j))
-          call RemoveHist(dTheta_hists_Delta(i,j))
-          call RemoveHist(dPhi_hists_Delta(i,j))
-          call RemoveHist(dTheta_hists_highRes(i,j))
-          call RemoveHist(dPhi_hists_highRes(i,j))
-          call RemoveHist(dTheta_hists_1piBG(i,j))
-          call RemoveHist(dPhi_hists_1piBG(i,j))
-          call RemoveHist(dTheta_hists_2piBG(i,j))
-          call RemoveHist(dPhi_hists_2piBG(i,j))
-          call RemoveHist(dTheta_hists_gen0(i,j))
-          call RemoveHist(dPhi_hists_gen0(i,j))
-          call RemoveHist2d(dOmega_hists(i,j))
-          call RemoveHist2d(dOmega_hists_QE(i,j))
-          call RemoveHist2d(dOmega_hists_Delta(i,j))
-          call RemoveHist2d(dOmega_hists_highRes(i,j))
-          call RemoveHist2d(dOmega_hists_1piBG(i,j))
-          call RemoveHist2d(dOmega_hists_gen0(i,j))
-          !
-          call RemoveHist(dEcostheta_hists(i,j))
-          call RemoveHist(dEcostheta_hists_QE(i,j))
-          call RemoveHist(dEcostheta_hists_Delta(i,j))
-          call RemoveHist(dEcostheta_hists_highRes(i,j))
-          call RemoveHist(dEcostheta_hists_1piBG(i,j))
-          call RemoveHist(dEcostheta_hists_2piBG(i,j))
-          call RemoveHist(dEcostheta_hists_DIS(i,j))
-          call RemoveHist(dEcostheta_hists_gen0(i,j))
-          call RemoveHist(dEcostheta_hists_MULTI(i,j))
-          call RemoveHist(dEcostheta_hists_QE_MULTI(i,j))
-          call RemoveHist(dEcostheta_hists_Delta_MULTI(i,j))
-          call RemoveHist(dEcostheta_hists_highRes_MULTI(i,j))
-          call RemoveHist(dEcostheta_hists_1piBG_MULTI(i,j))
-          call RemoveHist(dEcostheta_hists_DIS_MULTI(i,j))
-          call RemoveHist(dEcostheta_hists_gen0_MULTI(i,j))
-          call RemoveHist(dcostheta_hists(i,j))
-          call RemoveHist(dcostheta_hists_QE(i,j))
-          call RemoveHist(dcostheta_hists_Delta(i,j))
-          call RemoveHist(dcostheta_hists_highRes(i,j))
-          call RemoveHist(dcostheta_hists_1piBG(i,j))
-          call RemoveHist(dcostheta_hists_2piBG(i,j))
-          call RemoveHist(dcostheta_hists_DIS(i,j))
-          call RemoveHist(dcostheta_hists_gen0(i,j))
-          call RemoveHist(dcostheta_hists_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_QE_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_Delta_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_highRes_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_1piBG_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_2piBG_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_DIS_MULTI(i,j))
-          call RemoveHist(dcostheta_hists_gen0_MULTI(i,j))
-          !
-          call RemoveHist(dE_hists_0pions(i,j))
-          call RemoveHist(dE_hists_QE_0pions(i,j))
-          call RemoveHist(dE_hists_Delta_0pions(i,j))
-          call RemoveHist(dE_hists_highRes_0pions(i,j))
-          call RemoveHist(dE_hists_Multi_0pions(i,j))
-          call RemoveHist(dE_hists_QE_Multi_0pions(i,j))
-          call RemoveHist(dE_hists_Delta_Multi_0pions(i,j))
-          call RemoveHist(dE_hists_highRes_Multi_0pions(i,j))
-          call RemoveHist(dE_hists_1X_0pions(i,j))
-          call RemoveHist(dE_hists_QE_1X_0pions(i,j))
-          call RemoveHist(dE_hists_Delta_1X_0pions(i,j))
-          call RemoveHist(dE_hists_highRes_1X_0pions(i,j))
-          call RemoveHist(dE_hists_2X_0pions(i,j))
-          call RemoveHist(dE_hists_QE_2X_0pions(i,j))
-          call RemoveHist(dE_hists_Delta_2X_0pions(i,j))
-          call RemoveHist(dE_hists_highRes_2X_0pions(i,j))
-       end do
-    end do
 
-    do j=-1,1
-       call RemoveHist(dW_Npi_hists(j))
-       call RemoveHist(dW_mupi_hists(j))
-       call RemoveHist(dW_muN_hists(j))
-    end do
+    call RemoveHist(dE_hists(:,:))
+    call RemoveHist(dE_hists_QE(:,:))
+    call RemoveHist(dE_hists_Delta(:,:))
+    call RemoveHist(dE_hists_highRes(:,:))
+    call RemoveHist(dE_hists_1piBG(:,:))
+    call RemoveHist(dE_hists_2piBG(:,:))
+    call RemoveHist(dE_hists_DIS(:,:))
+    call RemoveHist(dE_hists_gen0(:,:))
+    call RemoveHist(dE_hists_Multi(:,:))
+    call RemoveHist(dE_hists_QE_Multi(:,:))
+    call RemoveHist(dE_hists_Delta_Multi(:,:))
+    call RemoveHist(dE_hists_highRes_Multi(:,:))
+    call RemoveHist(dE_hists_1piBG_Multi(:,:))
+    call RemoveHist(dE_hists_DIS_Multi(:,:))
+    call RemoveHist(dE_hists_gen0_Multi(:,:))
 
-    do j=1,max_speEvent
-       do i=1,max_Hist
-          call RemoveHist(dEnu_hist(j,i))
-          call RemoveHist(dElepton_hist(j,i))
-          call RemoveHist(dcoslepton_hist(j,i))
-          call RemoveHist(dQ2lepton_hist(j,i))
-          call RemoveHist(dQ2plepton_hist(j,i))
-          call RemoveHist2D(dSigmaMC_EprimeCost_0pi(j,i))
-          call RemoveHist2D(dSigmaMC_pLpT_0pi(j,i))
-       end do
-    end do
+    call RemoveHist(dE_hists_1X(:,:))
+    call RemoveHist(dE_hists_QE_1X(:,:))
+    call RemoveHist(dE_hists_Delta_1X(:,:))
+    call RemoveHist(dE_hists_highRes_1X(:,:))
+    call RemoveHist(dE_hists_1piBG_1X(:,:))
+    call RemoveHist(dE_hists_2piBG_1X(:,:))
+    call RemoveHist(dE_hists_DIS_1X(:,:))
+    call RemoveHist(dE_hists_gen0_1X(:,:))
+    call RemoveHist(dE_hists_2X(:,:))
+    call RemoveHist(dE_hists_QE_2X(:,:))
+    call RemoveHist(dE_hists_Delta_2X(:,:))
+    call RemoveHist(dE_hists_highRes_2X(:,:))
+    call RemoveHist(dE_hists_1piBG_2X(:,:))
+    call RemoveHist(dE_hists_DIS_2X(:,:))
+    call RemoveHist(dE_hists_gen0_2X(:,:))
+
+    call RemoveHist(dTheta_hists(:,:))
+    call RemoveHist(dPhi_hists(:,:))
+    call RemoveHist(dTheta_hists_QE(:,:))
+    call RemoveHist(dPhi_hists_QE(:,:))
+    call RemoveHist(dTheta_hists_Delta(:,:))
+    call RemoveHist(dPhi_hists_Delta(:,:))
+    call RemoveHist(dTheta_hists_highRes(:,:))
+    call RemoveHist(dPhi_hists_highRes(:,:))
+    call RemoveHist(dTheta_hists_1piBG(:,:))
+    call RemoveHist(dPhi_hists_1piBG(:,:))
+    call RemoveHist(dTheta_hists_2piBG(:,:))
+    call RemoveHist(dPhi_hists_2piBG(:,:))
+    call RemoveHist(dTheta_hists_gen0(:,:))
+    call RemoveHist(dPhi_hists_gen0(:,:))
+    call RemoveHist2d(dOmega_hists(:,:))
+    call RemoveHist2d(dOmega_hists_QE(:,:))
+    call RemoveHist2d(dOmega_hists_Delta(:,:))
+    call RemoveHist2d(dOmega_hists_highRes(:,:))
+    call RemoveHist2d(dOmega_hists_1piBG(:,:))
+    call RemoveHist2d(dOmega_hists_gen0(:,:))
+
+    call RemoveHist(dEcostheta_hists(:,:))
+    call RemoveHist(dEcostheta_hists_QE(:,:))
+    call RemoveHist(dEcostheta_hists_Delta(:,:))
+    call RemoveHist(dEcostheta_hists_highRes(:,:))
+    call RemoveHist(dEcostheta_hists_1piBG(:,:))
+    call RemoveHist(dEcostheta_hists_2piBG(:,:))
+    call RemoveHist(dEcostheta_hists_DIS(:,:))
+    call RemoveHist(dEcostheta_hists_gen0(:,:))
+    call RemoveHist(dEcostheta_hists_MULTI(:,:))
+    call RemoveHist(dEcostheta_hists_QE_MULTI(:,:))
+    call RemoveHist(dEcostheta_hists_Delta_MULTI(:,:))
+    call RemoveHist(dEcostheta_hists_highRes_MULTI(:,:))
+    call RemoveHist(dEcostheta_hists_1piBG_MULTI(:,:))
+    call RemoveHist(dEcostheta_hists_DIS_MULTI(:,:))
+    call RemoveHist(dEcostheta_hists_gen0_MULTI(:,:))
+    call RemoveHist(dcostheta_hists(:,:))
+    call RemoveHist(dcostheta_hists_QE(:,:))
+    call RemoveHist(dcostheta_hists_Delta(:,:))
+    call RemoveHist(dcostheta_hists_highRes(:,:))
+    call RemoveHist(dcostheta_hists_1piBG(:,:))
+    call RemoveHist(dcostheta_hists_2piBG(:,:))
+    call RemoveHist(dcostheta_hists_DIS(:,:))
+    call RemoveHist(dcostheta_hists_gen0(:,:))
+    call RemoveHist(dcostheta_hists_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_QE_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_Delta_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_highRes_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_1piBG_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_2piBG_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_DIS_MULTI(:,:))
+    call RemoveHist(dcostheta_hists_gen0_MULTI(:,:))
+
+    call RemoveHist(dE_hists_0pions(:,:))
+    call RemoveHist(dE_hists_QE_0pions(:,:))
+    call RemoveHist(dE_hists_Delta_0pions(:,:))
+    call RemoveHist(dE_hists_highRes_0pions(:,:))
+    call RemoveHist(dE_hists_Multi_0pions(:,:))
+    call RemoveHist(dE_hists_QE_Multi_0pions(:,:))
+    call RemoveHist(dE_hists_Delta_Multi_0pions(:,:))
+    call RemoveHist(dE_hists_highRes_Multi_0pions(:,:))
+    call RemoveHist(dE_hists_1X_0pions(:,:))
+    call RemoveHist(dE_hists_QE_1X_0pions(:,:))
+    call RemoveHist(dE_hists_Delta_1X_0pions(:,:))
+    call RemoveHist(dE_hists_highRes_1X_0pions(:,:))
+    call RemoveHist(dE_hists_2X_0pions(:,:))
+    call RemoveHist(dE_hists_QE_2X_0pions(:,:))
+    call RemoveHist(dE_hists_Delta_2X_0pions(:,:))
+    call RemoveHist(dE_hists_highRes_2X_0pions(:,:))
+
+    call RemoveHist(dW_Npi_hists(:))
+    call RemoveHist(dW_mupi_hists(:))
+    call RemoveHist(dW_muN_hists(:))
+
+    call RemoveHist(dEnu_hist(:,:))
+    call RemoveHist(dElepton_hist(:,:))
+    call RemoveHist(dcoslepton_hist(:,:))
+    call RemoveHist(dQ2lepton_hist(:,:))
+    call RemoveHist(dQ2plepton_hist(:,:))
+    call RemoveHist2D(dSigmaMC_EprimeCost_0pi(:,:))
+    call RemoveHist2D(dSigmaMC_pLpT_0pi(:,:))
 
     if (doPipe) then
        close(47) ! close the pipe
@@ -1389,67 +1433,75 @@ contains
   !****************************************************************************
   !****s* neutrinoAnalysis/neutrino_Analyze
   ! NAME
-  ! subroutine neutrino_Analyze(Particles,finalFlag,num_runs_sameEnergy)
+  ! subroutine neutrino_Analyze(Particles,finalFlag,num_runs_sameEnergy,beforeRun)
   ! INPUTS
   ! * type(particle), intent(in),dimension(:,:)  :: Particles
   !   -- Particles which shall be analyzed
   ! * logical, intent(in) :: finalFlag -- if .true. than the final output
   !   for a series of calls will be done
   ! * integer             :: num_runs_sameEnergy
+  ! * logical, optional :: beforeRUN -- flag, whether this routine is
+  !   called before all timesteps (i.e. directly after init) or at the end of
+  !   a run
   ! NOTES
   ! * This subroutine produces output for neutrino-nucleus scattering.
   !****************************************************************************
-  subroutine neutrino_Analyze(Particles,finalFlag,num_runs_sameEnergy)
+  subroutine neutrino_Analyze(Particles,finalFlag,num_runs_sameEnergy,beforeRun)
     use initNeutrino, only: getFirstEventRange, getNeutrinoInfo, nuEXP
     use particleDefinition
     use AnaEventDefinition
     use IDTable, only: nucleon,pion
     use rotation, only: get_Phi_Theta
     use degRad_conversion, only: radian
-    use output, only: intToChar
+    use output, only: intToChar, intToChar4
     use history, only: history_getGeneration
     use neutrino_IDTable
-    use neutrinoInfoStorage, only:  neutrinoInfoStorage_clear
+    use neutrinoInfoStorage, only: neutrinoInfoStorage_clear
     use neutrinoProdInfo, only: neutrinoProdInfo_Get!, neutrinoProdInfo_clear
     use expNeutrinofluxes, only: CCQE_recQs, CCQE_recQs_Delta, CCQE_recEnergy, &
-         & CCQE_recEnergy_Delta,K2K_recEnergy, K2K_recQs
+         CCQE_recEnergy_Delta,K2K_recEnergy, K2K_recQs
     use initNeutrino, only: includeQE, includeDELTA, includeRES, include1pi, &
-         & includeDIS, include2p2hQE, include2p2hDelta, include2pi
+         includeDIS, include2p2hQE, include2p2hDelta, include2pi, &
+         process_ID, flavor_ID
     use minkowski, only: abs4Sq
     use vector, only: absVec
     use constants, only: pi
     use MultiplicityAnalysis, only: Multiplicity_Reset, Multiplicity_AddEvent, &
-        & Multiplicity_Write
+         Multiplicity_Write
     use ZeroPionAnalysis, only: event_sigma_0pions, event_dsigma_de_0pions
+    use PreEvList, only: CreateSortedPreEvent, PreEvList_CLEAR, PreEvList_INIT,&
+         PreEvList_INSERT, PreEvList_Print
+    use CollHistory, only: CollHist_WriteList
 
-    type(particle), intent(in),dimension(:,:) ,target :: Particles
+
+    type(particle), intent(in), dimension(:,:), target :: Particles
     logical, intent(in) :: finalFlag
     integer, intent(in) :: num_runs_sameEnergy
+    logical, intent(in), optional :: beforeRUN
 
     ! Local variables:
-    integer, dimension (1:2) :: firstEvents
+    logical :: DoBeforeRUN
+    integer, dimension(1:2) :: firstEvents
     type(tAnaEvent), Allocatable, dimension(:) :: events,events_QE,    &
-         & events_Delta,events_highRES, &
-         & events_1piBG,events_DIS,events_2p2h, events_2piBG
+         events_Delta,events_highRES, &
+         events_1piBG,events_DIS,events_2p2h, events_2piBG, &
+         events0 ! like events, but without struck nucleon
+
     type(tAnaEvent), Allocatable, dimension(:) :: events_gen0,    &
-         & events_gen1,events_gen2, &
-         & events_gen3ormore ! A list of all events
-    type(particle), POINTER :: particlePointer
+         events_gen1,events_gen2, &
+         events_gen3ormore ! A list of all events
+    type(particle), POINTER :: Part
     integer :: i,j,first
 
     type(particle), Allocatable, dimension(:),target :: lepton, struckNuc
+    type(particle), Allocatable, dimension(:),target :: leptonIn, resPart
 
     integer, parameter :: max_generation=3
     integer :: generation, prod_id
 
-
     real  :: dPhi   ! Delta(phi) for dsigma/dOmega
     real  :: dTheta ! Delta(theta) for dsigma/dOmega
-
     real :: theta, phi
-
-    real :: ekin_lepton
-
     real :: raiseFlagVariable
 
     integer,save :: numberOfCalls=0
@@ -1493,7 +1545,7 @@ contains
                                                               ! possible in final states
 
     real,dimension(0:200) :: Emiss_Fissum=0.
-    real,dimension(0:200),save ::  sum_Emiss_Fissum=0.
+    real,dimension(0:200),save :: sum_Emiss_Fissum=0.
 
     integer :: numberofneutrons_tot=0
     integer :: numberofprotons_tot=0
@@ -1529,7 +1581,7 @@ contains
     character*(10) :: Prefix_MultAna
     character(100) :: filename
     character(13) :: filename1
-	character(13) :: string
+    character(13) :: string
 
     real :: L, Posc_mumu,Posc_mue,Posc_mue_max,Posc_mue_antimax
     ! used for oscillation analysis
@@ -1545,6 +1597,10 @@ contains
 
     dPhi=radian(10.)   ! Delta(phi) for dsigma/dOmega
     dTheta=radian(10.) ! Delta(theta) for dsigma/dOmega
+
+
+    DoBeforeRUN = .FALSE.
+    if (present(beforeRUN)) DoBeforeRUN = beforeRUN
 
     if (initflag) then
        call readinput
@@ -1565,26 +1621,17 @@ contains
        sum_tksigmanucleon=0.
        sum_Emiss_Fissum=0.
 
-       printFlags=.false.
 
-!  Now switches for printout of cross sections for various hadrons
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!  indices in printflags(i) refer to ordering in field particleIds
-!  in module AnaEvent
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-       if (forpion) printFlags(1)=.true. ! pion
-       if (foreta) printFlags(2)=.true. ! eta
-       if (forkaon) printFlags(3)=.true. ! kaon
-       if (forkaonBar) printFlags(4)=.true. ! kaonBar
-       if (forDmeson) printFlags(5)=.true. ! Dmeson
-       if (forDbar) printFlags(6)=.true. ! Dbar meson
-       if (forDs_plus) printFlags(7)=.true. ! Ds+ meson
-       if (forDs_minus) printFlags(8)=.true. ! Ds- meson
-       if (fornucleon) printFlags(9)=.true. ! nucleon
-       if (forLambda) printFlags(10)=.true. ! Lambda
-       if (forSigmaResonance) printFlags(11)=.true. ! Sigma
-       if (forXi) printFlags(12)=.true. ! Xi baryon
-       if (forOmegaResonance) printFlags(13)=.true. ! Omega baryon
+
+       !  Now switches for printout of cross sections for various hadrons
+       !
+       !  indices in printflags(i) refer to ordering in field particleIds
+       !  in module AnaEvent
+
+       printFlags=.false.
+       printFlags(1:13) = (/ forpion, foreta, forkaon, forkaonBar, &
+            forDmeson, forDbar, forDs_plus, forDs_minus, fornucleon, &
+            forLambda, forSigmaResonance, forXi, forOmegaResonance /)
        call set_particleIDs_flag(printFlags)
 
 
@@ -1702,8 +1749,8 @@ contains
        ! file Neutrino_total_Xsection_multiplicities_1piBG.dat
        ! PURPOSE
        ! The same as Neutrino_total_Xsection_multiplicities.dat
-       ! but for 1piBG events (=the first interaction was background production of
-       ! 1-pion final state)
+       ! but for 1piBG events (=the first interaction was background
+       ! production of 1-pion final state)
        !***********************************************************************
        if (include1pi) then
        open(10,File='Neutrino_total_Xsection_multiplicities_1piBG.dat')
@@ -2026,32 +2073,33 @@ contains
     end if
 
     call getNeutrinoInfo(raiseFlagVariable)
+    firstEvents=getFirstEventRange()
+    initHists = (numberOfCalls.eq.0) ! whether we initialize the histograms
+
+    if (DoBeforeRUN) then
+       call analyzeBeforeRun
+       return
+    end if
 
     numberOfCalls=numberOfCalls+1
 
-    initHists = (numberOfCalls.eq.1) ! whether we initialize the histograms
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!
-! After all these preparations now the actual analysis of events starts
-!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !==========================================================================
+    !
+    ! After all these preparations now the actual analysis of events starts
+    !
+    !==========================================================================
 
     write(*,*) '################### NEUTRINO ANALYSIS STARTS ##################'
-    write(*,*) ' number of calls: ', numberofCalls,' number of finals: ',&
-              & numberofFinals
-    if (inclusiveAnalysis) write(*,*) 'NOTE: we do inclusiveAnalysis!!!!!!!!!!!'
-    write(*,'(a,F12.4)') 'kineticEnergyDetectionThreshold_nucleon ', &
-       & kineticEnergyDetectionThreshold_nucleon
+    write(*,*) ' number of calls: ', numberofCalls, &
+         ' number of finals: ', numberofFinals
+
     write(*,'(a,F12.4)')'radialScale',radialScale
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! First calculate
-! total (tsigma) and kinetic energy differential (tksigma) cross section
-! for pions and nucleons
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !==========================================================================
+    ! First calculate
+    ! total (tsigma) and kinetic energy differential (tksigma) cross section
+    ! for pions and nucleons
+    !==========================================================================
 
     !nullify everything
     tsigmapion=0.
@@ -2072,27 +2120,24 @@ contains
     Q2rec=0.
     Enurec=0.
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!
-! First calculate total cross sections and kinetic energy distributions for
-! pions and then numbers of nucleons in the final state
-! acceptance cuts for leptons as well as bound-state criteria are taken into
-! account
-! Printout is controlled by switch Xsection_analysis
-!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !==========================================================================
+    ! First calculate total cross sections and kinetic energy distributions for
+    ! pions and then numbers of nucleons in the final state
+    ! acceptance cuts for leptons as well as bound-state criteria are taken into
+    ! account
+    ! Printout is controlled by switch Xsection_analysis
+    !==========================================================================
 
-! Loops over all ensembles (dim=1) and all particles (dim=2)
 
     do i=lbound(Particles,dim=1),ubound(Particles,dim=1)
        do j=lbound(Particles,dim=2),ubound(Particles,dim=2)
           if (Particles(i,j)%ID.le.0) cycle
 
-   ! The following 'if' selects only nucleons
-          if (Particles(i,j)%ID.eq.1) then
-             call AddHist(hNucleonVacuumMass,Particles(i,j)%mass, &
-                         & Particles(i,j)%perweight)
-             select case (Particles(i,j)%charge)
+          Part=>Particles(i,j)
+
+          if (Part%ID.eq.1) then ! == nucleon
+             call AddHist(hNucleonVacuumMass,Part%mass,Part%perweight)
+             select case (Part%charge)
              case (-1)
                 numberofANTIprotons_tot=numberofANTIprotons_tot+1
              case (0)
@@ -2102,44 +2147,49 @@ contains
              end select
           end if
 
-          if (IsBound(particles(i,j))) cycle
-          if (IsBelowThreshold(particles(i,j))) cycle
+          if (iand(applyCuts,2)==2) then
+             if (IsBound(Part)) cycle
+          end if
+          if (iand(applyCuts,4)==4) then
+             if (IsBelowThreshold(Part)) cycle
+          end if
 
-   ! The following call to function neutrinoProdInfo_Get retrieves information
-   ! on the production process for particle j in ensemble i
+          ! The following call to function neutrinoProdInfo_Get retrieves
+          ! information on the production process for particle j in ensemble i
 
-          if (.not.neutrinoProdInfo_Get(Particles(i,j)%firstEvent,prod_id,&
+          if (.not.neutrinoProdInfo_Get(Part%firstEvent,prod_id,&
             &  dummy,lepIn_mom,lep_mom,boson_mom)) then
              call TRACEBACK('error in getting production info')
           end if
 
-          if (.not.lepton_acceptance(lep_mom)) cycle
+          if (iand(applyCuts,1)==1) then
+             if (.not.lepton_acceptance(lep_mom)) cycle
+          end if
 
 
-          tkin=Particles(i,j)%momentum(0)-Particles(i,j)%mass
-          if (tkin.lt.0.) tkin = 0.  !only relevant if inclusiveAnalysis=.true.
-
+          tkin=Part%mom(0)-Part%mass
+          if (tkin.lt.0.) tkin = 0.
           ntk=min(int(tkin/dEkin),200)
 
- !apply history information
-          generation=history_getGeneration(Particles(i,j)%history)
+
+          generation=history_getGeneration(Part%history)
           if (generation.gt.max_generation) generation=max_generation
 
-          select case (Particles(i,j)%ID)
+          select case (Part%ID)
           case (pion)
 
              !total cross section
-             tsigmapion(Particles(i,j)%charge)=tsigmapion(Particles(i,j)%charge) &
-             & +Particles(i,j)%perweight
+             tsigmapion(Part%charge)=tsigmapion(Part%charge) &
+                  +Part%perweight
 
              !kinetic energy differential xsection
-             tksigmapion(Particles(i,j)%charge,ntk)=&
-                  & Particles(i,j)%perweight/dEkin   &
-                  & +tksigmapion(Particles(i,j)%charge,ntk)
+             tksigmapion(Part%charge,ntk)= &
+                  & Part%perweight/dEkin   &
+                  & +tksigmapion(Part%charge,ntk)
 
           case (nucleon)
 
-             select case (Particles(i,j)%charge)
+             select case (Part%charge)
              case (-1)
                 numberofANTIprotons_out=numberofANTIprotons_out+1
              case (0)
@@ -2148,34 +2198,33 @@ contains
                 numberofprotons_out=numberofprotons_out+1
              end select
 
-             numberofnucleons_out(Particles(i,j)%charge,generation)  &
-             & =numberofnucleons_out(Particles(i,j)%charge,generation)+1
+             numberofnucleons_out(Part%charge,generation)  &
+             & =numberofnucleons_out(Part%charge,generation)+1
 
              !total cross section
 
-             tsigmanucleon(Particles(i,j)%charge)  &
-             & =tsigmanucleon(Particles(i,j)%charge)+Particles(i,j)%perweight
+             tsigmanucleon(Part%charge)  &
+             & =tsigmanucleon(Part%charge)+Part%perweight
 
              !kinetic energy differential xsection
-             tksigmanucleon(Particles(i,j)%charge,ntk)=&
-                  &Particles(i,j)%perweight/dEkin  &
-                  & +tksigmanucleon(Particles(i,j)%charge,ntk)
+             tksigmanucleon(Part%charge,ntk)=&
+                  &Part%perweight/dEkin  &
+                  & +tksigmanucleon(Part%charge,ntk)
 
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Fissum analysis for O16(e,e'p) data, Phys.Rev.C70:034606,2004
+             !-----------------------------------------------------------------
+             ! Fissum analysis for O16(e,e'p) data, Phys.Rev.C70:034606,2004
 
              if (Fissum_analysis) then
-                if (Particles(i,j)%charge.ne.1) cycle
-                call get_phi_Theta(particles(i,j)%momentum(1:3),theta,phi)
+                if (Part%charge.ne.1) cycle
+                call get_phi_Theta(Part%mom(1:3),theta,phi)
 
                 if (.not.(abs(cos(theta)-cos(pi/180.*38.45)).lt.0.02/2.)) cycle
 
-                Emiss_Fissum(ntk)=Particles(i,j)%perweight/dEkin/0.02 &
+                Emiss_Fissum(ntk)=Part%perweight/dEkin/0.02 &
                                  & +Emiss_Fissum(ntk)
-             end if !Fissum analysis
-! End Fissum analysis
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+             end if
+             !-----------------------------------------------------------------
 
           end select
 
@@ -2201,8 +2250,8 @@ contains
 
     sum_Emiss_Fissum=sum_Emiss_Fissum+Emiss_Fissum
 
-! Now printout of calculated distributions, controlled by
-! switch Xsection_analysis
+    ! Now printout of calculated distributions, controlled by
+    ! switch Xsection_analysis
 
     if (Xsection_analysis) then
 
@@ -2245,9 +2294,8 @@ contains
 
     end if
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Fissum analysis for O16(e,e'p) data, Phys.Rev.C70:034606,2004
-
+    !--------------------------------------------------------------------------
+    ! Fissum analysis for O16(e,e'p)
     if (Fissum_analysis) then
        open(10,File='Neutrino_Emiss_spectrum.dat',position='append')
        if (numberofcalls.ne.1) then
@@ -2261,8 +2309,7 @@ contains
        end do
        close(10)
     end if
-! End Fissum analysis
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !--------------------------------------------------------------------------
 
 
     call WriteHist(hNucleonVacuumMass,file="NucleonVacuumMass.dat",  &
@@ -2283,43 +2330,46 @@ contains
        sum_Emiss_Fissum=0.
     end if
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !==========================================================================
+    !==========================================================================
+    !==========================================================================
 
-
-
-  !****************************************************************************
-  ! now event analyses with more detailed information on multiplicities,
-  ! generations and production process
-  !
-  ! (1) Setting up the particles into the separate first events QE, Delta, DIS, ..
-  !
-  ! This is done with the help of %firstEvent:
-  ! Particles stemming from the same event get in the init the same %firstEvent
-  ! entry.
-  ! During the run %firstEvent stays constant and is inherited during
-  ! collisions.
-  !*****************************************************************************
-
-	firstEvents=getFirstEventRange()
+    !==========================================================================
+    ! now event analyses with more detailed information on multiplicities,
+    ! generations and production process
+    !
+    ! (1) Setting up particles into the separate first events QE, Delta, DIS, ..
+    !
+    ! This is done with the help of %firstEvent:
+    ! Particles stemming from the same event get in the init the same
+    ! %firstEvent entry.
+    ! During the run %firstEvent stays constant and is inherited during
+    ! collisions.
+    !==========================================================================
 
     allocate(lepton(firstEvents(1):firstEvents(2)))
     allocate(struckNuc(firstEvents(1):firstEvents(2)))
+    allocate(resPart(firstEvents(1):firstEvents(2)))
+    allocate(leptonIn(firstEvents(1):firstEvents(2)))
 
     call setToDefault(lepton)
     call setToDefault(struckNuc)
+    call setToDefault(resPart)
+    call setToDefault(leptonIn)
 
-    allocate(Events(firstEvents(1):firstEvents(2)))
-    allocate(Events_QE(firstEvents(1):firstEvents(2)))
-    allocate(Events_Delta(firstEvents(1):firstEvents(2)))
-    allocate(Events_highRES(firstEvents(1):firstEvents(2)))
-    allocate(Events_1piBG(firstEvents(1):firstEvents(2)))
-    allocate(Events_2piBG(firstEvents(1):firstEvents(2)))
-    allocate(Events_DIS(firstEvents(1):firstEvents(2)))
-    allocate(Events_2p2h(firstEvents(1):firstEvents(2)))
-    allocate(Events_gen0(firstEvents(1):firstEvents(2)))
-    allocate(Events_gen1(firstEvents(1):firstEvents(2)))
-    allocate(Events_gen2(firstEvents(1):firstEvents(2)))
-    allocate(Events_gen3ormore(firstEvents(1):firstEvents(2)))
+    allocate(events(firstEvents(1):firstEvents(2)))
+    allocate(events_QE(firstEvents(1):firstEvents(2)))
+    allocate(events_Delta(firstEvents(1):firstEvents(2)))
+    allocate(events_highRES(firstEvents(1):firstEvents(2)))
+    allocate(events_1piBG(firstEvents(1):firstEvents(2)))
+    allocate(events_2piBG(firstEvents(1):firstEvents(2)))
+    allocate(events_DIS(firstEvents(1):firstEvents(2)))
+    allocate(events_2p2h(firstEvents(1):firstEvents(2)))
+    allocate(events_gen0(firstEvents(1):firstEvents(2)))
+    allocate(events_gen1(firstEvents(1):firstEvents(2)))
+    allocate(events_gen2(firstEvents(1):firstEvents(2)))
+    allocate(events_gen3ormore(firstEvents(1):firstEvents(2)))
+    allocate(events0(firstEvents(1):firstEvents(2)))
 
     do i=firstEvents(1),firstEvents(2)
        call event_init(events(i))
@@ -2334,142 +2384,157 @@ contains
        call event_init(events_gen1(i))
        call event_init(events_gen2(i))
        call event_init(events_gen3ormore(i))
+       call event_init(events0(i))
     end do
 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !
- ! First get 'in' and 'out' lepton momenta and momentum transfer for each event;
- ! the loop runs over all events
- !
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !==========================================================================
+    !==========================================================================
+    !==========================================================================
+
+
 
     do i=firstEvents(1),firstEvents(2)
        lepton(i)%firstEvent=i
        call get_init_namelist(outLepton_ID=lepton(i)%ID, &
-                             & outLepton_charge=lepton(i)%charge)
+            outLepton_charge=lepton(i)%charge)
        if (.not.neutrinoProdInfo_Get(i, prod_id,lepton(i)%perweight,lepIn_mom, &
-          lepton(i)%momentum,boson_mom, struckNuc(i)%momentum, &
-          & struckNuc(i)%charge)) then
+            lepton(i)%mom,boson_mom, &
+            struckNuc(i)%mom, struckNuc(i)%charge)) then
           call TRACEBACK('error in getting perweight')
        end if
 
 
- !
- ! Now acceptance cuts in kinetic energy and angle for outgoing lepton
- ! Events are accepted only if ekin_lepton > threshold energy
- ! and lepton-angle < threshold angle
+       ! Now acceptance cuts in kinetic energy and angle for outgoing lepton
+       ! Events are accepted only if ekin_lepton > threshold energy
+       ! and lepton-angle < threshold angle
+       ! These cuts affect FinalEvents.dat; events which do not fulfill this cut
+       ! are not contained in FinalEvents.dat
+       if (iand(applyCuts,1)==1) then
+          if(.not.lepton_acceptance(lepton(i)%mom)) cycle
+       end if
 
-       if(.not.lepton_acceptance(lepton(i)%momentum)) cycle
+       !=== put incoming lepton into events:
 
- ! event is taken into account only if lepton's energy and angle have been accepted
- ! These cuts affect FinalEvents.dat; events which do not fulfill this cut
- ! are not contained in FinalEvents.dat
- !
+       if (outputEvents_lepIn) then
+          select case(process_ID)
+          case (-1,1) !=== EM
+             leptonIn(i)%ID = 900+flavor_ID
+             leptonIn(i)%charge = -process_ID
+          case (-3,-2,2,3) !=== CC,NC
+             leptonIn(i)%ID = 910+flavor_ID
+             leptonIn(i)%anti = (process_ID.lt.0)
+          end select
+          leptonIn(i)%mom = lepIn_mom
+          leptonIn(i)%firstEvent = i
+          Part => leptonIn(i)
+          call event_add(events(i),Part)
+       end if
 
+       !=== put outgoing lepton into events:
 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !
- ! Analyze events separately for first interaction: QE, Delta, DIS, .....
- !
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       Part=>lepton(i)
+       call event_add(events(i),Part)
 
- !  Now put leptons into specific event types (QE, Delta, ..)
+       !=== put struck nucleon into specific event types (QE, Delta, ..):
 
-       particlePointer=>lepton(i)
-
-       call event_add(events(i),particlePointer)
-
- !  Now put struck nucleon into specific event types
-
-       particlePointer=>struckNuc(i)
+       Part=>struckNuc(i)
        struckNuc(i)%ID=1
 
-       call event_add(events(i),particlePointer)
+       call event_add(events(i),Part)
 
        select case (prod_id)
        case (1)
-          call event_add(events_QE(i),particlePointer)
+          call event_add(events_QE(i),Part)
        case (2)
-          call event_add(events_Delta(i),particlePointer)
+          call event_add(events_Delta(i),Part)
        case (3:31)
-          call event_add(events_highRES(i),particlePointer)
+          call event_add(events_highRES(i),Part)
        case (32:33)
-          call event_add(events_1piBG(i),particlePointer)
+          call event_add(events_1piBG(i),Part)
        case (34)
-          call event_add(events_DIS(i),particlePointer)
+          call event_add(events_DIS(i),Part)
        case (35:36)
-          call event_add(events_2p2h(i),particlePointer)
+          call event_add(events_2p2h(i),Part)
        case (37)
-          call event_add(events_2piBG(i),particlePointer)
+          call event_add(events_2piBG(i),Part)
        case default
           write(*,*) 'prod_id =', prod_id
           call TRACEBACK('strange prod_id')
        end select
 
-       call event_add(events_gen0(i),particlePointer)
-       call event_add(events_gen1(i),particlePointer)
-       call event_add(events_gen2(i),particlePointer)
-       call event_add(events_gen3ormore(i),particlePointer)
+       call event_add(events_gen0(i),Part)
+       call event_add(events_gen1(i),Part)
+       call event_add(events_gen2(i),Part)
+       call event_add(events_gen3ormore(i),Part)
+
+       !=== put residuum into event type:
+
+       if (outputEvents_Residuum) then
+          if (createResPart(i,resPart(i))) then
+             Part => resPart(i)
+             call event_add(events(i),Part)
+          end if
+       end if
 
     end do
 
-
- !
- ! Now put all other particles into specific event types
- !
-
- ! Loops over all ensembles (dim=1) and all particles (dim=2)
+    !==========================================================================
+    ! Now put all other particles into specific event types
+    !==========================================================================
 
     do i=lbound(Particles,dim=1),ubound(Particles,dim=1)
        do j=lbound(Particles,dim=2),ubound(Particles,dim=2)
           if (Particles(i,j)%ID.le.0) cycle
 
-          first=Particles(i,j)%firstEvent
- !  first is the number of the first event of particle j in ensemble i
+          Part=>Particles(i,j)
+          first=Part%firstEvent
 
-		  if(.not.lepton_acceptance(lepton(first)%momentum)) cycle
-          if (IsBound(particles(i,j))) cycle
-          if (IsBelowThreshold(particles(i,j))) cycle
- !  These acceptance switches do affect the FinalEvents.dat file
- 
-          particlePointer=>Particles(i,j)
+          !  These acceptance switches do affect the FinalEvents.dat file
+          if (iand(applyCuts,1)==1) then
+             if(.not.lepton_acceptance(lepton(first)%mom)) cycle
+          end if
+          if (iand(applyCuts,2)==2) then
+             if (IsBound(Part)) cycle
+          end if
+          if (iand(applyCuts,4)==4) then
+             if (IsBelowThreshold(Part)) cycle
+          end if
 
-    ! Add particle to the event with its firstEvent index.
+          call event_add(events(first),Part)
+          call event_add(events0(first),Part)
 
-          call event_add(events(first),particlePointer)
-
-          !apply history information
-          generation=history_getGeneration(Particles(i,j)%history)
-          if (.not.neutrinoProdInfo_Get(Particles(i,j)%firstEvent,prod_id,dummy,lepIn_mom, &
-                                       lep_mom,boson_mom)) then
+          generation=history_getGeneration(Part%history)
+          if (.not.neutrinoProdInfo_Get(Part%firstEvent,prod_id,dummy, &
+               lepIn_mom, lep_mom,boson_mom)) then
              call TRACEBACK('error in getting production info')
           end if
 
           if (generation.ge.max_generation) generation=max_generation
 
-    ! to simplify output individual resonance contributions are all lumped together in
-    ! the highRes component, this is controlled by array K2Hist in initneutrino.f90
+          ! to simplify output individual resonance contributions are all lumped
+          ! together in the highRes component, this is controlled by array
+          ! K2Hist in initneutrino.f90
 
-    ! now generation is the real particle generation and prod_id contains
-    ! the information, in which process the particle was produced (QE=1, Delta=2, highRES=3:31,
-    ! BG=32:33)
+          ! now generation is the real particle generation and prod_id contains
+          ! the information, in which process the particle was produced
+          ! (QE=1, Delta=2, highRES=3:31, BG=32:33)
 
 
           select case (prod_id)
           case (1)
-             call event_add(events_QE(first),particlePointer)
+             call event_add(events_QE(first),Part)
           case (2)
-             call event_add(events_Delta(first),particlePointer)
+             call event_add(events_Delta(first),Part)
           case (3:31)
-             call event_add(events_highRES(first),particlePointer)
+             call event_add(events_highRES(first),Part)
           case (32:33)
-             call event_add(events_1piBG(first),particlePointer)
+             call event_add(events_1piBG(first),Part)
           case (34)
-             call event_add(events_DIS(first),particlePointer)
+             call event_add(events_DIS(first),Part)
           case (35:36)
-             call event_add(events_2p2h(first),particlePointer)
+             call event_add(events_2p2h(first),Part)
           case (37)
-             call event_add(events_2piBG(first),particlePointer)
+             call event_add(events_2piBG(first),Part)
           case default
              write(*,*) 'prod_id =', prod_id
              call TRACEBACK('strange prod_id')
@@ -2477,13 +2542,13 @@ contains
 
           select case (generation)
           case (0)
-             call event_add(events_gen0(first),particlePointer)
+             call event_add(events_gen0(first),Part)
           case (1)
-             call event_add(events_gen1(first),particlePointer)
+             call event_add(events_gen1(first),Part)
           case (2)
-             call event_add(events_gen2(first),particlePointer)
+             call event_add(events_gen2(first),Part)
           case (3)
-             call event_add(events_gen3ormore(first),particlePointer)
+             call event_add(events_gen3ormore(first),Part)
           case default
              write(*,*) 'generation =', generation
              call TRACEBACK('strange generation')
@@ -2492,10 +2557,9 @@ contains
        end do
     end do
 
-
-
-
-! (2) Use the list "events" to evaluate total cross sections
+    !==========================================================================
+    ! (2) Use the list "events" to evaluate total cross sections
+    !==========================================================================
 
     call event_sigma(events,sigma,initHists,numberOfCalls, &
          identifier=raiseFlagVariable)
@@ -2522,6 +2586,25 @@ contains
     call event_sigma(events_gen3ormore,sigma_gen3ormore,initHists, &
          numberOfCalls, &
          identifier=raiseFlagVariable)
+
+
+    if (DoOutChannels) then
+       do i=firstEvents(1),firstEvents(2)
+          if (CreateSortedPreEvent(events0(i),PreEv%preE)) then
+             PreEv%weight = events0(i)%Parts%first%V%perweight
+             call PreEvList_INSERT(ListPreEv,PreEv)
+          end if
+       end do
+
+       open(141,file='OutChannels.FINAL.'//inttochar4(numberOfFinals)//'.dat', status='unknown')
+       rewind(141)
+       write(141,"(A,f8.4)") "# raiseFlagVariable =",raiseFlagVariable
+       write(141,"(A,i6)") "# numberOfCalls = ",numberOfCalls
+       write(141,"(A,1P,e10.3)") "# cross section scaled by: ",OutChannelsFak
+       call PreEvList_Print(141,ListPreEv,1.0/numberOfCalls*OutChannelsFak,20)
+       close(141)
+
+    end if
 
     if (Xsection_analysis) then
        call PrintVals10(.true., raiseFlagVariable, numberOfCalls, &
@@ -2553,11 +2636,11 @@ contains
 
 
 
- ! extra channels for ZeroPion analysis
+    ! extra channels for ZeroPion analysis
 
     if (ZeroPion_analysis) then
        call event_sigma_0pions(events,sigma_0pions,initHists,numberOfCalls, &
-          & identifier=raiseFlagVariable)
+            identifier=raiseFlagVariable)
        if (includeQE) call event_sigma_0pions(events_QE,sigma_QE_0pions, &
             initHists,numberOfCalls,identifier=raiseFlagVariable)
        if (includeDELTA) call event_sigma_0pions(events_Delta,sigma_Delta_0pions, &
@@ -2598,6 +2681,7 @@ contains
             Enumin, Enumax, Enubin, Enurestored_versusEnu, dSigdEnu, dSigdEnurestored)
     end if
 
+    call CollHist_WriteList(1.0)
 
 
     ! Now differential cross sections
@@ -2622,7 +2706,8 @@ contains
     ! * HADRON = pion, N, K, K~, Lambda, SigmaResonance, eta
     !   only those are shown, for which the switches in the namelist
     !   "detailed_diff" are set to .true.
-    !   possible hadrons are contained in the field particleIDs defined in AnaEvent.f90
+    !   possible hadrons are contained in the field particleIDs defined in
+    !   AnaEvent.f90
     ! * CHARGE = charge of the outgoing hadron
     !
     ! PURPOSE
@@ -2634,7 +2719,8 @@ contains
     !
     ! The file shows the cross sections for ___1-HADRON___  final state
     ! versus kinetic energy of the outgoing hadron
-    ! (one HADRON of a given CHARGE and no HADRONs with same flavor, but different charges;
+    ! (one HADRON of a given CHARGE and no HADRONs with same flavor, but
+    ! different charges;
     !  there could be additional hadrons with different flavor)
     !
     ! Units:
@@ -2646,7 +2732,8 @@ contains
     ! Columns:
     ! * #1: kinetic energy of the outgoing HADRON of given CHARGE [GeV]
     ! * #2: dsi/dEkin  xsec
-    ! * #3: number of events contributed  (only for internal use, you can safely neglect it)
+    ! * #3: number of events contributed  (only for internal use, you can
+    !   safely neglect it)
     ! * #4: xsec-statistical-error
     !**************************************************************************
 
@@ -2713,7 +2800,8 @@ contains
     ! Columns:
     ! * #1: E*(1-cosTheta) [GeV]
     ! * #2: dsi/d(E(1-costheta))  xsec
-    ! * #3: number of events contributed  (only for internal use, you can safely neglect it)
+    ! * #3: number of events contributed  (only for internal use, you can
+    !   safely neglect it)
     ! * #4: xsec-statistical-error
     !**************************************************************************
 
@@ -2747,7 +2835,8 @@ contains
     ! Columns:
     ! * #1: Theta [radians]
     ! * #2: dsi/dTheta  xsec
-    ! * #3: number of events contributed  (only for internal use, you can safely neglect it)
+    ! * #3: number of events contributed  (only for internal use, you can
+    !   safely neglect it)
     ! * #4: xsec-statistical-error
     !**************************************************************************
 
@@ -2756,7 +2845,7 @@ contains
     if (detailed_diff_output) then
 
        ! Here we fill the histograms with the appropriate event types
-	   ! The called routines are in module AnaEvent
+       ! The called routines are in module AnaEvent
 
        ! first sum of all events
        call event_dSigma_dE(events,EkinMin,EkinMax,dEkin,&
@@ -2923,8 +3012,8 @@ contains
     !   and specific final states in the namelist "nl_specificEvent" are
     !   set to .true.
     !
-    ! The file shows the cross sections for a specific final state versus kinetic energy of the
-    ! outgoing lepton
+    ! The file shows the cross sections for a specific final state versus
+    ! kinetic energy of the outgoing lepton
     !
     ! Units:
     ! * For eventtype=5 and process_ID=CC and NC: 10^{-38} cm^2/GeV
@@ -2933,7 +3022,8 @@ contains
     ! Columns:
     ! * #1: kinetic energy of the outgoing lepton  [GeV]
     ! * #2: dsi/dEkin  xsec   per nucleon
-    ! * #3: number of events contributed  (only for internal use, you can safely neglect it)
+    ! * #3: number of events contributed  (only for internal use, you can
+    !   safely neglect it)
     ! * #4: xsec-statistical-error
     !**************************************************************************
 
@@ -2956,7 +3046,8 @@ contains
     ! Columns:
     ! * #1: Q2 [GeV^2]  squared transfer momentum (Q2 = -q_mu \cdot q^\mu)
     ! * #2: dsi/dQ2  xsec
-    ! * #3: number of events contributed  (only for internal use, you can safely neglect it)
+    ! * #3: number of events contributed  (only for internal use, you can
+    !   safely neglect it)
     ! * #4: xsec-statistical-error
     !**************************************************************************
 
@@ -3038,11 +3129,12 @@ contains
     ! * #2: cos(theta_l)  cos of the scattering angle of the outgoing lepton
     ! * #3: d2si/(dcos(theta_l) dE_l)  dd-xsec
     ! the following columns not implemented yet
-    ! * #4: number of events contributed  (only for internal use, you can safely neglect it)
+    ! * #4: number of events contributed  (only for internal use, you can
+    !   safely neglect it)
     ! * #5: xsec-statistical-error
     !**************************************************************************
 
-     !**************************************************************************
+    !**************************************************************************
     !****o* neutrinoAnalysis/diff_XXX_d2Sigma_dpLdpT_lepton_no_pi.dat
     ! NAME
     ! file diff_XXX_d2Sigma_dpLdpT_lepton_no_pi.dat
@@ -3070,64 +3162,65 @@ contains
     !**************************************************************************
 
 
- !  Calculate differential cross sections dsigma/dx for lepton with specific events
- !  Now loop over specific events, such as 0 pion, 1p + Xn, ...
+    ! Calculate differential cross sections dsigma/dx for lepton with
+    ! specific events
+    ! Now loop over specific events, such as 0 pion, 1p + Xn, ...
 
 
 
     if (specificEvent_Analysis) then
-        do m=1, max_speEvent           ! loop over specific events
+       do m=1, max_speEvent           ! loop over specific events
           if (.not.includeSpeEvent(m)) cycle
-!
+
           do iHist=0, 0         ! loop over first event types, iHist=0: total
-		                        ! other event types here not implemented
-!
-            if (.not.includeHist(iHist)) cycle
-			
-		   select case(iHist)
-	
-			  case(0)
-			    string = 'diff_000'
-			  case(001)
-				string = 'diff_QE'
-			  case(002)
-				string = 'diff_Delta'
-			  case(003)
-				string = 'diff_highRES'
-			  case(004)
-				string = 'diff_1piBG'
-			  case(005)
-				string = 'diff_DIS'
-			  case(006) 
-				string = 'diff_2p2h'
-			  case(008)
-				string = 'diff_2piBG'
-			  case default
-				write(*,*) '2p2h_Delta not implemented'
-				stop
-				
-		  end select		
+		                ! other event types here not implemented
+
+             if (.not.includeHist(iHist)) cycle
+
+             select case(iHist)
+
+             case(0)
+                string = 'diff_000'
+             case(001)
+                string = 'diff_QE'
+             case(002)
+                string = 'diff_Delta'
+             case(003)
+                string = 'diff_highRES'
+             case(004)
+                string = 'diff_1piBG'
+             case(005)
+                string = 'diff_DIS'
+             case(006)
+                string = 'diff_2p2h'
+             case(008)
+                string = 'diff_2piBG'
+             case default
+                write(*,*) '2p2h_Delta not implemented'
+                stop
+
+             end select
    !
-   ! The following program delivers cross sections as a function of lepton
+   ! The following routine delivers cross sections as a function of lepton
    ! kinematics for the special events m
    ! These cross sections respect the angle and energy cuts
    ! for the outgoing lepton
-   ! The called program is located in module AnaEvent
+   ! The called routine is located in module AnaEvent
    !
-            call event_dSigma_dLeptonVariables(events,    &
-                  & maxQ2,binsizeQ2,      &
-                  & AngleUpperDetectionThresholdDegrees_lepton, &
-                  & kineticEnergyDetectionThreshold_lepton, &
-                  & trim(string),numberOfCalls, &
-                  & dEnu_hist(m,iHist), dElepton_hist(m,iHist),   &
-                  & dcoslepton_hist(m,iHist), &
-                  & dQ2lepton_hist(m,iHist),dQ2plepton_hist(m,iHist), &
-                  & dSigmaMC_EprimeCost_0pi(m,iHist),&
-                  & dsigmaMC_pLpT_0pi(m,iHist),&
-                  & initHists, sameFileNameIn=.true., specificEvent=m)
+             call event_dSigma_dLeptonVariables(events,    &
+                  maxQ2,binsizeQ2,      &
+                  AngleUpperDetectionThresholdDegrees_lepton, &
+                  kineticEnergyDetectionThreshold_lepton, &
+                  trim(string),numberOfCalls, &
+                  dEnu_hist(m,iHist), dElepton_hist(m,iHist),   &
+                  dcoslepton_hist(m,iHist), &
+                  dQ2lepton_hist(m,iHist),dQ2plepton_hist(m,iHist), &
+                  dSigmaMC_EprimeCost_0pi(m,iHist),&
+                  dsigmaMC_pLpT_0pi(m,iHist),&
+                  initHists, sameFileNameIn=.true., specificEvent=m)
 
           end do   !iHist
-        end do  !m
+       end do  !m
     end if
 
 
@@ -3267,14 +3360,17 @@ contains
        ! NAME
        ! file FinalEvents.dat
        ! PURPOSE
-       ! The file contains positions and four-vectors of all outgoing particles from an event.
+       ! The file contains positions and four-vectors of all outgoing
+       ! particles from an event.
        !
-       ! For a cross-section construction all of the events have to be weighted with the
-       ! 'perweight' values in col. 5. The final differential cross section dsigma/dE, for example,
-       ! then is obtained by first binning all the events with respect to the energy. Then
-       ! the perweights have to be summed within each bit. To obtain the differential
-       ! cross section the sum of weights in each bin has to be divided by the bin width. In addition,
-       ! the number of runs at same energy (>1 for better statistics) has to be divided out.
+       ! For a cross-section construction all of the events have to be
+       ! weighted with the 'perweight' values in col. 5. The final
+       ! differential cross section dsigma/dE, for example, then is obtained
+       ! by first binning all the events with respect to the energy. Then
+       ! the perweights have to be summed within each bit. To obtain the
+       ! differential cross section the sum of weights in each bin has to be
+       ! divided by the bin width. In addition, the number of runs at same
+       ! energy (>1 for better statistics) has to be divided out.
        ! The resulting cross section is per nucleon (1/A). Its units are
        ! 10^{-38} cm^2 for neutrinos and 10^{-33} cm^2 for electrons.
        !
@@ -3283,16 +3379,28 @@ contains
        ! Columns:
        ! * #1: run number (from 1 to num_runs_SameEnergy)
        ! * #2: event number (from 1 to ... less then target_A*numEnsembles)
-       ! * #3: ID of the outgoing particle (for antiparticles multiplied by factor -1) 
+       ! * #3: ID of the outgoing particle (for antiparticles times factor -1)
        ! * #4: charge of the outgoing particle
        ! * #5: perweight of the event
-       ! * #6-#8: position of the outgoing particle (set to 0 for outgoing lepton)
+       ! * #6-#8: position of the outgoing particle (=0 for outgoing lepton)
        ! * #9-#12: 4-momentum of the outgoing particle in GeV
-       ! * #13: history of the outgoing particle (see history.f90 for the definition)
+       ! * #13: history of the outgoing particle (see history.f90 for def)
        ! * #14: production_ID (type of the first event: 1=QE, 2=Delta, 34=DIS)
        ! * #15: incoming neutrino energy
        !
        ! NOTES
+       !
+       ! If the switch outputEvents_lepIn==.true., then the first line
+       ! contains the incoming lepton (with weight 0).
+       !
+       ! If the switch outputEvents_Residuum==.true., then also a line
+       ! containing the 'residuum' after all FSI is printed (with weight 0).
+       ! Here the ID is given by 1000+A' and the charge by Z', where A' and
+       ! Z' are the remaining nuclear mass and charge of the nucleus, when
+       ! nucleons are hit by FSI. The momentum in this line is the sum
+       ! of the momenta of the hit nucleons.
+       ! (cf. namelist 'residue_Input'; set there DetermineResidue=T, mode=2)
+       !
        ! There is always in each event a particle with weight 0. This is the
        ! nucleon on which the initial interaction happened.
        !
@@ -3304,7 +3412,8 @@ contains
        ! For large target_A, numEnsembles and num_runs_SameEnergy, this file
        ! may become very large, e.g.:
        ! * target_A=12, 1000ens x 20runs, QE and Delta results in 41 Mb
-       ! * target_A=56, 2000ens x 5runs, QE,Delta,highRES,1piBG,DIS results in 500 Mb
+       ! * target_A=56, 2000ens x 5runs, QE,Delta,highRES,1piBG,DIS results in
+       !   500 Mb
        !***********************************************************************
 
        !***********************************************************************
@@ -3807,23 +3916,27 @@ contains
        call event_clear(events_gen1(i))
        call event_clear(events_gen2(i))
        call event_clear(events_gen3ormore(i))
+       call event_clear(events0(i))
     end do
     deallocate(events)
-    deallocate(Events_QE)
-    deallocate(Events_Delta)
-    deallocate(Events_highRES)
-    deallocate(Events_1piBG)
-    deallocate(Events_2piBG)
-    deallocate(Events_DIS)
-    deallocate(Events_2p2h)
-    deallocate(Events_gen0)
-    deallocate(Events_gen1)
-    deallocate(Events_gen2)
-    deallocate(Events_gen3ormore)
+    deallocate(events_QE)
+    deallocate(events_Delta)
+    deallocate(events_highRES)
+    deallocate(events_1piBG)
+    deallocate(events_2piBG)
+    deallocate(events_DIS)
+    deallocate(events_2p2h)
+    deallocate(events_gen0)
+    deallocate(events_gen1)
+    deallocate(events_gen2)
+    deallocate(events_gen3ormore)
+    deallocate(events0)
 
-
-    if (finalflag) call Multiplicity_Reset
-
+    if (finalflag) then
+       call Multiplicity_Reset
+       call PreEvList_CLEAR(ListPreEv)
+       call PreEvList_CLEAR(ListPreEvB)
+    end if
 
     !    call neutrinoProdInfo_clear
     call neutrinoInfoStorage_clear
@@ -3833,13 +3946,99 @@ contains
        numberOfFinals=numberOfFinals+1
     end if
 
+
     write(*,*) '################### NEUTRINO ANALYSIS FINISHED #######################'
 
+
+  contains
+
+
+    !**************************************************************************
+    subroutine analyzeBeforeRun()
+
+      logical :: DoEventAdd
+      type(tAnaEvent), Allocatable, dimension(:) :: eventsB
+      integer :: i,j
+
+      DoEventAdd = DoOutChannels
+
+      if (DoEventAdd) then
+
+         allocate(eventsB(firstEvents(1):firstEvents(2)))
+         do i=firstEvents(1),firstEvents(2)
+            call event_init(eventsB(i))
+         end do
+
+         do i=lbound(Particles,dim=1),ubound(Particles,dim=1)
+            do j=lbound(Particles,dim=2),ubound(Particles,dim=2)
+               if (Particles(i,j)%ID.le.0) cycle
+
+               Part=>Particles(i,j)
+               first=Part%firstEvent
+
+               ! here lepton acceptance cuts should be applied as above...
+
+               call event_add(eventsB(first),Part)
+            end do
+         end do
+
+      end if
+
+      if (DoOutChannels) then
+         do i=firstEvents(1),firstEvents(2)
+            if (CreateSortedPreEvent(eventsB(i),PreEv%preE)) then
+               PreEv%weight = eventsB(i)%Parts%first%V%perweight
+               call PreEvList_INSERT(ListPreEvB,PreEv)
+            end if
+         end do
+
+         open(141,file='OutChannels.INIT.'//inttochar4(numberOfFinals)//'.dat', status='unknown')
+         rewind(141)
+         write(141,"(A,f8.4)") "# raiseFlagVariable =",raiseFlagVariable
+         write(141,"(A,i6)") "# numberOfCalls = ",numberOfCalls+1
+         write(141,"(A,1P,e10.3)") "# cross section scaled by: ",OutChannelsFak
+         call PreEvList_Print(141,ListPreEvB,1.0/(numberOfCalls+1)*OutChannelsFak,20)
+         close(141)
+
+      end if
+
+      if (DoEventAdd) then
+         do i=firstEvents(1),firstEvents(2)
+            call event_clear(eventsB(i))
+         end do
+         deallocate(eventsB)
+      end if
+
+    end subroutine analyzeBeforeRun
+
+
+    !**************************************************************************
+    logical function createResPart(firstEvent, resPart)
+
+      use residue, only: ResidueGetVal
+
+      integer, intent(in) :: firstEvent
+      type(particle), intent(inOut) :: resPart
+
+      integer :: A,Z
+      real, dimension(0:3) :: mom
+
+      createResPart = .false.
+
+      if (.not.ResidueGetVal(firstEvent, A=A,Z=Z,mom=mom)) return
+
+      call setToDefault(resPart)
+      resPart%ID = 1000 + A
+      resPart%charge = Z
+      resPart%mom = mom
+      resPart%firstEvent = firstEvent
+
+      createResPart = .true.
+
+    end function createResPart
+
+
   end subroutine neutrino_Analyze
-
-
-
-
 
 
   !****************************************************************************
@@ -3852,7 +4051,7 @@ contains
   !****************************************************************************
   logical function IsBound(part)
     use particleDefinition
-    use potentialModule, only: potential_LRF
+    use potentialMain, only: potential_LRF
     use nucleusDefinition
     use nucleus, only: getTarget
     use vector, only: absVec
@@ -3864,16 +4063,11 @@ contains
     IsBound=.false.
 
     targetNuc => getTarget()
-    NucRadius=targetNuc%radius
+    NucRadius=targetNuc%radius(0)
 
     if (kineticEnergy(part)+potential_LRF(part).lt.0) IsBound=.true.
 
-!   if (absVec(part%position).lt.radialScale*NucRadius) IsBound=.true.
-
-    ! if flag "inclusiveAnalysis" is set to true, we keep all particles
-	! in FinalEvents.dat, independent of if they are bound or not
-    if (inclusiveAnalysis) IsBound=.false.
-
+!   if (absVec(part%pos).lt.radialScale*NucRadius) IsBound=.true.
 
   end function IsBound
 
@@ -3885,9 +4079,9 @@ contains
   ! logical function IsBelowThreshold(part)
   ! PURPOSE
   ! Returns .true. when a particle is below a given detection threshold
-  ! This routine can be used to remove all events with kinetic energies
-  ! and angles below specified detection thresholds, if an event is below
-  ! threshold it is not added to the full event in subroutine neutrino_Analyze
+  ! This routine can be used to remove particles with kinetic energies
+  ! and angles below specified detection thresholds.
+  ! This cut affects FinalEvents.dat
   !****************************************************************************
   logical function IsBelowThreshold(part)
     use particleDefinition
@@ -3899,34 +4093,34 @@ contains
 
     IsBelowThreshold=.false.
 
-    cos_theta = part%momentum(3)/absVec(part%momentum(1:3))
+    cos_theta = part%mom(3)/absVec(part%mom(1:3))
 
      !kinetic energy and angle threshold for lepton
-    if (part%id.eq.902 .and. ((part%momentum(0)-part%mass) .lt.                &
+    if (part%id.eq.902 .and. ((part%mom(0)-part%mass) .lt.                &
          & kineticEnergyDetectionThreshold_lepton .or.                         &
          & cos_theta .lt.                                                      &
          & cos(radian(AngleUpperDetectionThresholdDegrees_lepton))))           &
          & IsBelowThreshold=.true.
 
     !kinetic energy and angle threshold for nucleons
-    if (part%id.eq.1 .and. ((part%momentum(0)-part%mass) .lt.                  &
+    if (part%id.eq.1 .and. ((part%mom(0)-part%mass) .lt.                  &
          & kineticEnergyDetectionThreshold_nucleon .or.                        &
          & cos_theta .lt.                                                      &
          & cos(radian(AngleUpperDetectionThresholdDegrees_nucleon))))          &
          & IsBelowThreshold=.true.
 
     !kinetic energy and angle threshold for charged pions
-    if (part%id.eq.101 .and. part%charge.ne.0.and.((part%momentum(0)-part%mass) &
+    if (part%id.eq.101 .and. part%charge.ne.0.and.((part%mom(0)-part%mass) &
          & .lt. kineticEnergyDetectionThreshold_chargedpion .or.               &
          & cos_theta .lt.                                                      &
          & cos(radian(AngleUpperDetectionThresholdDegrees_chargedpion))))      &
          & IsBelowThreshold=.true.
 
     !kinetic energy and angle threshold for neutral pions
-    if (part%id.eq.101.and.part%charge.eq.0.and.((part%momentum(0)-part%mass).lt.&
-         & kineticEnergyDetectionThreshold_neutralpion .or.                     &
-         & cos_theta .lt.                                                       &
-         & cos(radian(AngleUpperDetectionThresholdDegrees_neutralpion))))       &
+    if (part%id.eq.101.and.part%charge.eq.0.and.((part%mom(0)-part%mass).lt.&
+         & kineticEnergyDetectionThreshold_neutralpion .or.                    &
+         & cos_theta .lt.                                                      &
+         & cos(radian(AngleUpperDetectionThresholdDegrees_neutralpion))))      &
          & IsBelowThreshold=.true.
 
   end function IsBelowThreshold
@@ -3938,32 +4132,33 @@ contains
   ! PURPOSE
   ! Returns .true. when the lepton is above a given kinetic energy and
   ! below a given angle, i.e. it is accepted
+  !
   ! This routine can be used to remove all events with lepton kinetic energies
-  ! above and angles below specified detection thresholds. If an event is not
-  ! accepted it is not added to the full event in subroutine neutrino_Analyze
+  ! below and angles below specified detection thresholds. If an event is not
+  ! accepted it is not added to the full event in subroutine neutrino_Analyze.
+  ! This cut affects FinalEvents.dat
   !****************************************************************************
-
   logical function lepton_acceptance(lep_mom)
     use vector, only: absVec
     use degRad_conversion, only: radian
-	use minkowski, only: abs4Sq
+    use minkowski, only: abs4Sq
 
-	intent(in) :: lep_mom
-	real :: cos_theta,ekin_lepton
-	real, dimension (0:3) :: lep_mom
+    intent(in) :: lep_mom
+    real :: cos_theta,ekin_lepton
+    real, dimension (0:3) :: lep_mom
 
-	lepton_acceptance = .true.
+    lepton_acceptance = .true.
 
-	cos_theta = lep_mom(3)/absVec(lep_mom(1:3))
-	ekin_lepton = lep_mom(0) - sqrt(max(0.,abs4Sq(lep_mom)))
+    cos_theta = lep_mom(3)/absVec(lep_mom(1:3))
+    ekin_lepton = lep_mom(0) - sqrt(max(0.,abs4Sq(lep_mom)))
 
-	if (ekin_lepton < kineticEnergyDetectionThreshold_lepton) &
-       & lepton_acceptance = .false.
-	if ( cos_theta    &
-       & < cos(radian(AngleUpperDetectionThresholdDegrees_lepton))) &
-	   & lepton_acceptance = .false.
+    if (ekin_lepton < kineticEnergyDetectionThreshold_lepton) &
+         & lepton_acceptance = .false.
+    if ( cos_theta    &
+         & < cos(radian(AngleUpperDetectionThresholdDegrees_lepton))) &
+         & lepton_acceptance = .false.
 
-   end function lepton_acceptance
+  end function lepton_acceptance
 
 
 
@@ -3971,13 +4166,13 @@ contains
   !****************************************************************************
   !****s* neutrinoAnalysis/oscillationProbability
   ! NAME
-  ! subroutine oscillationProbability(Enu,L,deltaCP,Posc_mumu,Posc_mue,Posc_mue_max, &
-  !  & Posc_mue_antimax)
+  ! subroutine oscillationProbability(Enu,L,deltaCP,
+  ! Posc_mumu,Posc_mue,Posc_mue_max,Posc_mue_antimax)
   ! PURPOSE
   ! Prepare Calculation of Oscillation Probability
   !****************************************************************************
-  subroutine oscillationProbability(Enu,L,deltaCP,Posc_mumu,Posc_mue,Posc_mue_max, &
-     & Posc_mue_antimax)
+  subroutine oscillationProbability(Enu,L,deltaCP, &
+       Posc_mumu,Posc_mue,Posc_mue_max,Posc_mue_antimax)
 
 
     implicit none

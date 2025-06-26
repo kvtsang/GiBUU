@@ -86,7 +86,7 @@ contains
     nPart = 0
     weight = 0
 
-    pNode => E%particleList%first
+    pNode => E%Parts%first
     do
        if (.not. associated(pNode)) exit
        if (pNode%V%ID.gt.0) then
@@ -145,7 +145,7 @@ contains
           end if
 
 
-          if (isBaryon(pNode%V%ID) .and..not.pNode%V%antiParticle) then
+          if (isBaryon(pNode%V%ID) .and..not.pNode%V%anti) then
              nPart(10) = nPart(10)+1   ! == All baryons
              if (pNode%V%ID.eq.32) nPart(18)=nPart(18)+1  ! Lambda baryons
              if (pNode%V%ID.eq.1) then

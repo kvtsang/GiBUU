@@ -44,17 +44,17 @@ program test
 
   teilchen%id=nucleon
   teilchen%charge=1
-  teilchen%antiParticle=.true.
-  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%antiparticle,')',ValidCharge(teilchen)
-  teilchen%antiParticle=.false.
-  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%antiparticle,')',ValidCharge(teilchen)
+  teilchen%anti=.true.
+  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%anti,')',ValidCharge(teilchen)
+  teilchen%anti=.false.
+  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%anti,')',ValidCharge(teilchen)
 
   teilchen%id=kaonBar
   teilchen%charge=1
-  teilchen%antiParticle=.true.
-  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%antiparticle,')',ValidCharge(teilchen)
-  teilchen%antiParticle=.false.
-  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%antiparticle,')',ValidCharge(teilchen)
+  teilchen%anti=.true.
+  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%anti,')',ValidCharge(teilchen)
+  teilchen%anti=.false.
+  write(*,*) 'ValidCharge(',teilchen%ID,teilchen%charge,teilchen%anti,')',ValidCharge(teilchen)
 
 
 

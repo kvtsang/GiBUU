@@ -15,13 +15,14 @@ $projectile
 !      projectile_Z= 10, projectile_A= 20 ! Ne
 !      projectile_Z= 13, projectile_A= 27 ! Al
 !      projectile_Z= 16, projectile_A= 32 ! S
-      projectile_Z= 18, projectile_A= 40 ! Ar
+!      projectile_Z= 18, projectile_A= 40 ! Ar
 !      projectile_Z= 26, projectile_A= 56 ! Fe
 !      projectile_Z= 29, projectile_A= 64 ! Cu
 !      projectile_Z= 36, projectile_A= 84 ! Kr
 !      projectile_Z= 50, projectile_A=119 ! Sn
 !      projectile_Z= 54, projectile_A=131 ! Xe
-!      projectile_Z= 73, projectile_A=181 ! Ta
+!     projectile_Z= 73, projectile_A=181 ! Ta
+      Z= 79, A=197              ! Au
 !      projectile_Z= 82, projectile_A=208 ! Pb
 $end
 
@@ -36,21 +37,24 @@ $target
 !      target_Z= 10, target_A= 20 ! Ne
 !      target_Z= 13, target_A= 27 ! Al
 !      target_Z= 16, target_A= 32 ! S
-      target_Z= 18, target_A=37 ! mixture KCl
+!     target_Z= 18, target_A=37 ! mixture KCl
+!            Z= 20, A= 40              ! Ca
 !      target_Z= 26, target_A= 56 ! Fe
 !      target_Z= 29, target_A= 64 ! Cu
-!      target_Z= 36, target_A= 84 ! Kr
+!     target_Z= 36, target_A= 84 ! Kr
+!      Z= 40, A= 90              ! Zr
 !      target_Z= 50, target_A=119 ! Sn
 !      target_Z= 54, target_A=131 ! Xe
 !      target_Z= 73, target_A=181 ! Ta
-!      target_Z= 82, target_A=208 ! Pb
+      Z= 79, A=197              ! Au
+!     target_Z= 82, target_A=208 ! Pb
 $end
 
 ! file: ./density/testRun/OpticalGlauber.f90
 &Glauber
-      impact = -999
-      impact_profile = 3
-      sigma = 30
+      impact = -999.9
+      impact_profile = 0
+      sigma = 23.8
 /
 
 ! file: ./inputOutput/input.f90

@@ -255,7 +255,7 @@ contains
     if (first) then
        first=.false.
        targNuc => getTarget()
-       extNucRadius=targNuc%radius*1.2  !give 20% extra
+       extNucRadius=targNuc%radius(0)*1.2  !give 20% extra
 
        ! create histograms
        call CreateHistMC(msigma,'radiativeDelta Cross Section dSigma/dM [mubarn/GeV]',1.,2.0,0.01,4)
@@ -287,7 +287,7 @@ contains
 
              charge=pertPart(i,j)%charge
              mass=pertPart(i,j)%mass
-             gamma=pertPart(i,j)%momentum(0)/mass
+             gamma=pertPart(i,j)%mom(0)/mass
              perw=pertPart(i,j)%perWeight
 
              if (.not.(mass>0.)) then

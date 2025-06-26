@@ -118,7 +118,7 @@ contains
 
 
     type(electronNucleon_event),intent(in) :: eNev
-    integer,              intent(in) :: charge_out
+    integer,              intent(in) :: charge_out ! nucleon
     integer,              intent(in) :: pion_charge_out
 
     logical,              intent(in) :: nuclear_phasespace
@@ -148,9 +148,9 @@ contains
 
     ! set some abbreviations:
     process_ID = eNev%idProcess
-    k_in  = eNev%lepton_in%momentum
-    k_out = eNev%lepton_out%momentum
-    p_in  = eNev%nucleon%momentum
+    k_in  = eNev%lepton_in%mom
+    k_out = eNev%lepton_out%mom
+    p_in  = eNev%nucleon%mom
     ! ---------------    
     
   
@@ -176,13 +176,13 @@ contains
 
     ! Construct particle which is free and has the 3-momentum of the considered nucleon
     call setToDefault(targetNuc)
-    targetNuc%momentum=p_in
+    targetNuc%mom=p_in
     targetNuc%charge=eNev%nucleon%charge
     targetNuc%id=nucleon
     targetNuc%mass=mN        ! m=m_0
-    targetNuc%momentum(0)=freeEnergy(targetNuc)! E=sqrt(p(1:3)^2+m_0^2)
-    targetNuc%position(:)=1000.                ! Far away the nucleus
-    targetNuc%perturbative=.true.
+    targetNuc%mom(0)=freeEnergy(targetNuc)! E=sqrt(p(1:3)^2+m_0^2)
+    targetNuc%pos(:)=1000.                ! Far away the nucleus
+    targetNuc%pert=.true.
 
     eN = eNev ! make a copy with a free nucleon
     call eNev_init_Target(eN,targetNuc,success)
@@ -191,7 +191,7 @@ contains
     if (eN%W_free.le.(mN+mPi)) return !less than threshold - reaction not possible
 
     !cuts required by MAID due to limited grid size, analysis not available for Q^2 > 4.9 GeV^2:
-    if ((eN%W_free.ge.2.).or.(-SP(k_in-k_out,k_in-k_out).ge.4.9)) return
+    if ((eN%W_free.ge.2.5).or.(-SP(k_in-k_out,k_in-k_out).ge.4.9)) return
 
     
     ! Full 1 pion production cross section:
@@ -201,8 +201,8 @@ contains
     ! the nucleon structure functions in the cm frame, pointed out by Leitner,
     ! not in the lab frame, as used by Lalakulich and Paschos
     
-    if (nuclear_phasespace) sigmaPion=sigmaPion*nuclearFluxFactor_correction(targetNuc%momentum &
-         & ,k_out+k+pf-targetNuc%momentum) 
+    if (nuclear_phasespace) sigmaPion=sigmaPion*nuclearFluxFactor_correction(targetNuc%mom &
+         & ,k_out+k+pf-targetNuc%mom) 
     
     if (sigmaPion.lt.1E-20) return ! no solution to kinematical problem was found
 
@@ -244,12 +244,12 @@ contains
 
     ! Evaluate kinematics in the medium:
     call setToDefault(targetNuc)
-    targetNuc%momentum=p_in
+    targetNuc%mom=p_in
     targetNuc%charge=eNev%nucleon%charge
     targetNuc%id=nucleon
     targetNuc%mass=mN
-    targetNuc%position=eNev%nucleon%position
-    targetNuc%perturbative=.true.
+    targetNuc%pos=eNev%nucleon%pos
+    targetNuc%pert=.true.
 
     call eNev_init_Target(eN,targetNuc,success)
 

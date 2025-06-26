@@ -78,25 +78,25 @@ program CrossSectionPlotterElast
 
   pair%Id=(/id1,id2/)
   pair%charge=(/q1,q2/)
-  pair%antiparticle=(/anti1,anti2/)
-  pair%perturbative=.false.
+  pair%anti=(/anti1,anti2/)
+  pair%pert=.false.
   pair(1)%event=1
   pair(2)%event=2
 
   pair(1)%mass=hadron(id1)%mass
   pair(2)%mass=hadron(id2)%mass
 
-  pair(1)%position = (/ 0., 0., 0.1 /)
-  pair(2)%position = (/ 0., 0., 0.0 /)
+  pair(1)%pos = (/ 0., 0., 0.1 /)
+  pair(2)%pos = (/ 0., 0., 0.0 /)
 
-  pair(1)%momentum(1:3)=0.
+  pair(1)%mom(1:3)=0.
 
-  !pair(1)%momentum(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
+  !pair(1)%mom(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
   call energyDetermination(pair(1),(/0.,0.,0./))
   call energyDetermination(pair(2),(/0.,0.,0./))
 
-  pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
-  pair(2)%velocity=pair(2)%momentum(1:3)/pair(2)%momentum(0)
+  pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
+  pair(2)%vel=pair(2)%mom(1:3)/pair(2)%mom(0)
 
   if (.not. validCharge(pair(1))) then
      write(*,'(A,I3,A,I3)') "Error: particle 1 with ID ", id1, " has invalid charge", q1
@@ -107,19 +107,19 @@ program CrossSectionPlotterElast
      stop
   end if
 
-  tMedium = mediumAt(pair(2)%position)
+  tMedium = mediumAt(pair(2)%pos)
 
 !  if (isMeson(id_out)) srts_min = max(srts_min, hadron(pair(1)%ID)%mass+hadron(pair(1)%ID)%mass+hadron(id_out)%minmass)
 
   write(*,*) '***********************'
   write(*,*) 'positions:'
-  write(*,*) pair(1)%position
-  write(*,*) pair(2)%position
+  write(*,*) pair(1)%pos
+  write(*,*) pair(2)%pos
   write(*,*) 'momenta:'
-  write(*,*) pair(1)%momentum
-  write(*,*) pair(2)%momentum
+  write(*,*) pair(1)%mom
+  write(*,*) pair(2)%mom
   write(*,*) 'sqrt(s)=',sqrts(pair(1),pair(2))
-  write(*,*) 'Total momentum=',pair(1)%momentum+pair(2)%momentum
+  write(*,*) 'Total momentum=',pair(1)%mom+pair(2)%mom
   write(*,*) 'sqrts_min = ', srts_min
   write(*,*) '***********************'
 
@@ -134,20 +134,20 @@ program CrossSectionPlotterElast
 
 
   do i=1,200000
-     pair(1)%momentum(1:3) = (/ 0., 0., float(i)*dp /)
-!     pair(1)%momentum(3)= pair(1)%momentum(3) * 10.**(1./50.)
-!     pair(1)%momentum(3)= pair(1)%momentum(3) * 10.**(1./100.)
-     pair(1)%momentum(3)= pair(1)%momentum(3) * 10.**(1./500.)
-     pair(1)%momentum(0)   = sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
+     pair(1)%mom(1:3) = (/ 0., 0., float(i)*dp /)
+!     pair(1)%mom(3)= pair(1)%mom(3) * 10.**(1./50.)
+!     pair(1)%mom(3)= pair(1)%mom(3) * 10.**(1./100.)
+     pair(1)%mom(3)= pair(1)%mom(3) * 10.**(1./500.)
+     pair(1)%mom(0)   = sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
 
      call energyDetermination(pair(1),betaToCF)
-     pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
+     pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
 
-     momentum_calc = pair(1)%momentum(0:3)+pair(2)%momentum(0:3)
+     momentum_calc = pair(1)%mom(0:3)+pair(2)%mom(0:3)
 
 !!$     betaToCM = lorentzCalcBeta (momentum_calc)
 !!$     call energyDetermination (pair(1), betaToCM)
-!!$     pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
+!!$     pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
 
      srts=sqrts(pair(1),pair(2))
 
@@ -156,7 +156,7 @@ program CrossSectionPlotterElast
 
      write(*,*) '--- srts = ',srts
 
-     rHiEnergy = HiEnergyContrib(srts,pair%ID,pair%Antiparticle)
+     rHiEnergy = HiEnergyContrib(srts,pair%ID,pair%anti)
 
      sigmaTotal = 0.
      sigmaElast = 0.

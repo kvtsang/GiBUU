@@ -37,7 +37,7 @@ program main
 
   resonance%ID = phi
   resonance%mass = hadron(phi)%mass
-  resonance%momentum(0) = resonance%mass
+  resonance%mom(0) = resonance%mass
 
   call setToDefault(finalState)
 

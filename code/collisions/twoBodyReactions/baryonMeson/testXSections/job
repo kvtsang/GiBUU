@@ -6,7 +6,7 @@ $end
 
 $initTest
   ChargeNUK = 1
-  ! chargeMeson = 0
+  chargeMeson = 0
   dens = 0.
   ! K_factor = 2.
 $end
@@ -26,7 +26,7 @@ $end
 
 $input
 numEnsembles=300,  !number of ensembles
-eventtype=2,     
+eventtype=2,
 ! elementary = 0
 !  HeavyIon   = 1
 !  Pion       = 2
@@ -55,4 +55,3 @@ $end
 $initPauli
 pauliSwitch=1         !0=no pauli blocking, 1=dynamic, 2=analytic
 $end
-

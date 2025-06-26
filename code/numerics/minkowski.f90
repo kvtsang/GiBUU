@@ -197,7 +197,7 @@ contains
   ! OUTPUT
   ! * opening angle in degrees [0...180]
   !****************************************************************************
-  real function op_ang(p1,p2)
+  pure real function op_ang(p1,p2)
     use constants, only: pi
     real, dimension(0:3), intent(in) :: p1,p2
     op_ang = acos( dot_product(p1(1:3),p2(1:3)) / (abs3(p1)*abs3(p2)) ) * 180./pi
@@ -215,7 +215,7 @@ contains
   ! OUTPUT
   ! * real  ::    abs3=sqrt(a(1)**2+a(2)**2+a(3)**2)
   !****************************************************************************
-  real function abs3(a)
+  pure real function abs3(a)
     real, dimension(0:3), intent(in) :: a
     abs3 = sqrt(Dot_Product(a(1:3),a(1:3)))
   end function abs3
@@ -224,7 +224,7 @@ contains
   !****************************************************************************
   ! cf. interface "abs4" :
   !****************************************************************************
-  real function abs4a(a)
+  pure real function abs4a(a)
     real, dimension(0:3), intent(in) :: a
     abs4a = sqrt(SP(a,a))
   end function abs4a
@@ -253,7 +253,7 @@ contains
   ! OUTPUT
   ! * real  ::    abs4Sq=a(0)*a(0)-a(1)*a(1)-a(2)*a(2)-a(3)*a(3)
   !****************************************************************************
-  real function abs4Sq(a)
+  pure real function abs4Sq(a)
     real, dimension(0:3), intent(in) :: a
     abs4Sq=SP(a,a)
   end function abs4Sq
@@ -270,7 +270,7 @@ contains
   ! OUTPUT
   ! * real  ::    SP=a(0)*b(0)-a(1)*b(1)-a(2)*b(2)-a(3)*b(3)
   !****************************************************************************
-  function SP(a,b)
+  pure function SP(a,b)
     real :: SP
     real, dimension(0:3), intent(in) :: a,b
     SP=a(0)*b(0)-Dot_Product(a(1:3),b(1:3))
@@ -280,7 +280,7 @@ contains
   !****************************************************************************
   ! cf. interface "Contract" :
   !****************************************************************************
-  real function ContractCC(a,b)
+  pure real function ContractCC(a,b)
     complex, dimension(0:3,0:3), intent(in) :: a,b
     integer :: mu,nu
     contractCC=0.
@@ -341,7 +341,7 @@ contains
   ! OUTPUT
   ! * complex, dimension(0:3,0:3) :: matrix
   !****************************************************************************
-  function sigma4(mu,nu) result(matrix)
+  pure function sigma4(mu,nu) result(matrix)
     complex, dimension(0:3,0:3) :: matrix
     integer,intent(in) :: mu, nu
 
@@ -362,7 +362,7 @@ contains
   ! OUTPUT
   ! * complex, dimension(0:3,0:3) :: matrix
   !****************************************************************************
-  function slashed(p) result(matrix)
+  pure function slashed(p) result(matrix)
     real, intent(in),  dimension(0:3) :: p
     complex, dimension(0:3,0:3) :: matrix
     integer :: mu
@@ -384,7 +384,7 @@ contains
   ! OUTPUT
   ! * complex, dimension(0:3,0:3) :: matrix
   !****************************************************************************
-  function slashed5(p) result(matrix)
+  pure function slashed5(p) result(matrix)
     real, intent(in),  dimension(0:3) :: p
     complex, dimension(0:3,0:3) :: matrix
     integer :: mu
@@ -427,7 +427,7 @@ contains
   ! OUTPUT
   ! * tensor value for the given indices
   !****************************************************************************
-  integer function levi_civita (i, j, k, l)
+  pure integer function levi_civita (i, j, k, l)
     integer, intent(in) :: i, j, k, l
     levi_civita = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l) / 12
   end function

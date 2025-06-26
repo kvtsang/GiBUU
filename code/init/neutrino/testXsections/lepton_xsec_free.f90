@@ -1040,14 +1040,14 @@ contains
        ! set up incoming nucleon
        ! ******************************
        call setToDefault(nucleon_in)
-       nucleon_in%position=(/ 1000., 1000., 1000. /)
-       nucleon_in%momentum=p
+       nucleon_in%pos=(/ 1000., 1000., 1000. /)
+       nucleon_in%mom=p
        nucleon_in%mass=baryon(nucleon)%mass
-       !nucleon_in%momentum(0)=freeEnergy(nucleon_in)! E=sqrt(p(1:3)^2+m_0^2)
+       !nucleon_in%mom(0)=freeEnergy(nucleon_in)! E=sqrt(p(1:3)^2+m_0^2)
        nucleon_in%ID=nucleon
        nucleon_in%charge =1
-       nucleon_in%antiparticle=.false.
-       nucleon_in%perturbative=.true.
+       nucleon_in%anti=.false.
+       nucleon_in%pert=.true.
 
        call get_k_abs_improved(NumRoots,unit_ppi_out(1),unit_ppi_out(2),unit_ppi_out(3),q,&
             & nucleon_in,1,1,success,p_pion_out_root,betaTOCM) ! 1 und 1 are charges of pion and outgoing nucleon

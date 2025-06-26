@@ -177,12 +177,18 @@ contains
   ! H is changed
   !****************************************************************************
   subroutine AddHistMC(H, x, nCh, y)
+    use ieee_arithmetic, only: ieee_is_nan
+
     type(histogramMC)   :: H
     real, intent(in)    :: x
     integer, intent(in) :: nCh
     real, intent(in)    :: y
 
     integer :: iBin
+
+    if (ieee_is_nan(y)) return
+
+    if ((nCh<1).or.(nCh>size(H%yVal,dim=2))) return ! out of bounds
 
     if (x >= H%xMin .and. x < H%xMax) then
        iBin = int( (x-H%xMin)/H%xBin )+1
@@ -395,7 +401,7 @@ contains
   ! INPUTS
   ! * type(histogram) :: H     -- Histogramm to be used
   ! * character*(*)   :: file  -- name of file to open and close
-  ! * real         :: div   -- if true, divide data by the bin width [OPTIONAL]
+  ! * logical      :: div   -- if true, divide data by the bin width [OPTIONAL]
   ! * real         :: add   -- factor to add      [OPTIONAL]
   ! * real         :: mul   -- factor to multiply [OPTIONAL]
   ! * logical      :: dump  -- if true, also dump it binary to file [OPTIONAL]
@@ -430,7 +436,9 @@ contains
     integer,parameter:: iFile = 62
 
     fak = 1./H%xBin
-    if (present(div) .and. .not. div) fak = 1.
+    if (present(div)) then
+       if (.not. div) fak = 1.
+    end if
 
     addFak = 0.
     mulFak = 1.
@@ -442,8 +450,6 @@ contains
 
     open(iFile, file=file, status='unknown')
     rewind(iFile)
-
-    write(*,*) H%xExtreme(1),H%xExtreme(2)
 
     if (H%xExtreme(2)<H%xExtreme(1)) then
        iBinMax = 0
@@ -500,7 +506,9 @@ contains
     character(NameLength):: title
 
     fak = 1./H%xBin
-    if (present(div) .and. .not. div) fak = 1.
+    if (present(div)) then
+       if (.not. div) fak = 1.
+    end if
 
     if (.not.allocated(H%yVal)) return
 
@@ -958,7 +966,7 @@ contains
     iF=121
     if (present(iFile)) iF = iFile
 
-    open(iF,file=file,status='UNKNOWN',form='UNFORMATTED',iostat=ios)
+    open(iF,file=file,status='OLD',form='UNFORMATTED',iostat=ios)
     if (ios.ne.0) then
        close(iF)
        if (present(flagOK)) flagOK=.false.
@@ -998,6 +1006,8 @@ contains
           write(*,*) 'FetchHist: old file version, no add/mul info!'
           addFak = 0.0
           mulFak = 1.0
+       else
+          mulFak = mulFak*H%xBin
        end if
        if (present(add)) add=addFak
        if (present(mul)) mul=mulFak

@@ -55,7 +55,7 @@ contains
     use IdTable, only: rho, omegaMeson, phi
     use inputGeneral, only: delta_T, numEnsembles
     use mediumDefinition
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
     use mesonWidthMedium, only: decayWidthMesonMedium, WidthMesonMedium
     use particleDefinition
     use ParticleProperties
@@ -72,7 +72,6 @@ contains
     type(particle), POINTER :: Part1, Part2, Part3
     real :: srts, s, gammaIn, gammaTot, Phi3, m0
     real, dimension(nDecays) :: decayWidth
-    logical :: pauliFlag
     type(medium) :: mediumATcoll
     real, dimension(0:3) :: momLRF
     real :: spectral, preFak, scaleFak, prob31
@@ -120,7 +119,7 @@ contains
              ID = ArrChannel(dID,iChannel,1) ! ID of mother particle
 !             write(*,*) 'ID = ',ID
 
-             decayWidth = decayWidthMesonMedium(ID,srts,0,pauliFlag)
+             decayWidth = decayWidthMesonMedium(ID,srts,0)
              gammaIn  = decayWidth(ArrChannel(dID,iChannel,2))
 
              gammaTot = WidthMesonMedium(ID,srts, momLRF, mediumATcoll)
@@ -134,7 +133,7 @@ contains
 
              ! P_{31} =
              prob31 = preFak &
-                  * 1.0/( 8.0*Part1%momentum(0)*Part2%momentum(0)*Part3%momentum(0) ) &
+                  * 1.0/( 8.0*Part1%mom(0)*Part2%mom(0)*Part3%mom(0) ) &
                   * 2.0 * srts * gammaIn / Phi3 &
                   * spectral &
                   * scaleFak * (hadron(ID)%Spin*2+1)
@@ -295,33 +294,33 @@ contains
     !===== Create new particle =====
 
     PartNew%ID = ID
-!    PartNew%antiparticle = .false.
+!    PartNew%anti = .false.
 
     call setNumber(PartNew) ! we give it a new number
 
     PartNew%charge = Part1%charge + Part2%charge + Part3%charge
 
-    PartNew%position = (Part1%position+Part2%position+Part3%position)/3
-    PartNew%momentum = (Part1%momentum+Part2%momentum+Part3%momentum)
-    PartNew%velocity = Part1%momentum(1:3)/Part1%momentum(0)
+    PartNew%pos = (Part1%pos+Part2%pos+Part3%pos)/3
+    PartNew%mom = (Part1%mom+Part2%mom+Part3%mom)
+    PartNew%vel = Part1%mom(1:3)/Part1%mom(0)
 
     PartNew%mass = sqrtS(Part1, Part2, Part3)
 
     call setHistory(Part1,Part2,Part3, (/PartNew/) )
 
     ! no formation time effects:
-    PartNew%lastCollisionTime = time
-    PartNew%productionTime    = time
-    PartNew%formationTime     = time
+    PartNew%lastCollTime = time
+    PartNew%prodTime    = time
+    PartNew%formTime     = time
 !    PartNew%scaleCS=1.
-!    PartNew%in_Formation=.false.
+!    PartNew%inF=.false.
 
     ! particles are not perturbative:
-!    PartNew%perturbative = .false.
+!    PartNew%pert = .false.
 !    PartNew%perWeight = 1.0
 
     ! particles are 'on-shell':
-!    PartNew%offshellParameter = 0.
+!    PartNew%offshellPar = 0.
 
     ! now the tricky part starts:
     PartNew%event(1:2) = real_numbering()

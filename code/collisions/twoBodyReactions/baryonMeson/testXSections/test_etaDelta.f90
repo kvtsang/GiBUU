@@ -62,8 +62,8 @@ program test
     teilchenIN(2)%charge=chargeNuk
     teilchenIN(1)%mass=meson(eta)%mass
     teilchenIN(2)%mass=0.938
-    teilchenIN(2)%momentum=(/teilchenIN(2)%mass,0.,0.,0./)
-    teilchenIN(2)%velocity=(/0.,0.,0./)
+    teilchenIN(2)%mom=(/teilchenIN(2)%mass,0.,0.,0./)
+    teilchenIN(2)%vel=(/0.,0.,0./)
 
     Open(301,file='EtaDeltaXsections.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
@@ -71,8 +71,8 @@ program test
        plab=i*0.01
 !    do i=0,300
 !       plab = 0.5*exp( (log(500.)-log(0.5))*i/300. )
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
        srts=SQRT((SQRT(meson(eta)%mass**2+plab**2)+baryon(delta)%mass)**2-plab**2)
        momentumLRF=(/SQRT(meson(eta)%mass**2+plab**2)+baryon(delta)%mass ,plab,0.,0./)
@@ -97,8 +97,8 @@ program test
     Do i=1,numTries
        plab=1
        srts=SQRT((SQRT(meson(eta)%mass**2+plab**2)+baryon(delta)%mass)**2-plab**2)
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
        momentumLRF=(/SQRT(meson(eta)%mass**2+plab**2)+baryon(delta)%mass ,plab,0.,0./)
        call etaDelta(srts,teilchenIN,mediumATcollision,momentumLRF,teilchenOUT,sigmaTot,sigmaElast,.true.,2.3,.false.)
@@ -124,11 +124,11 @@ program test
     teilchenIN(2)%Id=delta
     teilchenIN(1)%charge=chargeMeson
     teilchenIN(2)%charge=-chargeNuk
-    teilchenIN(2)%antiparticle=.true.
+    teilchenIN(2)%anti=.true.
     teilchenIN(1)%mass=meson(eta)%mass
     teilchenIN(2)%mass=0.938
-    teilchenIN(2)%momentum=(/teilchenIN(2)%mass,0.,0.,0./)
-    teilchenIN(2)%velocity=(/0.,0.,0./)
+    teilchenIN(2)%mom=(/teilchenIN(2)%mass,0.,0.,0./)
+    teilchenIN(2)%vel=(/0.,0.,0./)
 
     Open(301,file='EtaDeltaXsections_anti.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
@@ -136,8 +136,8 @@ program test
        plab=i*0.01
 !    do i=0,300
 !       plab = 0.5*exp( (log(500.)-log(0.5))*i/300. )
-       teilchenIN(1)%momentum=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
-       teilchenIN(1)%velocity=(/teilchenIN(1)%momentum(1)/teilchenIN(1)%momentum(0),0.,0./)
+       teilchenIN(1)%mom=(/sqrt(teilchenIN(1)%mass**2+plab**2),plab,0.,0./)
+       teilchenIN(1)%vel=(/teilchenIN(1)%mom(1)/teilchenIN(1)%mom(0),0.,0./)
 
        srts=SQRT((SQRT(meson(eta)%mass**2+plab**2)+baryon(delta)%mass)**2-plab**2)
        momentumLRF=(/SQRT(meson(eta)%mass**2+plab**2)+baryon(delta)%mass ,plab,0.,0./)

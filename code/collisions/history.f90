@@ -37,6 +37,8 @@
 ! * 3: NNpi
 ! * 4: something else
 !
+! Antiparticles are given by ID+200.
+!
 ! As example:
 ! * -10000003 = "- 1 000 003": The particle was generated in a NNpi interaction
 !   There was no interaction before, so the generation is 1.
@@ -49,12 +51,14 @@ module history
   implicit none
   private
 
-  integer, parameter :: million=1000000
-  integer, parameter :: nnn=1       ! Identifier for a (N N N) interaction
-  integer, parameter :: nnDelta=2   ! Identifier for a (N N Delta) interaction
-  integer, parameter :: nnPion=3    ! Identifier for a (N N Pion) interaction
-  integer, parameter :: some3Body=4 ! Identifier for any other 3Body interaction
+  integer, parameter :: twohundred=200  ! better: 256
+  integer, parameter :: thousand=1000   ! better: 1024
+  integer, parameter :: million=1000000 ! better: thousand*thousand
 
+  integer, parameter :: nnn=1        ! Identifier for a (N N N) interaction
+  integer, parameter :: nnDelta=2    ! Identifier for a (N N Delta) interaction
+  integer, parameter :: nnPion=3     ! Identifier for a (N N Pion) interaction
+  integer, parameter :: some3Body=4  ! Identifier for any other 3Body interaction being not NNN, NN Delta or NN Pion.
 
 
   !****************************************************************************
@@ -91,9 +95,9 @@ module history
   !
   ! NOTES
   ! We use the following rule to determine the value of %history:
-  ! * For 1-Body processes : history=1.000.000*generation+id1
-  ! * For 2-Body processes : history=1.000.000*generation+1.000*id2+id1
-  ! * For 3-Body processes : history=-(1.000.000*generation+x) where x is
+  ! * For 1-Body processes : history=million*generation+id1
+  ! * For 2-Body processes : history=million*generation+thousand*id2+id1
+  ! * For 3-Body processes : history=-(million*generation+x) where x is
   !   defined by the identifiers given as parameters in the module header.
   !
   ! This scheme is employed to store this information in a compact way into
@@ -103,7 +107,10 @@ module history
     module procedure setHistory1, setHistory2, setHistory3
   end interface
 
-  public :: setHistory, history_getParents, history_getGeneration, history_print
+  public :: setHistory
+  public :: history_getParents
+  public :: history_getGeneration
+  public :: history_print
 
   logical, save :: initFlag = .true.
 
@@ -117,7 +124,7 @@ contains
   ! Reads input in jobcard out of namelist "History".
   !****************************************************************************
   subroutine readInput
-    !use output           ! using output not possible (circular dependencies !)
+    !use output           ! using output not possible (circular)
     integer :: ios
 
     !**************************************************************************
@@ -162,7 +169,7 @@ contains
 
 
 
-  subroutine setHistory1 (p1, final)
+  subroutine setHistory1(p1, final)
     use particleDefinition
     type(particle), intent(in) :: p1
     type(particle), dimension(:) :: final
@@ -171,7 +178,7 @@ contains
     if (initFlag) call readInput
 
     id1 = p1%ID
-    if (p1%antiparticle) id1 = id1 + 200
+    if (p1%anti) id1 = id1 + twohundred
 
     generation = abs(p1%history)/million
     if (IncGeneration_Decay) generation = generation + 1
@@ -182,7 +189,7 @@ contains
 
 
 
-  subroutine setHistory2 (p, final)
+  subroutine setHistory2(p, final)
     use particleDefinition
     use twoBodyTools, only: IsElastic
     type(particle), dimension(2), intent(in) :: p
@@ -191,32 +198,36 @@ contains
 
     if (initFlag) call readInput
 
-    if (final(3)%ID<=0 .and. IsElastic(p,final(1:2)) .and. .not.IncGeneration_Elastic) then
-      if (isSamePart(p(1),final(1))) then
-        final(1)%history = p(1)%history
-        final(2)%history = p(2)%history
-      else
-        final(1)%history = p(2)%history
-        final(2)%history = p(1)%history
-      end if
-      return
+    if (final(3)%ID<=0) then
+       if (.not.IncGeneration_Elastic) then
+          if (IsElastic(p,final(1:2))) then
+             if (isSamePart(p(1),final(1))) then
+                final(1)%history = p(1)%history
+                final(2)%history = p(2)%history
+             else
+                final(1)%history = p(2)%history
+                final(2)%history = p(1)%history
+             end if
+             return
+          end if
+       end if
     end if
 
-    generation = max (abs(p(1)%history), abs(p(2)%history)) / million + 1
+    generation = max(abs(p(1)%history), abs(p(2)%history)) / million + 1
 
     id1 = p(1)%ID
-    if (p(1)%antiparticle) id1 = id1 + 200
+    if (p(1)%anti) id1 = id1 + twohundred
 
     id2 = p(2)%ID
-    if (p(2)%antiparticle) id2 = id2 + 200
+    if (p(2)%anti) id2 = id2 + twohundred
 
-    final%history = id1 + 1000*id2 + generation*million
+    final%history = id1 + id2*thousand + generation*million
 
   end subroutine setHistory2
 
 
 
-  subroutine setHistory3 (p1, p2, p3, final)
+  subroutine setHistory3(p1, p2, p3, final)
     use idTable, only: nucleon, delta, pion
     use particleDefinition
     type(particle), intent(in) :: p1,p2,p3
@@ -248,7 +259,7 @@ contains
   !****************************************************************************
   !****s* history/history_getParents
   ! NAME
-  ! function history_getParents (history) result (parents)
+  ! function history_getParents(history) result (parents)
   !
   ! PURPOSE
   ! Analyzes a given value of %history of a particle and returns an array of
@@ -256,12 +267,12 @@ contains
   ! particle.
   !
   ! INPUTS
-  ! * integer :: history -- value of %history of the regarded particle
+  ! * integer, intent(in) :: history -- value of %history of the regarded particle
   !
   ! OUTPUT
   ! * integer, dimension(1:3) :: parents -- parents of the regarded particle
   !****************************************************************************
-  function history_getParents (history) result (parents)
+  pure function history_getParents(history) result (parents)
     use idTable, only: nucleon, Delta, pion
     integer, intent(in) :: history
     integer, dimension(1:3) :: parents
@@ -273,8 +284,8 @@ contains
 
     if (history > 0) then
        ! decays and two-body collisions
-       parents(2)=(history-million*generation)/1000
-       parents(1)=history-million*generation-1000*parents(2)
+       parents(2)=(history-million*generation)/thousand
+       parents(1)=history-million*generation-thousand*parents(2)
        if (parents(2)>0 .and. parents(1)>parents(2)) then
           ! sort: smaller ID first
           dummy=parents(2)
@@ -305,10 +316,10 @@ contains
   ! of generation of the latter particle.
   !
   ! INPUTS
-  ! * integer :: history -- value of %history of the regarded particle
+  ! * integer, intent(in) :: history -- value of %history of the regarded particle
   !
   !****************************************************************************
-  integer function history_getGeneration(history)
+  pure integer function history_getGeneration(history)
     integer, intent(in) :: history
 
     history_getGeneration = abs(history)/million
@@ -326,18 +337,14 @@ contains
 !!$  ! particle was produced in a resonance decay.
 !!$  !
 !!$  ! INPUTS
-!!$  ! * integer :: history -- value of %history of the regarded particle
+!!$  ! * integer, intent(in) :: history -- value of %history of the regarded particle
 !!$  !
 !!$  !*************************************************************************
 !!$  logical function history_1Body(history)
 !!$    integer, intent(in) :: history
 !!$    integer :: generation
 !!$    generation=history_getGeneration(history)
-!!$    if((history-million*generation.lt.1000).and.(history-million*generation.gt.0)) then
-!!$       history_1Body=.true.
-!!$    else
-!!$       history_1Body=.false.
-!!$    end if
+!!$    history_1Body = ((history-million*generation.lt.thousand).and.(history-million*generation.gt.0))
 !!$  end function history_1Body
 !!$
 !!$
@@ -351,18 +358,14 @@ contains
 !!$  ! particle was produced in 2 Body interaction.
 !!$  !
 !!$  ! INPUTS
-!!$  ! * integer :: history -- value of %history of the regarded particle
+!!$  ! * integer, intent(in) :: history -- value of %history of the regarded particle
 !!$  !
 !!$  !*************************************************************************
 !!$  logical function history_2Body(history)
 !!$    integer, intent(in) :: history
 !!$    integer :: generation
 !!$    generation=history_getGeneration(history)
-!!$    if((history-million*generation.lt.million).and.(history-million*generation.gt.1000)) then
-!!$       history_2Body=.true.
-!!$    else
-!!$       history_2Body=.false.
-!!$    end if
+!!$    history_2Body = ((history-million*generation.lt.million).and.(history-million*generation.gt.1000))
 !!$  end function history_2Body
 !!$
 !!$
@@ -376,25 +379,21 @@ contains
 !!$  ! particle was produced in 3 Body interaction.
 !!$  !
 !!$  ! INPUTS
-!!$  ! * integer :: history -- value of %history of the regarded particle
+!!$  ! * integer, intent(in) :: history -- value of %history of the regarded particle
 !!$  !
 !!$  !*************************************************************************
 !!$  logical function history_3Body(history)
 !!$    integer, intent(in) :: history
 !!$    !integer :: generation
 !!$    !generation=history_getGeneration(history)
-!!$    if(history.lt.0) then
-!!$       history_3Body=.true.
-!!$    else
-!!$       history_3Body=.false.
-!!$    end if
+!!$    history_3Body = (history.lt.0)
 !!$  end function history_3Body
 !!$
 
   !****************************************************************************
   !****f* history/history_print
   ! NAME
-  ! subroutine history_print(ensemble,p, iFile)
+  ! subroutine history_print(ensemble,p, iFile,initFlag)
   !
   ! PURPOSE
   ! Print the history of a given particle to channel "ifile"
@@ -402,23 +401,26 @@ contains
   ! INPUTS
   ! * integer :: iFile, ensemble
   ! * type(particle)  :: p
-  ! * logical, OPTIONAL :: initFlag
+  ! * logical, OPTIONAL :: initFlag --- write a header line
   !
   !****************************************************************************
   subroutine history_print(ensemble,p, iFile,initFlag)
     use particleDefinition
     integer, intent(in) :: iFile, ensemble
     type(particle),intent(in)  :: p
-    integer :: generation, parents(3)
-    logical, optional :: initFlag
+    logical, intent(in), optional :: initFlag
 
-    generation = history_getGeneration (p%history)
-    parents = history_getParents (p%history)
+    integer :: generation, parents(3)
+
+    generation = history_getGeneration(p%history)
+    parents = history_getParents(p%history)
     if (present(initFlag)) then
-       if (initFlag)   write(iFile,'(A)') 'ensemble,ID, charge, history, generation, parents(1:3), firstEvent'
+       if (initFlag) write(iFile,'(A)') &
+            'ensemble,ID, charge, history, generation, parents(1:3), firstEvent'
     end if
 
-    write(iFile,'(12I10)') ensemble,p%ID, p%charge, p%history, generation, parents,p%firstEvent
+    write(iFile,'(12I10)') &
+         ensemble,p%ID, p%charge, p%history, generation, parents,p%firstEvent
 
   end subroutine history_print
 

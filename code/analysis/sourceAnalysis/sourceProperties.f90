@@ -181,7 +181,7 @@ contains
   !****************************************************************************
   subroutine get_PressureField(NumEnsemples,MaxNumSources,NumSources,TheSource)
 
-    use densitymodule, only: densityField, gridSpacing, gridPoints !,gridSize
+    use densitymodule, only: densField, gridSpacing, gridPoints !,gridSize
     use lorentzTrafo, only: BoostTensor
     use sourceTypeDefinition
 
@@ -236,7 +236,7 @@ contains
           NonEquil(i) = 0.0
           Dichte(i)   = 0.0
 
-          LocalPos(1:3) = TheSource(m,i)%Position(1:3)
+          LocalPos(1:3) = TheSource(m,i)%pos(1:3)
           index         = nint(LocalPos/gridSpacing)
 
           Loop_xSpace : do i1=index(1)-2,index(1)+2
@@ -247,12 +247,12 @@ contains
                         & abs(i2) > gridPoints(2) .or. &
                         & abs(i3) > gridPoints(3) ) cycle
 
-                   strom(:) = densityField(i1,i2,i3)%baryon(:)
+                   strom(:) = densField(i1,i2,i3)%baryon(:)
                    localRho = sqrt( max(0.,(strom(0)**2 -dot_product(strom(1:3), strom(1:3)))) )
                    Dichte(i) = Dichte(i) + localRho
 
                    !collective 4-velocity of the source(s):
-                   v(1:3) = TheSource(m,i)%velocity(1:3)
+                   v(1:3) = TheSource(m,i)%vel(1:3)
                    uu(0)  = 1./sqrt(1.-v(1)**2-v(2)**2-v(3)**2)
                    uu(1:3)= uu(0)*v(1:3)
                    !performe boost of the tensor to the RF of the source(s):
@@ -374,10 +374,10 @@ contains
           if ( teilchen(j,i)%id >= pion) cycle  Loop_over_particles_1 ! Only baryons are accounted for presently
 
           ! Modification factor for the coupling constants:
-          factor = ModificationFactor(teilchen(j,i)%Id,teilchen(j,i)%antiparticle)
+          factor = ModificationFactor(teilchen(j,i)%Id,teilchen(j,i)%anti)
 
           ! position in large grid:
-          rpos = Teilchen(j,i)%position(1:3)/gridSpacing
+          rpos = Teilchen(j,i)%pos(1:3)/gridSpacing
           posOrig=NINT(rpos)
 
           if (abs(posOrig(1)).gt.gridPoints(1) &
@@ -385,27 +385,27 @@ contains
                &.or. abs(posOrig(3)).gt.gridPoints(3) ) cycle
 
           ! position in small grid:
-          indexSmall=NINT((rpos-posOrig)*(2.*SmallergridPoints+1.))
+          indexSmall=NINT((rpos-posOrig)*(2.*nSmallPoints+1.))
 
           ! Test for errors:
-          if ((abs(indexSmall(1)).gt.smallergridpoints)&
-               &.or.(abs(indexSmall(2)).gt.smallergridpoints)&
-               &.or.(abs(indexSmall(3)).gt.smallergridpoints)) then
+          if ((abs(indexSmall(1)).gt.nSmallPoints)&
+               &.or.(abs(indexSmall(2)).gt.nSmallPoints)&
+               &.or.(abs(indexSmall(3)).gt.nSmallPoints)) then
              write(*,*) 'Problem in InstabilityConditions, module FragmentationAnalysis.f90'
              write(*,*) IndexSmall, 'too big, choose different grid'
              stop
           end if
 
-          small=1+(SmallergridPoints+indexSmall(3))                               &
-               & +(SmallergridPoints+indexSmall(2))*(2*SmallerGridPoints+1)       &
-               & +(SmallergridPoints+indexSmall(1))*(2*SmallerGridPoints+1)**2
+          small=1+(nSmallPoints+indexSmall(3))                               &
+               & +(nSmallPoints+indexSmall(2))*(2*nSmallPoints+1)       &
+               & +(nSmallPoints+indexSmall(1))*(2*nSmallPoints+1)**2
 
           large=0
 
           ! Smearing particle over points in Neighborhood:
-          Loop_Index1 : do Index1=posOrig(1)-numberLargePoints,posOrig(1)+numberlargePoints
-             Loop_Index2 :Do Index2=posOrig(2)-numberLargePoints,posOrig(2)+numberlargePoints
-                Loop_Index3 :Do Index3=posOrig(3)-numberLargePoints,posOrig(3)+numberlargePoints
+          Loop_Index1 : do Index1=posOrig(1)-nLargePoints,posOrig(1)+nlargePoints
+             Loop_Index2 :Do Index2=posOrig(2)-nLargePoints,posOrig(2)+nlargePoints
+                Loop_Index3 :Do Index3=posOrig(3)-nLargePoints,posOrig(3)+nlargePoints
 
                    large=large+1
 
@@ -414,8 +414,10 @@ contains
                         & .and. abs(Index3).le.gridPoints(3) &
                         & .and. smearingWeights(small,large).gt.0. ) then
 
-                      mstar = teilchen(j,i)%mass + factor*g_sigma*sigmaField(Index1,Index2,Index3)
-                      ujj(:) = teilchen(j,i)%momentum(:)/mstar
+
+                      call getFieldRMF(Index1,Index2,Index3, sigma=phi)
+                      mstar = teilchen(j,i)%mass + factor*g_sigma*phi
+                      ujj(:) = teilchen(j,i)%mom(:)/mstar
                       do m=0,3
                          do l=0,3
                             TheTensor(Index1,Index2,Index3,m,l) = TheTensor(Index1,Index2,Index3,m,l)  + &
@@ -440,16 +442,16 @@ contains
           do Index3 = -gridPoints(3),gridPoints(3)
 
              !total baryon current
-             strom(:) = densityField(Index1,Index2,Index3)%baryon(:)
+             strom(:) = densField(Index1,Index2,Index3)%baryon(:)
              stromq   = strom(0)**2 - dot_product(strom(1:3),strom(1:3))
 
              !total isospin current (difference between proton and neutron currents)
              stromi(:) = &
-                  & densityField(Index1,Index2,Index3)%proton(:)- &
-                  & densityField(Index1,Index2,Index3)%neutron(:)
+                  & densField(Index1,Index2,Index3)%proton(:)- &
+                  & densField(Index1,Index2,Index3)%neutron(:)
              stromiq   = stromi(0)**2 - dot_product(stromi(1:3),stromi(1:3))
 
-             phi  = sigmaField(Index1,Index2,Index3)
+             call getFieldRMF(Index1,Index2,Index3, sigma=phi)
 
              ScalarPart = ( 0.5*(m_sigma*phi)**2 + g_2*phi**3/3. + g_3*phi**4/4. ) / hbarc**3
              VectorPart = 0.5*a_6*stromq + 0.5*a_7*stromiq
@@ -536,14 +538,14 @@ contains
           if (.not.hyperSource) then
              write(105,100) time,&
                   & TheSource(m,i)%Size,TheSource(m,i)%Charge, &
-                  & TheSource(m,i)%position,TheSource(m,i)%velocity, &
+                  & TheSource(m,i)%pos,TheSource(m,i)%vel, &
                   & TheSource(m,i)%ExEnergy,TheSource(m,i)%radEnergy,&
                   & stossParameter,m,isut+1
           else
              write(105,102) time,&
                   & TheSource(m,i)%Size,TheSource(m,i)%Charge, &
                   & TheSource(m,i)%nLambda,TheSource(m,i)%nSigma0, &
-                  & TheSource(m,i)%position,TheSource(m,i)%velocity, &
+                  & TheSource(m,i)%pos,TheSource(m,i)%vel, &
                   & TheSource(m,i)%ExEnergy,TheSource(m,i)%radEnergy,&
                   & stossParameter,m,isut+1
           end if
@@ -576,14 +578,14 @@ contains
           if (.not.hyperSource) then
              write(103,100) time,&
                   & TheSource(m,i)%Size,TheSource(m,i)%Charge, &
-                  & TheSource(m,i)%position,TheSource(m,i)%velocity, &
+                  & TheSource(m,i)%pos,TheSource(m,i)%vel, &
                   & TheSource(m,i)%ExEnergy,TheSource(m,i)%radEnergy,&
                   & stossParameter,m,isut+1
           else
              write(103,102) time,&
                   & TheSource(m,i)%Size,TheSource(m,i)%Charge, &
                   & TheSource(m,i)%nLambda,TheSource(m,i)%nSigma0, &
-                  & TheSource(m,i)%position,TheSource(m,i)%velocity, &
+                  & TheSource(m,i)%pos,TheSource(m,i)%vel, &
                   & TheSource(m,i)%ExEnergy,TheSource(m,i)%radEnergy,&
                   & stossParameter,m,isut+1
           end if
@@ -602,12 +604,12 @@ contains
     MeanSource(:)%Charge = 0
     MeanSource(:)%nLambda = 0
     MeanSource(:)%nSigma0 = 0
-    MeanSource(:)%Position(1) = 0.0
-    MeanSource(:)%Position(2) = 0.0
-    MeanSource(:)%Position(3) = 0.0
-    MeanSource(:)%Velocity(1) = 0.0
-    MeanSource(:)%Velocity(2) = 0.0
-    MeanSource(:)%Velocity(3) = 0.0
+    MeanSource(:)%pos(1) = 0.0
+    MeanSource(:)%pos(2) = 0.0
+    MeanSource(:)%pos(3) = 0.0
+    MeanSource(:)%vel(1) = 0.0
+    MeanSource(:)%vel(2) = 0.0
+    MeanSource(:)%vel(3) = 0.0
     MeanSource(:)%radEnergy = 0
     MeanSource(:)%ExEnergy = 0
     Loop_over_Ensemples2 : do i=1,Size(TheSource,dim=1)
@@ -619,8 +621,8 @@ contains
           MeanSource(m)%Charge = MeanSource(m)%Charge  + TheSource(i,m)%Charge
           MeanSource(m)%nLambda = MeanSource(m)%nLambda  + TheSource(i,m)%nLambda
           MeanSource(m)%nSigma0 = MeanSource(m)%nSigma0  + TheSource(i,m)%nSigma0
-          MeanSource(m)%Position(:) = MeanSource(m)%Position(:)  + TheSource(i,m)%Position(:)
-          MeanSource(m)%Velocity(:) = MeanSource(m)%Velocity(:)  + TheSource(i,m)%Velocity(:)
+          MeanSource(m)%pos(:) = MeanSource(m)%pos(:)  + TheSource(i,m)%pos(:)
+          MeanSource(m)%vel(:) = MeanSource(m)%vel(:)  + TheSource(i,m)%vel(:)
           MeanSource(m)%radEnergy = MeanSource(m)%radEnergy  + TheSource(i,m)%radEnergy
           MeanSource(m)%ExEnergy = MeanSource(m)%ExEnergy  + TheSource(i,m)%ExEnergy
        end do Loop_over_Sources2
@@ -646,8 +648,8 @@ contains
           write(*,'(A,e13.6)')       '### <N_Lambda>         = ',float(MeanSource(i)%nLambda)/NormSource(i)
           write(*,'(A,e13.6)')       '### <N_Sigma0>         = ',float(MeanSource(i)%nSigma0)/NormSource(i)
        end if
-       write(*,'(A,3(f12.4))')    '### <Pos> [fm]         = ',MeanSource(i)%Position/NormSource(i)
-       write(*,'(A,3(f12.4))')    '### <Vel>              = ',MeanSource(i)%Velocity/NormSource(i)
+       write(*,'(A,3(f12.4))')    '### <Pos> [fm]         = ',MeanSource(i)%pos/NormSource(i)
+       write(*,'(A,3(f12.4))')    '### <Vel>              = ',MeanSource(i)%vel/NormSource(i)
        write(*,'(A,f12.4)')       '### <Erad> [GeV/A]     = ',MeanSource(i)%radEnergy/NormSource(i)
        write(*,'(A,f12.4)')       '### <Etot> [GeV/A]     = ',MeanSource(i)%ExEnergy/NormSource(i)
        if ( getRMF_Flag() ) then
@@ -663,8 +665,8 @@ contains
               write(106,101) time, &
                    &   float(MeanSource(i)%Size)/NormSource(i), &
                    &   float(MeanSource(i)%Charge)/NormSource(i), &
-                   &   MeanSource(i)%Position/NormSource(i), &
-                   &   MeanSource(i)%Velocity/NormSource(i), &
+                   &   MeanSource(i)%pos/NormSource(i), &
+                   &   MeanSource(i)%vel/NormSource(i), &
                    &   MeanSource(i)%radEnergy/NormSource(i), &
                    &   MeanSource(i)%ExEnergy/NormSource(i), &
                    &   InvariantDensity(i),Pmean(i),P_zz(i),P_tr(i),Anisotropy(i)
@@ -674,8 +676,8 @@ contains
                    &   float(MeanSource(i)%Charge)/NormSource(i), &
                    &   float(MeanSource(i)%nLambda)/NormSource(i), &
                    &   float(MeanSource(i)%nSigma0)/NormSource(i), &
-                   &   MeanSource(i)%Position/NormSource(i), &
-                   &   MeanSource(i)%Velocity/NormSource(i), &
+                   &   MeanSource(i)%pos/NormSource(i), &
+                   &   MeanSource(i)%vel/NormSource(i), &
                    &   MeanSource(i)%radEnergy/NormSource(i), &
                    &   MeanSource(i)%ExEnergy/NormSource(i), &
                    &   InvariantDensity(i),Pmean(i),P_zz(i),P_tr(i),Anisotropy(i)
@@ -688,8 +690,8 @@ contains
               write(106,101) time, &
                    &   float(MeanSource(i)%Size)/NormSource(i), &
                    &   float(MeanSource(i)%Charge)/NormSource(i), &
-                   &   MeanSource(i)%Position/NormSource(i), &
-                   &   MeanSource(i)%Velocity/NormSource(i), &
+                   &   MeanSource(i)%pos/NormSource(i), &
+                   &   MeanSource(i)%vel/NormSource(i), &
                    &   MeanSource(i)%radEnergy/NormSource(i), &
                    &   MeanSource(i)%ExEnergy/NormSource(i)
           else
@@ -698,8 +700,8 @@ contains
                    &   float(MeanSource(i)%Charge)/NormSource(i), &
                    &   float(MeanSource(i)%nLambda)/NormSource(i), &
                    &   float(MeanSource(i)%nSigma0)/NormSource(i), &
-                   &   MeanSource(i)%Position/NormSource(i), &
-                   &   MeanSource(i)%Velocity/NormSource(i), &
+                   &   MeanSource(i)%pos/NormSource(i), &
+                   &   MeanSource(i)%vel/NormSource(i), &
                    &   MeanSource(i)%radEnergy/NormSource(i), &
                    &   MeanSource(i)%ExEnergy/NormSource(i)
           end if

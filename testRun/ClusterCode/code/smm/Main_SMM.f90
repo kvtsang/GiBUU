@@ -22,7 +22,7 @@ contains
   ! Subroutine main_SMM
   !
   ! PURPOSE
-  ! * This is the main subroutine for the SMM. 
+  ! * This is the main subroutine for the SMM.
   ! * Extracts important parameters from input needed for the SMM.
   ! * Calls the SMM-code.
   ! * Calls analysis tools for analysing the produced fragment vector.
@@ -30,8 +30,8 @@ contains
   subroutine main_SMM
 
     use typeDefinitions, only : cluster,particle,quelle
-    use inputGeneral,    only : SubEvents,NumEnsemples,& 
-         &                      RealParticles,& 
+    use inputGeneral,    only : SubEvents,NumEnsemples,&
+         &                      RealParticles,&
          &                      ALADIN_Flag,CHARMS_Flag,Get_Hyp, Get_GiBUUvec
     use inputSMM
     use velocityFieldModule, only : Get_collectiveFlow,Get_RadialFlowProfile
@@ -46,8 +46,8 @@ contains
     type(quelle),allocatable, dimension(:,:), SAVE :: TheSource
     !
     ! PURPOSE
-    ! The source vector: target(first index), fireball(second index) and 
-    ! (third index) spectator source properties are stored into the 
+    ! The source vector: target(first index), fireball(second index) and
+    ! (third index) spectator source properties are stored into the
     ! type(quelle).
     !
     !***********************************************************************
@@ -61,7 +61,7 @@ contains
     ! PURPOSE
     ! The Fragment vector: ground-state fragments and free nucleons.
     ! NOTES
-    ! "Emitted" particles are not contained here 
+    ! "Emitted" particles are not contained here
     ! (see comments on ParticleVector just below)
     !
     !***********************************************************************
@@ -75,7 +75,7 @@ contains
     ! PURPOSE
     ! The particle vector: original GiBUU vector of real particles
     ! NOTES
-    ! It is needed only for selecting the "emitted" particles, which are 
+    ! It is needed only for selecting the "emitted" particles, which are
     ! not considered in the analysis of statistical multifragmentation.
     !
     !***********************************************************************
@@ -115,7 +115,7 @@ contains
 
     write(*,'(A)') ' --- Start reading SourceInfo: "'//trim(PathToSMMInput)//trim(SourceInfo)//'":'
 
-    open(Unit=2, File=trim(PathToSMMInput)//trim(SourceInfo), & 
+    open(Unit=2, File=trim(PathToSMMInput)//trim(SourceInfo), &
          & Status='old', Action='read')
     !-----------------------------------------------------------------------*
     ! Start of statistical fragmentation analysis for all subsequent runs
@@ -145,7 +145,7 @@ contains
 
        if (.not.getExcBalance) then
           !get the binding energy of fragmenting source.
-          !Hadron-Nucleus: Ebind from JobCard 
+          !Hadron-Nucleus: Ebind from JobCard
           !(extracted from additional BUU ground state run)
           if (EventType /= 1) then !proton-induced
              Ebind=E_bind_Input
@@ -164,7 +164,7 @@ contains
              impactParameter = bb
 
              !get the binding energy of fragmenting source.
-             !Heavy-Ion collisions: use of approximate values in 
+             !Heavy-Ion collisions: use of approximate values in
              !function BindingEnergy
              if (EventType==1) then !HIC
                 Ebind = BindingEnergy(Masse,Ladung)
@@ -175,7 +175,7 @@ contains
                 SourceType = 3 !fireball
              else
                 if (Masse > 2) then
-                   if (.not. GetExcBalance) then 
+                   if (.not. GetExcBalance) then
                       call ExcitationEnergy(Etot,Ebind,Exc,CorrectExc,Delta_Exc)
                    else
                       if (j>1) then
@@ -193,7 +193,7 @@ contains
                 else
                    Exc = 0.0 !no SMM for deuterons!
                 endif
-                if (vz < 0.) then 
+                if (vz < 0.) then
                    SourceType = 1 !target
                 else
                    SourceType = 2 !projectile
@@ -205,7 +205,7 @@ contains
 !!$             if (abs(vz) < 0.3) then
 !!$                SourceType = 3
 !!$             else
-!!$                if (vz < 0.) then 
+!!$                if (vz < 0.) then
 !!$                   SourceType = 1 !target
 !!$                else
 !!$                   SourceType = 2 !projectile
@@ -214,13 +214,13 @@ contains
 
              !Countes events as function of mass/charge number/Excitation energy
              !used only for Hadron-Nucleus and stability of ground-state
-             if (EventType==2 .and. Hysto_Flag) & 
+             if (EventType==2 .and. Hysto_Flag) &
                   & call HistOfSource(m,i,SubEvents,NumEnsemples,Masse,Ladung,Exc)
 
 
-!             write(*,'(A,4i4,2x,3f8.3,2x,3f8.3,2x,3f9.4)') & 
-!                  & 'i,j,A,Z,X,V,Etot,Erad,Ex = ',& 
-!                  & i,j,Masse,Ladung,x,y,z,vx,vy,vz,& 
+!             write(*,'(A,4i4,2x,3f8.3,2x,3f8.3,2x,3f9.4)') &
+!                  & 'i,j,A,Z,X,V,Etot,Erad,Ex = ',&
+!                  & i,j,Masse,Ladung,x,y,z,vx,vy,vz,&
 !                  & (Etot-0.938)*1000.,Erad*1000.,Exc*1000.
 
              TheSource(i,j)%status      = .true.
@@ -229,12 +229,12 @@ contains
              TheSource(i,j)%ExEnergy    = Exc
              TheSource(i,j)%radEnergy   = Erad
              TheSource(i,j)%Type        = SourceType
-             TheSource(i,j)%velocity(1) = vx
-             TheSource(i,j)%velocity(2) = vy
-             TheSource(i,j)%velocity(3) = vz
-             TheSource(i,j)%position(1) = x
-             TheSource(i,j)%position(2) = y
-             TheSource(i,j)%position(3) = z
+             TheSource(i,j)%vel(1) = vx
+             TheSource(i,j)%vel(2) = vy
+             TheSource(i,j)%vel(3) = vz
+             TheSource(i,j)%pos(1) = x
+             TheSource(i,j)%pos(2) = y
+             TheSource(i,j)%pos(3) = z
 
           end do Loop_over_Sources
 
@@ -250,7 +250,7 @@ contains
 
           !call main routine for SMM code
           write(*,*) 'calling SMM code...'
-          call MultiFragmentation(SMM_Seed,SMM_Events,m,i,NumSources,& 
+          call MultiFragmentation(SMM_Seed,SMM_Events,m,i,NumSources,&
                & EventType,SMM_Flag,ALADIN_Flag,TheSource,FragmentVector)
 
           !call routine for coalescence between SMM-fragments & hyperons
@@ -278,20 +278,20 @@ contains
           !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-             call spectatorFragmentation(SubEvents,NumEnsemples,SMM_Events, & 
+             call spectatorFragmentation(SubEvents,NumEnsemples,SMM_Events, &
                   & i,FragmentVector,ParticleVector,printflag,nint(A_init(2)))
-             call VariousDistributions(SubEvents,numEnsemples,SMM_Events, & 
+             call VariousDistributions(SubEvents,numEnsemples,SMM_Events, &
                   & i,FragmentVector,ParticleVector,XiTrigger,printFlag,impactParameter)
 
              if (CHARMS_Flag) then
                 do iii=1,MaxNumSources
                    if ( .not. TheSource(i,iii)%status ) cycle
                    if (TheSource(i,iii)%Type /= 2 ) CYCLE
-                   ProjectileVelo = TheSource(i,iii)%velocity(3)
+                   ProjectileVelo = TheSource(i,iii)%vel(3)
                    TypeOfSource   = TheSource(i,iii)%Type
                 end do
-                call velocityDistr_Charms(SubEvents,NumEnsemples,SMM_Events,& 
-                     & FragmentVector,printflag, & 
+                call velocityDistr_Charms(SubEvents,NumEnsemples,SMM_Events,&
+                     & FragmentVector,printflag, &
                      & ProjectileVelo,TypeOfSource)
                 call CharmsAnalysis(FragmentVector,printflag)
              endif
@@ -300,9 +300,9 @@ contains
           else !FOPI data analyzed (Central collisions)
           !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-                call VariousDistributions(SubEvents,numEnsemples,SMM_Events, & 
+                call VariousDistributions(SubEvents,numEnsemples,SMM_Events, &
                      & i,FragmentVector,ParticleVector,XiTrigger,printFlag,impactParameter)
-                call rapidityDistribution(SubEvents,numEnsemples,SMM_Events, & 
+                call rapidityDistribution(SubEvents,numEnsemples,SMM_Events, &
                      & i,FragmentVector,ParticleVector,printFlag)
 
           !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -311,12 +311,12 @@ contains
 
           !Distributions versus excitation energy "Ex" (MeV) of initial residual nucleus
           !(only for hadron-induced reactions):
-          if (EventType==2) & 
-               & call ExDistributions(SubEvents,numEnsemples,SMM_Events, & 
+          if (EventType==2) &
+               & call ExDistributions(SubEvents,numEnsemples,SMM_Events, &
                & i,FragmentVector,ParticleVector,TheSource,printFlag,impactParameter)
 
           !for completeness: spectra & Co. of (emitted) mesons:
-          if (Get_GiBUUvec) & 
+          if (Get_GiBUUvec) &
                 call producedParticles(SubEvents,numEnsemples, &
                                        i,ParticleVector, &
                                        printFlag,impactParameter)
@@ -348,9 +348,9 @@ contains
   ! PURPOSE
   ! determines the binding energy of light nuclei
   ! NOTES
-  ! * For light nuclei we use exp. values, otherwise RMF values. This is 
-  !   because RMF does not give reasonable results for binding energies 
-  !   for light clusters! This problem has to be resolved in the future 
+  ! * For light nuclei we use exp. values, otherwise RMF values. This is
+  !   because RMF does not give reasonable results for binding energies
+  !   for light clusters! This problem has to be resolved in the future
   !   using a better groundState determination in GiBUU runs.
   !*************************************************************************
   real function BindingEnergy(A,Z)
@@ -358,7 +358,7 @@ contains
     real :: Ebind
     !-----------------------------------------------------------------------*
     ! RMF-Values also for very light nuclei
-    ! Note: These values are not realistic, however, they must be used, in 
+    ! Note: These values are not realistic, however, they must be used, in
     !       order to consistently calculate the excitation energy.
     !-----------------------------------------------------------------------*
     EBind = 11.5
@@ -423,7 +423,7 @@ contains
 !!$       if (Z==4) Ebind = 6.463
 !!$       if (Z==5) Ebind = 6.257
 !!$       if (Z==6) Ebind = 4.337
-!!$    endif    
+!!$    endif
 !!$    if (A==10) then
 !!$       Ebind = 5.0
 !!$       if (Z==2) Ebind = 3.033
@@ -446,7 +446,7 @@ contains
   ! Subroutine ExcFromBalance
   !
   ! PURPOSE
-  ! Calculates the excitation energy of the source(s) using energy balance 
+  ! Calculates the excitation energy of the source(s) using energy balance
   ! event-by-event
   !*************************************************************************
   subroutine ExcFromBalance(inum,beamID,beamEnergy,A_init,A_res, &
@@ -474,7 +474,7 @@ contains
     Case(53)
        M_beam=1.315
     Case default
-       write(*,*) 'from MainSMM/ExcFromBalance:'   
+       write(*,*) 'from MainSMM/ExcFromBalance:'
        write(*,*) 'not defined option for beamID. beamID = ',beamID
        write(*,*) 'STOP'
        STOP
@@ -483,22 +483,22 @@ contains
     ! energy of the beam:
     ekin_beam = beamEnergy+M_beam
 
-    ! energy of emitted particles: 
+    ! energy of emitted particles:
     ekin_part = 0.0
     do j=1,size(PV,dim=2)
-       ekin_part = ekin_part + PV(inum,j)%momentum(0) 
+       ekin_part = ekin_part + PV(inum,j)%mom(0)
     end do
 
     !get binding energy from Bethe-Weizsaecker:
     BE1 = BWformula(A_init)/Sum(A_init(:))
     BE2 = BWformula(A_res)/Sum(A_res(:))
 
-    !get recoil: 
+    !get recoil:
     vsq = vx**2+vy**2+vz**2
     ekin_coll = vsq*(M_nuc-BE2)*Sum(A_res(:))/2.
 
     !excitation energy (GeV):
-    Exc = ekin_beam + (M_nuc-BE1)*Sum(A_init(:))-(M_nuc-BE2)*Sum(A_res(:)) & 
+    Exc = ekin_beam + (M_nuc-BE1)*Sum(A_init(:))-(M_nuc-BE2)*Sum(A_res(:)) &
       & - ekin_part - ekin_coll
 
     !exc. energy per nucleon (GeV/A):
@@ -526,7 +526,7 @@ contains
       N = A(1)
       Z = A(2)
 
-      BWformula = av*M - a0*M**(2./3.) - ac*Z*(Z-1.)*M**(-0.33333333) - & 
+      BWformula = av*M - a0*M**(2./3.) - ac*Z*(Z-1.)*M**(-0.33333333) - &
            & as*(N-Z)**2/M
 
       BWformula = abs(BWformula/1000.)
@@ -547,12 +547,12 @@ contains
   ! Calculates the excitation energy of the source(s).
   ! NOTES
   ! * For spectator sources no radial flow by definition.
-  ! * For fireball sources we have to subtract from the total energy the 
-  !   average energy of radial expansion, which enters also as input 
+  ! * For fireball sources we have to subtract from the total energy the
+  !   average energy of radial expansion, which enters also as input
   !   in the SMM code.
-  ! * However, due to strong radial dependence of the radial flow this 
+  ! * However, due to strong radial dependence of the radial flow this
   !   prescription hase to be regarded as an approximation.
-  ! * The upper limit in the excitation energy of fireballs is neccessary 
+  ! * The upper limit in the excitation energy of fireballs is neccessary
   !   since the SMM code terminates otherwise (A.Botvina).
   ! * For fireball the corrected radial flow energy is calculated as well.
   !*************************************************************************
@@ -579,7 +579,7 @@ contains
           Erad_new= Erad + (Ediff-25./1000.)
           if (Exc_new < 0. .or. Erad_new < 0.) then
              write(*,*) 'smmModule, ExcitationEnergy: '
-             write(*,*) 'wrong determination of Exc/Erad!!!',& 
+             write(*,*) 'wrong determination of Exc/Erad!!!',&
                   & Ediff,Exc,Erad,Exc_new,Erad_new
           endif
        endif
@@ -587,7 +587,7 @@ contains
        Erad= Erad_new
     endif
 
-    !Correction due to violation on total energy (small increase of 
+    !Correction due to violation on total energy (small increase of
     !binding energy of ground-state nucleus).
     !The value for DeltaExc is taken from JobCard (GeV per nucleon!!!)
     if (CorrectExc) Exc = Exc - Delta_Exc !in units of GeV per nucleon
@@ -627,8 +627,8 @@ contains
              PV(i,j)%bornTime     = -999.
              PV(i,j)%lastCollTime = -999.
              PV(i,j)%collHis      = -999
-             PV(i,j)%position     = 0.
-             PV(i,j)%momentum     = 0.
+             PV(i,j)%pos     = 0.
+             PV(i,j)%mom     = 0.
              PV(i,j)%mass         = 0.
              PV(i,j)%ID           = 999
              PV(i,j)%charge       = 0
@@ -643,8 +643,8 @@ contains
        Loop_over_ensembles1: do i = 1,size(FV,dim=1)
           Loop_over_particles1 : do j = 1,size(FV,dim=2)
 
-             FV(i,j)%position     = 0.
-             FV(i,j)%momentum     = 0.
+             FV(i,j)%pos     = 0.
+             FV(i,j)%mom     = 0.
              FV(i,j)%mass         = 0.
              FV(i,j)%ID           = 0
              FV(i,j)%MassNumber   = 0
@@ -695,11 +695,12 @@ contains
     mmax = 0
 
     if (openFlag) then
-       open(Unit=200, File=trim(PathToBUUInput)// BUU_DataFile, & 
+       open(Unit=200, File=trim(PathToBUUInput)//trim(BUU_DataFile), &
             & Status='old', Action='read',Iostat=ios)
 
        if (ios /= 0) then
           write(*,*) 'Get_ParticleVector: BUU_DataFile Open failed: ios = ',ios
+          write(*,*) '>',trim(PathToBUUInput)//trim(BUU_DataFile),'<'
           write(*,*) 'Get_ParticleVector: !!! Termination of program NOW !!!'
           STOP
        endif
@@ -724,14 +725,14 @@ contains
        read(200,*)
        read(200,*)
     endif
-   
+
 !    if (.not.openFlag) backspace(Unit=1) !move one line back!!!!
 
 !    mtest = 0
 
    ENSEMPLES : do j=1,NumEnsemples
       m=0
-      Particles : do 
+      Particles : do
 
 
          select case(Read_Format)
@@ -754,7 +755,7 @@ contains
                lastCollTime = -999.
                collHis      = -999
             else
-               read(200,*,iostat=ior) GlobalID,idp,prodTime,lastCollTime,collHis, & 
+               read(200,*,iostat=ior) GlobalID,idp,prodTime,lastCollTime,collHis, &
                     & iso,mass,x,y,z,px,py,pz,ActualEvent,subev
             end if
          end select
@@ -767,7 +768,7 @@ contains
          if (ior<0) exit Particles !end of file, exit in any case...
 
          if ( idp==2 ) then !not still decayed resonances!
-            write(*,*) 
+            write(*,*)
             write(*,*) 'smmModule/Get_ParticleVector:'
             write(*,*) 'Subsequent run = ',isu,'  NumEns = ',j
             write(*,*) 'warning: resonance as emitted particle: idp,iso =  ',idp,iso
@@ -784,13 +785,13 @@ contains
          ParticleVector(j,m)%ensemple    = ActualEvent
          ParticleVector(j,m)%Charge      = iso
          ParticleVector(j,m)%mass        = mass
-         ParticleVector(j,m)%position(1) = x ![fm]
-         ParticleVector(j,m)%position(2) = y ![fm]
-         ParticleVector(j,m)%position(3) = z ![fm]
-         ParticleVector(j,m)%momentum(0) = p0 ![GeV]
-         ParticleVector(j,m)%momentum(1) = px ![GeV]
-         ParticleVector(j,m)%momentum(2) = py ![GeV]
-         ParticleVector(j,m)%momentum(3) = pz ![GeV]
+         ParticleVector(j,m)%pos(1) = x ![fm]
+         ParticleVector(j,m)%pos(2) = y ![fm]
+         ParticleVector(j,m)%pos(3) = z ![fm]
+         ParticleVector(j,m)%mom(0) = p0 ![GeV]
+         ParticleVector(j,m)%mom(1) = px ![GeV]
+         ParticleVector(j,m)%mom(2) = py ![GeV]
+         ParticleVector(j,m)%mom(3) = pz ![GeV]
       end do Particles
 
       if (m>mmax) mmax = m
@@ -821,7 +822,7 @@ contains
   subroutine HistOfSource(ActualSubEvent,ActualNumEnsemple,&
                           SubEvents,NumEnsemples,Masse,Ladung,Excitation)
 
-    integer, intent(in) :: Masse,Ladung,ActualSubEvent,ActualNumEnsemple,& 
+    integer, intent(in) :: Masse,Ladung,ActualSubEvent,ActualNumEnsemple,&
          &                 SubEvents,NumEnsemples
     real, intent(in) :: Excitation !GeV/A
 
@@ -865,7 +866,7 @@ contains
        dndee(ibine) = dndee(ibine) + E_x
     endif
 
-    if ( ActualSubEvent == SubEvents .and. & 
+    if ( ActualSubEvent == SubEvents .and. &
        & ActualNumEnsemple == NumEnsemples ) then
 
        do im=1,mval

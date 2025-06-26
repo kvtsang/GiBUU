@@ -17,7 +17,8 @@ module etaNucleon
   logical,parameter :: debugFlag=.false.
   logical,parameter :: debugFlagAnti=.false.
 
-  ! To decide wether we use the flux correction for the incoming particle velocities
+  ! To decide wether we use the flux correction for the incoming particle
+  ! velocities:
   logical, parameter :: fluxCorrector_flag=.true.
 
   public :: etaNuc
@@ -27,77 +28,80 @@ contains
   !****************************************************************************
   !****s* etaNucleon/etaNuc
   ! NAME
-  ! subroutine etaNuc(srts,teilchenIN,mediumATcollision,momentumLRF,teilchenOUT,sigmaTot,sigmaElast,useHiEnergy,HiEnergySchwelle,plotFlag)
+  ! subroutine etaNuc(srts,partIn,mediumAtColl,momLRF,partOut,sigmaTot,sigmaElast,useHiEnergy,HiEnergySchwelle,plotFlag)
   !
   ! PURPOSE
-  ! Evaluates eta Nucleon -> anything cross sections and returns also a "preevent"
+  ! Evaluates eta Nucleon -> anything cross sections and returns also a
+  ! "preEvent"
   !
   ! INPUTS
-  ! * real, intent(in)                              :: srts                  ! sqrt(s) in the process
-  ! * type(particle),dimension(1:2), intent(in)     :: teilchenIn            ! colliding particles
-  ! * type(medium), intent(in)                      :: mediumATcollision     ! Medium informations at the position of the collision
-  ! * real, intent(in) ,dimension(0:3)              :: momentumLRF           ! Total Momentum in LRF
+  ! * real                          :: srts         --  sqrt(s) in the process
+  ! * type(particle),dimension(1:2) :: partIn       -- colliding particles
+  ! * type(medium)                  :: mediumAtColl -- medium informations at
+  !   the position of the collision
+  ! * real ,dimension(0:3)          :: momentumLRF  -- total Momentum in LRF
   !
   ! High energy matching:
-  ! * logical,intent(in)                            :: useHiEnergy
-  ! * .true. if High-Energy cross sections are given by paramBarMesHE
-  ! * real,intent(in)                               :: HiEnergySchwelle
-  ! * threshold sqrt(s) for paramBarMesHE, i.e. at which energy the cross sections of paramBarMesHE are used
+  ! * logical :: useHiEnergy --
+  !   .true. if High-Energy cross sections are given by paramBarMesHE
+  ! * real    :: HiEnergySchwelle --
+  !   threshold sqrt(s) for paramBarMesHE, i.e. at which energy the cross
+  !   sections of paramBarMesHE are used
   !
   ! Debugging:
-  ! * logical, intent(in),optional                  :: plotFlag              ! Switch on plotting of the  Xsections
+  ! * logical, optional :: plotFlag -- switch on plotting of the  Xsections
   !
   !
   ! RESULT
-  ! * real, intent(out)                                        :: sigmaTot         ! total Xsection
-  ! * real, intent(out)                                        :: sigmaElast       ! elastic Xsection
+  ! * real :: sigmaTot        -- total Xsection
+  ! * real :: sigmaElast      -- elastic Xsection
   !
-  ! This routine does a Monte-Carlo-decision according to the partial cross sections to decide on a final state with
-  ! maximal 3 final state particles. These are returned in the vector teilchenOut. The kinematics of these teilchen is
-  ! only fixed in the case of a single produced resonance. Otherwise the kinematics still need to be established. The
-  ! result is:
-  ! * type(preEvent),dimension(1:3), intent(out)               :: teilchenOut     ! colliding particles
+  ! This routine does a Monte-Carlo-decision according to the partial cross
+  ! sections to decide on a final state with  maximal 3 final state particles.
+  ! These are returned in the vector partOut. The kinematics of these teilchen
+  ! is only fixed in the case of a single produced resonance. Otherwise the
+  ! kinematics still need to be established. The result is:
+  ! * type(preEvent),dimension(1:3) :: partOut --  outgoing particles
   !
   ! NOTES
   ! Possible final states are :
   ! * 1-particle : baryon Resonances
   ! * 2-particle : pi N, K Lambda, K Sigma
   !****************************************************************************
-
-
-  subroutine etaNuc(srts,partIn,mediumAtColl,momLRF,partOut,sigmaTot,sigmaElast,&
-       & useHiEnergy,HiEnergySchwelle,plotFlag)
+  subroutine etaNuc(srts,partIn,mediumAtColl,momLRF,partOut,&
+       sigmaTot,sigmaElast, useHiEnergy,HiEnergySchwelle,plotFlag)
     use idTable
     use particleDefinition
     use particleProperties, only: hadron
     use mediumDefinition
     use preEventDefinition, only: preEvent
-    use twoBodyTools, only: velocity_correction, convertToAntiParticles, searchInInput
+    use twoBodyTools, only: velocity_correction, convertToAntiParticles, &
+         searchInInput
     use RMF, only: getRMF_flag
 
     !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Input
-    real, intent(in)                              :: srts                  ! sqrt(s) in the process
-    type(particle),dimension(1:2), intent(in)     :: partIn            ! colliding particles
-    type(medium), intent(in)                      :: mediumAtColl     ! Medium informations at the position of the collision
-    logical, intent(in),optional                  :: plotFlag              ! Switch on plotting of the  Xsections
-    real, intent(in) ,dimension(0:3)              :: momLRF           ! Total Momentum in LRF
-    logical,intent(in)                            :: useHiEnergy            ! .true. if High-Energy cross sections are given by paramBarMesHE
-    real,intent(in)                               :: HiEnergySchwelle      ! threshold sqrt(s) for paramBarMesHE
+    real, intent(in)                           :: srts
+    type(particle),dimension(1:2), intent(in)  :: partIn
+    type(medium), intent(in)                   :: mediumAtColl
+    logical, intent(in),optional               :: plotFlag
+    real, intent(in) ,dimension(0:3)           :: momLRF
+    logical,intent(in)                         :: useHiEnergy
+    real,intent(in)                            :: HiEnergySchwelle
     !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Output
-    type(preEvent),dimension(1:3), intent(out) :: partOut      ! colliding particles
-    real, intent(out)                          :: sigmaTot         ! total Xsection
-    real, intent(out)                          :: sigmaElast       ! elastic Xsection
+    type(preEvent),dimension(1:3), intent(out) :: partOut
+    real, intent(out)                          :: sigmaTot
+    real, intent(out)                          :: sigmaElast
 
     !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    real,dimension(-1:1) ::     piN            ! -> pi N, index denotes pion charge
+    real,dimension(-1:1) :: piN   ! -> pi N, index denotes pion charge
     !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Local variables
-    real :: fluxCorrector        ! Correction of the fluxfactor due to different velocities
-                                 ! in the medium compared to the vacuum
+    real :: fluxCorrector    ! Correction of the fluxfactor due to different
+                             ! velocities in the medium compared to the vacuum
     real :: s
-    type(particle) :: eta_particle, partNucl
+    type(particle) :: partEta, partNuc
     logical :: antiParticleInput, failFlag
 
     ! partial cross sections for eta N -> R
@@ -106,41 +110,43 @@ contains
     real, dimension(Delta:nbar) :: massRes      ! Resonance masses
 
     real :: lambdaKaon
-    real, dimension  (0:1)  :: sigmaKaon             ! index = charge of final state kaon
+    real, dimension(0:1)  :: sigmaKaon  ! index = charge of final state kaon
 
     antiParticleINPUT=.false. ! .true. if antiparticle in the input
 
     ! Initialize output
-    partOut(:)%ID=0                    ! ID of produced particles
-    partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
-    partOut(:)%mass=0                  ! Mass of produced particles
+    partOut(:)%ID=0
+    partOut(:)%charge=0
+    partOut(:)%anti=.false.
+    partOut(:)%mass=0
 
     ! (1) Check  Input
-    call searchInInput(partIn,eta,nucleon,eta_particle,partNucl,failFlag)
+    call searchInInput(partIn,eta,nucleon,partEta,partNuc,failFlag)
     if (failFlag) then
        write(*,*) 'Wrong input in EtaNuc', partIn%ID
     end if
 
-    if (abs(eta_particle%charge).gt.1) write(*,*) 'wrong eta charge in etaNuc', eta_particle%charge
+    if (abs(partEta%charge).gt.1) &
+         write(*,*) 'wrong eta charge in etaNuc', partEta%charge
 
-    if (eta_particle%antiParticle) then
+    if (partEta%anti) then
        ! This case is not considered yet
-       write(*,*) 'eta is antiparticle in "etaNuc"!!!',partIn%ID,partIn%antiparticle
+       write(*,*) 'eta is antiparticle in "etaNuc"!!!',partIn%ID,partIn%anti
        stop
     end if
 
-    if (partNucl%antiParticle) then
+    if (partNuc%anti) then
        ! Invert all particles in antiparticles
-       partNucl%Charge        =  -partNucl%Charge
-       partNucl%antiparticle  = .false.
-       eta_particle%Charge          =  -eta_particle%Charge
+       partNuc%Charge  =  -partNuc%Charge
+       partNuc%anti    = .false.
+       partEta%Charge =  -partEta%Charge
        antiParticleInput=.true.
     else
        antiParticleInput=.false.
     end if
 
-    ! Correction of the fluxfactor due to different velocities in the medium compared to the vacuum
+    ! Correction of the fluxfactor due to different velocities
+    ! in the medium compared to the vacuum
     if ( .not.getRMF_flag() ) then
       fluxCorrector=velocity_correction(partIn)
     else
@@ -168,9 +174,10 @@ contains
     call MakeDecision
 
     ! (5) Check Output
-    if (Sum(partOut(:)%Charge).ne.partNucl%charge+eta_particle%charge) then
-       write(*,*) 'No charge conservation in pionNuc!!! Critical error' ,eta_particle%Charge, &
-            & partNucl%Charge, partOut(:)%Charge,partOut(:)%ID
+    if (Sum(partOut(:)%Charge).ne.partNuc%charge+partEta%charge) then
+       write(*,*) 'No charge conservation in pionNuc!!! Critical error', &
+            partEta%Charge, partNuc%Charge, partOut(:)%Charge, &
+            partOut(:)%ID
        stop
     end if
 
@@ -186,9 +193,9 @@ contains
     subroutine evaluateXsections
       use resonanceCrossSections, only: barMes_R_barMes, barMes2resonance
       use mediumDefinition, only: vacuum
-      use parametrizationsBarMes, only: huang, huanglam
-      use parBarMes_HighEnergy, only: paramBarMesHE
-      use clebschGordan, only: clebschSquared
+      use parametrizationBarMes, only: huang, huanglam
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE
+      use clebschGordan, only: CG
       use constants, only: mPi, mK
       use twoBodyTools, only: pCM
 
@@ -200,14 +207,14 @@ contains
       real, dimension(1:4) :: sigmaHuang
       integer :: pionCharge, nucCharge
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.
       end if
 
-      momentum_vacuum(1:3)=partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+      momentum_vacuum(1:3)=partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
       momentum_vacuum(0)=FreeEnergy(partIn(1))+FreeEnergy(partIn(2))
 
       !########################################################################
@@ -219,25 +226,27 @@ contains
       ! eta N -> pi N
       !************************************************************************
 
-      ! Full resonance contribution in the vacuum
-      sigmaRes = barMes2resonance (eta,nucleon,eta_particle%charge,partNucl%charge,.true.,vacuum, &
-                                   momentum_vacuum,massRes,eta_particle%Mass,partNucl%Mass,position,perturbative,srts)
-
       ! High energy matching
       piN=0.
       if (useHiEnergy) then
          if (srts.ge.2) then
-            call paramBarMesHE(HiEnergySchwelle,eta,nucleon,eta_particle%charge,partNucl%charge,&
-                 & mediumAtColl,sigmaTotal_HE,sigmaElast_HE)
+            call paramBarMesHE(HiEnergySchwelle,eta,nucleon, &
+                 partEta%charge,partNuc%charge, &
+                 mediumAtColl,sigmaTotal_HE,sigmaElast_HE)
+
+            ! Full resonance contribution in the vacuum
+            sigmaRes = barMes2resonance(eta,nucleon,partEta%charge, &
+                 partNuc%charge,.true.,vacuum, &
+                 momentum_vacuum,massRes,partEta%Mass,partNuc%Mass, &
+                 position,perturbative,srts)
+
             do pionCharge=-1,1
-               nucCharge=eta_particle%charge+partNucl%charge-pionCharge
+               nucCharge=partEta%charge+partNuc%charge-pionCharge
                if ((nucCharge.eq.0).or.(nucCharge.eq.1)) then
-                  piN(pionCharge)=Max(sigmaTotal_HE-sum(sigmaRes),0.)*clebschSquared(1.,0.5,0.5,&
-                       & real(pionCharge),real(nucCharge)-0.5)
+                  piN(pionCharge)=max(sigmaTotal_HE-sum(sigmaRes),0.) &
+                       * CG(2,1,1, pionCharge*2,nucCharge*2-1)**2
                end if
             end do
-         else
-            piN=0.
          end if
       end if
 
@@ -247,23 +256,26 @@ contains
       !************************************************************************
 
       ! Full resonance contribution in the medium
-      sigmaRes = barMes2resonance (eta,nucleon,eta_particle%charge,partNucl%charge,.true.,mediumAtColl, &
-                                   momLRF,massRes,eta_particle%Mass,partNucl%Mass,position,perturbative,srts)
+      sigmaRes = barMes2resonance(eta,nucleon,partEta%charge, &
+           partNuc%charge,.true.,mediumAtColl, &
+           momLRF,massRes,partEta%Mass,partNuc%Mass,position, &
+           perturbative,srts)
 
       !########################################################################
       ! evaluate elastic Xsection
       !########################################################################
 
       sigmaElast=barMes_R_barMes(eta,nucleon,eta,nucleon,&
-           & eta_particle%Charge,partNucl%Charge,eta_particle%Charge,partNucl%Charge, &
-           & .false.,.false.,mediumAtColl,momLRF,&
-           & eta_particle%Mass,partNucl%Mass,position,perturbative,srts)
+           partEta%Charge,partNuc%Charge,partEta%Charge, &
+           partNuc%Charge, &
+           .false.,.false.,mediumAtColl,momLRF,&
+           partEta%Mass,partNuc%Mass,position,perturbative,srts)
 
       ! Correction factor to the pion-nucleon cross sections by detailed balance
       ! (see J. Cugnon et al, PRC 40, 1822 (1989))
       ! c.m. momenta of pion-nucleon and eta-nucleon
-      p_piN  = pCM(srts,mPi,partNucl%Mass)
-      p_etaN = pCM(srts,eta_particle%Mass,partNucl%Mass)
+      p_piN  = pCM(srts,mPi,partNuc%Mass)
+      p_etaN = pCM(srts,partEta%Mass,partNuc%Mass)
 
       if (p_etaN.gt.1.e-06) then
          ratio=p_piN/p_etaN
@@ -277,7 +289,9 @@ contains
       lambdaKaon=0.
       if (srts > hadron(Lambda)%mass + mK) then
          ! huanglam gives : pi^{-} p -> Lambda Kaon^{0}
-         lambdaKaon = 0.5 * huangLam(srts) * ratio  ! assume that sigma(eta p -> Lambda K^+) = sigma(pi^0 p -> Lambda K^+) * p_piN/p_etaN
+         lambdaKaon = 0.5 * huangLam(srts) * ratio
+         ! assume that sigma(eta p -> Lambda K^+)
+         !    = sigma(pi^0 p -> Lambda K^+) * p_piN/p_etaN
          ! No resonance contribution
       end if
 
@@ -285,17 +299,19 @@ contains
       ! -> Sigma Kaon
       !************************************************************************
       ! sigmaKaon(0:1) : Index is charge of final state kaon
-      ! sigmaHuang(1) = pi^{+}  p  ->   K^{+}  Sigma+      !
-      ! sigmaHuang(2) = pi^{0}  p  ->   K^{+}  Sigma0       !
-      ! sigmaHuang(3) = pi^{-}  p  ->   K^{0}  Sigma0      !
-      ! sigmaHuang(4) = pi^{-}  p  ->   K^{+}   Sigma-     !
+      ! sigmaHuang(1) = pi^{+}  p  ->   K^{+}  Sigma+
+      ! sigmaHuang(2) = pi^{0}  p  ->   K^{+}  Sigma0
+      ! sigmaHuang(3) = pi^{-}  p  ->   K^{0}  Sigma0
+      ! sigmaHuang(4) = pi^{-}  p  ->   K^{+}  Sigma-
       sigmaKaon(:)=0.
       if (srts > hadron(SigmaResonance)%mass + mK) then
-         sigmaHuang = huang(srts) * ratio     ! correction due to detailed balance
-         if (partNucl%Charge.eq.1) then
-            sigmaKaon(1)=sigmaHuang(2)     ! assume that sigma(eta p -> K^+ Sigma^0) = sigma(pi^0 p -> K^+ Sigma^0)
+         sigmaHuang = huang(srts) * ratio  ! correction due to detailed balance
+         if (partNuc%Charge.eq.1) then
+            sigmaKaon(1)=sigmaHuang(2)
+            ! assume that sigma(eta p -> K^+ Sigma^0)
+            !   = sigma(pi^0 p -> K^+ Sigma^0)
             sigmaKaon(0)=2.*sigmaKaon(1)  ! by isospin consideration
-         else                              ! neutron Xsections by charge conjugation
+         else                ! neutron Xsections by charge conjugation
             sigmaKaon(0)=sigmaHuang(2)
             sigmaKaon(1)=2.*sigmaKaon(0)
          end if
@@ -306,7 +322,8 @@ contains
       !########################################################################
 
       if (fluxCorrector_flag) then
-         ! We do this for each channel since they might show up seperately in the output if makeoutput is called
+         ! We do this for each channel since they might show up separately in
+         ! the output if makeoutput is called
          sigmaElast=sigmaElast*fluxcorrector
          piN=piN*fluxcorrector
          sigmaRes=sigmaRes*fluxcorrector
@@ -317,10 +334,10 @@ contains
       !########################################################################
       ! Sum up everything for the total cross section
       !########################################################################
-      ! Be careful since sigma elast is already included in the partial cross sections, therefore it is not
-      ! included in the total cross section
+      ! Be careful since sigma elast is already included in the partial cross
+      ! sections, therefore it is not included in the total cross section
 
-      sigmaTot=sum( piN ) +sum (sigmaRes )  + lambdaKaon + sum(sigmaKaon)
+      sigmaTot=sum(piN) + sum(sigmaRes) + lambdaKaon + sum(sigmaKaon)
 
     end subroutine evaluateXsections
 
@@ -333,7 +350,7 @@ contains
 
       cut=rn()*sigmaTot ! random number for Monte-Carlo decision
 
-      totalCharge=eta_particle%Charge+partNucl%Charge
+      totalCharge=partEta%Charge+partNuc%Charge
       !########################################################################
       ! (1) Resonance production
       !########################################################################
@@ -408,18 +425,19 @@ contains
     ! PURPOSE
     ! Writes all cross sections to file as function of srts and plab [GeV].
     ! Filenames:
-    ! * 'etaN_sigTotElast.dat'        : sigmaTot, sigmaElast
-    ! * 'etaN_resProd.dat'            : Baryon resonance production
-    ! * 'etaN_nonStrange_nuk.dat'     : non-strange meson with nucleon in final state
-    ! * 'etaN_strangeProd.dat'        : Kaon and hyperon in final state
+    ! * 'etaN_sigTotElast.dat'   : sigmaTot, sigmaElast
+    ! * 'etaN_resProd.dat'       : Baryon resonance production
+    ! * 'etaN_nonStrange_nuk.dat': non-strange meson with nucleon in final state
+    ! * 'etaN_strangeProd.dat'   : Kaon and hyperon in final state
     !**************************************************************************
     subroutine makeOutPut
       logical, save :: initFlag=.true.
       real :: plab
-      character(len=30), parameter :: outputFile(1:4) = (/ 'etaN_sigTotElast.dat   ', 'etaN_resProd.dat       ', &
-                                                           'etaN_nonStrange_nuk.dat', 'etaN_strangeProd.dat   ' /)
+      character(len=30), parameter :: outputFile(1:4) = (/ &
+           'etaN_sigTotElast.dat   ', 'etaN_resProd.dat       ', &
+           'etaN_nonStrange_nuk.dat', 'etaN_strangeProd.dat   ' /)
 
-      plab=SQRT(((s-eta_particle%mass**2-partNucl%mass**2)/2./partNucl%mass)**2-eta_particle%mass**2)
+      plab=SQRT(((s-partEta%mass**2-partNuc%mass**2)/2./partNuc%mass)**2-partEta%mass**2)
 
       if (initFlag) then
          open(file=outputFile(1),UNIT=101,Status='Replace',Action='Write')

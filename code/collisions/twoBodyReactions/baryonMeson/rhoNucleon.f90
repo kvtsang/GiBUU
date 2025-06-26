@@ -98,7 +98,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -107,16 +107,16 @@ contains
     if (failFlag) write(*,*) 'Wrong input in RhoNuc', partIn%ID
     if (abs(rho_particle%charge)>1) write(*,*) 'wrong rho charge in rhoNuc', rho_particle%charge
 
-    if (rho_particle%antiParticle) then
+    if (rho_particle%anti) then
        ! This case is not considered yet
-       write(*,*) 'rho is antiparticle in "rhoNuc"!!!',partIn%ID,partIn%antiparticle
+       write(*,*) 'rho is antiparticle in "rhoNuc"!!!',partIn%ID,partIn%anti
        stop
     end if
 
-    if (partNucl%antiParticle) then
+    if (partNucl%anti) then
        ! Invert all particles in antiparticles
        partNucl%Charge        =  -partNucl%Charge
-       partNucl%antiparticle  = .false.
+       partNucl%anti  = .false.
        rho_particle%Charge          =  -rho_particle%Charge
        antiParticleInput=.true.
     else
@@ -170,8 +170,8 @@ contains
     subroutine evaluateXsections
       use resonanceCrossSections, only: barMes2resonance, barMes_R_barMes
       use mediumDefinition, only: vacuum
-      use parBarMes_HighEnergy, only: paramBarMesHE
-      use parametrizationsBarMes, only: huangLam, huang
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE
+      use parametrizationBarMes, only: huangLam, huang
       use constants, only: mPi, mK
       use particleProperties, only: hadron
 
@@ -181,10 +181,10 @@ contains
       real :: sigmaTotal_HE, sigmaElast_HE, sigmaHuangLam, sigma_R, sigmaHuang(1:4)
       real :: p_piN, p_rhoN, ratio
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      perturbative = (partIn(1)%perturbative .or. partIn(2)%perturbative)
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      perturbative = (partIn(1)%pert .or. partIn(2)%pert)
 
-      momentum_vacuum(1:3)=partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+      momentum_vacuum(1:3)=partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
       momentum_vacuum(0)=FreeEnergy(partIn(1))+FreeEnergy(partIn(2))
 
       !########################################################################

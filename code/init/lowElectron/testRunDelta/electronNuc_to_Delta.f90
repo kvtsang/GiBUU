@@ -101,10 +101,10 @@ contains
           initNuc%charge=0
        end select
        initNuc%ID=nucleon
-       initNuc%momentum=(/mN,0.,0.,0./)
+       initNuc%mom=(/mN,0.,0.,0./)
        call getKinematics(pionCharge,initNuc,e,ef,degrees(thf),degrees(phipi),degrees(thpi),  &
             &  k,kf,ppi_arr,pf_arr,success,numSolutions)
-       p=initNuc%momentum
+       p=initNuc%mom
     end if
     
     pf=pf_arr(1,:)

@@ -124,7 +124,7 @@ contains
   ! Initialize output
   partOut(:)%ID=0                    ! ID of produced particles
   partOut(:)%charge=0                ! Charge of produced particles
-  partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+  partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
   partOut(:)%mass=0.                 ! Mass of produced particles
 
   ! (1) Check  Input
@@ -141,10 +141,10 @@ contains
     stop
   end if
 
-  if (hyperon_particle%antiParticle) then
+  if (hyperon_particle%anti) then
     ! Invert all particles in antiparticles:
     hyperon_particle%Charge=-hyperon_particle%Charge
-    hyperon_particle%antiparticle=.false.
+    hyperon_particle%anti=.false.
     meson_particle%Charge=-meson_particle%Charge
     antiParticleInput=.true.
   else
@@ -220,8 +220,8 @@ contains
 
     real :: pinitial,pfinal,isoFactor
 
-    position=0.5*(partIn(1)%position+partIn(2)%position)
-    perturbative = (partIn(1)%perturbative .or. partIn(2)%perturbative)
+    position=0.5*(partIn(1)%pos+partIn(2)%pos)
+    perturbative = (partIn(1)%pert .or. partIn(2)%pert)
 
     ! Resonance contribution:
     sigmaRes = barMes2resonance(meson_particle%Id,hyperon_particle%Id,qmeson,qhyperon,.true.,mediumAtColl,&
@@ -301,7 +301,7 @@ contains
     subroutine init
 
     use baryonWidth, only: partialWidthBaryon, fullWidthBaryon
-    use parametrizationsBarMes, only: kaonbg
+    use parametrizationBarMes, only: kaonbg
     use constants, only: pi, mN, mPi, mK
     use clebschGordan, only: ClebschSquared
     use twoBodyTools, only: pCM_sqr

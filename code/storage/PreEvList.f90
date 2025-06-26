@@ -15,7 +15,8 @@ module PreEvList
   public :: CreateSortedPreEvent
   public :: ComparePreEvent
   public :: PreEvList_INIT, PreEvList_CLEAR, PreEvList_INSERT
-  public :: PreEvList_Print, PreEvList_PrintEntry
+  public :: PreEvList_Print
+  public :: PreEvList_PrintEntry, PreEvList_PrintEntryRaw
   public :: PreEvList_GET
 
 
@@ -73,7 +74,7 @@ contains
 
     CreateSortedPreEvent_E = .false.
 
-    nPart = E%particleList%nEntries
+    nPart = E%Parts%nEntries
     if (nPart<1 .or. nPart>nPartMax0) return
 
     doZero = .false.
@@ -82,7 +83,7 @@ contains
     end if
 
     i = 1
-    pNode => E%particleList%first
+    pNode => E%Parts%first
     do
        if (.not. associated(pNode)) exit
        pPartx(i)%V => pNode%V
@@ -92,7 +93,7 @@ contains
        else
           idCodes(i) = pNode%V%ID*100 + (pNode%V%charge+5)*10 + 2
        end if
-       if (pNode%V%antiparticle) idCodes(i) = idCodes(i) - 1
+       if (pNode%V%anti) idCodes(i) = idCodes(i) - 1
 
        i = i+1
        pNode => pNode%next
@@ -108,7 +109,7 @@ contains
        else
           preE(i)%charge = pPartx(ind(i))%V%charge
        end if
-       preE(i)%antiparticle = pPartx(ind(i))%V%antiparticle
+       preE(i)%anti = pPartx(ind(i))%V%anti
        preE(i)%mass = idCodes(ind(i)) ! abuse of mass for storage of code
     end do
 
@@ -151,7 +152,7 @@ contains
        else
           idCodes(i) = Parts(i)%ID*100 + (Parts(i)%charge+5)*10 + 2
        end if
-       if (Parts(i)%antiparticle) idCodes(i) = idCodes(i) - 1
+       if (Parts(i)%anti) idCodes(i) = idCodes(i) - 1
     end do
 
     if (nPart==0 .or. nPart>nPartMax0) return
@@ -166,7 +167,7 @@ contains
        else
           preE(i)%charge = Parts(ind(i))%charge
        end if
-       preE(i)%antiparticle = Parts(ind(i))%antiparticle
+       preE(i)%anti = Parts(ind(i))%anti
        preE(i)%mass   = idCodes(ind(i)) ! abuse of mass for storage of code
     end do
 
@@ -483,8 +484,8 @@ contains
        ii = ii+1
     end do
 
-    write(iFile,'(A,f6.0,f9.3)') "total  : ", Sum(0:1,0)
-    write(iFile,'(A,f6.0,f9.3)') "strange: ", Sum(0:1,1)
+    write(iFile,'(A,f6.0,f12.5)') "total  : ", Sum(0:1,0)
+    write(iFile,'(A,f6.0,f12.5)') "strange: ", Sum(0:1,1)
 
   end subroutine PreEvList_Print
 
@@ -564,7 +565,7 @@ contains
     nAA = min(nAA,size(E%preE))
     AA = ""
     do j=1,nAA
-       AA(j) = PartName(E%preE(j)%ID,E%preE(j)%charge,E%preE(j)%antiparticle)
+       AA(j) = PartName(E%preE(j)%ID,E%preE(j)%charge,E%preE(j)%anti)
     end do
     W = E%weight * fak
 
@@ -582,6 +583,107 @@ contains
 
   end subroutine PreEvList_PrintEntry
 
+  !****************************************************************************
+  !****s* PreEvList/PreEvList_PrintEntryRaw
+  ! NAME
+  ! subroutine PreEvList_PrintEntryRaw
+  ! PURPOSE
+  ! Print a tPreEvListEntry to output.
+  ! INPUTS
+  ! * integer          :: iFile -- The file number
+  ! * type(tPreEvListEntry) :: E -- The List-Entry
+  ! * real             :: fak -- the factor to multiply the weights with
+  ! * integer,OPTIONAL :: n -- number of columns to print
+  ! * integer,OPTIONAL :: iBreak -- some string is inserted after entry nnn
+  ! * character*(*),OPTIONAL :: sBreak -- string to insert
+  ! * integer, OPTIONAL :: iLN -- line number to print
+  ! * logical, OPTIONAL :: doWeight -- print weight or not
+  ! * logical, OPTIONAL :: noAdvance -- print line feed or not
+  ! OUTPUT
+  ! witten to file "iFile"
+  !
+  ! NOTES
+  ! The format is not very clean.
+  !****************************************************************************
+  subroutine PreEvList_PrintEntryRaw(iFile,E,fak,n,iBreak,sBreak,iLN,doWeight,noAdvance,cS)
+    use ParticleProperties, only: PartName
+
+    integer,          intent(IN) :: iFile
+    type(tPreEvListEntry),  intent(IN)  :: E
+    real,             intent(IN) :: fak
+    integer,OPTIONAL, intent(IN) :: n
+    integer,OPTIONAL, intent(IN) :: iBreak
+    character*(*),OPTIONAL, intent(IN) :: sBreak
+    integer, OPTIONAL, intent(IN) :: iLN
+    logical, OPTIONAL, intent(IN) :: doWeight
+    logical, OPTIONAL, intent(IN) :: noAdvance
+    character, OPTIONAL, intent(IN) :: cS
+
+    character*(9), dimension(20) :: AA
+    integer :: nAA
+    integer :: j, iiB
+    character*(100) :: BUF,ssB
+    character*(1000):: BUF2
+    real :: W
+    logical :: doLN, doW, noAdv
+    character :: ccS
+
+    nAA = 8 ! default value
+    if (present(n)) nAA = min(n,20)
+
+    doLN = .false.
+    if (present(iLN)) doLN = .true.
+
+    doW = .true.
+    if (present(doWeight)) doW = doWeight
+
+    noAdv = .false.
+    if (present(noAdvance)) noAdv = noAdvance
+
+    iiB = 0 ! default value
+    if (present(iBreak)) iiB = iBreak
+
+    ccS = ' '
+    if (present(cS)) ccS = cS
+
+    if (iiB.gt.0) then
+       ssB = ' : '
+       if (present(sBreak)) ssB = trim(sBreak)
+       write(BUF,1001) iiB,trim(ssB)
+    else
+       write(BUF,1000)
+    end if
+
+
+1000 format ("(20A8)")
+1001 format ("(",i2,"A16,'",A,"',20A8)")
+
+    !    write(*,*) 'PreEvList_PrintEntry: BUF=#',trim(BUF),'#'
+
+    nAA = min(nAA,size(E%preE))
+    AA = ""
+    do j=1,nAA
+       iiB = E%preE(j)%ID
+       if (E%preE(j)%anti) iiB=-iiB
+       write(AA(j), '(i4,A,i2,A)') iiB, ccS, E%preE(j)%charge, ccS
+       !       AA(j) = PartName(E%preE(j)%ID,E%preE(j)%charge,E%preE(j)%anti)
+       !       write(*,*) '>',AA(j),'<'
+    end do
+    W = E%weight * fak
+
+    if (doLN) write(iFile, '(i9)', advance='no') iLN
+
+    if (doW) write(iFile, '(f12.5)', advance='no') W
+
+    write(BUF2,BUF) AA
+
+    if (noAdv) then
+       write(iFile,'(A)',advance='no') trim(BUF2)
+    else
+       write(iFile,'(A)') trim(BUF2)
+    end if
+
+  end subroutine PreEvList_PrintEntryRaw
 
   !****************************************************************************
   !****s* PreEvList/PreEvList_Sort

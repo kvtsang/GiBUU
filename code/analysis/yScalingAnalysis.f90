@@ -673,11 +673,11 @@ contains
   !****************************************************************************
   subroutine yScaling_Analyze(Particles,finalFlag,eventType)
 
-    use lowElectron, only: le_get_energy_li, &
+    use initLowElectron, only: le_get_energy_li, &
                              & le_get_energy_lf, le_get_theta_lf, le_get_QSquared, low_Ele_incXsection
     use leptonKinematics, only: evaluate_Qsquared
     use initNeutrino, only: get_init_namelist, get_runtime_vars
-    use neutrinoXsection, only: get_xsection_namelist
+    use neutrinoSigma, only: get_sigma_namelist
     use particleDefinition
     use particleProperties, only: hadron
     use IDTable, only: nucleon,delta
@@ -861,7 +861,7 @@ contains
     if (finalFlag) then
 
       ! average the summed up cross section, multiply by A, since cross sections
-      ! are given as mb/Gev per nucleon in LowElectron
+      ! are given as mb/Gev per nucleon in initLowElectron
       totX=totX/real(numberofcalls)*(N+Z)
 
     select case (eventType)
@@ -871,7 +871,7 @@ contains
       lep_QSquared = le_get_QSquared()
       lep_theta_f = le_get_theta_lf()
     case (Neutrino)
-      call get_xsection_namelist(Genu=lep_en_i,Gelepton=lep_en_f,Gcostheta=lep_theta_f)
+      call get_sigma_namelist(Genu=lep_en_i,Gelepton=lep_en_f,Gcostheta=lep_theta_f)
       lep_theta_f=degrees(acos(lep_theta_f))
       lep_Qsquared=evaluate_Qsquared(lep_theta_f,lep_en_i,lep_en_f)
     end select

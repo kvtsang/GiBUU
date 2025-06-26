@@ -10,6 +10,7 @@ module Dilepton_Analysis
 
   use histMC, only: histogramMC
   use nucleusDefinition, only: tNucleus
+  use callstack, only: Traceback
 
   implicit none
   private
@@ -29,6 +30,15 @@ module Dilepton_Analysis
   ! PURPOSE
   ! If .true. an extended analysis will be performed, writing out many extra
   ! histograms (beyond the basic ones: mass, pT and rapidity).
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* Dilepton_Analysis/JanOttoOmega
+  ! SOURCE
+  logical, save :: JanOttoOmega = .false.
+  ! PURPOSE
+  ! If .true. an extended analysis will be performed, writing out dilepton
+  ! spectra focussing on the omega region
   !****************************************************************************
 
   !****************************************************************************
@@ -55,8 +65,10 @@ module Dilepton_Analysis
   ! * 2 = Dipole
   ! * 3 = MAID 2005
   ! * 4 = simple VMD
-  ! * 5 = Wan/Iachello, Int. J. Mod. Phys. A 20 (2005) 1846, http://inspirehep.net/record/689265
-  ! * 6 = Ramalho/Pena, Phys.Rev. D85 (2012) 113014, http://inspirehep.net/record/1114321
+  ! * 5 = Wan/Iachello, Int. J. Mod. Phys. A 20 (2005) 1846,
+  !   http://inspirehep.net/record/689265
+  ! * 6 = Ramalho/Pena, Phys.Rev. D85 (2012) 113014,
+  !   http://inspirehep.net/record/1114321
   !****************************************************************************
 
   !****************************************************************************
@@ -179,6 +191,24 @@ module Dilepton_Analysis
   ! Only events with (k*p)>kp_min are taken into account.
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* Dilepton_Analysis/missMass_min
+  ! SOURCE
+  real, save :: missMass_min = -99.9
+  ! PURPOSE
+  ! if > 0, only events with a missing mass larger than this value are taken
+  ! into account
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* Dilepton_Analysis/missMass_max
+  ! SOURCE
+  real, save :: missMass_max = -99.9
+  ! PURPOSE
+  ! if > 0, only events with a missing mass smaller than this value are taken
+  ! into account
+  !****************************************************************************
+
 
   !****************************************************************************
   !****g* Dilepton_Analysis/filter
@@ -189,18 +219,29 @@ module Dilepton_Analysis
   ! dilepton pairs, otherwise they will be written to the histograms
   ! unfiltered. For details on the filtering parameters see routine 'CS'.
   ! Choices:
-  ! * 0 = no filter
-  ! * 1 = DLS
-  ! * 2 = HADES (simple cuts on polar angle, absolute momentum and opening angle)
-  ! * 3 = HADES (full acceptance filter, using pair acceptance)
-  ! * 4 = HADES (full acceptance filter, using single-particle acceptance)
-  ! * 5 = g7/CLAS @ JLab
-  ! * 6 = KEK E325 (cuts on rapidity, transverse momentum and opening angle)
-  ! * 7 = JPARC E16
+  ! *  0 = no filter
+  ! *  1 = DLS
+  ! *  2 (removed)
+  ! *  3 = HADES (full acceptance filter, using pair acceptance)
+  ! *  4 = HADES (full acceptance filter, using single-particle acceptance)
+  ! *  5 = g7/CLAS @ JLab
+  ! *  6 = KEK E325 (cuts on rapidity, transverse momentum and opening angle)
+  ! *  7 = JPARC E16
+  ! * 10 = HADES (simple cuts on polar angle, abs. momentum and opening angle)
+  ! * 11 = HADES (as 10, but modified by Jan Otto for AgAg@1.58)
+  ! * 12 = HADES (as 10, but modified by Karina Scharmann, pp@1.58)
+  ! * 20 = as 10, but with smearing (needs dummy HAFT file)
+  ! * 21 = as 11, but with smearing (needs dummy HAFT file)
+  ! * 22 = as 12, but with smearing (needs dummy HAFT file)
+  ! * 30 = as 10, but with smearing according SmearFile
+  ! * 31 = as 11, but with smearing according SmearFile
+  ! * 32 = as 12, but with smearing according SmearFile
   !
   ! NOTES
   ! For filtering modes 3 and 4, the file containing the acceptance
   ! matrices must be specified (cf. hadesFilterFile).
+  !
+  ! The old filter 2 has been renamed to 10
   !****************************************************************************
 
 
@@ -220,9 +261,38 @@ module Dilepton_Analysis
   ! PURPOSE
   ! This character string determines the location of the file containing
   ! the HADES acceptance matrices (filename with absolute or relative path).
-  ! It has to be set for filtering modes 3 and 4.
+  !
+  ! For filter=4, some default files are selected, if this input parameter
+  ! is left empty.
+  !
+  ! possible values:
+  ! * if not set, default is '[path_To_Input]/hades/XXX' (for filter=4)
+  ! * if given, but does not contain '/':
+  !   default is '[path_To_Input]/hades/[hadesFilterFile]'
+  ! * otherwise: filename is absolute, including path
+  !
+  ! NOTE
+  ! if you want to use the file 'XXX.dat' in the actual directory,
+  ! give it as './XXX.dat'
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* Dilepton_Analysis/hadesSmearFile
+  ! SOURCE
+  character(len=1000),save :: hadesSmearFile = ""
+  ! PURPOSE
+  ! This character string determines the location of the file containing
+  ! the HADES smearing matrices (filename with absolute or relative path).
+  !
+  ! for filter=30,31,32, a value must be given:
+  ! * if given, but does not contain '/':
+  !   default is '[path_To_Input]/hades/[hadesSmearFile]'
+  ! * otherwise: filename is absolute, including path
+  !
+  ! NOTE
+  ! if you want to use the file 'XXX.dat' in the actual directory,
+  ! give it as './XXX.dat'
+  !****************************************************************************
 
   !****************************************************************************
   !****g* Dilepton_Analysis/p_lep_min
@@ -301,38 +371,65 @@ module Dilepton_Analysis
   !logical, save :: CoulombCorrection=.false. ! Make Coulomb correction for e+e- pair
 
   type(histogramMC),save :: msigma,msigma_slow,msigma_fast,msigma_bgcut
+  type(histogramMC),dimension(0:3),save :: msigma_JanOtto
+  type(histogramMC),dimension(0:5),save :: msigma_JanOttoPt
+  type(histogramMC),dimension(0:3),save :: msigma_JanOttoPt3
   type(histogramMC),save :: msigma_pri,msigma_sec,ptsigma_pri,ptsigma_sec
   type(histogramMC),save :: esigma,bgsigma,oasigma,dsigma,partnum,partnum_noform,vm_mass
+  type(histogramMC),save :: msigma_miss,msigma_missm
   ! spectra for different mass bins: 0=total; 1:5=different mass bins
   type(histogramMC),dimension(0:5),save :: psigma,ptsigma,mtsigma,ysigma,tcmsigma,helsigma
-  type(histogramMC), save :: deltaMass                            ! mass distribution of the Delta
-  type(histogramMC), save :: rhoMass                            ! mass distribution of the rho
+  type(histogramMC),save :: deltaMass    ! mass distribution of the Delta
+  type(histogramMC),save :: rhoMass      ! mass distribution of the rho
 
   logical, save :: init = .true.
   real, save :: ProjectileEnergy = 0.
   real, save :: ProjectileEnergy_max = 0.
   integer, save :: NumberProjectiles = 1
   real, save :: ProjectileMomentum(0:3) = 0.
-  real, dimension(1:3), save :: betaCM2Lab = 0.           ! boost vector from CM to Lab frame
-  real, dimension(1:3), save :: betaTarg2Proj = 0.        ! boost vector from target to projectile
-  real, dimension(1:8), save :: inclXS = 0.               ! inclusive particle production cross sections
-  logical, save :: boostToLab = .false.                   ! do we have to boost to the lab frame?
+
+  ! boost vector from CM to Lab frame:
+  real, dimension(1:3), save :: betaCM2Lab = 0.
+  ! boost vector from target to projectile:
+  real, dimension(1:3), save :: betaTarg2Proj = 0.
+  ! inclusive particle production cross sections:
+  real, dimension(1:8), save :: inclXS = 0.
+  ! do we have to boost to the lab frame?:
+  logical, save :: boostToLab = .false.
+
   type(tNucleus), pointer, save :: targNuc
   real, dimension(1:2), save :: plep_cut
 
-  ! array for compressing baryon channels, keeping only those that have a rho decay (others get a zero)
-  integer, parameter :: bar_ch(1:31) = (/  0,  1,  0,  2,  3,  4,  5,  6,  7,  0, &
-                                           8,  9, 10, 11, 12, 13, 14,  0, 15, 16, &
-                                          17, 18,  0,  0,  0,  0,  0,  0, 19, 20, &
-                                           0 /)
+  ! array for compressing baryon channels, keeping
+  ! only those that have a rho decay (others get a zero)
+  integer, parameter :: bar_ch(1:31) = (/  &
+       &  0,  1,  0,  2,  3,  4,  5,  6,  7,  0, &
+       &  8,  9, 10, 11, 12, 13, 14,  0, 15, 16, &
+       & 17, 18,  0,  0,  0,  0,  0,  0, 19, 20, &
+       &  0 /)
 
-  public :: Dilep_Init,Dilep_UpdateProjectile,Dilep_Decays,Dilep_Brems,Dilep_BH,Dilep_write_CS,Dilep_write_CS_time
-
-  public :: dGamma_dM_DeltaDalitz, DeltaWidth_gammaN
-  public :: Gamma0_DeltaDalitz_Wolf, Gamma0_DeltaDalitz_Krivo, Gamma0_DeltaDalitz_Ernst
-  public :: FF_omega_effe, FF_VMD, FF_omega_terschluesen
-  public :: FF_eta, FF_etaprime_genesis, FF_etaprime_terschluesen
-  public :: Delta_FF_MAID, Delta_FF_VMD, Delta_FF_Iachello, Delta_FF_Dipole
+  public :: Dilep_Init
+  public :: Dilep_UpdateProjectile
+  public :: Dilep_Decays
+  public :: Dilep_Brems
+  public :: Dilep_BH
+  public :: Dilep_write_CS
+  public :: Dilep_write_CS_time
+  public :: dGamma_dM_DeltaDalitz
+  public :: DeltaWidth_gammaN
+  public :: Gamma0_DeltaDalitz_Wolf
+  public :: Gamma0_DeltaDalitz_Krivo
+  public :: Gamma0_DeltaDalitz_Ernst
+  public :: FF_omega_effe
+  public :: FF_VMD
+  public :: FF_omega_terschluesen
+  public :: FF_eta
+  public :: FF_etaprime_genesis
+  public :: FF_etaprime_terschluesen
+  public :: Delta_FF_MAID
+  public :: Delta_FF_VMD
+  public :: Delta_FF_Iachello
+  public :: Delta_FF_Dipole
 
 contains
 
@@ -340,19 +437,26 @@ contains
   !****************************************************************************
   !****s* Dilepton_Analysis/Dilep_Init
   ! NAME
-  ! subroutine Dilep_Init (Ekin_max, N, cms, beta)
+  ! subroutine Dilep_Init(Ekin_max, N, cms, beta)
   ! PURPOSE
-  ! This callback routine passes some eventtype-specific information to the Dilepton_Analysis module.
+  ! This callback routine passes some eventtype-specific information to the
+  ! Dilepton_Analysis module.
   ! INPUTS
-  ! * real, intent(in) :: Ekin_max                       - maximum energy to be expected during the simulation
-  ! * integer, intent(in), optional :: N                 - number of projectile particles
-  ! * logical, intent(in), optional :: cms               - is the collision performed in the center-of-mass frame?
-  ! * real, dimension(1:3), intent(in), optional :: beta - boost vector to the laboratory frame
+  ! * real, intent(in) :: Ekin_max
+  !   - maximum energy to be expected during the simulation
+  ! * integer, intent(in), optional :: N
+  !   - number of projectile particles
+  ! * logical, intent(in), optional :: cms
+  !   - is the collision performed in the center-of-mass frame?
+  ! * real, dimension(1:3), intent(in), optional :: beta
+  !   - boost-vector to the laboratory frame
   !****************************************************************************
-  subroutine Dilep_Init (Ekin_max, N, cms, beta)
-    use inputGeneral, only: path_To_Input
+  subroutine Dilep_Init(Ekin_max, N, cms, beta)
+    use inputGeneral, only: path_To_Input, ExpandPath
+    use output, only: Write_InitStatus, Write_ReadingInput
     use HAFT_single, only: setFileName
     use HAFT_pair, only: setPairFileName
+    use HadesAgAgSmear, only: setSmearFileName => setFileName
 
     real, intent(in) :: Ekin_max
     integer, intent(in), optional :: N
@@ -366,97 +470,131 @@ contains
     if (present(cms)) boostToLab = cms
     if (present(beta)) betaCM2Lab = beta
 
+    call Write_InitStatus("Init Dilepton Analysis",0)
+
     if (init) call readInput
 
-    if (.not. Enable) return
+    if (.not. Enable) then
+       call Write_InitStatus("Init Dilepton Analysis",1)
+       return
+    end if
 
     write(*,*) "Initializing dilepton analysis:"
-    write(*,'(A,G12.5)')  "Ekin = ", Ekin_max
-    write(*,'(A,I5)')     "number of projectiles = ", NumberProjectiles
-    write(*,'(A,3G12.5)') "betaCM2Lab = ", betaCM2Lab
-    write(*,'(A,L1)')      "boostToLab = ", boostToLab
+    write(*,'(A,G12.5)')  " Ekin = ", Ekin_max
+    write(*,'(A,I5)')     " number of projectiles = ", NumberProjectiles
+    write(*,'(A,3G12.5)') " betaCM2Lab = ", betaCM2Lab
+    write(*,'(A,L1)')     " boostToLab = ", boostToLab
 
     if (filter==4 .and. hadesFilterFile=="") then
-      ! auto-choose filter file
-      select case (targNuc%charge)
-      case (1)  ! hydrogen
-        select case (targNuc%mass)
-        case (1)  ! proton
+       ! auto-choose filter file
+       select case (targNuc%charge)
+       case (1)  ! hydrogen
+          select case (targNuc%mass)
+          case (1)  ! proton
+             if (abs(Ekin_max-3.5)<1E-3) then
+                hadesFilterFile = &
+                     "HadesSingleAcc-p35p-APR07-effgt5-RK-v2.acc"
+             else if (abs(Ekin_max-2.2)<1E-3) then
+                hadesFilterFile = &
+                     "HadesSingleAcc-p22p-JAN04-effgt5-RK-v2.acc"
+             else if (abs(Ekin_max-1.25)<1E-3) then
+                hadesFilterFile = &
+                     "HadesSingleAcc-p125p-APR06-effgt5-RK-v2.acc"
+             end if
+          case (2)  ! deuteron
+             if (abs(Ekin_max-1.25)<1E-3) then
+                hadesFilterFile = &
+                     "HadesSingleAcc-d125p-MAY07-effgt5-RK-v2.acc"
+             end if
+          end select
+       case (6)  ! carbon
+          if (abs(Ekin_max-1.0)<1E-3) then
+             hadesFilterFile = &
+                  "HadesSingleAcc-c10c-AUG04-effgt5-KP-v2.acc"
+          else if (abs(Ekin_max-2.0)<1E-3) then
+             hadesFilterFile = &
+                  "HadesSingleAcc-c20c-NOV02-effgt0-KP-v1.acc"
+          end if
+       case (17,18,19)  ! Cl,Ar,K
+          if (abs(Ekin_max-1.756)<5E-3) then
+             hadesFilterFile = &
+                  "HadesSingleAcc-ar17kcl-SEP05-effge5-HC-exp-flat-v1.acc"
+          end if
+       case (41)  ! niobium
           if (abs(Ekin_max-3.5)<1E-3) then
-            hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-p35p-APR07-effgt5-RK-v2.acc"
-          else if (abs(Ekin_max-2.2)<1E-3) then
-            hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-p22p-JAN04-effgt5-RK-v2.acc"
-          else if (abs(Ekin_max-1.25)<1E-3) then
-            hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-p125p-APR06-effgt5-RK-v2.acc"
+             hadesFilterFile = &
+                  "HadesSingleAcc-p35Nb-SEP08-effgt5-MVA-v1.acc"
           end if
-        case (2)  ! deuteron
-          if (abs(Ekin_max-1.25)<1E-3) then
-            hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-d125p-MAY07-effgt5-RK-v2.acc"
-          end if
-        end select
-      case (6)  ! carbon
-        if (abs(Ekin_max-1.0)<1E-3) then
-          hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-c10c-AUG04-effgt5-KP-v2.acc"
-        else if (abs(Ekin_max-2.0)<1E-3) then
-          hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-c20c-NOV02-effgt0-KP-v1.acc"
-        end if
-      case (17,18,19)  ! Cl,Ar,K
-        if (abs(Ekin_max-1.756)<5E-3) then
-          hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-ar17kcl-SEP05-effge5-HC-exp-flat-v1.acc"
-        end if
-      case (41)  ! niobium
-        if (abs(Ekin_max-3.5)<1E-3) then
-          hadesFilterFile = trim(path_To_Input) // "/hades/HadesSingleAcc-p35Nb-SEP08-effgt5-MVA-v1.acc"
-        end if
-      end select
+       end select
     end if
 
-    if (filter==3 .or. filter==4) then
-      ! HADES filter: check if acceptance file exists
-      Inquire(file=hadesFilterFile,exist=ex)
-      if (.not. ex) then
-        write(*,*) "Error: HADES filter file does not exist! ",hadesFilterFile
-        stop
-      end if
+    if (len_trim(hadesFilterFile)>0) then
+       if (index(hadesFilterFile,"/")>0) then
+          call ExpandPath(hadesFilterFile)
+          hadesFilterFile = trim(hadesFilterFile)
+       else
+          hadesFilterFile = trim(path_to_Input)//'/hades/' &
+               //trim(hadesFilterFile)
+       end if
+       write(*,*) 'hadesFilterFile : ', trim(hadesFilterFile)
 
-      select case (filter)
-      case (3)
-        write(*,*) "reading HADES pair acceptance from ",hadesFilterFile
-        call setPairFileName(hadesFilterFile)
-      case (4)
-        write(*,*) "reading HADES single-particle acceptance from ",hadesFilterFile
-        call setFileName(hadesFilterFile)
-      end select
+!!$    else
+!!$       hadesFilterFile = trim(path_to_Input)//'/XXX.dat'
+!!$       write(*,*) hadesFilterFile : -- hardwired --'
+
     end if
+
+    select case (filter)
+    case (3)
+!       write(*,*) "reading HADES pair acceptance from ",trim(hadesFilterFile)
+       call Write_ReadingInput(trim(hadesFilterFile),0)
+       Inquire(file=trim(hadesFilterFile),exist=ex)
+       if (.not. ex) call Traceback("File does not exist.")
+       call setPairFileName(trim(hadesFilterFile))
+       call Write_ReadingInput(trim(hadesFilterFile),1)
+    case (4,20,21,22)
+!       write(*,*) "reading HADES single-particle acceptance from ",&
+!            trim(hadesFilterFile)
+       call Write_ReadingInput(trim(hadesFilterFile),0)
+       Inquire(file=trim(hadesFilterFile),exist=ex)
+       if (.not. ex) call Traceback("File does not exist.")
+       call setFileName(trim(hadesFilterFile))
+       call Write_ReadingInput(trim(hadesFilterFile),1)
+
+    case (30,31,32)
+       call setSmearFileName(trim(hadesSmearFile))
+
+    end select
 
     if (filter == 4) then
-      ! set up lepton momentum cuts for HADES
-      if (abs(Ekin_max-3.5)<1E-3) then
-         if (targNuc%charge == 41) then
-            ! pNb@3.5
-            plep_cut = (/ 0.1, 2.0 /)
-         else
-            ! pp@3.5
-            plep_cut = (/ 0.08, 2.0 /)
-         end if
-      else if (abs(Ekin_max-2.2)<1E-3) then
-        ! pp@2.2
-        plep_cut = (/ 0.1, 2.0 /)
-      else if (abs(Ekin_max-1.756)<5E-3 .or. targNuc%charge == 79 .or. index(hadesFilterFile,"ar17kcl")>0) then
-        ! ArKCl@1.76, AuAu@1.23
-        plep_cut = (/ 0.1, 1.1 /)
-      else
-        ! pp@1.25, np@1.25, CC@1, CC@2
-        plep_cut = (/ 0.05, 1.8 /)
-      end if
-      write(*,'(A,2G12.5)') "lepton momentum cut = ", plep_cut
+       ! set up lepton momentum cuts for HADES
+       if (abs(Ekin_max-3.5)<1E-3) then
+          if (targNuc%charge == 41) then
+             ! pNb@3.5
+             plep_cut = (/ 0.1, 2.0 /)
+          else
+             ! pp@3.5
+             plep_cut = (/ 0.08, 2.0 /)
+          end if
+       else if (abs(Ekin_max-2.2)<1E-3) then
+          ! pp@2.2
+          plep_cut = (/ 0.1, 2.0 /)
+       else if (abs(Ekin_max-1.756)<5E-3 .or. targNuc%charge == 79 .or. index(hadesFilterFile,"ar17kcl")>0) then
+          ! ArKCl@1.76, AuAu@1.23
+          plep_cut = (/ 0.1, 1.1 /)
+       else
+          ! pp@1.25, np@1.25, CC@1, CC@2
+          plep_cut = (/ 0.05, 1.8 /)
+       end if
+       write(*,'(A,2G12.5)') "lepton momentum cut = ", plep_cut
     end if
 
-    write(*,*)
+    call Write_InitStatus("Init Dilepton Analysis",0)
+
   end subroutine Dilep_Init
 
 
-  subroutine Dilep_UpdateProjectile (Ekin, mom)
+  subroutine Dilep_UpdateProjectile(Ekin, mom)
     real, intent(in) :: Ekin, mom(0:3)
     ProjectileEnergy = Ekin
     ProjectileMomentum = mom
@@ -485,6 +623,26 @@ contains
     character(40) :: mbstr(5)
     character(80) :: title
 
+
+    character(*), dimension(0:3), parameter :: sJanOtto = (/ &
+         "all p        ", &
+         "p < 0.6      ", &
+         "0.6 < p < 1.2", &
+         "1.2 < p      " /)
+    character(*), dimension(0:5), parameter :: sJanOttoPt = (/ &
+         "all pT         ", &
+         "pT < 0.25      ", &
+         "0.25 < pT < 0.4", &
+         "0.4 < pT < 0.6 ", &
+         "0.6 < pT < 0.8 ", &
+         "0.8 < pT       " /)
+    character(*), dimension(0:3), parameter :: sJanOttoPt3 = (/ &
+         "all pT         ", &
+         "pT < 0.4       ", &
+         "0.4 < pT < 0.7 ", &
+         "0.7 < pT       " /)
+
+
     !**************************************************************************
     !****n* Dilepton_Analysis/DileptonAnalysis
     ! NAME
@@ -508,50 +666,69 @@ contains
     ! * binsz
     ! * filter
     ! * hadesFilterFile
+    ! * hadesSmearFile
     ! * WriteEvents
     ! * p_lep_min
     ! * beta_gamma_cut
     ! * massBinning
     ! * particle_source
+    ! * missMass_min
+    ! * missMass_max
+    ! * JanOttoOmega
     !**************************************************************************
-    NAMELIST /DileptonAnalysis/ Enable, Extra, DeltaDalitz, DeltaDalitzFF, omegaDalitzFF, b_pi, lambda_eta, etaPrimeDalitzFF, &
-                                angDist, brems, nEvent, nEvent_BH, kp_cut, kp_min, binsz, filter, hadesFilterFile, WriteEvents, &
-                                p_lep_min, beta_gamma_cut, massBinning, particle_source
+    NAMELIST /DileptonAnalysis/ Enable, Extra, &
+         DeltaDalitz, DeltaDalitzFF, omegaDalitzFF, &
+         b_pi, lambda_eta, etaPrimeDalitzFF, &
+         angDist, brems, nEvent, nEvent_BH, kp_cut, kp_min, binsz, &
+         filter, hadesFilterFile, hadesSmearFile, &
+         WriteEvents, &
+         p_lep_min, beta_gamma_cut, massBinning, particle_source, &
+         missMass_min, missMass_max, &
+         JanOttoOmega
 
     call Write_ReadingInput('DileptonAnalysis',0)
     rewind(5)
     read(5,nml=DileptonAnalysis,IOSTAT=IOS)
     call Write_ReadingInput('DileptonAnalysis',0,IOS)
 
-    write(*,*) 'Enable dilepton analysis ? ', Enable
+    write(*,*) 'Enable dilepton analysis : ', Enable
     if (Enable) then
-      write(*,*) 'Extra histograms         ? ', Extra
-      write(*,*) 'DeltaDalitz              ? ', DeltaDalitz
-      write(*,*) 'DeltaDalitzFF            ? ', DeltaDalitzFF
-      write(*,*) 'omegaDalitzFF            ? ', omegaDalitzFF
-      write(*,*) 'b_pi                     ? ', b_pi
-      write(*,*) 'lambda_eta               ? ', lambda_eta
-      write(*,*) 'etaPrimeDalitzFF         ? ', etaPrimeDalitzFF
-      write(*,*) 'angDist                  ? ', angDist
-      write(*,*) 'bremsstrahlung           ? ', brems
-      write(*,*) 'nEvent                   ? ', nEvent
-      write(*,*) 'nEvent_BH                ? ', nEvent_BH
-      write(*,*) 'kp_cut                   ? ', kp_cut
-      if (kp_cut) then
-        write(*,*) 'kp_min                   ? ', kp_min
-      end if
-      write(*,*) 'filter                   ? ', filter
-      select case (filter)
-      case (3,4)  ! HADES
-        write(*,*) 'HADES filter file        ? ', trim(hadesFilterFile)
-      case (5)    ! JLab
-        write(*,*) 'min. lepton momentum     ? ', p_lep_min
-      end select
-      write(*,*) 'beta*gamma cut           ? ', beta_gamma_cut
-      write(*,*) 'binsz                    ? ', binsz
-      write(*,*) 'write events             ? ', WriteEvents
-      write(*,'(A,4f6.3)') ' mass binning             ? ', massBinning(1:4)
-      write(*,*) 'particle_source          ? ', particle_source
+       write(*,*) 'Extra histograms         : ', Extra
+       write(*,*) 'JanOtto Omega histograms : ', JanOttoOmega
+       write(*,*) 'DeltaDalitz              : ', DeltaDalitz
+       write(*,*) 'DeltaDalitzFF            : ', DeltaDalitzFF
+       write(*,*) 'omegaDalitzFF            : ', omegaDalitzFF
+       write(*,*) 'b_pi                     : ', b_pi
+       write(*,*) 'lambda_eta               : ', lambda_eta
+       write(*,*) 'etaPrimeDalitzFF         : ', etaPrimeDalitzFF
+       write(*,*) 'angDist                  : ', angDist
+       write(*,*) 'bremsstrahlung           : ', brems
+       write(*,*) 'nEvent                   : ', nEvent
+       write(*,*) 'nEvent_BH                : ', nEvent_BH
+       write(*,*) 'kp_cut                   : ', kp_cut
+       if (kp_cut) then
+          write(*,*) 'kp_min                   : ', kp_min
+       end if
+       write(*,*) 'filter                   : ', filter
+       select case (filter)
+       case (2)    !
+          write(*,*) 'Filter 2 has been moved: use 10 or 11 instead. Stop!'
+          call Traceback()
+       case (3,4,20,21,22)  ! HADES
+          write(*,*) 'HADES filter file        : ', trim(hadesFilterFile)
+       case (30,31,32)
+          write(*,*) 'HADES smear file         : ', trim(hadesSmearFile)
+       case (5)    ! JLab
+          write(*,*) 'min. lepton momentum     : ', p_lep_min
+       end select
+       write(*,*) 'beta*gamma cut           : ', beta_gamma_cut
+       write(*,*) 'binsz                    : ', binsz
+       write(*,*) 'write events             : ', WriteEvents
+       write(*,'(A,4f6.3)') ' mass binning             : ', massBinning(1:4)
+       write(*,*) 'particle_source          : ', particle_source
+       write(*,*) 'missMass_min             : ', missMass_min
+       write(*,*) 'missMass_max             : ', missMass_max
+
     end if
 
     call Write_ReadingInput('DileptonAnalysis',1)
@@ -570,94 +747,132 @@ contains
     ! adjust bin size according to available energy
     d=ProjectileEnergy_max/nbins
     ! create histograms
-    call CreateHistMC (msigma,     'Dilepton Cross Section dSigma/dM [microbarn/GeV]',                0.,3.2,binsz,nCh)
-    call CreateHistMC (ptsigma,    'Dilepton Cross Section dSigma/dP_t [microbarn/GeV]',              0.,d*nbins,d,nCh)
-    call CreateHistMC (ysigma,     'Dilepton Cross Section dSigma/dy [microbarn]',                    -10.,10.,0.1,nCh)
+    call CreateHistMC(msigma,     'Dilepton Cross Section dSigma/dM [microbarn/GeV]',                0.,3.2,binsz,nCh)
+    call CreateHistMC(ptsigma,    'Dilepton Cross Section dSigma/dP_t [microbarn/GeV]',              0.,d*nbins,d,nCh)
+    call CreateHistMC(ysigma,     'Dilepton Cross Section dSigma/dy [microbarn]',                    -10.,10.,0.1,nCh)
     if (Extra) then
-      call CreateHistMC (msigma_slow,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (low momentum)', 0.,3.2,binsz,nCh)
-      call CreateHistMC (msigma_fast,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (high momentum)',0.,3.2,binsz,nCh)
-      call CreateHistMC (msigma_pri, 'Dilepton Cross Section dSigma/dM [microbarn/GeV] (primary)',      0.,3.2,binsz,nCh)
-      call CreateHistMC (msigma_sec, 'Dilepton Cross Section dSigma/dM [microbarn/GeV] (secondary)',    0.,3.2,binsz,nCh)
-      write(title,'(A,f4.2,A)')  "Dilepton Cross Section dSigma/dM [microbarn/GeV] (beta*gamma < ",beta_gamma_cut," )"
-      call CreateHistMC (msigma_bgcut, title, 0.,3.2,binsz,nCh)
-      call CreateHistMC (psigma,     'Dilepton Cross Section dSigma/dP_lab [microbarn/GeV]',            0.,d*nbins,d,nCh)
-      call CreateHistMC (ptsigma_pri,'Dilepton Cross Section dSigma/dP_t [microbarn/GeV] (primary)',    0.,d*nbins,d,nCh)
-      call CreateHistMC (ptsigma_sec,'Dilepton Cross Section dSigma/dP_t [microbarn/GeV] (secondary)',  0.,d*nbins,d,nCh)
-      call CreateHistMC (mtsigma,    'Dilepton Cross Section dSigma/dM_t [microbarn/GeV]',              0.,d*nbins,d,nCh)
-      call CreateHistMC (tcmsigma,   'Dilepton Cross Section dSigma/dTheta_cm [microbarn]',             0.,180.,1.,nCh)
-      call CreateHistMC (helsigma,   'Dilepton Cross Section dSigma/dalpha [microbarn]',                0.,180.,1.,nCh)
-      call CreateHistMC (esigma, 'Dilepton Cross Section dSigma/dE_kin [microbarn/GeV]',   0.,d*nbins,d,nCh)
-      call CreateHistMC (bgsigma,'Dilepton Cross Section dSigma/d(beta*gamma) [microbarn]',0.,50.,0.1,nCh)
-      call CreateHistMC (oasigma,'Dilepton Cross Section dSigma/dTheta_open [microbarn]',  0.,180.,1.,nCh)
-      call CreateHistMC (dsigma, 'Dilepton Cross Section dSigma/dRho [microbarn]',         0.,0.2,0.002,nCh)
+       call CreateHistMC(msigma_slow,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (low momentum)', 0.,3.2,binsz,nCh)
+       call CreateHistMC(msigma_fast,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (high momentum)',0.,3.2,binsz,nCh)
+       call CreateHistMC(msigma_pri, 'Dilepton Cross Section dSigma/dM [microbarn/GeV] (primary)',      0.,3.2,binsz,nCh)
+       call CreateHistMC(msigma_sec, 'Dilepton Cross Section dSigma/dM [microbarn/GeV] (secondary)',    0.,3.2,binsz,nCh)
+       write(title,'(A,f4.2,A)')  "Dilepton Cross Section dSigma/dM [microbarn/GeV] (beta*gamma < ",beta_gamma_cut," )"
+       call CreateHistMC(msigma_bgcut, title, 0.,3.2,binsz,nCh)
+       call CreateHistMC(psigma,     'Dilepton Cross Section dSigma/dP_lab [microbarn/GeV]',            0.,d*nbins,d,nCh)
+       call CreateHistMC(ptsigma_pri,'Dilepton Cross Section dSigma/dP_t [microbarn/GeV] (primary)',    0.,d*nbins,d,nCh)
+       call CreateHistMC(ptsigma_sec,'Dilepton Cross Section dSigma/dP_t [microbarn/GeV] (secondary)',  0.,d*nbins,d,nCh)
+       call CreateHistMC(mtsigma,    'Dilepton Cross Section dSigma/dM_t [microbarn/GeV]',              0.,d*nbins,d,nCh)
+       call CreateHistMC(tcmsigma,   'Dilepton Cross Section dSigma/dTheta_cm [microbarn]',             0.,180.,1.,nCh)
+       call CreateHistMC(helsigma,   'Dilepton Cross Section dSigma/dalpha [microbarn]',                0.,180.,1.,nCh)
+       call CreateHistMC(esigma, 'Dilepton Cross Section dSigma/dE_kin [microbarn/GeV]',   0.,d*nbins,d,nCh)
+       call CreateHistMC(bgsigma,'Dilepton Cross Section dSigma/d(beta*gamma) [microbarn]',0.,50.,0.1,nCh)
+       call CreateHistMC(oasigma,'Dilepton Cross Section dSigma/dTheta_open [microbarn]',  0.,180.,1.,nCh)
+       call CreateHistMC(dsigma, 'Dilepton Cross Section dSigma/dRho [microbarn]',         0.,0.2,0.002,nCh)
+       call CreateHistMC(msigma_miss,  'Missing Mass dSigma/dM_miss [microbarn/GeV]',      0.,2.0,0.010,nCh)
+       call CreateHistMC(msigma_missm, 'Missing Mass dSigma/dM_miss [microbarn/GeV] (M>0.140GeV)',      0.,2.0,0.010,nCh)
     end if
-    call CreateHistMC (deltaMass,'mass distribution of the Delta',0.9,3.,binsz,2)
+    if (JanOttoOmega) then
+       call CreateHistMC(msigma_JanOtto,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (JanOtto)', 0.,3.2,binsz/5,nCh)
+       call CreateHistMC(msigma_JanOttoPt,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (JanOtto,Pt)', 0.,3.2,binsz/5,nCh)
+       call CreateHistMC(msigma_JanOttoPt3,'Dilepton Cross Section dSigma/dM [microbarn/GeV] (JanOtto,Pt)', 0.,3.2,binsz/5,nCh)
+    end if
+
+    call CreateHistMC(deltaMass,'mass distribution of the Delta',0.9,3.,binsz,2)
     write(mbstr(1),'(A,f5.3,A)')        " (mass bin #1: 0 - ",massBinning(1)," GeV)"
     write(mbstr(2),'(A,f5.3,A,f5.3,A)') " (mass bin #2: ",massBinning(1)," - ",massBinning(2)," GeV)"
     write(mbstr(3),'(A,f5.3,A,f5.3,A)') " (mass bin #3: ",massBinning(2)," - ",massBinning(3)," GeV)"
     write(mbstr(4),'(A,f5.3,A,f5.3,A)') " (mass bin #4: ",massBinning(3)," - ",massBinning(4)," GeV)"
     write(mbstr(5),'(A,f5.3,A)')        " (mass bin #5: ",massBinning(4)," - inf GeV)"
     do i=1,5
-      ptsigma(i)%name  = trim(ptsigma(i)%name)  // mbstr(i)
-      ysigma(i)%name   = trim(ysigma(i)%name)   // mbstr(i)
-      if (Extra) then
-        psigma(i)%name   = trim(psigma(i)%name)   // mbstr(i)
-        mtsigma(i)%name  = trim(mtsigma(i)%name)  // mbstr(i)
-        tcmsigma(i)%name = trim(tcmsigma(i)%name) // mbstr(i)
-        helsigma(i)%name = trim(helsigma(i)%name) // mbstr(i)
-      end if
+       ptsigma(i)%name  = trim(ptsigma(i)%name)  // mbstr(i)
+       ysigma(i)%name   = trim(ysigma(i)%name)   // mbstr(i)
+       if (Extra) then
+          psigma(i)%name   = trim(psigma(i)%name)   // mbstr(i)
+          mtsigma(i)%name  = trim(mtsigma(i)%name)  // mbstr(i)
+          tcmsigma(i)%name = trim(tcmsigma(i)%name) // mbstr(i)
+          helsigma(i)%name = trim(helsigma(i)%name) // mbstr(i)
+       end if
     end do
     ! set channel descriptions
     msigma%xDesc='Dilepton Mass [GeV]'
-    msigma%yDesc(1:17) = (/ "rho -> e+e-        ", "omega -> e+e-      ", "phi -> e+e-        ", "omega -> pi0 e+e-  " , &
-                            "pi0 -> e+e- gamma  ", "eta -> e+e- gamma  ", "Delta -> N e+e-    ", "eta -> e+e-        " , &
-                            "eta' -> e+e- gamma ", "N*(1520) -> N e+e- ", "pn -> pn e+e-      ", "pp -> pp e+e-      " , &
-                            "pi- n -> pi- n e+e-", "pi- p -> pi- p e+e-", "pi+ n -> pi+ n e+e-", "pi+ p -> pi+ p e+e-" , &
-                            "Bethe-Heitler      " /)
+    msigma%yDesc(1:17) = (/ &
+         "rho -> e+e-        ", "omega -> e+e-      ", &
+         "phi -> e+e-        ", "omega -> pi0 e+e-  ", &
+         "pi0 -> e+e- gamma  ", "eta -> e+e- gamma  ", &
+         "Delta -> N e+e-    ", "eta -> e+e-        ", &
+         "eta' -> e+e- gamma ", "N*(1520) -> N e+e- ", &
+         "pn -> pn e+e-      ", "pp -> pp e+e-      ", &
+         "pi- n -> pi- n e+e-", "pi- p -> pi- p e+e-", &
+         "pi+ n -> pi+ n e+e-", "pi+ p -> pi+ p e+e-", &
+         "Bethe-Heitler      " /)
     if (particle_source) then
-      msigma%yDesc(38:41) = (/ "rho (from BB coll.)  ", "rho (from mm coll.)  ", "rho (from mB coll.)  ", "rho (via meson decay)" /)
-      do i=Nucleon,F37_1950
-        if (bar_ch(i)==0) cycle
-        msigma%yDesc(17+bar_ch(i)) = trim(hadron(i)%name) // " Dalitz (VMD)"
-        msigma%yDesc(41+bar_ch(i)) = "rho (via " // trim(hadron(i)%name) // ")"
-      end do
-      msigma%yDesc(62:65) = (/ "phi (from pi-rho coll.)", "phi (from K-Kbar coll.)", &
-                               "phi (from BB coll.)    ", "phi (from mB coll.)    " /)
-      call CreateHistMC (rhoMass,'mass distribution of the rho meson',0.,2.,binsz,24)
-      rhoMass%xDesc='rho mass [GeV]'
-      rhoMass%yDesc(1:24) = msigma%yDesc(38:61)
+       msigma%yDesc(38:41) = (/ &
+            "rho (from BB coll.)  ", "rho (from mm coll.)  ", &
+            "rho (from mB coll.)  ", "rho (via meson decay)" /)
+       do i=Nucleon,F37_1950
+          if (bar_ch(i)==0) cycle
+          msigma%yDesc(17+bar_ch(i)) = trim(hadron(i)%name) // " Dalitz (VMD)"
+          msigma%yDesc(41+bar_ch(i)) = "rho (via " // trim(hadron(i)%name) // ")"
+       end do
+       msigma%yDesc(62:65) = (/ &
+            "phi (from pi-rho coll.)", "phi (from K-Kbar coll.)", &
+            "phi (from BB coll.)    ", "phi (from mB coll.)    " /)
+       call CreateHistMC(rhoMass,'mass distribution of the rho meson',0.,2.,binsz,24)
+       rhoMass%xDesc='rho mass [GeV]'
+       rhoMass%yDesc(1:24) = msigma%yDesc(38:61)
     end if
-    call CopyDesc (ptsigma(:), msigma)
-    call CopyDesc (ysigma(:), msigma)
+    call CopyDesc(ptsigma(:), msigma)
+    call CopyDesc(ysigma(:), msigma)
     ptsigma(:)%xDesc='Transverse Momentum [GeV]'
     ysigma(:)%xDesc='Rapidity y'
     if (Extra) then
-      call CopyDesc (msigma_slow, msigma)
-      call CopyDesc (msigma_fast, msigma)
-      call CopyDesc (msigma_bgcut, msigma)
-      call CopyDesc (msigma_pri, msigma)
-      call CopyDesc (msigma_sec, msigma)
-      call CopyDesc (ptsigma_pri, msigma)
-      call CopyDesc (ptsigma_sec, msigma)
-      call CopyDesc (psigma(:), msigma)
-      call CopyDesc (mtsigma(:), msigma)
-      call CopyDesc (tcmsigma(:), msigma)
-      call CopyDesc (helsigma(:), msigma)
-      call CopyDesc (esigma, msigma)
-      call CopyDesc (bgsigma, msigma)
-      call CopyDesc (oasigma, msigma)
-      call CopyDesc (dsigma, msigma)
-      psigma(:)%xDesc='Momentum [GeV]'
-      ptsigma_pri%xDesc='Transverse Momentum [GeV]'
-      ptsigma_sec%xDesc='Transverse Momentum [GeV]'
-      mtsigma(:)%xDesc='Transverse Mass [GeV]'
-      tcmsigma(:)%xDesc='Theta_cm [degrees]'
-      helsigma(:)%xDesc='(reconstructed) helicity alpha [degrees]'
-      esigma%xDesc='Kinetic Energy [GeV]'
-      bgsigma%xDesc='beta*gamma = p/m'
-      oasigma%xDesc='Opening Angle [degrees]'
-      dsigma%xDesc='Density [fm^-3]'
+       call CopyDesc(msigma_slow, msigma)
+       call CopyDesc(msigma_fast, msigma)
+       call CopyDesc(msigma_bgcut, msigma)
+       call CopyDesc(msigma_pri, msigma)
+       call CopyDesc(msigma_sec, msigma)
+       call CopyDesc(ptsigma_pri, msigma)
+       call CopyDesc(ptsigma_sec, msigma)
+       call CopyDesc(psigma(:), msigma)
+       call CopyDesc(mtsigma(:), msigma)
+       call CopyDesc(tcmsigma(:), msigma)
+       call CopyDesc(helsigma(:), msigma)
+       call CopyDesc(esigma, msigma)
+       call CopyDesc(bgsigma, msigma)
+       call CopyDesc(oasigma, msigma)
+       call CopyDesc(dsigma, msigma)
+       call CopyDesc(msigma_miss, msigma)
+       call CopyDesc(msigma_missm, msigma)
+       psigma(:)%xDesc='Momentum [GeV]'
+       ptsigma_pri%xDesc='Transverse Momentum [GeV]'
+       ptsigma_sec%xDesc='Transverse Momentum [GeV]'
+       mtsigma(:)%xDesc='Transverse Mass [GeV]'
+       tcmsigma(:)%xDesc='Theta_cm [degrees]'
+       helsigma(:)%xDesc='(reconstructed) helicity alpha [degrees]'
+       esigma%xDesc='Kinetic Energy [GeV]'
+       bgsigma%xDesc='beta*gamma = p/m'
+       oasigma%xDesc='Opening Angle [degrees]'
+       dsigma%xDesc='Density [fm^-3]'
+       msigma_miss%xDesc='Missing Mass [GeV]'
+       msigma_missm%xDesc='Missing Mass [GeV]'
     end if
+    if (JanOttoOmega) then
+       call CopyDesc(msigma_JanOtto, msigma)
+       do i=0,3
+          msigma_JanOtto(i)%name = trim(msigma_JanOtto(i)%name) &
+               // " (" // trim(sJanOtto(i)) // ")"
+       end do
+       call CopyDesc(msigma_JanOttoPt, msigma)
+       do i=0,5
+          msigma_JanOttoPt(i)%name = trim(msigma_JanOttoPt(i)%name) &
+               // " (" // trim(sJanOttoPt(i)) // ")"
+       end do
+       call CopyDesc(msigma_JanOttoPt3, msigma)
+       do i=0,3
+          msigma_JanOttoPt3(i)%name = trim(msigma_JanOttoPt3(i)%name) &
+               // " (" // trim(sJanOttoPt3(i)) // ")"
+       end do
+    end if
+
     deltaMass%xDesc='Delta Mass [GeV]'
     deltaMass%yDesc(1:2) = (/ 'vacuum   ', 'in-medium' /)
 
@@ -665,28 +880,30 @@ contains
   end subroutine readInput
 
 
-  subroutine boost2Lab (mom)
+  subroutine boost2Lab(mom)
     ! boost from calc frame to lab (if necessary):
-    ! for some systems, we don't directly work in the lab frame, therefore we have to transform the 4-momenta
+    ! for some systems, we don't directly work in the lab frame,
+    ! therefore we have to transform the 4-momenta
     use inputGeneral, only: eventtype
     use eventtypes, only: HiPion, HeavyIon
     use lorentzTrafo, only: lorentz
     real, dimension(0:3), intent(inout) :: mom
     if (eventtype==HeavyIon .and. boostToLab) then
-      ! for heavy ion runs, we might have to boost to the Lab frame first
-      call lorentz (betaCM2Lab, mom, "boost2Lab(1)")
+       ! for heavy ion runs, we might have to boost to the Lab frame first
+       call lorentz(betaCM2Lab, mom)
     else if (eventtype==HiPion .and. targNuc%mass==2 .and. abs(ProjectileEnergy-1.25)<1E-3) then
-      ! for p+d@1.25 (HADES) we have to do some transformations, since we actually want d+p (deuteron projectile shot on proton target!)
-      call lorentz (betaTarg2Proj, mom, "boost2Lab(2)")  ! boost to the projectile frame
-      mom(3) = -mom(3)                                   ! invert the z-axis
+       ! for p+d@1.25 (HADES) we have to do some transformations,
+       ! since we actually want d+p (deuteron projectile shot on proton target!)
+       call lorentz(betaTarg2Proj, mom)  ! boost to the projectile frame
+       mom(3) = -mom(3)                  ! invert the z-axis
     end if
-  end subroutine
+  end subroutine boost2Lab
 
 
   !****************************************************************************
   !****s* Dilepton_Analysis/Dilep_Decays
   ! NAME
-  ! subroutine Dilep_Decays (t, part, last)
+  ! subroutine Dilep_Decays(t, part, last)
   ! PURPOSE
   ! Subroutine for calculation of dilepton spectra
   ! (all cross sections are calculated in microbarn/GeV).
@@ -702,20 +919,24 @@ contains
   ! * at then end of the run, these histograms are written to files
   !   'Dilepton*.dat' etc (e.g. 'DileptonMass.dat'), cf. Dilep_Write_CS
   !****************************************************************************
-  subroutine Dilep_Decays (t, part, last)
+  subroutine Dilep_Decays(t, part, last)
     use particleDefinition, only: particle
-    use inputGeneral, only: delta_T,numEnsembles,num_Runs_SameEnergy,num_energies,eventtype
+    use inputGeneral, only: delta_T,numEnsembles,num_Runs_SameEnergy, &
+         num_energies,eventtype
     use constants, only: pi,melec,alphaQED,hbarc,mN,mPi
-    use IdTable, only: Delta, D13_1520, F37_1950, pion, rho, phi, omegaMeson, eta, etaPrime, Kaon, Kaonbar, photon, &
-                       EOV, NOP, invalidID, isBaryon, isMeson
-    use eventtypes, only: LoPion,RealPhoton,HiPion,HiLepton,HeavyIon,HadronInduced=>Hadron
+    use IdTable, only: nucleon,Delta, D13_1520, F37_1950, pion, rho, phi, &
+         omegaMeson, eta, etaPrime, Kaon, Kaonbar, photon, &
+         EOV, NOP, invalidID, isBaryon, isMeson
+    use eventtypes, only: LoPion,RealPhoton,HiPion,HiLepton,HeavyIon, &
+         HadronInduced=>Hadron
     use particleProperties, only: hadron
     use random, only: rnFlat
     use mesonWidthVacuum, only: dileptonWidth
     use mesonWidthMedium, only: WidthMesonMedium, get_MediumSwitchMesons
     use baryonWidthMedium, only: WidthBaryonMedium
     use dichteDefinition, only: dichte
-    use densityModule, only: densityAt
+    use densityModule, only: densityAt,getGridIndex,SelfEnergy_scalar
+    use RMF, only: getRMF_flag, flagCorThr
     use mediumDefinition, only: medium
     use mediumModule, only: mediumAt
     use histMC, only: AddHistMC
@@ -723,6 +944,7 @@ contains
     use lorentzTrafo, only: lorentz
     use history, only: history_getGeneration, history_getParents
     use master_1Body, only: decayParticle_rhoN
+
     ! input
     integer, intent(in) :: last
     real, intent(in) :: t
@@ -734,7 +956,8 @@ contains
     real, parameter :: etadirect_BR = 7.0E-7       ! eta->e+e- direct decay branching ratio (upper limit according to PDG 2019)
     ! local variables
     integer :: i, j, k, id, ch, gen, parents(1:3), channel
-    real :: gamma, mass, perw, mass2, gam, dgamdm, gtot, massma, massmi, weight, rmass, massvac
+    integer, dimension(1:3) :: ind
+    real :: gamma, mass, perw, mass2, gam, dgamdm, gtot, massma, massmi, weight, rmass, massvac, spotOut
     real :: mom(0:3), momLRF(0:3), pout(0:3,1:2), betaLRF(1:3), rmom(0:3)
     type(dichte) :: density
     type(medium) :: mediumAtPosition
@@ -747,336 +970,363 @@ contains
 
     ! initialize perturbative weight factors and histograms
     if (first) then
-      pw = 1. / float(num_Runs_SameEnergy*num_energies*nevent)
-      select case (eventtype)
-      case (RealPhoton)       ! RealPhoton events are initialized in microbarn/A
-        pw = pw * targNuc%mass
-      case (HiPion,HiLepton)  ! these are initialized in millibarn
-        pw = pw * 1000.
-      case (HeavyIon,HadronInduced)
-        pw = pw / float(numEnsembles)
-      case (LoPion)
-        ! this part is not guaranteed to be correct (has never really been used)
-        pw = pw * 10./float(numEnsembles*(targNuc%mass))
-      case default
-        write(*,*) "Error: Dilepton analysis not available for this event type!", eventtype
-        stop
-      end select
-      first=.false.
+       pw = 1. / float(num_Runs_SameEnergy*num_energies*nevent)
+       select case (eventtype)
+       case (RealPhoton)       ! RealPhoton events are initialized in microbarn/A
+          pw = pw * targNuc%mass
+       case (HiPion,HiLepton)  ! these are initialized in millibarn
+          pw = pw * 1000.
+       case (HeavyIon,HadronInduced)
+          pw = pw / float(numEnsembles)
+       case (LoPion)
+          ! this part is not guaranteed to be correct (has never really been used)
+          pw = pw * 10./float(numEnsembles*(targNuc%mass))
+       case default
+          write(*,*) "Error: Dilepton analysis not available for this event type!", eventtype
+          stop
+       end select
+       first=.false.
     end if
 
     call CountParticles(t,part)
 
     !!! loop for calculating dilepton cross sections
     do k=1,nevent
-    do i=lbound(part,1),ubound(part,1) ! loop over ensembles
-    do j=lbound(part,2),ubound(part,2) ! loop over all perturbative particles
-      id = part(i,j)%ID
-      ch = part(i,j)%charge
-      if (id==EOV) exit ! end of current ensemble reached, jump to next one
-      if (invalidID(id)) then
-        write(*,*) "found bad ID: ",id    ! error: should not occur
-        stop
-      end if
-      if (id==NOP .or. id==photon) cycle
-      if (last==0 .and. part(i,j)%in_Formation) cycle
-      if (id<=F37_1950) then
-        if (part(i,j)%antiParticle) then
-          if (ch/=0 .and. ch/=-1) cycle
-        else
-          if (ch/=0 .and. ch/=1) cycle
-        end if
-        if (bar_ch(id)==0) cycle
-      else
-        if (ch/=0) cycle
-      end if
+       do i=lbound(part,1),ubound(part,1) ! loop over ensembles
+          do j=lbound(part,2),ubound(part,2) ! loop over all perturbative particles
+             id = part(i,j)%ID
+             ch = part(i,j)%charge
+             if (id==EOV) exit ! end of current ensemble reached, jump to next one
+             if (invalidID(id)) then
+                write(*,*) "found bad ID: ",id    ! error: should not occur
+                stop
+             end if
+             if (id==NOP .or. id==photon) cycle
+             if (last==0 .and. part(i,j)%inF) cycle
+             if (id<=F37_1950) then
+                if (part(i,j)%anti) then
+                   if (ch/=0 .and. ch/=-1) cycle
+                else
+                   if (ch/=0 .and. ch/=1) cycle
+                end if
+                if (bar_ch(id)==0) cycle
+             else
+                if (ch/=0) cycle
+             end if
 
-      mom = part(i,j)%momentum
+             mom = part(i,j)%mom
 
-      momLRF = mom
-      density = densityAt (part(i,j)%position)
-      if (density%baryon(0)>1.E-8) then
-         betaLRF(1:3) = density%baryon(1:3)/density%baryon(0)
-      else
-         betaLRF = 0.
-      end if
-      call lorentz (betaLRF, momLRF, 'Dilep_Decays (1)')
-      mediumAtPosition = mediumAt (density, part(i,j)%position)
+             momLRF = mom
+             density = densityAt(part(i,j)%pos)
+             if (density%baryon(0)>1.E-8) then
+                betaLRF(1:3) = density%baryon(1:3)/density%baryon(0)
+             else
+                betaLRF = 0.
+             end if
+             call lorentz(betaLRF, momLRF)
+             mediumAtPosition = mediumAt(density, part(i,j)%pos)
 
-      gen = history_getGeneration (part(i,j)%history)
+             gen = history_getGeneration(part(i,j)%history)
 
-      ! boost from calc frame to lab
-      call boost2Lab (mom)
+             ! boost from calc frame to lab
+             call boost2Lab(mom)
 
-      mass  = abs4(mom,flagOk)
-      gamma = mom(0)/mass
-      massvac = part(i,j)%mass
-      if (part(i,j)%perturbative) then
-        perw = part(i,j)%perWeight * pw
-      else
-        perw = pw
-      end if
+             mass  = abs4(mom,flagOk)
+             gamma = mom(0)/mass
+             massvac = part(i,j)%mass
+             if (part(i,j)%pert) then
+                perw = part(i,j)%perWeight * pw
+             else
+                perw = pw
+             end if
 
-      if (mass<2.*melec) then
-        write(*,*) "Warning: Bad mass in Dilep!",id,mass,flagOk,part(i,j)%mass
-        cycle
-      end if
-      if (last>0 .and. (id==rho .or. id==omegaMeson .or. id==phi) .and. mass<hadron(id)%minmass) then
-        if (k==1) then
-          write(*,*) "WARNING in Dilep: subthreshold-Particle in last timestep!"
-          gtot=WidthMesonMedium(id,mass,momLRF,mediumAtPosition)
-          write(*,'(4G12.5)') id,mass,sqrt(dot_product(momLRF(1:3),momLRF(1:3))),part(i,j)%offShellParameter
-          write(*,'(3G12.5)') mediumAtPosition%density,mediumAtPosition%useMedium,gtot
-        end if
-        if (.not. (get_MediumSwitchMesons() .and. mediumAtPosition%useMedium)) cycle
-      end if
+             if (mass<2.*melec) then
+                write(*,*) "Warning: Bad mass in Dilep!",id,mass,flagOk,part(i,j)%mass
+                cycle
+             end if
+             if (last>0 .and. (id==rho .or. id==omegaMeson .or. id==phi) .and. mass<hadron(id)%minmass) then
+                if (k==1) then
+                   write(*,*) "WARNING in Dilep: subthreshold-Particle in last timestep!"
+                   gtot=WidthMesonMedium(id,mass,momLRF,mediumAtPosition)
+                   write(*,'(4G12.5)') id,mass,sqrt(dot_product(momLRF(1:3),momLRF(1:3))),part(i,j)%offshellPar
+                   write(*,'(3G12.5)') mediumAtPosition%density,mediumAtPosition%useMedium,gtot
+                end if
+                if (.not. (get_MediumSwitchMesons() .and. mediumAtPosition%useMedium)) cycle
+             end if
+
+      !========================================================================
       ! select particle decay
       select case (id)
-      !========================================================================
+
       case (rho)
-        ! rho0 -> e+e-
-        gam = dileptonWidth (ID, mass)
-        if (last<1) then
-          weight = perw*gam/gamma*delta_T/hbarc
-        else
-          gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)
-          weight = perw*gam/gtot
-        end if
-        pout = DilepSim2 (mom, mass)
-        call CS(pout,1,weight,mediumAtPosition%density,gen,part,i,j)
-        if (particle_source) then
-          ! determine where it came from (e.g. N*/Delta* decay or pi-pi collision)
-          parents = history_getParents (part(i,j)%history)
-          if (parents(2) > 0) then
-             ! 2-body collisions
-             if (isBaryon(parents(1)) .and. isBaryon(parents(2))) then
-               channel = -3  ! channel 17: BB
-             else if (isMeson(parents(1)) .and. isMeson(parents(2))) then
-               channel = -2  ! channel 18: mm
-             else
-               channel = -1  ! channel 19: mB
-             end if
-             !print *,"dil, rho-parents (2-body):", parents(1:3)
-          else if (isMeson(parents(1))) then
-             channel = 0   ! channel 20: meson decay
-             !print *,"dil, rho-parents (meson dec.):", parents(1:3)
-          else if (isBaryon(parents(1))) then
-             channel = bar_ch(parents(1))   ! channel 21-40
-             if (channel == 0) then
-               write(*,*) "wrong baryon in dilepton analysis: ", parents(1)
-               stop
-             end if
-          else
-             write(*,*) "error in dilepton analysis: wrong rho parents!",parents(1:2)
-             stop
-          end if
-          call CS(pout,41+channel,weight,mediumAtPosition%density,gen,part,i,j)
-          call AddHistMC (rhoMass, mass, 4+channel, perw)
-        end if
-        inclXS(1) = inclXS(1) + perw
-      !========================================================================
-      case (omegaMeson)
-        ! omega -> e+e-
-        gam = dileptonWidth (ID, mass)
-        if (last<1) then
-          weight = perw*gam/gamma*delta_T/hbarc
-        else
-          gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)+gam
-          weight = perw*gam/gtot
-        end if
-        pout = DilepSim2 (mom, mass)
-        call CS(pout,2,weight,mediumAtPosition%density,gen,part,i,j)
-        ! omega -> pi0 e+e-
-        massma = mass - mPi
-        massmi = 2.*melec
-        mass2  = rnFlat(massmi,massma)
-        dgamdm = dGamma_dM_omegaDalitz(mass,mass2) * (massma-massmi)
-        if (last<1) then
-          weight = perw * dgamdm/gamma * delta_T/hbarc
-        else
-          gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)+gam
-          weight = perw * dgamdm/gtot
-        end if
-        pout = DilepSim3 (mom, mass2, mPi, 0)
-        call CS(pout,4,weight,mediumAtPosition%density,gen,part,i,j)
-        inclXS(2) = inclXS(2) + perw
-      !========================================================================
-      case (phi)
-        ! phi -> e+e-
-        gam = dileptonWidth (ID, mass)
-        if (last<1) then
-          weight = perw*gam/gamma*delta_T/hbarc
-        else
-          gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)+gam
-          weight = perw*gam/gtot
-        end if
-        pout = DilepSim2 (mom, mass)
-        call CS(pout,3,weight,mediumAtPosition%density,gen,part,i,j)
-        if (particle_source) then
-          ! determine where it came from (BB, mm or mB collisions)
-          parents = history_getParents (part(i,j)%history)
-          ! print *,"dil, phi-parents (2-body):", parents(1:3)
-          if (parents(2) > 0) then
-            ! 2-body collisions
-            if (isMeson(parents(1)) .and. isMeson(parents(2))) then
-              if (parents(1)==pion .and. parents(2)==rho) then
-                channel = 0  ! channel 41: pi-rho
-              else if (parents(1)==Kaon .and. parents(2)==Kaonbar) then
-                channel = 1  ! channel 42: KKbar
-              else
-                write(*,*) "error in dilepton analysis: wrong phi parents!",parents(1:2)
-                stop
-              end if
-            else if (isBaryon(parents(1)) .and. isBaryon(parents(2))) then
-              channel = 2  ! channel 43: BB
+         ! rho0 -> e+e-
+         gam = dileptonWidth(ID, mass)
+         if (last<1) then
+            weight = perw*gam/gamma*delta_T/hbarc
+         else
+            gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)
+            weight = perw*gam/gtot
+         end if
+         pout = DilepSim2(mom, mass)
+         call CS(pout,1,weight,mediumAtPosition%density,gen,part,i,j)
+         if (particle_source) then
+            ! determine where it came from (e.g. N*/Delta* decay or pi-pi collision)
+            parents = history_getParents(part(i,j)%history)
+            if (parents(2) > 0) then
+               ! 2-body collisions
+               if (isBaryon(parents(1)) .and. isBaryon(parents(2))) then
+                  channel = -3  ! channel 17: BB
+               else if (isMeson(parents(1)) .and. isMeson(parents(2))) then
+                  channel = -2  ! channel 18: mm
+               else
+                  channel = -1  ! channel 19: mB
+               end if
+               !print *,"dil, rho-parents (2-body):", parents(1:3)
+            else if (isMeson(parents(1))) then
+               channel = 0   ! channel 20: meson decay
+               !print *,"dil, rho-parents (meson dec.):", parents(1:3)
+            else if (isBaryon(parents(1))) then
+               channel = bar_ch(parents(1))   ! channel 21-40
+               if (channel == 0) then
+                  ! this may happen, if a baryon with ID=23,24,25,26,31 had
+                  ! a decay -> rho Delta, which is not accounted for in the
+                  ! array bar_ch() yet.
+                  ! The dilepton is counted, but not listed in the additional
+                  ! channel output selected by 'particle_source'.
+                  ! Therefore this is a minor error compared to the work to
+                  ! extend bar_ch() and all the output by these additional
+                  ! channels.
+
+                  ! write(*,*) "wrong baryon in dilepton analysis: ", parents(1)
+                  ! stop
+                  cycle
+               end if
             else
-              channel = 3  ! channel 44: mB
+               write(*,*) "error in dilepton analysis: wrong rho parents!",parents(1:2)
+               !               stop
+               cycle
             end if
-          else
-            write(*,*) "error in dilepton analysis: wrong phi parents!",parents(1:2)
-            stop
-          end if
-          call CS(pout,62+channel,weight,mediumAtPosition%density,gen,part,i,j)
-        end if
-        inclXS(3) = inclXS(3) + perw
-      !========================================================================
+            call CS(pout,41+channel,weight,mediumAtPosition%density,gen,part,i,j)
+            call AddHistMC(rhoMass, mass, 4+channel, perw)
+         end if
+         inclXS(1) = inclXS(1) + perw
+         !=====================================================================
+
+      case (omegaMeson)
+         ! omega -> e+e-
+         gam = dileptonWidth(ID, mass)
+         if (last<1) then
+            weight = perw*gam/gamma*delta_T/hbarc
+         else
+            gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)+gam
+            weight = perw*gam/gtot
+         end if
+         pout = DilepSim2(mom, mass)
+         call CS(pout,2,weight,mediumAtPosition%density,gen,part,i,j)
+         ! omega -> pi0 e+e-
+         massma = mass - mPi
+         massmi = 2.*melec
+         mass2  = rnFlat(massmi,massma)
+         dgamdm = dGamma_dM_omegaDalitz(mass,mass2) * (massma-massmi)
+         if (last<1) then
+            weight = perw * dgamdm/gamma * delta_T/hbarc
+         else
+            gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)+gam
+            weight = perw * dgamdm/gtot
+         end if
+         pout = DilepSim3(mom, mass2, mPi, 0)
+         call CS(pout,4,weight,mediumAtPosition%density,gen,part,i,j)
+         inclXS(2) = inclXS(2) + perw
+         !=====================================================================
+
+      case (phi)
+         ! phi -> e+e-
+         gam = dileptonWidth (ID, mass)
+         if (last<1) then
+            weight = perw*gam/gamma*delta_T/hbarc
+         else
+            gtot = WidthMesonMedium(id,mass,momLRF,mediumAtPosition)+gam
+            weight = perw*gam/gtot
+         end if
+         pout = DilepSim2(mom, mass)
+         call CS(pout,3,weight,mediumAtPosition%density,gen,part,i,j)
+         if (particle_source) then
+            ! determine where it came from (BB, mm or mB collisions)
+            parents = history_getParents(part(i,j)%history)
+            ! print *,"dil, phi-parents (2-body):", parents(1:3)
+            if (parents(2) > 0) then
+               ! 2-body collisions
+               if (isMeson(parents(1)) .and. isMeson(parents(2))) then
+                  if (parents(1)==pion .and. parents(2)==rho) then
+                     channel = 0  ! channel 41: pi-rho
+                  else if (parents(1)==Kaon .and. parents(2)==Kaonbar) then
+                     channel = 1  ! channel 42: KKbar
+                  else
+                     write(*,*) "error in dilepton analysis: wrong phi parents!",parents(1:2)
+                     stop
+                  end if
+               else if (isBaryon(parents(1)) .and. isBaryon(parents(2))) then
+                  channel = 2  ! channel 43: BB
+               else
+                  channel = 3  ! channel 44: mB
+               end if
+            else
+               write(*,*) "error in dilepton analysis: wrong phi parents!",parents(1:2)
+               stop
+            end if
+            call CS(pout,62+channel,weight,mediumAtPosition%density,gen,part,i,j)
+         end if
+         inclXS(3) = inclXS(3) + perw
+         !=====================================================================
+
       case (pion)
-        ! pi0 -> e+e- gamma
-        if (last==1) cycle
-        if (angDist==2) then
-          pout = PseudoscalarDalitzPythia (id, mom)
-          dgamdm = gtotpi0 * 1.174E-2               ! integrated width of pi0 -> e+e- gamma [GeV] = Gamma_tot * BR
-        else
-          massma = mPi
-          massmi = 2.*melec
-          mass2  = rnFlat(massmi,massma)
-          pout = DilepSim3 (mom, mass2, 0., angDist)
-          dgamdm = 4.*alphaQED/3./pi*gampi0/mass2*(1.+(massmi/mass2)**2/2.)*sqrt(1.-(massmi/mass2)**2) &
+         ! pi0 -> e+e- gamma
+         if (last==1) cycle
+         if (angDist==2) then
+            pout = PseudoscalarDalitzPythia(id, mom)
+            dgamdm = gtotpi0 * 1.174E-2               ! integrated width of pi0 -> e+e- gamma [GeV] = Gamma_tot * BR
+         else
+            massma = mPi
+            massmi = 2.*melec
+            mass2  = rnFlat(massmi,massma)
+            pout = DilepSim3(mom, mass2, 0., angDist)
+            dgamdm = 4.*alphaQED/3./pi*gampi0/mass2*(1.+(massmi/mass2)**2/2.)*sqrt(1.-(massmi/mass2)**2) &
                  & * (1.-(mass2/massma)**2)**3*(1.+b_pi*mass2**2)**2 * (massma-massmi)
-        end if
-        if (last == 0) then
-          weight = perw*dgamdm/gamma*delta_T/hbarc
-        else if (last == 2) then
-          weight = perw * dgamdm/gtotpi0
-        end if
-        call CS(pout,5,weight,mediumAtPosition%density,gen,part,i,j)
-        if (last>1) inclXS(4) = inclXS(4) + perw
-      !========================================================================
+         end if
+         if (last == 0) then
+            weight = perw*dgamdm/gamma*delta_T/hbarc
+         else if (last == 2) then
+            weight = perw * dgamdm/gtotpi0
+         end if
+         call CS(pout,5,weight,mediumAtPosition%density,gen,part,i,j)
+         if (last>1) inclXS(4) = inclXS(4) + perw
+         !=====================================================================
+
       case (eta)
         ! eta -> e+e-
-        gam = hadron(id)%width * etadirect_BR
-        if (last < 1) then
-          weight = perw*gam/gamma*delta_T/hbarc
-        else
-          weight = perw * etadirect_BR
-        end if
-        pout = DilepSim2 (mom, mass)
-        call CS(pout,8,weight,mediumAtPosition%density,gen,part,i,j)
-        ! eta -> e+e- gamma
-        if (angDist==2) then
-          pout = PseudoscalarDalitzPythia (id, mom)
-          dgamdm = hadron(eta)%width * 6.9E-3         ! integrated width of eta -> e+e- gamma [GeV] = Gamma_tot * BR
-        else
-          massma = hadron(id)%mass
-          massmi = 2.*melec
-          mass2  = rnFlat(massmi,massma)
-          pout = DilepSim3 (mom, mass2, 0., angDist)
-          dgamdm = 4.*alphaQED/3./pi*gameta/mass2*(1.+(massmi/mass2)**2/2.)*sqrt(1.-(massmi/mass2)**2) &
+         gam = hadron(id)%width * etadirect_BR
+         if (last < 1) then
+            weight = perw*gam/gamma*delta_T/hbarc
+         else
+            weight = perw * etadirect_BR
+         end if
+         pout = DilepSim2(mom, mass)
+         call CS(pout,8,weight,mediumAtPosition%density,gen,part,i,j)
+         ! eta -> e+e- gamma
+         if (angDist==2) then
+            pout = PseudoscalarDalitzPythia(id, mom)
+            dgamdm = hadron(eta)%width * 6.9E-3         ! integrated width of eta -> e+e- gamma [GeV] = Gamma_tot * BR
+         else
+            massma = hadron(id)%mass
+            massmi = 2.*melec
+            mass2  = rnFlat(massmi,massma)
+            pout = DilepSim3(mom, mass2, 0., angDist)
+            dgamdm = 4.*alphaQED/3./pi*gameta/mass2*(1.+(massmi/mass2)**2/2.)*sqrt(1.-(massmi/mass2)**2) &
                  & * (1.-(mass2/massma)**2)**3 * FF_eta(mass2) * (massma-massmi)
-        end if
-        if (last < 1) then
-          weight = perw*dgamdm/gamma*delta_T/hbarc
-        else
-          weight = perw*dgamdm/hadron(id)%width
-        end if
-        call CS(pout,6,weight,mediumAtPosition%density,gen,part,i,j)
-        inclXS(5) = inclXS(5) + perw
-      !========================================================================
-      case (etaPrime)
-        ! eta' -> e+e- gamma
-        massma = hadron(id)%mass
-        massmi = 2.*melec
-        mass2  = rnFlat(massmi,massma)
-        dgamdm = dGamma_dM_etaPrimeDalitz (massma, mass2) * (massma-massmi)
-        if (last < 1) then
-          weight = perw*dgamdm/gamma*delta_T/hbarc
-        else
-          weight = perw*dgamdm/hadron(id)%width
-        end if
-        pout = DilepSim3 (mom, mass2, 0., angDist)
-        call CS(pout,9,weight,mediumAtPosition%density,gen,part,i,j)
-        inclXS(6) = inclXS(6) + perw
-      !========================================================================
-      case (Delta:F37_1950)  ! baryon resonances
-        if (id==Delta) then
-          ! Delta -> e+e- N (radiative)
-          massma = massvac - mN              ! maximum dilepton mass (vacuum mass difference of Delta and Nucleon)
-          massmi = 2.*melec                  ! minimum dilepton mass
-          mass2  = rnFlat(massmi,massma)     ! actual dilepton mass
-          dgamdm = dGamma_dM_DeltaDalitz(massvac,mass2,ch) * (massma-massmi)
-          if (last < 1) then
-            weight = perw * dgamdm/gamma * delta_T/hbarc
-          else
-            gtot = max (WidthBaryonMedium (id, massvac, momLRF, mediumAtPosition), 0.001)
-            weight = perw * dgamdm/gtot
-          end if
-          call AddHistMC (deltaMass, massvac, 1, weight)
-          call AddHistMC (deltaMass,    mass, 2, weight)
-          pout = DilepSim3 (mom, mass2, mN, 0)
-          call CS(pout,7,weight,mediumAtPosition%density,gen,part,i,j)
-          inclXS(7+ch) = inclXS(7+ch) + perw
+         end if
+         if (last < 1) then
+            weight = perw*dgamdm/gamma*delta_T/hbarc
+         else
+            weight = perw*dgamdm/hadron(id)%width
+         end if
+         call CS(pout,6,weight,mediumAtPosition%density,gen,part,i,j)
+         inclXS(5) = inclXS(5) + perw
+         !=====================================================================
 
-          if (hadron(Delta)%decaysID(2)==0) cycle  ! no rho-N decay
-        else if (id == D13_1520) then
-          ! N*(1520) -> e+e- N
-          massma = massvac - mN              ! maximum dilepton mass (vacuum mass difference of N* and Nucleon)
-          massmi = 2.*melec                  ! minimum dilepton mass
-          mass2  = rnFlat(massmi,massma)     ! actual dilepton mass
-          dgamdm = dGamma_dM_N1520Dalitz(massvac,mass2) * (massma-massmi)
-          if (last < 1) then
-            weight = perw * dgamdm/gamma * delta_T/hbarc
-          else
-            gtot = max (WidthBaryonMedium (id, massvac, momLRF, mediumAtPosition), 0.001)
-            weight = perw * dgamdm/gtot
-          end if
-          pout = DilepSim3 (mom, mass2, mN, 0)
-          call CS(pout,10,weight,mediumAtPosition%density,gen,part,i,j)
-        end if
-        !======================================================================
-        if (particle_source) then
-          ! R -> N e+e- (Dalitz decays via rho)
-          ! (1) do R -> N rho0
-          if (massvac < mN + hadron(rho)%minmass) cycle
-          if (id==Delta .and. k>1) cycle
-          gam = decayParticle_rhoN (part(i,j), fs(1:2))
-          if (all(fs(1:2)%id==0)) then
-            write(*,*) "warning: R->rhoN->e+e-N failed!"
-            cycle
-          else if (fs(1)%id/=rho .or. fs(1)%charge/=0) then
-            write(*,*) "error in Dilep_Decays: no rho! ", id, fs(1:2)%ID, ch, fs(1:2)%charge
-            stop
-          end if
-          ! (2) do rho0 -> e+e-
-          rmom = fs(1)%momentum
-          call lorentz (betaLRF, rmom, 'Dilep_Decays (2)')
-          rmass = abs4(rmom)
-          gam = gam * dileptonWidth (fs(1)%ID,rmass) / WidthMesonMedium(fs(1)%ID,rmass,rmom,mediumAtPosition)
-          call boost2Lab (fs(1)%momentum)
-          pout = DilepSim2 (fs(1)%momentum, rmass)
-          ! (3) put it together
-          if (last<1) then
-            weight = perw * gam/gamma * delta_T/hbarc
-          else
-            gtot = max (WidthBaryonMedium (id, massvac, momLRF, mediumAtPosition), 0.001)
-            weight = perw * gam/gtot
-          end if
-          if (id==Delta) weight = weight * nEvent
-          call CS(pout,17+bar_ch(id),weight,mediumAtPosition%density,gen,part,i,j)
-        end if
+      case (etaPrime)
+         ! eta' -> e+e- gamma
+         massma = hadron(id)%mass
+         massmi = 2.*melec
+         mass2  = rnFlat(massmi,massma)
+         dgamdm = dGamma_dM_etaPrimeDalitz(massma, mass2) * (massma-massmi)
+         if (last < 1) then
+            weight = perw*dgamdm/gamma*delta_T/hbarc
+         else
+            weight = perw*dgamdm/hadron(id)%width
+         end if
+         pout = DilepSim3(mom, mass2, 0., angDist)
+         call CS(pout,9,weight,mediumAtPosition%density,gen,part,i,j)
+         inclXS(6) = inclXS(6) + perw
+         !=====================================================================
+
+      case (Delta:F37_1950)  ! baryon resonances
+         if (id==Delta) then
+            ! Delta -> e+e- N (radiative)
+            massma = massvac - mN              ! maximum dilepton mass (vacuum mass difference of Delta and Nucleon)
+            massmi = 2.*melec                  ! minimum dilepton mass
+            mass2  = rnFlat(massmi,massma)     ! actual dilepton mass
+            dgamdm = dGamma_dM_DeltaDalitz(massvac,mass2,ch) * (massma-massmi)
+            if (last < 1) then
+               weight = perw * dgamdm/gamma * delta_T/hbarc
+            else
+               gtot = max(WidthBaryonMedium(id, massvac, momLRF, mediumAtPosition), 0.001)
+               weight = perw * dgamdm/gtot
+            end if
+            call AddHistMC(deltaMass, massvac, 1, weight)
+            call AddHistMC(deltaMass,    mass, 2, weight)
+            pout = DilepSim3(mom, mass2, mN, 0)
+            call CS(pout,7,weight,mediumAtPosition%density,gen,part,i,j)
+            inclXS(7+ch) = inclXS(7+ch) + perw
+
+            if (hadron(Delta)%decaysID(2)==0) cycle  ! no rho-N decay
+         else if (id == D13_1520) then
+            ! N*(1520) -> e+e- N
+            massma = massvac - mN              ! maximum dilepton mass (vacuum mass difference of N* and Nucleon)
+            massmi = 2.*melec                  ! minimum dilepton mass
+            mass2  = rnFlat(massmi,massma)     ! actual dilepton mass
+            dgamdm = dGamma_dM_N1520Dalitz(massvac,mass2) * (massma-massmi)
+            if (last < 1) then
+               weight = perw * dgamdm/gamma * delta_T/hbarc
+            else
+               gtot = max(WidthBaryonMedium (id, massvac, momLRF, mediumAtPosition), 0.001)
+               weight = perw * dgamdm/gtot
+            end if
+            pout = DilepSim3(mom, mass2, mN, 0)
+            call CS(pout,10,weight,mediumAtPosition%density,gen,part,i,j)
+         end if
+         !=====================================================================
+         if (particle_source) then
+            ! R -> N e+e- (Dalitz decays via rho)
+            ! (1) do R -> N rho0
+            if (getRMF_flag() .and. flagCorThr) then  ! In-medium thresholds
+               spotOut=0.
+               if (getGridIndex(part(i,j)%pos,ind,0))  &
+                    & spotOut = SelfEnergy_scalar(ind(1),ind(2),ind(3),nucleon,.false.)
+               if (mass - spotOut < mN + hadron(rho)%minmass) cycle
+            else
+               if (massvac < mN + hadron(rho)%minmass) cycle
+            end if
+
+            if (id==Delta .and. k>1) cycle
+            gam = decayParticle_rhoN(part(i,j), fs(1:2))
+            if (all(fs(1:2)%id==0)) then
+               write(*,*) "warning: R->rhoN->e+e-N failed!"
+               cycle
+            else if (fs(1)%id/=rho .or. fs(1)%charge/=0) then
+               write(*,*) "error in Dilep_Decays: no rho! ", id, fs(1:2)%ID, ch, fs(1:2)%charge
+               stop
+            end if
+            ! (2) do rho0 -> e+e-
+            rmom = fs(1)%mom
+            call lorentz(betaLRF, rmom)
+            rmass = abs4(rmom)
+            gam = gam * dileptonWidth(fs(1)%ID,rmass) / WidthMesonMedium(fs(1)%ID,rmass,rmom,mediumAtPosition)
+            call boost2Lab(fs(1)%mom)
+            pout = DilepSim2(fs(1)%mom, rmass)
+            ! (3) put it together
+            if (last<1) then
+               weight = perw * gam/gamma * delta_T/hbarc
+            else
+               gtot = max(WidthBaryonMedium(id, massvac, momLRF, mediumAtPosition), 0.001)
+               weight = perw * gam/gtot
+            end if
+            if (id==Delta) weight = weight * nEvent
+            call CS(pout,17+bar_ch(id),weight,mediumAtPosition%density,gen,part,i,j)
+         end if
       end select
-    end do
-    end do
-    end do ! k=1,nevent
+   end do
+   end do
+   end do ! k=1,nevent
 
   end subroutine Dilep_Decays
 
@@ -1089,8 +1339,10 @@ contains
   ! This function calculates the mass differential decay width dGamma/dM of
   ! omega -> pi0 e+e-, neglecting the electron mass.
   ! See:
-  ! * Effenberger, PhD thesis, eq. (2.143) and (2.144), http://inspirehep.net/record/1375881
-  ! * Terschluesen/Leupold, Phys. Lett. B691 (2010) 191-201, http://inspirehep.net/record/847729
+  ! * Effenberger, PhD thesis, eq. (2.143) and (2.144),
+  !   http://inspirehep.net/record/1375881
+  ! * Terschluesen/Leupold, Phys. Lett. B691 (2010) 191-201,
+  !   http://inspirehep.net/record/847729
   ! INPUTS
   ! * real,intent(in)    :: m_D     ! mass of the omega
   ! * real,intent(in)    :: M       ! invariant mass of the gamma*
@@ -1100,20 +1352,26 @@ contains
     real,intent(in) :: m_w            ! mass of the omega
     real,intent(in) :: M              ! invariant mass of the gamma*
     real,parameter  :: gdom=7.03E-04  ! decay width "omega -> pi0 gamma"
-    dGamma_dM_omegaDalitz = 2*alphaQED*gdom/(3.*pi*M) * (1.+2.*(melec/M)**2)*sqrt(1.-4.*(melec/M)**2) &
-      & *(max((1+M**2/(m_w**2-mPi**2))**2 - 4.*m_w**2*M**2/(m_w**2-mPi**2)**2,0.))**(3./2.)
+
+    if ((M>2*melec).and.(m_w>mPi)) then
+       dGamma_dM_omegaDalitz = 2*alphaQED*gdom/(3.*pi*M) &
+            * (1.+2.*(melec/M)**2)*sqrt(1.-4.*(melec/M)**2) &
+            * (max((1+M**2/(m_w**2-mPi**2))**2 - 4.*m_w**2*M**2/(m_w**2-mPi**2)**2,0.))**(3./2.)
+    else
+       dGamma_dM_omegaDalitz = 0.
+    end if
     select case (omegaDalitzFF)
     case (0)
-      return  ! constant form factor, do nothing!
+       return  ! constant form factor, do nothing!
     case (1)
-      dGamma_dM_omegaDalitz = dGamma_dM_omegaDalitz * FF_omega_effe(M)
+       dGamma_dM_omegaDalitz = dGamma_dM_omegaDalitz * FF_omega_effe(M)
     case (2)
-      dGamma_dM_omegaDalitz = dGamma_dM_omegaDalitz * FF_VMD(M)
+       dGamma_dM_omegaDalitz = dGamma_dM_omegaDalitz * FF_VMD(M)
     case (3)
-      dGamma_dM_omegaDalitz = dGamma_dM_omegaDalitz * FF_omega_terschluesen(m_w,M)
+       dGamma_dM_omegaDalitz = dGamma_dM_omegaDalitz * FF_omega_terschluesen(m_w,M)
     case default
-      write(*,*) 'Error in DileptonAnalysis: omegaDalitzFF =',omegaDalitzFF
-      stop
+       write(*,*) 'Error in DileptonAnalysis: omegaDalitzFF =',omegaDalitzFF
+       stop
     end select
   end function dGamma_dM_omegaDalitz
 
@@ -1185,36 +1443,40 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/dGamma_dM_etaPrimeDalitz
   ! NAME
-  ! real function dGamma_dM_etaPrimeDalitz (m_etap, M)
+  ! real function dGamma_dM_etaPrimeDalitz(m_etap, M)
   ! PURPOSE
-  ! This function calculates the mass differential decay width dGamma/dM of eta' -> e+e- gamma.
+  ! This function calculates the mass differential decay width dGamma/dM of
+  ! eta' -> e+e- gamma.
   ! See:
   ! * Effenberger, PhD thesis, eq. (2.140).
   ! INPUTS
   ! * real,intent(in)    :: m_etap  ! mass of the eta prime
   ! * real,intent(in)    :: M       ! invariant mass of the gamma*
   !****************************************************************************
-  real function dGamma_dM_etaPrimeDalitz (m_etap, M)
+  real function dGamma_dM_etaPrimeDalitz(m_etap, M)
     use constants, only: pi,alphaQED,melec
     real,intent(in) :: m_etap            ! mass of the eta prima
     real,intent(in) :: M                 ! invariant mass of the gamma*
     real,parameter :: gametap = 4.3e-06  ! partial width for eta' -> gamma gamma
-    dGamma_dM_etaPrimeDalitz = 4.*alphaQED*gametap/(3.*pi*M)*(1.+2.*(melec/M)**2)*sqrt(1.-4.*(melec/M)**2) &
-                             & * (1.-(M/m_etap)**2)**3
+
+    dGamma_dM_etaPrimeDalitz = 4.*alphaQED*gametap/(3.*pi*M) &
+         * (1.+2.*(melec/M)**2)*sqrt(1.-4.*(melec/M)**2) &
+         * (1.-(M/m_etap)**2)**3
+
     select case (etaPrimeDalitzFF)
     case (0)
-      return  ! constant form factor, do nothing!
+       return  ! constant form factor, do nothing!
     case (1)
-      dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_eta(M)
+       dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_eta(M)
     case (2)
-      dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_VMD(M)
+       dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_VMD(M)
     case (3)
-      dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_etaprime_genesis (M)
+       dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_etaprime_genesis(M)
     case (4)
-      dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_etaprime_terschluesen (M)
+       dGamma_dM_etaPrimeDalitz = dGamma_dM_etaPrimeDalitz * FF_etaprime_terschluesen(M)
     case default
-      write(*,*) 'Error in DileptonAnalysis: etaPrimeDalitzFF =',etaPrimeDalitzFF
-      stop
+       write(*,*) 'Error in DileptonAnalysis: etaPrimeDalitzFF =',etaPrimeDalitzFF
+       stop
     end select
   end function dGamma_dM_etaPrimeDalitz
 
@@ -1222,7 +1484,7 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/dGamma_dM_DeltaDalitz
   ! NAME
-  ! real function dGamma_dM_DeltaDalitz (W, q, charge)
+  ! real function dGamma_dM_DeltaDalitz(W, q, charge)
   ! PURPOSE
   ! This function calculates the mass differential decay width dGamma/dM of
   ! Delta -> N e+e-. The charge of the Delta must be +1 or 0.
@@ -1233,14 +1495,15 @@ contains
   ! * real,intent(in)    :: q       ! invariant mass of the gamma*
   ! * integer,intent(in) :: charge  ! charge of the Delta
   !****************************************************************************
-  real function dGamma_dM_DeltaDalitz (W, q, charge)
+  real function dGamma_dM_DeltaDalitz(W, q, charge)
     use constants, only: pi, alphaQED, melec
 
     real, intent(in)    :: W, q
     integer, intent(in) :: charge
 
-    dGamma_dM_DeltaDalitz = DeltaWidth_gammaN (W, q, charge) &
-                            * 2.*alphaQED/(3.*pi*q) * (1.+2.*melec**2/q**2) * sqrt(1.-4.*melec**2/q**2)
+    dGamma_dM_DeltaDalitz = DeltaWidth_gammaN(W, q, charge) &
+         * 2.*alphaQED/(3.*pi*q) * (1.+2.*melec**2/q**2) &
+         * sqrt(1.-4.*melec**2/q**2)
 
   end function dGamma_dM_DeltaDalitz
 
@@ -1248,17 +1511,17 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/DeltaWidth_gammaN
   ! NAME
-  ! real function DeltaWidth_gammaN (W, q, charge)
+  ! real function DeltaWidth_gammaN(W, q, charge)
   ! PURPOSE
   ! This function calculates the decay width of Delta -> N gamma*.
   ! The charge of the Delta must be +1 or 0.
-  ! See e.g. Krivoruchenko/Faessler, Phys. Rev. D65 (2001), 017502, equation (2).
+  ! See e.g. Krivoruchenko/Faessler, Phys. Rev. D65 (2001), 017502, eq.(2).
   ! INPUTS
   ! * real,intent(in)    :: W       ! mass of the Delta
   ! * real,intent(in)    :: q       ! invariant mass of the gamma*
   ! * integer,intent(in) :: charge  ! charge of the Delta
   !****************************************************************************
-  real function DeltaWidth_gammaN (W, q, charge)
+  real function DeltaWidth_gammaN(W, q, charge)
     use IDTable, only: Delta
     use baryonWidth, only: baryonWidth_gammaN
 
@@ -1267,16 +1530,16 @@ contains
 
     select case (DeltaDalitz)
     case (1)
-      DeltaWidth_gammaN = Gamma0_DeltaDalitz_Wolf (W, q)
+       DeltaWidth_gammaN = Gamma0_DeltaDalitz_Wolf(W, q)
     case (2)
-      DeltaWidth_gammaN = Gamma0_DeltaDalitz_Krivo (W, q)
+       DeltaWidth_gammaN = Gamma0_DeltaDalitz_Krivo(W, q)
     case (3)
-      DeltaWidth_gammaN = baryonWidth_gammaN (Delta, W, q, charge)
+       DeltaWidth_gammaN = baryonWidth_gammaN(Delta, W, q, charge)
     case (4)
-      DeltaWidth_gammaN = Gamma0_DeltaDalitz_Ernst (W, q)
+       DeltaWidth_gammaN = Gamma0_DeltaDalitz_Ernst(W, q)
     case default
-      write(*,*) 'Error in DileptonAnalysis: DeltaDalitz = ', DeltaDalitz
-      stop
+       write(*,*) 'Error in DileptonAnalysis: DeltaDalitz = ', DeltaDalitz
+       stop
     end select
 
   end function DeltaWidth_gammaN
@@ -1285,14 +1548,14 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/Gamma0_DeltaDalitz_Wolf
   ! NAME
-  ! real function Gamma0_DeltaDalitz_Wolf (W, q)
+  ! real function Gamma0_DeltaDalitz_Wolf(W, q)
   ! PURPOSE
   ! This function calculates the total decay rate of a Delta resonance going
   ! into a nucleon and a gamma*.
-  ! See Wolf et al., Nucl. Phys. A517 (1990) 615-638, http://inspirehep.net/record/306273 ,
-  ! equation (4.9).
-  ! Effenberger gives a slightly modified formula in his thesis, equation (2.139).
-  ! REMARKS
+  ! See Wolf et al., Nucl. Phys. A517 (1990) 615-638,
+  ! http://inspirehep.net/record/306273, eq.(4.9).
+  ! Effenberger gives a slightly modified formula in his thesis, eq.(2.139).
+  ! NOTES
   ! The coupling constant 'g' in Wolf's paper is wrong. Effenberger has the
   ! correct value of g = 5.44. With a real photon and an on-shell Delta one
   ! should get the photonic decay width of Gamma_0 (0) = 0.72 MeV.
@@ -1302,7 +1565,7 @@ contains
   ! OUTPUT
   ! Gamma_0 in GeV.
   !****************************************************************************
-  real function Gamma0_DeltaDalitz_Wolf (W, q)
+  real function Gamma0_DeltaDalitz_Wolf(W, q)
     use constants, only: pi, alphaQED, mN
     use twoBodyTools, only: pCM_sqr
     real, intent(in) :: W, q
@@ -1325,19 +1588,19 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/Gamma0_DeltaDalitz_Ernst
   ! NAME
-  ! real function Gamma0_DeltaDalitz_Ernst (W, q)
+  ! real function Gamma0_DeltaDalitz_Ernst(W, q)
   ! PURPOSE
   ! This function calculates the total decay rate of a Delta resonance going
   ! into a nucleon and a gamma*, assuming a constant form factor.
-  ! See Ernst et al., Phys. Rev. C 58 (1998) 447-456, http://inspirehep.net/record/452782 ,
-  ! equations (3),(12),(13).
+  ! See Ernst et al., Phys. Rev. C 58 (1998) 447-456,
+  ! http://inspirehep.net/record/452782, equations (3),(12),(13).
   ! INPUTS
   ! * real,intent(in) :: W        ! mass of the Delta
   ! * real,intent(in) :: q        ! invariant mass of the gamma* (dilepton)
   ! OUTPUT
   ! Gamma_0 in GeV.
   !****************************************************************************
-  real function Gamma0_DeltaDalitz_Ernst (W, q)
+  real function Gamma0_DeltaDalitz_Ernst(W, q)
     use constants, only: pi, mN, electronChargeSQ
     use twoBodyTools, only: pCM
     use NDeltaFF_Ramalho, only: NDeltaTL
@@ -1346,39 +1609,39 @@ contains
 
     select case (DeltaDalitzFF)
     case (1)  ! constant
-      FF = 3.029**2
+       FF = 3.029**2
     case (2)  ! Dipole
-      FF = Delta_FF_Dipole (q**2)
+       FF = Delta_FF_Dipole(q**2)
     case (3)  ! MAID
-      FF = Delta_FF_MAID (W, q**2)
+       FF = Delta_FF_MAID(W, q**2)
     case (4)  ! VMD
-      FF = Delta_FF_VMD (q**2)
+       FF = Delta_FF_VMD(q**2)
     case (5)  ! Wan/Iachello (two-component quark model)
-      FF = Delta_FF_Iachello (W, q**2)
+       FF = Delta_FF_Iachello(W, q**2)
     case (6)  ! Ramalho/Pena
-      FF = NDeltaTL (dble(q**2), dble(W))
+       FF = NDeltaTL(dble(q**2), dble(W))
     case default
-      write(*,*) 'Error DileptonAnalysis: DeltaDalitzFF = ', DeltaDalitzFF
-      stop
+       write(*,*) 'Error DileptonAnalysis: DeltaDalitzFF = ', DeltaDalitzFF
+       stop
     end select
 
     Gamma0_DeltaDalitz_Ernst = pCM(W,mN,q) / (8.*pi*W**2) &
-                               * electronChargeSQ * FF * (W+mN)**2 / (4.*mN**2*((W+mN)**2-q**2)**2) &
-                               * ((W-mN)**2 - q**2) * (7.*W**4 + 14.*W**2*q**2 + 3.*q**4 + 8.*W**3*mN &
-                                                       + 2.*W**2*mN**2 + 6.*q**2*mN**2 + 3.*mN**4)
-  end function
+         * electronChargeSQ * FF * (W+mN)**2 / (4.*mN**2*((W+mN)**2-q**2)**2) &
+         * ((W-mN)**2 - q**2) * (7.*W**4 + 14.*W**2*q**2 + 3.*q**4 + 8.*W**3*mN &
+         + 2.*W**2*mN**2 + 6.*q**2*mN**2 + 3.*mN**4)
+  end function Gamma0_DeltaDalitz_Ernst
 
 
   !****************************************************************************
   !****f* Dilepton_Analysis/Gamma0_DeltaDalitz_Krivo
   ! NAME
-  ! real function Gamma0_DeltaDalitz_Krivo (W, q)
+  ! real function Gamma0_DeltaDalitz_Krivo(W, q)
   ! PURPOSE
   ! This function calculates the total decay rate of a Delta resonance going
   ! into a nucleon and a gamma*.
-  ! See Krivoruchenko/Faessler, Phys. Rev. D65 (2001) 017502, http://inspirehep.net/record/555421 ,
-  ! equation (2).
-  ! REMARKS
+  ! See Krivoruchenko/Faessler, Phys. Rev. D65 (2001) 017502,
+  ! http://inspirehep.net/record/555421, eq.(2).
+  ! NOTES
   ! With a real photon and an on-shell Delta one should get the PDG value of
   ! Gamma_0 (0) = 0.66 MeV.
   ! INPUTS
@@ -1387,7 +1650,7 @@ contains
   ! OUTPUT
   ! Gamma_0 in GeV.
   !****************************************************************************
-  real function Gamma0_DeltaDalitz_Krivo (W, q)
+  real function Gamma0_DeltaDalitz_Krivo(W, q)
     use constants, only: alphaQED, mN
     use NDeltaFF_Ramalho, only: NDeltaTL
     real, intent(in) :: W, q
@@ -1395,23 +1658,24 @@ contains
 
     select case (DeltaDalitzFF)
     case (1)  ! constant
-      FF = 3.029**2
+       FF = 3.029**2
     case (2)  ! Dipole
-      FF = Delta_FF_Dipole (q**2)
+       FF = Delta_FF_Dipole(q**2)
     case (3)  ! MAID
-      FF = Delta_FF_MAID (W, q**2)
+       FF = Delta_FF_MAID(W, q**2)
     case (4)  ! VMD
-      FF = Delta_FF_VMD (q**2)
+       FF = Delta_FF_VMD(q**2)
     case (5)  ! Wan/Iachello (two-component quark model)
-      FF = Delta_FF_Iachello (W, q**2)
+       FF = Delta_FF_Iachello(W, q**2)
     case (6)  ! Ramalho/Pena
-      FF = NDeltaTL (dble(q**2), dble(W))
+       FF = NDeltaTL(dble(q**2), dble(W))
     case default
-      write(*,*) 'Error DileptonAnalysis: DeltaDalitzFF = ', DeltaDalitzFF
-      stop
+       write(*,*) 'Error DileptonAnalysis: DeltaDalitzFF = ', DeltaDalitzFF
+       stop
     end select
 
-    Gamma0_DeltaDalitz_Krivo = alphaQED/16. * (W+mN)**2/(W**3*mN**2) * ((W+mN)**2-q**2)**0.5 * ((W-mN)**2-q**2)**1.5 * FF
+    Gamma0_DeltaDalitz_Krivo = alphaQED/16. * (W+mN)**2/(W**3*mN**2) &
+         * ((W+mN)**2-q**2)**0.5 * ((W-mN)**2-q**2)**1.5 * FF
 
   end function Gamma0_DeltaDalitz_Krivo
 
@@ -1419,7 +1683,7 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/Delta_FF_MAID
   ! NAME
-  ! real function Delta_FF_MAID (W,q2)
+  ! real function Delta_FF_MAID(W,q2)
   ! PURPOSE
   ! This function uses the electromagnetic N-Delta transition form factors from
   ! MAID2005, as used in GiBUU electroproduction but with off-shell W and
@@ -1432,15 +1696,15 @@ contains
   ! OUTPUT
   ! Squared form factor.
   !****************************************************************************
-  real function Delta_FF_MAID (W,q2)
+  real function Delta_FF_MAID(W,q2)
     real,intent(in) :: W           ! off-shell mass of the Delta
     real,intent(in) :: q2             ! q^2 = m_ee^2
 
-    Delta_FF_MAID = MAID_FF (W,-q2) / MAID_FF(W,0.) * 3.029**2
+    Delta_FF_MAID = MAID_FF(W,-q2) / MAID_FF(W,0.) * 3.029**2
 
   contains
 
-    real function MAID_FF (W,Qs)
+    real function MAID_FF(W,Qs)
       use constants, only: alphaQED,pi,mN
       use helicityAmplitudes, only: HP33_MAID05
       real, intent(in) :: W, Qs
@@ -1449,7 +1713,7 @@ contains
       ! get MAID form factors
       kcm0 = (W**2-mN**2)/(2.*W)
       kcm = sqrt( ((W**2-Qs-mN**2)/(2.*W))**2 + Qs)
-      CALL HP33_MAID05 (dble(Qs),dble(kcm),dble(kcm0),dble(DE),dble(DM),dble(DS),dble(A1),dble(A3),dble(S1),0)
+      CALL HP33_MAID05(dble(Qs),dble(kcm),dble(kcm0),dble(DE),dble(DM),dble(DS),dble(A1),dble(A3),dble(S1),0)
       ! convert to GeV^(-1/2)
       A1 =   A1*1E-3
       A3 =   A3*1E-3
@@ -1469,15 +1733,16 @@ contains
 
 
   ! simple Dipole form factor with standard parameter
-  real function Delta_FF_Dipole (q2)
+  real function Delta_FF_Dipole(q2)
     real, intent(in) :: q2
     real, parameter :: Lambda = 0.71
     Delta_FF_Dipole = (1.-q2/Lambda)**(-4) * 3.029**2
   end function
 
 
-  ! simple VMD form factor as used e.g. by Titov,Kämpfer,Bratkovskaya; Phys. Rev. C 51 (1995) 227
-  real function Delta_FF_VMD (q2)
+  ! simple VMD form factor as used e.g. by
+  ! Titov,Kämpfer,Bratkovskaya; Phys. Rev. C 51 (1995) 227
+  real function Delta_FF_VMD(q2)
     real, intent(in) :: q2           ! invariant mass of gamma* (squared)
     real, parameter :: Mrho = 0.761
     real, parameter :: Grho = 0.118
@@ -1491,15 +1756,20 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/Delta_FF_Iachello
   ! NAME
-  ! real function Delta_FF_Iachello (W, q2)
+  ! real function Delta_FF_Iachello(W, q2)
   ! PURPOSE
   ! This function calculates the electromagnetic N-Delta transition form factor
-  ! according to the two-component quark model by Wan/Iachello. References:
-  ! * Q. Wan, F. Iachello: A unified description of baryon electromagnetic form factors.
+  ! according to the two-component quark model by Wan/Iachello.
+  !
+  ! References:
+  ! * Q. Wan, F. Iachello: A unified description of baryon electromagnetic form
+  !   factors.
   !   Int. J. Mod. Phys. A 20 (2005) 1846, http://inspirehep.net/record/689265
-  ! * F. Iachello, Q. Wan: Structure of the nucleon from electromagnetic timelike form factors.
+  ! * F. Iachello, Q. Wan: Structure of the nucleon from electromagnetic
+  !   timelike form factors.
   !   Phys. Rev. C 69 (2004) 055204, http://inspirehep.net/record/651033
-  ! * I. Froehlich, F. Dohrmann, T. Galatyuk et al.: A versatile method for simulating pp->ppe+e- and dp->pne+e-p_spec reactions.
+  ! * I. Froehlich, F. Dohrmann, T. Galatyuk et al.: A versatile method for
+  !   simulating pp->ppe+e- and dp->pne+e-p_spec reactions.
   !   Eur. Phys. J. A45 (2010) 401-411, http://inspirehep.net/record/832525
   ! INPUTS
   ! * real, intent(in) :: W      ! off-shell mass of the Delta [GeV]
@@ -1507,7 +1777,7 @@ contains
   ! OUTPUT
   ! Squared form factor.
   !****************************************************************************
-  real function Delta_FF_Iachello (W, q2)
+  real function Delta_FF_Iachello(W, q2)
     use constants, only: pi, ii, mN, mPi
     real, intent(in) :: W, q2
     real, parameter :: mu_p = 2.793
@@ -1517,13 +1787,14 @@ contains
     real, parameter :: bp = 0.004
     complex :: FF
 
-    FF = mu_p * 4./(3.*sqrt(2.)) * sqrt(2.*mN*W/(W**2+mN**2)) / (1.-a*q2*exp(ii*theta))**2 * (bp+b*F_rho())
+    FF = mu_p * 4./(3.*sqrt(2.)) &
+         * sqrt(2.*mN*W/(W**2+mN**2)) / (1.-a*q2*exp(ii*theta))**2 * (bp+b*F_rho())
 
     Delta_FF_Iachello = abs(FF**2)
 
   contains
 
-    complex function F_rho ()
+    complex function F_rho()
       real, parameter :: m_rho = 0.765
       real, parameter :: G_rho = 0.112
       real :: x
@@ -1531,32 +1802,32 @@ contains
       x = q2/(4.*mPi**2)
       F_rho = ( m_rho**2 + 8.*G_rho*mPi/pi ) / ( m_rho**2 - q2 + 4.*mPi*(1.-x)*G_rho*(alpha(x)-ii*gamma_(x)) )
 
-    end function
+    end function F_rho
 
-    real function alpha (x)
+    real function alpha(x)
       real, intent(in) :: x
       if (x<0.) then ! space-like part
-        alpha = 2./pi * sqrt((x-1.)/x) * log(sqrt(1.-x)+sqrt(-x))
+         alpha = 2./pi * sqrt((x-1.)/x) * log(sqrt(1.-x)+sqrt(-x))
       else if (x>1.) then
-        alpha = 2./pi * sqrt((x-1.)/x) * log(sqrt(x-1.)+sqrt(x))
+         alpha = 2./pi * sqrt((x-1.)/x) * log(sqrt(x-1.)+sqrt(x))
       else
-        alpha = sqrt((1.-x)/x) * (1.-2./pi*acot(sqrt(x/(1-x))))
+         alpha = sqrt((1.-x)/x) * (1.-2./pi*acot(sqrt(x/(1-x))))
       end if
-    end function
+    end function alpha
 
-    real function gamma_ (x)
+    real function gamma_(x)
       real, intent(in) :: x
       if (x>1.) then
-        gamma_ = sqrt((x-1.)/x)
+         gamma_ = sqrt((x-1.)/x)
       else
-        gamma_ = 0.
+         gamma_ = 0.
       end if
-    end function
+    end function gamma_
 
-    real function acot (x)
+    real function acot(x)
       real, intent(in) :: x
       acot = pi/2. - atan(x)
-    end function
+    end function acot
 
   end function Delta_FF_Iachello
 
@@ -1564,7 +1835,7 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/dGamma_dM_N1520Dalitz
   ! NAME
-  ! real function dGamma_dM_N1520Dalitz (W, q)
+  ! real function dGamma_dM_N1520Dalitz(W, q)
   ! PURPOSE
   ! This function calculates the mass differential decay width dGamma/dM of
   ! N*(1520) -> N e+e-. See Krivoruchenko/Martemyanov/Faessler/Fuchs,
@@ -1573,7 +1844,7 @@ contains
   ! * real,intent(in)    :: W       ! mass of the N*
   ! * real,intent(in)    :: q       ! invariant mass of the gamma*
   !****************************************************************************
-  real function dGamma_dM_N1520Dalitz (W, q)
+  real function dGamma_dM_N1520Dalitz(W, q)
     use constants, only: pi, alphaQED, melec, mN
 
     real, intent(in)    :: W, q
@@ -1583,11 +1854,12 @@ contains
     real, parameter :: FF = 1.182
 
     ! N* -> N gamma*
-    width_gammaN = alphaQED/16. * (W-mN)**2/(W**3*mN**2) * ((W-mN)**2-q**2)**0.5 * ((W+mN)**2-q**2)**1.5 * FF
+    width_gammaN = alphaQED/16. * (W-mN)**2/(W**3*mN**2) &
+         * ((W-mN)**2-q**2)**0.5 * ((W+mN)**2-q**2)**1.5 * FF
 
     ! Dalitz width with lepton phase-space factors
     dGamma_dM_N1520Dalitz = width_gammaN &
-                            * 2.*alphaQED/(3.*pi*q) * (1.+2.*melec**2/q**2) * sqrt(1.-4.*melec**2/q**2)
+         * 2.*alphaQED/(3.*pi*q) * (1.+2.*melec**2/q**2) * sqrt(1.-4.*melec**2/q**2)
 
   end function dGamma_dM_N1520Dalitz
 
@@ -1595,7 +1867,7 @@ contains
   !****************************************************************************
   !****s* Dilepton_Analysis/CountParticles
   ! NAME
-  ! subroutine CountParticles(nt,pertPart)
+  ! subroutine CountParticles(nt,pPart)
   ! PURPOSE
   ! This subroutine simply counts the number of particles at each timestep.
   ! Currently only rho^0, omega, phi, pi^0, eta and Delta^(0,+) are counted.
@@ -1603,13 +1875,13 @@ contains
   ! which are not in formation are counted (for each species).
   ! The numbers are per ensemble, and averaged over all the runs.
   ! INPUTS
-  ! * real t - time [fm]
-  ! * type(particle) pertPart(:,:) - list of perturbative particles
+  ! * real :: t - time [fm]
+  ! * type(particle) :: pPart(:,:) - list of particles
   ! OUTPUT
   ! The data is stored in two multi-channel histograms:
   ! "partnum" and "partnum_noform".
   !****************************************************************************
-  subroutine CountParticles(t,pertPart)
+  subroutine CountParticles(t,pPart)
     use inputGeneral, only: delta_T,numTimeSteps,num_Runs_SameEnergy,numEnsembles
     use particleDefinition, only: particle
     use IdTable, only: Delta,pion,eta,rho,phi,omegaMeson,P11_1440,F37_1950
@@ -1618,10 +1890,10 @@ contains
     use output, only: writeParticle
     ! inputs
     real,intent(in):: t
-    type(particle),intent(in):: pertPart(:,:)
+    type(particle),intent(in):: pPart(:,:)
     !!!
     integer::i,j
-    real:: mass
+    real:: mass,w
     logical, save :: first=.true.
     logical :: flagOk
     real,save::dn1=0,dn2=0
@@ -1639,49 +1911,53 @@ contains
       vm_mass%yDesc(1:3) = (/ "rho0 ", "omega", "phi  " /)
       first=.false.
     end if
-    do i=lbound(pertPart,1),ubound(pertPart,1) ! loop over ensembles
-    do j=lbound(pertPart,2),ubound(pertPart,2) ! loop over all perturbative particles
-      mass=abs4(pertPart(i,j)%momentum,flagOk)
-      if (pertPart(i,j)%ID>=rho .and. pertPart(i,j)%ID<=phi .and. .not.flagOk) then
-        write(*,*) "Warning: Bad mass in CountParticles!",pertPart(i,j)%ID,pertPart(i,j)%charge,pertPart(i,j)%mass,mass, &
-                   pertPart(i,j)%momentum,abs4sq(pertPart(i,j)%momentum)
-        call writeParticle(6,i,j,pertPart(i,j))
-        stop
+    do i=lbound(pPart,1),ubound(pPart,1) ! loop over ensembles
+    do j=lbound(pPart,2),ubound(pPart,2) ! loop over all perturbative particles
+      mass=abs4(pPart(i,j)%mom,flagOk)
+      if (pPart(i,j)%ID>=rho .and. pPart(i,j)%ID<=phi .and. .not.flagOk) then
+        write(*,*) "Warning: Bad mass in CountParticles!",pPart(i,j)%ID,pPart(i,j)%charge,pPart(i,j)%mass,mass, &
+                   pPart(i,j)%mom,abs4sq(pPart(i,j)%mom)
+!!$        call writeParticle(6,i,j,pPart(i,j))
+!!$        stop
+        cycle
       end if
 
-      select case (pertPart(i,j)%ID)
+      w = 1.0
+      if (pPart(i,j)%pert) w = pPart(i,j)%perweight
+
+      select case (pPart(i,j)%ID)
       case (pion)
-        call AddHistMC(partnum,t,2+pertPart(i,j)%charge,dn1)
+        call AddHistMC(partnum,t,2+pPart(i,j)%charge,dn1)
       case (Delta)
-        call AddHistMC(partnum,t,5+pertPart(i,j)%charge,dn1)
+        call AddHistMC(partnum,t,5+pPart(i,j)%charge,dn1)
       case (eta)
         call AddHistMC(partnum,t,8,dn1)
       case (rho)
-        if (pertPart(i,j)%charge==0) then
+        if (pPart(i,j)%charge==0) then
           call AddHistMC(partnum,t,9,dn1)
-          call AddHistMC(vm_mass,mass,1,dn2*pertPart(i,j)%perweight)
+          call AddHistMC(vm_mass,mass,1,dn2*w)
         end if
       case (omegaMeson)
         call AddHistMC(partnum,t,10,dn1)
-        call AddHistMC(vm_mass,mass,2,dn2*pertPart(i,j)%perweight)
+        call AddHistMC(vm_mass,mass,2,dn2*w)
       case (phi)
         call AddHistMC(partnum,t,11,dn1)
-        call AddHistMC(vm_mass,mass,3,dn2*pertPart(i,j)%perweight)
+        call AddHistMC(vm_mass,mass,3,dn2*w)
       case (P11_1440:F37_1950)
         call AddHistMC(partnum,t,12,dn1)
       end select
 
-      if (pertPart(i,j)%in_Formation) cycle
+      if (pPart(i,j)%inF) cycle
 
-      select case (pertPart(i,j)%ID)
+      select case (pPart(i,j)%ID)
       case (pion)
-        call AddHistMC(partnum_noform,t,2+pertPart(i,j)%charge,dn1)
+        call AddHistMC(partnum_noform,t,2+pPart(i,j)%charge,dn1)
       case (Delta)
-        call AddHistMC(partnum_noform,t,5+pertPart(i,j)%charge,dn1)
+        call AddHistMC(partnum_noform,t,5+pPart(i,j)%charge,dn1)
       case (eta)
         call AddHistMC(partnum_noform,t,8,dn1)
       case (rho)
-        if (pertPart(i,j)%charge==0) call AddHistMC(partnum_noform,t,9,dn1)
+        if (pPart(i,j)%charge==0) call AddHistMC(partnum_noform,t,9,dn1)
       case (omegaMeson)
         call AddHistMC(partnum_noform,t,10,dn1)
       case (phi)
@@ -1695,7 +1971,7 @@ contains
   end subroutine CountParticles
 
 
-  !*****************************************************************************
+  !****************************************************************************
   !****s* Dilepton_Analysis/writePartNum
   ! NAME
   ! subroutine writePartNum()
@@ -1705,46 +1981,47 @@ contains
   ! * PartNumInt.dat
   ! * PartNum_NoForm.dat
   ! * VMmass.dat
-  !*****************************************************************************
+  !****************************************************************************
   subroutine writePartNum
     use histMC, only: WriteHistMC,WriteHistMC_Integrated
-    !***************************************************************************
+    !**************************************************************************
     !****o* Dilepton_Analysis/PartNum.dat
     ! NAME
     ! file PartNum.dat
     ! PURPOSE
     ! Total particle numbers per timestep, including those which are still in formation.
-    !***************************************************************************
+    !**************************************************************************
     call WriteHistMC(partnum,'PartNum.dat',.false.)
-    !***************************************************************************
+    !**************************************************************************
     !****o* Dilepton_Analysis/PartNumInt.dat
     ! NAME
     ! file PartNumInt.dat
     ! PURPOSE
     ! Time-integrated particle numbers.
-    !***************************************************************************
+    !**************************************************************************
     call WriteHistMC_Integrated(partnum,'PartNumInt.dat',.false.)
-    !***************************************************************************
+    !**************************************************************************
     !****o* Dilepton_Analysis/PartNum_NoForm.dat
     ! NAME
     ! file PartNum_NoForm.dat
     ! PURPOSE
     ! Numbers of particles which are not in formation.
-    !***************************************************************************
+    !**************************************************************************
     call WriteHistMC(partnum_noform,'PartNum_NoForm.dat',.false.)
-    !***************************************************************************
+    !**************************************************************************
     !****o* Dilepton_Analysis/VMmass.dat
     ! NAME
     ! file VMmass.dat
     ! PURPOSE
     ! Mass spectrum of all neutral vector mesons (rho0, omega and phi)
-    ! produced in the simulation (independent of decay mode, integrated over time).
-    !***************************************************************************
-    call WriteHistMC(vm_mass,'VMmass.dat',.false.)
+    ! produced in the simulation
+    ! (independent of decay mode, integrated over time).
+    !**************************************************************************
+    call WriteHistMC(vm_mass,'VMmass.dat',dump=.true.)
   end subroutine writePartNum
 
 
-  logical function isExclusive (parts, pnr, iso)
+  logical function isExclusive(parts, pnr, iso)
     use particleDefinition
     use IdTable, only: NOP,EOV,nucleon
     type(particle), intent(in) :: parts(:) ! particle vector
@@ -1772,13 +2049,13 @@ contains
   !****************************************************************************
   !****s* Dilepton_Analysis/WriteFullEvent
   ! NAME
-  ! subroutine WriteFullEvent (parts, dil, pnr, pw, iso)
+  ! subroutine WriteFullEvent(parts, dil, pnr, pw, iso, f)
   ! PURPOSE
   ! Print out a full dilepton event, including all hadrons and the lepton pair.
   ! The event will be written to the file "Dilepton_FullEvents.dat" in a
   ! format similar to the LesHouches format.
   !****************************************************************************
-  subroutine WriteFullEvent (parts, dil, pnr, pw, iso, f)
+  subroutine WriteFullEvent(parts, dil, pnr, pw, iso, f)
     use particleDefinition
     use IdTable, only: electron, photon, pion, nucleon, EOV
     use inputGeneral, only: eventType
@@ -1832,7 +2109,7 @@ contains
 
       if (i /= pnr) then
          ! print hadronic remainder of the event
-         call printStableParts (parts(i))
+         call printStableParts(parts(i))
       else
          ! print dilepton pair
          ptot = ptot + dil(:,1) + dil(:,2)
@@ -1841,7 +2118,7 @@ contains
          iFE = parts(i)%firstEvent
          if ((iso>=4 .and. iso<=7) .or. iso==9 .or. iso==10) then
             ! Dalitz decays: print missing particle
-            pmiss = parts(i)%momentum - dil(:,1) - dil(:,2)
+            pmiss = parts(i)%mom - dil(:,1) - dil(:,2)
             ptot = ptot + pmiss
             select case (iso)
             case (4)      ! omega Dalitz
@@ -1849,7 +2126,7 @@ contains
             case (5,6,9)  ! pi0, eta, eta' Dalitz
                id = photon
             case (7,10)    ! Delta, N*(1520) Dalitz
-               if (parts(i)%antiParticle) then
+               if (parts(i)%anti) then
                   id = -nucleon
                else
                   id = nucleon
@@ -1861,12 +2138,12 @@ contains
     end do
 
     if (eventType == hiLepton) then
-      if (EventInfo_HiLep_Get (0, iFE, w, nu, Q2, eps, evtType, phi_Lepton=phiL)) then
+      if (EventInfo_HiLep_Get(0, iFE, w, nu, Q2, eps, evtType, phi_Lepton=phiL)) then
         call eNev_SetProcess(evt, 1,1)  ! set to EM and electron
         call eNev_init_enQ(evt, eps, nu, Q2, flagOK)
-        thetaL =  atan2(evt%lepton_in%momentum(1),evt%lepton_in%momentum(3))
+        thetaL =  atan2(evt%lepton_in%mom(1),evt%lepton_in%mom(3))
 !         call eNev_Set_PhiLepton(evt, phiL)  ! possibly rotate by angle phi
-        if (flagOK) write(iFile, f3) electron, -1, evt%lepton_out%momentum(0:3), 0
+        if (flagOK) write(iFile, f3) electron, -1, evt%lepton_out%mom(0:3), 0
         write(iFile,'(A,1P,5e13.4,0P,I8)') '# 14 ', nu, Q2, eps, phiL, thetaL, evtType
       end if
     end if
@@ -1876,7 +2153,7 @@ contains
 
   contains
 
-    recursive subroutine printStableParts (p)
+    recursive subroutine printStableParts(p)
       use IdTable, only: isHadron
       use particleProperties, only: hadron
       use master_1Body, only: decayParticle
@@ -1885,7 +2162,7 @@ contains
       type(particle),intent(in) :: p
 
       type(particle),dimension(1:3) :: fs
-      logical :: cflag, pflag, stable
+      logical :: cflag, stable
       integer :: j, parents(3), par, sgn
 
       if (isHadron(p%id)) then
@@ -1896,24 +2173,24 @@ contains
 
       if (stable) then
          ! print out
-         ptot = ptot + p%momentum
-         parents = history_getParents (p%history)
+         ptot = ptot + p%mom
+         parents = history_getParents(p%history)
          if (parents(2) == 0) then
             par = parents(1)
          else
             par = 0
          end if
-         if (p%antiparticle) then
+         if (p%anti) then
            sgn = -1
          else
            sgn = 1
          end if
-         write(iFile,f3) sgn*p%id, p%charge, p%momentum(0:3), par
+         write(iFile,f3) sgn*p%id, p%charge, p%mom(0:3), par
       else
          ! force decay of unstable particles
-         call decayParticle (p, fs, cflag, pflag, .true., 0.)
+         call decayParticle(p, fs, cflag, .true., 0.)
          do j=1,3
-            if (fs(j)%ID>0) call printStableParts (fs(j))
+            if (fs(j)%ID>0) call printStableParts(fs(j))
          end do
       end if
     end subroutine
@@ -1921,11 +2198,11 @@ contains
   end subroutine WriteFullEvent
 
 
-  subroutine WriteEvent (pout, pw, iso, f)
+  subroutine WriteEvent(pout, pw, iso, f)
     real, dimension(0:3,1:2), intent(in)::pout ! e+(e-) 4-momentum
     real, intent(in) :: pw                     ! perturbative weight
     integer, intent(in) :: iso                 ! source type
-    integer, intent(in) :: f
+    integer, intent(in) :: f                   ! filter flag
     if (particle_source .and. (iso==1 .or. iso==3)) return  ! prevent double counting of rhos and phis
     !**************************************************************************
     !****o* Dilepton_Analysis/Dilepton_Events.dat
@@ -1950,7 +2227,7 @@ contains
   end subroutine
 
 
-  real function get_helicity (pout)
+  real function get_helicity(pout)
     use lorentzTrafo, only: lorentz
     use minkowski, only: op_ang
 
@@ -1968,10 +2245,10 @@ contains
     pdil(1:3) = -pdil(1:3)  ! take backward dil. direction
 
     ! boost to dil. cm frame
-    call lorentz (beta, ppos, "get_helicity(1)")
-    call lorentz (beta, pdil, "get_helicity(2)")
+    call lorentz(beta, ppos)
+    call lorentz(beta, pdil)
 
-    get_helicity = op_ang (ppos, pdil)
+    get_helicity = op_ang(ppos, pdil)
 
   end function get_helicity
 
@@ -1979,7 +2256,7 @@ contains
   !****************************************************************************
   !****s* Dilepton_Analysis/CS
   ! NAME
-  ! subroutine CS (pout_, iso, pw, dens, gen, part, enr, pnr)
+  ! subroutine CS(pout_, iso, pw, dens, gen, part, enr, pnr)
   ! PURPOSE
   ! Calculates differential cross sections (in microbarn) and puts them into
   ! various histograms.
@@ -1993,13 +2270,13 @@ contains
   ! * integer, intent(in), optional :: enr --- ensemble nr
   ! * integer, intent(in), optional :: pnr --- particle nr
   ! OUTPUT
-  !  * cross section data is stored in histograms msigma, psigma, esigma, ...
+  ! * cross section data is stored in histograms msigma, psigma, esigma, ...
   !****************************************************************************
-  subroutine CS (pout_, iso, pw, dens, gen, part, enr, pnr)
+  subroutine CS(pout_, iso, pw, dens, gen, part, enr, pnr)
     use particleDefinition
     use constants, only: pi
     use histMC, only: AddHistMC
-    use minkowski, only: SP, abs3, op_ang
+    use minkowski, only: SP, abs3, abs4, op_ang
     use random, only: rnGauss
     use rotation, only: get_phi_Theta
     use lorentzTrafo, only: lorentz
@@ -2012,30 +2289,34 @@ contains
     type(particle), intent(in), optional :: part(:,:)
     integer, intent(in), optional :: enr, pnr
     ! local variables
-    real :: mass,plab,ekin,y,pt,mt,beta_gamma,angle,theta_cm,phi,hel
+    real :: mass,plab,ekin,y,pt,mt,beta_gamma,angle,theta_cm,phi,hel,missmass
     real, dimension(0:3) :: ptot
     real, dimension(0:3,1:2) :: pout
     integer :: f   ! filtering result: 1=accept, 0=reject
     integer :: mb  ! mass bin
+    logical :: flagOK
 
     pout = pout_   ! we may need to modify this locally (filtering!)
     ! k*p cut
     if (kp_cut .and. (SP(ProjectileMomentum,pout(:,1))<kp_min .or. SP(ProjectileMomentum,pout(:,2))<kp_min)) return
+
     !!! === #1: apply filter ===
-    f = applyFilter (pout(:,1),pout(:,2))
+    f = applyFilter(pout(:,1),pout(:,2))
+
     !!! === #2: write out (all) events ===
     select case (WriteEvents)
     case (1)
-      call WriteEvent (pout, pw, iso, f)
+       call WriteEvent(pout, pw, iso, f)
     case (2)
-      if (present(part)) then
-        if (isExclusive(part(enr,:),pnr,iso)) call WriteEvent (pout, pw, iso, f)
-      end if
+       if (present(part)) then
+          if (isExclusive(part(enr,:),pnr,iso)) call WriteEvent(pout, pw, iso, f)
+       end if
     case (3,4,5)
-      if (present(part)) call WriteFullEvent(part(enr,:), pout, pnr, pw, iso, f)
+       if (present(part)) call WriteFullEvent(part(enr,:), pout, pnr, pw, iso, f)
     end select
     ! dump rejected events
     if (f == 0) return
+
     !!! === #3: set up kinetic variables ===
     ptot = pout(:,1) + pout(:,2)                      ! total 4-momentum
     plab = abs3(ptot)                                 ! absolute 3-momentum
@@ -2045,57 +2326,102 @@ contains
     pt = sqrt(ptot(1)**2+ptot(2)**2)                  ! transverse momentum
     mt = sqrt(mass**2+pt**2)                          ! transverse mass
     beta_gamma = plab/mass                            ! beta*gamma=p/m
-    angle = op_ang (pout(:,1),pout(:,2))              ! opening angle
-    hel = get_helicity (pout)                         ! helicity
+    angle = op_ang(pout(:,1),pout(:,2))               ! opening angle
+    hel = get_helicity(pout)                          ! helicity
+    missmass = abs4(ProjectileMomentum + (/0.938,0.,0.,0./) - ptot, flagOK)
+
+    if (missMass_min>0) then
+       if (missMass < missMass_min) return
+    end if
+    if (missMass_max>0) then
+       if (missMass > missMass_max) return
+    end if
+
+
     ! boost to CM frame
-    call lorentz (-betaCM2Lab, ptot, "CS")
-    call get_phi_Theta (ptot(1:3), theta_cm, phi)
+    call lorentz(-betaCM2Lab, ptot)
+    call get_phi_Theta(ptot(1:3), theta_cm, phi)
     theta_cm = theta_cm * 180./pi
     ! additional smearing
     if (filter==1) &
-      mass = rnGauss (mass*0.1, mass)  ! DLS: 10% mass resolution
+         mass = rnGauss(mass*0.1, mass)  ! DLS: 10% mass resolution
+
     !!! === #4: put cross sections into histograms (averaged over beam energies) ===
     call AddHistMC(msigma,mass,iso,pw)
-    call AddHistMC (ptsigma(0), pt, iso, pw)
-    call AddHistMC (ysigma(0), y, iso, pw)
+    call AddHistMC(ptsigma(0), pt, iso, pw)
+    call AddHistMC(ysigma(0), y, iso, pw)
     ! determine mass bin
     mb = 1
     do while (mb < 5)
-      if (mass < massBinning(mb)) exit
-      mb = mb + 1
+       if (mass < massBinning(mb)) exit
+       mb = mb + 1
     end do
-    call AddHistMC (ptsigma(mb), pt, iso, pw)
-    call AddHistMC (ysigma(mb), y, iso, pw)
+    call AddHistMC(ptsigma(mb), pt, iso, pw)
+    call AddHistMC(ysigma(mb), y, iso, pw)
 
     if (Extra) then
-      if (plab < 0.8) then
-        call AddHistMC(msigma_slow,mass,iso,pw)
-      else
-        call AddHistMC(msigma_fast,mass,iso,pw)
-      end if
-      if (beta_gamma < beta_gamma_cut) &
-        call AddHistMC(msigma_bgcut,mass,iso,pw)
-      if (gen>1) then
-        call AddHistMC(msigma_sec,mass,iso,pw)
-        call AddHistMC(ptsigma_sec,pt,iso,pw)
-      else
-        call AddHistMC(msigma_pri,mass,iso,pw)
-        call AddHistMC(ptsigma_pri,pt,iso,pw)
-      end if
-      call AddHistMC (psigma(0), plab, iso, pw)
-      call AddHistMC (mtsigma(0), mt, iso, pw)
-      call AddHistMC (tcmsigma(0), theta_cm, iso, pw)
-      call AddHistMC (helsigma(0), hel, iso, pw)
-      call AddHistMC (helsigma(0), 180.-hel, iso, pw)
-      call AddHistMC (esigma, ekin, iso, pw)
-      call AddHistMC (bgsigma, beta_gamma, iso, pw)
-      call AddHistMC (oasigma, angle, iso, pw)
-      call AddHistMC (dsigma, dens, iso, pw)
-      call AddHistMC (psigma(mb), plab, iso, pw)
-      call AddHistMC (mtsigma(mb), mt, iso, pw)
-      call AddHistMC (tcmsigma(mb), theta_cm, iso, pw)
-      call AddHistMC (helsigma(mb), hel, iso, pw)
-      call AddHistMC (helsigma(mb), 180.-hel, iso, pw)
+       if (plab < 1.2) then
+          call AddHistMC(msigma_slow,mass,iso,pw)
+       else
+          call AddHistMC(msigma_fast,mass,iso,pw)
+       end if
+       if (beta_gamma < beta_gamma_cut) &
+            call AddHistMC(msigma_bgcut,mass,iso,pw)
+       if (gen>1) then
+          call AddHistMC(msigma_sec,mass,iso,pw)
+          call AddHistMC(ptsigma_sec,pt,iso,pw)
+       else
+          call AddHistMC(msigma_pri,mass,iso,pw)
+          call AddHistMC(ptsigma_pri,pt,iso,pw)
+       end if
+       call AddHistMC(psigma(0), plab, iso, pw)
+       call AddHistMC(mtsigma(0), mt, iso, pw)
+       call AddHistMC(tcmsigma(0), theta_cm, iso, pw)
+       call AddHistMC(helsigma(0), hel, iso, pw)
+       call AddHistMC(helsigma(0), 180.-hel, iso, pw)
+       call AddHistMC(esigma, ekin, iso, pw)
+       call AddHistMC(bgsigma, beta_gamma, iso, pw)
+       call AddHistMC(oasigma, angle, iso, pw)
+       call AddHistMC(dsigma, dens, iso, pw)
+       call AddHistMC(psigma(mb), plab, iso, pw)
+       call AddHistMC(mtsigma(mb), mt, iso, pw)
+       call AddHistMC(tcmsigma(mb), theta_cm, iso, pw)
+       call AddHistMC(helsigma(mb), hel, iso, pw)
+       call AddHistMC(helsigma(mb), 180.-hel, iso, pw)
+       call AddHistMC(msigma_miss,missmass,iso,pw)
+       if (mass > 0.140) then
+          call AddHistMC(msigma_missm,missmass,iso,pw)
+       end if
+    end if
+    if (JanOttoOmega) then
+       call AddHistMC(msigma_JanOtto(0),mass,iso,pw)
+       if (plab < 0.6) then
+          call AddHistMC(msigma_JanOtto(1),mass,iso,pw)
+       else if (plab < 1.2) then
+          call AddHistMC(msigma_JanOtto(2),mass,iso,pw)
+       else
+          call AddHistMC(msigma_JanOtto(3),mass,iso,pw)
+       end if
+       call AddHistMC(msigma_JanOttoPt(0),mass,iso,pw)
+       if (pt < 0.25) then
+          call AddHistMC(msigma_JanOttoPt(1),mass,iso,pw)
+       else if (pt < 0.4) then
+          call AddHistMC(msigma_JanOttoPt(2),mass,iso,pw)
+       else if (pt < 0.6) then
+          call AddHistMC(msigma_JanOttoPt(3),mass,iso,pw)
+       else if (pt < 0.8) then
+          call AddHistMC(msigma_JanOttoPt(4),mass,iso,pw)
+       else
+          call AddHistMC(msigma_JanOttoPt(5),mass,iso,pw)
+       end if
+       call AddHistMC(msigma_JanOttoPt3(0),mass,iso,pw)
+       if (pt < 0.4) then
+          call AddHistMC(msigma_JanOttoPt3(1),mass,iso,pw)
+       else if (pt < 0.7) then
+          call AddHistMC(msigma_JanOttoPt3(2),mass,iso,pw)
+       else
+          call AddHistMC(msigma_JanOttoPt3(3),mass,iso,pw)
+       end if
     end if
 
   end subroutine CS
@@ -2104,7 +2430,7 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/applyFilter
   ! NAME
-  ! integer function applyFilter (p1,p2)
+  ! integer function applyFilter(p1,p2)
   ! PURPOSE
   ! Performs acceptance filtering and detector resolution smearing based on
   ! the value of the 'filter' switch.
@@ -2114,13 +2440,14 @@ contains
   !  * returns "1" if the events is accepted, "0" if rejected
   !  * p1 and p2 will be modified if resolution smearing is applied
   !****************************************************************************
-  integer function applyFilter (p1,p2) result(f)
+  integer function applyFilter(p1,p2) result(f)
     use constants, only: pi
     use minkowski, only: abs4, abs3, op_ang
     use random, only: rn
     use rotation, only: get_phi_Theta
     use HAFT_single, only: getHadesAcceptance, smearHadesMomentum
     use HAFT_pair, only: getHadesPairAcceptance
+    use HadesAgAgSmear, only: doSmear
 
     real,dimension(0:3),intent(inout) :: p1,p2     ! e+/e- 4-momentum
     real,dimension(0:3) :: ptot
@@ -2129,7 +2456,7 @@ contains
 
     interface
       ! interface for DLS acceptance filter
-      logical function beta_filter (dataset_name, xm, pt, y, weight_cut)
+      logical function beta_filter(dataset_name, xm, pt, y, weight_cut)
         character*3 :: dataset_name
         real :: xm, pt, y, weight_cut
       end function
@@ -2138,10 +2465,21 @@ contains
     f = 1
     if (filter == 0) return
 
+    f = 0 ! default return value = not detected
+
     ptot = p1 + p2                                    ! total 4-momentum
     mass = abs4(ptot)                                 ! invariant mass
     y = 0.5*log((ptot(0)+ptot(3))/(ptot(0)-ptot(3)))  ! rapidity
     pt = sqrt(ptot(1)**2+ptot(2)**2)                  ! transverse momentum
+
+    select case (filter)
+    case (20,21,22)
+       call smearHadesMomentum(p1,3,2)                  ! positron
+       call smearHadesMomentum(p2,3,3)                  ! electron
+    case(30,31,32)
+       call doSmear(p1)
+       call doSmear(p2)
+    end select
 
     p1abs = abs3(p1)       ! abs. mom. of positron
     p2abs = abs3(p2)       ! abs. mom. of electron
@@ -2149,67 +2487,143 @@ contains
 
     select case (filter)
     case (1)   ! DLS acceptance filter version 4.1
-      if (.not. beta_filter ('95A', mass, pt, y, 1000.)) f=0
+       if (.not. beta_filter('95A', mass, pt, y, 1000.)) return
+
     case (2)  ! simple filter for HADES
-      ! cut on polar angle (in degrees)
-      theta1 = acos(p1(3)/p1abs) * 180./pi
-      theta2 = acos(p2(3)/p2abs) * 180./pi
-      if (theta1<18. .or. theta1>85.) f = 0
-      if (theta2<18. .or. theta2>85.) f = 0
-      ! cut on absolute momentum
-      if (p1abs<0.1 .or. p2abs<0.1) f = 0
-      ! cut on opening angle (in degrees)
-      if (angle<9.) f = 0
+       call Traceback("Do not use anymore. Stop")
+
     case (3)  ! full HADES acceptance filter (using pair acceptance) + mass resolution
-      acc = getHadesPairAcceptance(mass,pt,y,-2)
-      if (rn()>acc) f = 0
-      ! detector resolution smearing
-      call smearHadesMomentum(p1,3,2)                  ! positron
-      call smearHadesMomentum(p2,3,3)                  ! electron
+       acc = getHadesPairAcceptance(mass,pt,y,-2)
+       if (rn()>acc) return
+       ! detector resolution smearing
+       call smearHadesMomentum(p1,3,2)                  ! positron
+       call smearHadesMomentum(p2,3,3)                  ! electron
+
     case (4)  ! full HADES acceptance filter (using single-particle acceptance) + opening angle cut
-      call get_phi_Theta (p1(1:3),theta1,phi1)
-      call get_phi_Theta (p2(1:3),theta2,phi2)
-      acc = getHadesAcceptance (2,p1abs,theta1*180./pi,phi1*180./pi,-2) * &   ! positron
-            getHadesAcceptance (3,p2abs,theta2*180./pi,phi2*180./pi,-2)       ! electron
-      if (rn()>acc) f = 0
-      ! detector resolution smearing
-      if (targNuc%charge == 6) then
-        res = 1  ! C+C runs have lower resolution
-      else
-        res = 3  ! others have higher resolution
-      end if
-      call smearHadesMomentum (p1, res, 2)                ! positron
-      call smearHadesMomentum (p2, res, 3)                ! electron
-      ! cut on opening angle (in degrees)
-      angle = op_ang(p1,p2)  ! opening angle in degrees
-      if (angle<9.) f = 0
-      ! cut on single lepton momenta
-      p1abs = abs3(p1)       ! abs. mom. of positron
-      p2abs = abs3(p2)       ! abs. mom. of electron
-      if (p1abs<plep_cut(1) .or. p1abs>plep_cut(2)) f = 0
-      if (p2abs<plep_cut(1) .or. p2abs>plep_cut(2)) f = 0
+       call get_phi_Theta(p1(1:3),theta1,phi1)
+       call get_phi_Theta(p2(1:3),theta2,phi2)
+       acc= getHadesAcceptance(2,p1abs,theta1*180./pi,phi1*180./pi,-2) * &   ! positron
+            getHadesAcceptance(3,p2abs,theta2*180./pi,phi2*180./pi,-2)       ! electron
+       if (rn()>acc) return
+       ! detector resolution smearing
+       if (targNuc%charge == 6) then
+          res = 1  ! C+C runs have lower resolution
+       else
+          res = 3  ! others have higher resolution
+       end if
+       call smearHadesMomentum(p1, res, 2)                ! positron
+       call smearHadesMomentum(p2, res, 3)                ! electron
+       ! cut on opening angle (in degrees)
+       angle = op_ang(p1,p2)  ! opening angle in degrees
+       if (angle<9.) return
+       ! cut on single lepton momenta:
+       p1abs = abs3(p1)       ! abs. mom. of positron
+       if (p1abs<plep_cut(1) .or. p1abs>plep_cut(2)) return
+       p2abs = abs3(p2)       ! abs. mom. of electron
+       if (p2abs<plep_cut(1) .or. p2abs>plep_cut(2)) return
+
     case (5)  ! simple filter for g7/CLAS
-      call get_phi_Theta (p1(1:3),theta1,phi1)
-      call get_phi_Theta (p2(1:3),theta2,phi2)
-      ! cut on polar angle (in degrees)
-      theta1 = theta1 * 180./pi
-      theta2 = theta2 * 180./pi
-      if (theta1<5. .or. theta1>35.) f = 0
-      if (theta2<5. .or. theta2>35.) f = 0
-      ! different-sector cut
-      s1 = int(phi1 * 3./pi)  ! each sector is 60 degrees wide (=pi/3)
-      s2 = int(phi2 * 3./pi)
-      if (s1==s2) f = 0
+       call get_phi_Theta(p1(1:3),theta1,phi1)
+       call get_phi_Theta(p2(1:3),theta2,phi2)
+       ! cut on polar angle (in degrees)
+       theta1 = theta1 * 180./pi
+       if (theta1<5. .or. theta1>35.) return
+       theta2 = theta2 * 180./pi
+       if (theta2<5. .or. theta2>35.) return
+       ! different-sector cut
+       s1 = int(phi1 * 3./pi)  ! each sector is 60 degrees wide (=pi/3)
+       s2 = int(phi2 * 3./pi)
+       if (s1==s2) return
       ! momentum cut
-      if (p1abs<p_lep_min .or. p2abs<p_lep_min) f = 0
+       if (p1abs<p_lep_min .or. p2abs<p_lep_min) return
+
     case (6)  ! KEK E325 acceptance filter, using same cuts as in Ozawa et al, PRL 86 (2001) 5019
-      if (y<0.6 .or. y>2.2) f = 0               ! rapidity cut
-      if (pt>1.5) f = 0                         ! transverse momentum cut
-      if (angle<50. .or. angle>150.) f = 0      ! opening angle cut
-      ! TODO: same-segment cuts
+       if (y<0.6 .or. y>2.2) return               ! rapidity cut
+       if (pt>1.5) return                         ! transverse momentum cut
+       if (angle<50. .or. angle>150.) return      ! opening angle cut
+       ! TODO: same-segment cuts
+
     case (7)   ! JPARC E16
-      ! nothing here for now (only resolution smearing)
+       ! nothing here for now (only resolution smearing)
+
+    case (10,20,30)  ! simple filter for HADES
+       ! cut on opening angle (in degrees):
+       if (angle<9.) return
+       ! cut on polar angle (in degrees):
+       theta1 = acos(p1(3)/p1abs) * 180./pi
+       if (theta1<18. .or. theta1>85.) return
+       theta2 = acos(p2(3)/p2abs) * 180./pi
+       if (theta2<18. .or. theta2>85.) return
+       ! cut on absolute momentum:
+       if (p1abs<0.1) return
+       if (p2abs<0.1) return
+
+    case (11,21,31)  ! simple filter for HADES
+       ! Adjusted for Ag+Ag, Jan-Hendrik Otto (priv. commun.)
+       ! cut on opening angle (in degrees):
+       if (angle<9.) return
+       ! cut on polar angle (in degrees):
+       theta1 = acos(p1(3)/p1abs) * 180./pi
+       if (theta1<16. .or. theta1>83.) return
+       theta2 = acos(p2(3)/p2abs) * 180./pi
+       if (theta2<16. .or. theta2>83.) return
+       ! cut on absolute momentum:
+       if (p1abs<(exp(-0.135*theta1+8.3)+100.)*1.e-03 .or. p1abs>1.2) return
+       if (p2abs<0.1 .or. p2abs>1.2) return
+
+    case (12,22,32)  ! simple filter for HADES
+       ! Adjusted for p+p, Karina Scharmann (priv. commun.)
+       ! cut on opening angle (in degrees):
+       if (angle<9.) return
+       ! cut on polar angle (in degrees):
+       theta1 = acos(p1(3)/p1abs) * 180./pi
+       if (theta1<14. .or. theta1>79.) return
+       theta2 = acos(p2(3)/p2abs) * 180./pi
+       if (theta2<14. .or. theta2>79.) return
+       ! cut on absolute momentum:
+       if (p1abs>1.2) return
+       if (p2abs>1.2) return
+       ! cut on transverse momentum:
+       ! positron:
+       y = 0.5*log((p1(0)+p1(3))/(p1(0)-p1(3)))
+       pt = 1000.*sqrt(p1(1)**2+p1(2)**2)
+       if (pt < 192.148 &
+            + y * ( -1667.0 &
+            + y * (  7426.6 &
+            + y * (-17227.6 &
+            + y * ( 23462.5 &
+            + y * (-19429.7 &
+            + y * (  9622.31 &
+            + y * ( -2616.19 &
+            + y * (   300.017 ))))))))) return
+       ! electron:
+       y = 0.5*log((p2(0)+p2(3))/(p2(0)-p2(3)))
+       pt = 1000.*sqrt(p2(1)**2+p2(2)**2)
+       if (pt < 715.447 &
+            + y * ( -5261.35 &
+            + y * ( 18002.8 &
+            + y * (-33785.7 &
+            + y * ( 37888.3 &
+            + y * (-26114.6 &
+            + y * ( 10852.6 &
+            + y * ( -2495.88 &
+            + y * (   244.008 ))))))))) return
+
+!--p_lepton < 1200
+!--14 < theta_lepton < 79
+!--openingAngle_dilepton > 9
+!pt_positron > 192.148  - 1667 * y + 7426.6 * y^2 - 17227.6 * y^3 + 23462.5 * y^4 - 19429.7 * y^5 + 9622.31 * y^6 - 2616.19 * y^7 + 300.017 * y^8
+!pt_electron > 715.447 - 5261.35 * y + 18002.8 * y^2 - 33785.7 * y^3 + 37888.3 * y^4 - 26114.6 * y^5 + 10852.6 * y^6 - 2495.88 * y^7 + 244.008 * y^8
+!!! Polynom converted to Horner Scheme by Mathematica !
+
+
+    case Default
+       call Traceback("wrong number. Stop")
+
     end select
+
+    f = 1 ! success, detected!
+
 
   end function applyFilter
 
@@ -2284,38 +2698,51 @@ contains
     close(998)
 
     ! mass differential cross section
-    call WriteHistMC (msigma,     'DileptonMass.dat',      mul=m)
+    call WriteHistMC(msigma,     'DileptonMass.dat',      mul=m, dump=.TRUE.)
     do i=0,5
-      mbstr = ""
-      if (i>0) write(mbstr,'(A,i1)') "_massBin",i
-      call WriteHistMC (ptsigma(i), 'DileptonPt'   //trim(mbstr)//'.dat', mul=m)  ! transverse momentum
-      call WriteHistMC (ysigma(i),  'DileptonY'    //trim(mbstr)//'.dat', mul=m)  ! rapidity
-      if (Extra) then
-        call WriteHistMC (psigma(i),  'DileptonPlab' //trim(mbstr)//'.dat', mul=m)  ! momentum
-        call WriteHistMC (mtsigma(i), 'DileptonMt'   //trim(mbstr)//'.dat', mul=m)  ! transverse mass
-        call WriteHistMC (tcmsigma(i),'DileptonTheta'//trim(mbstr)//'.dat', mul=m)  ! theta_cm
-        call WriteHistMC (helsigma(i),'DileptonHelic'//trim(mbstr)//'.dat', mul=m)  ! helicity
-      end if
+       mbstr = ""
+       if (i>0) write(mbstr,'(A,i1)') "_massBin",i
+       call WriteHistMC(ptsigma(i), 'DileptonPt'   //trim(mbstr)//'.dat', mul=m)  ! transverse momentum
+       call WriteHistMC(ysigma(i),  'DileptonY'    //trim(mbstr)//'.dat', mul=m)  ! rapidity
+       if (Extra) then
+          call WriteHistMC(psigma(i),  'DileptonPlab' //trim(mbstr)//'.dat', mul=m)  ! momentum
+          call WriteHistMC(mtsigma(i), 'DileptonMt'   //trim(mbstr)//'.dat', mul=m)  ! transverse mass
+          call WriteHistMC(tcmsigma(i),'DileptonTheta'//trim(mbstr)//'.dat', mul=m)  ! theta_cm
+          call WriteHistMC(helsigma(i),'DileptonHelic'//trim(mbstr)//'.dat', mul=m)  ! helicity
+       end if
     end do
     if (Extra) then
-      call WriteHistMC (msigma_bgcut, 'DileptonMass_bgcut.dat', mul=m)
-      if (filter>5) then
-        call WriteHistMC_Gauss (msigma, 'DileptonMass_smeared.dat', detector_res(filter), mul=m)
-        call WriteHistMC_Gauss (msigma_bgcut, 'DileptonMass_bgcut_smeared.dat', detector_res(filter), mul=m)
-      end if
-      call WriteHistMC (msigma_slow,'DileptonMass_slow.dat', mul=m)
-      call WriteHistMC (msigma_fast,'DileptonMass_fast.dat', mul=m)
-      call WriteHistMC (msigma_pri, 'DileptonMass_pri.dat',  mul=m)
-      call WriteHistMC (msigma_sec, 'DileptonMass_sec.dat',  mul=m)
-      call WriteHistMC (ptsigma_pri,'DileptonPt_pri.dat',    mul=m)
-      call WriteHistMC (ptsigma_sec,'DileptonPt_sec.dat',    mul=m)
-      call WriteHistMC (esigma, 'DileptonEkin.dat',      mul=m)  ! kinetic energy differential cross section
-      call WriteHistMC (bgsigma,'DileptonBetaGamma.dat', mul=m)  ! beta*gamma
-      call WriteHistMC (oasigma,'DileptonAngle.dat',     mul=m)  ! opening angle
-      call WriteHistMC (dsigma, 'DileptonDensity.dat',   mul=m)  ! density
+       call WriteHistMC(msigma_bgcut, 'DileptonMass_bgcut.dat', mul=m)
+       if (filter>5) then
+          call WriteHistMC_Gauss(msigma, 'DileptonMass_smeared.dat', detector_res(filter), mul=m)
+          call WriteHistMC_Gauss(msigma_bgcut, 'DileptonMass_bgcut_smeared.dat', detector_res(filter), mul=m)
+       end if
+       call WriteHistMC(msigma_slow,'DileptonMass_slow.dat', mul=m)
+       call WriteHistMC(msigma_fast,'DileptonMass_fast.dat', mul=m)
+       call WriteHistMC(msigma_pri, 'DileptonMass_pri.dat',  mul=m)
+       call WriteHistMC(msigma_sec, 'DileptonMass_sec.dat',  mul=m)
+       call WriteHistMC(ptsigma_pri,'DileptonPt_pri.dat',    mul=m)
+       call WriteHistMC(ptsigma_sec,'DileptonPt_sec.dat',    mul=m)
+       call WriteHistMC(esigma, 'DileptonEkin.dat',      mul=m)  ! kinetic energy differential cross section
+       call WriteHistMC(bgsigma,'DileptonBetaGamma.dat', mul=m)  ! beta*gamma
+       call WriteHistMC(oasigma,'DileptonAngle.dat',     mul=m)  ! opening angle
+       call WriteHistMC(dsigma, 'DileptonDensity.dat',   mul=m)  ! density
+       call WriteHistMC(msigma_miss, 'DileptonMass_miss.dat', mul=m) ! missing mass
+       call WriteHistMC(msigma_missm, 'DileptonMass_missm.dat', mul=m) ! missing mass
     end if
-    call WriteHistMC (deltaMass, 'DeltaMass.dat', mul=m)                   ! Delta mass distribution
-    if (particle_source) call WriteHistMC (rhoMass, 'rhoMass.dat', mul=m)  ! rho mass distribution
+    if (JanOttoOmega) then
+       do i=0,3
+          call WriteHistMC(msigma_JanOtto(i), 'DileptonMass_JanOtto_'//achar(i+48)//'.dat', mul=m, dump=.TRUE.)
+       end do
+       do i=0,5
+          call WriteHistMC(msigma_JanOttoPt(i), 'DileptonMass_JanOttoPt_'//achar(i+48)//'.dat', mul=m, dump =.TRUE.)
+       end do
+       do i=0,3
+          call WriteHistMC(msigma_JanOttoPt3(i), 'DileptonMass_JanOttoPt3_'//achar(i+48)//'.dat', mul=m, dump =.TRUE.)
+       end do
+    end if
+    call WriteHistMC(deltaMass, 'DeltaMass.dat', mul=m)                   ! Delta mass distribution
+    if (particle_source) call WriteHistMC(rhoMass, 'rhoMass.dat', mul=m)  ! rho mass distribution
     ! particle numbers
     call writePartNum()
   end subroutine Dilep_write_CS
@@ -2335,14 +2762,15 @@ contains
   subroutine Dilep_write_CS_time(time)
     use histMC, only: WriteHistMC
     use inputGeneral, only: delta_T
-    use output, only: intTochar
+    use output, only: intTochar4
 
     real, intent(in) :: time
 
     if (.not.enable) return
 
     ! mass differential cross section
-    call WriteHistMC (msigma,     'DileptonMass'//intTochar(nint(time/delta_T))//'.dat',      mul=1.)
+    call WriteHistMC(msigma,&
+         'DileptonMass'//intTochar4(nint(time/delta_T))//'.dat', mul=1., dump=.TRUE.)
 
   end subroutine Dilep_write_CS_time
 
@@ -2350,32 +2778,33 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/DilepSim2
   ! NAME
-  ! function DilepSim2 (ptot, massdil) result(plep)
+  ! function DilepSim2(ptot, massdil) result(plep)
   ! PURPOSE
   ! Simulates a dilepton decay with 2-particle final state, using isotropic
   ! angular distribution.
   ! INPUTS
-  !  * real, intent(in) :: ptot(0:3)    - four momentum of decaying particle
-  !  * real, intent(in) :: massdil      - invariant mass of the dilepton pair
+  ! * real, intent(in) :: ptot(0:3)    - four momentum of decaying particle
+  ! * real, intent(in) :: massdil      - invariant mass of the dilepton pair
   ! OUTPUT
-  !  * real, dimension(0:3,1:2) :: plep   - 4-vectors of the generated lepton pair
+  ! * real, dimension(0:3,1:2) :: plep - 4-vectors of the generated lepton pair
   !****************************************************************************
-  function DilepSim2 (ptot, massdil) result(plep)
+  function DilepSim2(ptot, massdil) result(plep)
     use lorentzTrafo, only: lorentz
     use random, only: rnOmega
     use constants, only: melec
     use twoBodyTools, only: pCM
-    ! input:
-    real, intent(in) :: ptot(0:3) ! total momentum
-    real, intent(in) :: massdil   ! dilepton mass at creation
-    ! output:
-    real, dimension(0:3,1:2) :: plep
-    ! local variables
+
+    real, intent(in) :: ptot(0:3)
+    real, intent(in) :: massdil
+
+    real, dimension(0:3,1:2) :: plep ! function value
+
     real:: pout(0:3),pfinal
-    pfinal = pCM (massdil, melec, melec)
+
+    pfinal = pCM(massdil, melec, melec)
     pout(1:3) = rnOmega() * pfinal
     pout(0) = sqrt(melec**2+pfinal**2)
-    call lorentz (-ptot(1:3)/ptot(0), pout, "DilepSim2")
+    call lorentz(-ptot(1:3)/ptot(0), pout)
     plep(:,1) = pout
     plep(:,2) = ptot - pout
   end function DilepSim2
@@ -2384,60 +2813,64 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/DilepSim3
   ! NAME
-  ! function DilepSim3 (ptot, massdil, mass1, ang) result (plep)
+  ! function DilepSim3(ptot, massdil, mass1, ang) result (plep)
   ! PURPOSE
   ! Simulates a dilepton decay with 3-particle final state (Dalitz decay).
   ! INPUTS
-  !  * real, intent(in) :: ptot(0:3)    - four momentum of decaying particle
-  !  * real, intent(in) :: massdil      - invariant mass of the dilepton pair
-  !  * real, intent(in) :: mass1        - mass of 2nd particle
-  !  * integer, intent(in) :: ang       - angular distribution of gamma* decay: 0=isotropic, 1,2=anisotropic
+  ! * real :: ptot(0:3)    - total four momentum of decaying particle
+  ! * real :: massdil      - invariant mass of the dilepton pair
+  ! * real :: mass1        - mass of 2nd particle
+  ! * integer :: ang       - angular distribution of gamma* decay:
+  !   0 =isotropic, 1,2=anisotropic
   ! OUTPUT
-  !  * real, dimension(0:3,1:2) :: plep   - 4-vectors of the generated lepton pair
+  ! * real, dimension(0:3,1:2) :: plep - 4-vectors of the generated lepton pair
   !****************************************************************************
-  function DilepSim3 (ptot, massdil, mass1, ang) result (plep)
+  function DilepSim3(ptot, massdil, mass1, ang) result (plep)
     use lorentzTrafo, only: lorentz
     use random, only: rnOmega, rnOmega_anis
     use constants, only: melec
     use minkowski, only: abs4
     use rotation, only: rotateTo
     use twoBodyTools, only: pCM
-    ! input:
-    real, intent(in)    :: ptot(0:3)    ! total momentum
-    real, intent(in)    :: massdil      ! dilepton invariant mass
-    real, intent(in)    :: mass1        ! mass of 2nd particle
-    integer, intent(in) :: ang          ! angular distr: 0=isotropic, 1,2=anisotropic
-    ! output:
-    real, dimension(0:3,1:2) :: plep
-    ! local variables
+
+    real, intent(in)    :: ptot(0:3)
+    real, intent(in)    :: massdil
+    real, intent(in)    :: mass1
+    integer, intent(in) :: ang
+
+    real, dimension(0:3,1:2) :: plep ! function value
+
     real, dimension(0:3) :: pdil,pout
     real, dimension(1:3) :: betacm
     real :: pfinal
 
     ! select decay angle of gamma* (isotropically)
-    pfinal = pCM (abs4(ptot), massdil, mass1)
+    pfinal = pCM(abs4(ptot), massdil, mass1)
     pdil(1:3) = rnOmega() * pfinal
-    pdil(0) = sqrt(massdil**2+pfinal**2)   ! pdil is now 4-momentum of gamma* in parent rest frame
+    pdil(0) = sqrt(massdil**2+pfinal**2)
+    ! pdil is now 4-momentum of gamma* in parent rest frame
 
     ! now do decay of gamma* into e+/e-
-    pfinal = pCM (massdil, melec, melec)
-    if (ang>0) then
-      pout(1:3) = rnOmega_anis(1.) * pfinal                     ! anisotropic angular distribution
-      pout(1:3) = rotateTo (pdil(1:3), pout(1:3))               ! rotate z-Axis on the momentum direction of the decaying meson
-    else
-      pout(1:3) = rnOmega() * pfinal   ! isotropic
+    pfinal = pCM(massdil, melec, melec)
+    if (ang>0) then  ! anisotropic angular distribution
+       pout(1:3) = rnOmega_anis(1.) * pfinal
+       ! rotate z-Axis in the momentum direction of the decaying meson:
+      pout(1:3) = rotateTo(pdil(1:3), pout(1:3))
+    else  !  isotropic
+      pout(1:3) = rnOmega() * pfinal
     end if
-    pout(0) = sqrt(melec**2+pfinal**2)   ! pout is now 4-momentum of one lepton in cm frame of dilepton
+    pout(0) = sqrt(melec**2+pfinal**2)
+    ! pout is now 4-momentum of one lepton in cm frame of dilepton
 
-    ! boost to parent rest frame
-    call lorentz (-pdil(1:3)/pdil(0), pout, "DilepSim3(1)")
+    ! boost to parent rest frame:
+    call lorentz(-pdil(1:3)/pdil(0), pout)
     plep(:,1) = pout
     plep(:,2) = pdil - pout
 
-    ! boost to lab frame
+    ! boost to lab frame:
     betacm = ptot(1:3)/ptot(0)
-    call lorentz (-betacm, plep(:,1), "DilepSim3(2)")
-    call lorentz (-betacm, plep(:,2), "DilepSim3(3)")
+    call lorentz(-betacm, plep(:,1))
+    call lorentz(-betacm, plep(:,2))
 
   end function DilepSim3
 
@@ -2445,18 +2878,19 @@ contains
   !****************************************************************************
   !****f* Dilepton_Analysis/PseudoscalarDalitzPythia
   ! NAME
-  ! function PseudoscalarDalitzPythia (ID, ptot) result (pdil)
+  ! function PseudoscalarDalitzPythia(ID, ptot) result (pdil)
   ! PURPOSE
   ! Performs the Dalitz decay of a pseudoscalar meson (pi0 or eta) via Pythia.
   ! Cf. Pythia 6.4 manual, chapter 13.3.1 ("Strong and electromagnetic decays"),
   ! eq. (275) and (276).
   ! INPUTS
-  !  * integer, intent(in) :: ID         --- ID of decaying particle (pi0 or eta)
-  !  * real, dimension(0:3), intent(in)  --- four momentum of decaying particle
+  ! * integer :: ID         --- ID of decaying particle (pi0 or eta)
+  ! * real, dimension(0:3)  --- four momentum of decaying particle
   ! OUTPUT
-  !  * real,dimension(0:3,1:2) :: pdil     --- four vectors of the generated lepton pair (1=positron,2=electron)
+  ! * real,dimension(0:3,1:2) :: pdil --- 4-vectors of the generated lepton pair
+  !   (1=positron,2=electron)
   !****************************************************************************
-  function PseudoscalarDalitzPythia (ID, ptot) result (pdil)
+  function PseudoscalarDalitzPythia(ID, ptot) result (pdil)
     use hadronFormation, only: useJetSetVec
     use IdTable, only: pion, eta
     use minkowski, only: abs4
@@ -2490,7 +2924,7 @@ contains
       !stop
 
       ! save Pythia parameters before modifying them
-      KC = PYCOMP (111)  ! pi0
+      KC = PYCOMP(111)  ! pi0
       decay_pi = MDCY(KC,1)
       BR_pi = BRAT(MDCY(KC,2):MDCY(KC,2)+MDCY(KC,3)-1)
 
@@ -2517,7 +2951,7 @@ contains
       write(*,*) "wrong ID in PseudoscalarDalitzPythia: ", ID
       stop
     end select
-    KC = PYCOMP (KF)
+    KC = PYCOMP(KF)
 
     ! set particle into PYTHIA array
     K(1,1:2) = (/1,KF/)
@@ -2578,11 +3012,11 @@ contains
     ! restore PYTHIA parameters
     MSTJ(21) = 0              ! particle decay on/off
 
-    KC = PYCOMP (111)  ! pi0
+    KC = PYCOMP(111)  ! pi0
     MDCY(KC,1) = decay_pi
     BRAT(MDCY(KC,2):MDCY(KC,2)+MDCY(KC,3)-1) = BR_pi
 
-    KC = PYCOMP (221)  ! eta
+    KC = PYCOMP(221)  ! eta
     MDCY(KC,1) = decay_eta
     BRAT(MDCY(KC,2):MDCY(KC,2)+MDCY(KC,3)-1) = BR_eta
 
@@ -2592,23 +3026,23 @@ contains
   !****************************************************************************
   !****s* Dilepton_Analysis/Dilep_Brems
   ! NAME
-  ! subroutine Dilep_Brems (part, srtfree, XS_elast, XS_tot)
+  ! subroutine Dilep_Brems(part, srtfree, XS_elast, XS_tot)
   ! PURPOSE
   ! Calculate Dilepton Production via Nucleon-Nucleon (or pion-Nucleon)
   ! Bremsstrahlung in Soft-Photon-Approximation (SPA).
   ! See: Wolf et al., Nucl. Phys. A517 (1990) 615-638, chapter 4.2
   ! INPUTS
   ! * type(particle), intent(in) :: part(1:2) --- colliding particles
-  ! * real, intent(in) :: srtfree             --- CoM energy
+  ! * real, intent(in) :: srtfree_in             --- CoM energy
   ! * real, intent(in) :: XS_elast --- elastic cross section in mb (NN or piN)
   ! * real, intent(in) :: XS_tot   --- total cross section in mb (NN or piN)
   ! TODO
   ! * Pauli blocking ?
   !****************************************************************************
-  subroutine Dilep_Brems (part, srtfree, XS_elast, XS_tot)
+  subroutine Dilep_Brems(part, srtfree_in, XS_elast, XS_tot)
     use particleDefinition
     use mediumDefinition
-    use IDTable, only: pion
+    use IDTable, only: pion,nucleon
     use constants, only: melec, alphaQED, pi
     use random, only: rnFlat, rnOmega, rnPower
     use inputGeneral, only: num_energies, numEnsembles, num_Runs_SameEnergy, eventtype, path_To_Input
@@ -2617,13 +3051,18 @@ contains
     use lorentzTrafo, only: lorentz,lorentzCalcBeta
     use tabulation, only: table_2dim, readTable, getValue
     use twoBodyTools, only: pCM_sqr
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
 
     type(particle), intent(in), target :: part(1:2)
-    real, intent(in) :: srtfree, XS_elast, XS_tot
+    real, intent(in) :: srtfree_in, XS_elast, XS_tot
 
     real, save :: pw
     logical, save :: first = .true.
     real :: m1,m2,m12,m22,pcms2,s,XS_bar,M,M_max,M_min,q0,q0max,q,s2,R2_1,R2_2,weight,b(3),Eb,mass
+    real :: srtS,srtfree
+    real, dimension(1:2) :: spotOut
+    integer, dimension(1:3) :: ind
     real, dimension(0:3) :: qvec
     real, dimension(0:3,1:2) :: pdil
     type(particle),pointer :: charged, nuc
@@ -2632,7 +3071,7 @@ contains
     type(table_2dim), save :: OBE_pp, OBE_pn
     logical :: success
     logical, parameter :: flagPrintBrems=.false.
-    
+
     if (.not. Enable .or. brems==0) return
 
     ! initialize perturbative weight factors
@@ -2645,13 +3084,13 @@ contains
       end select
       success=.false.
       if (brems==2) then
-        success = readTable (OBE_pp, trim(path_To_Input)//"/brems-pp.bz2")
-        success = readTable (OBE_pn, trim(path_To_Input)//"/brems-pn.bz2")
+        success = readTable(OBE_pp, trim(path_To_Input)//"/brems-pp.bz2")
+        success = readTable(OBE_pn, trim(path_To_Input)//"/brems-pn.bz2")
       else if (brems==3 .or. brems==4) then
-        success = readTable (OBE_pp, trim(path_To_Input)//"/brems-pp.bz2")
-        success = readTable (OBE_pn, trim(path_To_Input)//"/brems-pn-piFF.bz2")
+        success = readTable(OBE_pp, trim(path_To_Input)//"/brems-pp.bz2")
+        success = readTable(OBE_pn, trim(path_To_Input)//"/brems-pn-piFF.bz2")
       end if
-      if(flagPrintBrems.and.success) then
+      if (flagPrintBrems.and.success) then
          open(1,file='OBE_pp.tst',status='unknown')
          write(1,*)'# min_mass, max_mass, delta_mass : ', OBE_pp%min(1), OBE_pp%max(1), OBE_pp%delta(1)
          write(1,*)'# min_Ebeam, max_Ebeam, delta_Ebeam : ', OBE_pp%min(2), OBE_pp%max(2), OBE_pp%delta(2)
@@ -2675,7 +3114,7 @@ contains
                write(1,*) Eb,mass,OBE_pn%entry(i,j)
             end do
          end do
-         close(1)        
+         close(1)
       end if
       first = .false.
     end if
@@ -2686,7 +3125,7 @@ contains
     select case (part(1)%ID+part(2)%ID)
     case (2)
       ! Nucleon-Nucleon
-      if (part(1)%antiParticle .or. part(2)%antiParticle) return
+      if (part(1)%anti .or. part(2)%anti) return
       select case (part(1)%charge+part(2)%charge)
       case (0)
         return ! nn
@@ -2694,7 +3133,7 @@ contains
         ch = 11 ! pn
       case (2)
         ch = 12 ! pp
-        if(brems.lt.2) return   ! no pp contribution in soft-photon approximation
+        if (brems.lt.2) return   ! no pp contribution in soft-photon approx.
       end select
       if (part(1)%charge==1) then
         charged => part(1)
@@ -2726,15 +3165,27 @@ contains
       else
         return
       end if
-      if (nuc%antiParticle) return
+      if (nuc%anti) return
       if (charged%charge==0) return   ! pi(0)
     case default
       return
     end select
 
     if (ch==0) then
-      write(*,*) "problem in Dilep_Brems: ", part%ID, part%charge, part%antiParticle
+      write(*,*) "problem in Dilep_Brems: ", part%ID, part%charge, part%anti
       stop
+    end if
+
+    if ((ch==11 .or. ch==12) .and. getRMF_flag() .and. flagCorThr) then
+       srtS = sqrtS(part,"Dilep_Brems, srtS")
+       spotOut(1:2)=0.
+       if (getGridIndex(part(1)%pos,ind,0)) &
+            & spotOut(1) = SelfEnergy_scalar(ind(1),ind(2),ind(3),nucleon,.false.)
+       if (getGridIndex(part(2)%pos,ind,0)) &
+            & spotOut(2) = SelfEnergy_scalar(ind(1),ind(2),ind(3),nucleon,.false.)
+       srtfree = srtS - spotOut(1) - spotOut(2)
+    else
+       srtfree = srtfree_in
     end if
 
     m1 = charged%mass ! mass of charged particle (pion or nucleon)
@@ -2745,7 +3196,7 @@ contains
     M_min = 2*melec            ! minimum dilepton mass
     if (M_max < M_min) return
 
-    mediumAtPosition = mediumAt ((part(1)%position+part(2)%position)/2.)
+    mediumAtPosition = mediumAt((part(1)%pos+part(2)%pos)/2.)
 
     do k=1,nevent ! loop to enhance statistics
 
@@ -2759,10 +3210,10 @@ contains
         q = sqrt(q0**2-M**2)                       ! dilepton momentum
 
         if (ch==11) then
-          weight = getValue ( (/REAL(M,4), Ebeam(s)/), OBE_pn, oob) * (M_max-M_min)
-          if(brems.eq.4) weight = weight*fcor(M) 
+          weight = getValue( (/REAL(M,4), Ebeam(s)/), OBE_pn, oob) * (M_max-M_min)
+          if (brems.eq.4) weight = weight*fcor(M)
         else
-          weight = getValue ( (/REAL(M,4), Ebeam(s)/), OBE_pp, oob) * (M_max-M_min)
+          weight = getValue( (/REAL(M,4), Ebeam(s)/), OBE_pp, oob) * (M_max-M_min)
         end if
 
       else
@@ -2782,7 +3233,7 @@ contains
 !        R2_2 = sqrt(1-(m1+m2)**2/s2)
 !
 !        XS_bar = (s-(m1+m2)**2)/(2*m1**2) * XS_elast * 1E3  ! phase-space corrected cross section (in microbarn)
-!*************************************************************************
+!******************************************************************************
 
 !****   Modified phase space factors: ************************************
         m12=m1**2
@@ -2792,7 +3243,7 @@ contains
         R2_2 = sqrt(pCM_sqr(s2,m12,m22)/s2)
 
         XS_bar = 2.*pcms2/m12 * XS_elast * 1E3  ! phase-space corrected cross section (in microbarn)
-!*************************************************************************
+!******************************************************************************
 
 
         weight = alphaQED**2/(6*pi**3) * XS_bar*q/(M*q0**2) * R2_2/R2_1 * (M_max-M_min)*(q0max-M) * 4.*pi
@@ -2809,19 +3260,19 @@ contains
       qvec(0) = q0
       qvec(1:3) = q * rnOmega()
       ! boost from NN cms frame to calc frame
-      b = lorentzCalcBeta (part(1)%momentum+part(2)%momentum)
-      call lorentz (-b, qvec, "Dilep_Brems")
+      b = lorentzCalcBeta(part(1)%mom+part(2)%mom)
+      call lorentz(-b, qvec)
 
       ! boost from calc frame to lab
-      call boost2Lab (qvec)
+      call boost2Lab(qvec)
 
-      pdil = DilepSim2 (qvec, M)
-      call CS (pdil, ch, weight, mediumAtPosition%density, 0)
+      pdil = DilepSim2(qvec, M)
+      call CS(pdil, ch, weight, mediumAtPosition%density, 0)
     end do
 
   contains
 
-    real(4) function Ebeam (s)
+    real(4) function Ebeam(s)
       use constants, only: mN
       real, intent(in) :: s
       Ebeam = (s-2*mN**2)/(2*mN) - mN
@@ -2829,7 +3280,7 @@ contains
 
 
     ! Correction factor chosen to fit dp at Ebeam=1.25A GeV
-    ! see Eq.(63) in arXiv:2009.11702       
+    ! see Eq.(63) in arXiv:2009.11702
     real function fcor(Mee)
 
       real, intent(in) :: Mee
@@ -2839,7 +3290,7 @@ contains
       fcor=C*(1.+w*Mee**2/b**2)/(exp((a-Mee)/d)+1.)/(exp((Mee-b)/d)+1.)+1.
 
     end function fcor
-    
+
 
   end subroutine Dilep_Brems
 
@@ -2877,21 +3328,21 @@ contains
 
     if (.not. Enable) return
 
-    srts = abs4(k_in+nuc%momentum)
+    srts = abs4(k_in+nuc%mom)
     M_max = srts-mN
     M_min = 2*melec
 
-    mediumAtPosition=mediumAt(nuc%position)
+    mediumAtPosition=mediumAt(nuc%pos)
 
     do i=1,nevent_BH ! loop to enhance statistics
       k = k_in
-      p_i = nuc%momentum
+      p_i = nuc%mom
       M = rn()*(M_max-M_min)+M_min
 
       ! (1) boost to COM frame
       b1 = lorentzCalcBeta (p_i+k)
-      call lorentz(b1,k,"BH 1.1")
-      call lorentz(b1,p_i,"BH 1.2")
+      call lorentz(b1,k)
+      call lorentz(b1,p_i)
       ! generate random p_f
       p_f_abs=sqrt((srts**2-mN**2-M**2)**2-4*mN**2*M**2)/(2*srts)
       p_f(1:3)=rnOmega()*p_f_abs
@@ -2899,14 +3350,14 @@ contains
 
       ! (2) boost p_f back to nucleus frame, check Pauli blocking
       p_f2 = p_f
-      call lorentz(-b1,p_f2,"BH 2.1")
-      if (pauliBlocking(p_f2,nuc%position,nuc%charge)) cycle
+      call lorentz(-b1,p_f2)
+      if (pauliBlocking(p_f2,nuc%pos,nuc%charge)) cycle
 
       ! (3) boost to dilepton rest frame
-      b2 = lorentzCalcBeta (-p_f(1:3), M)
-      call lorentz(b2,k,"BH 3.1")
-      call lorentz(b2,p_i,"BH 3.2")
-      call lorentz(b2,p_f,"BH 3.3")
+      b2 = lorentzCalcBeta(-p_f(1:3), M)
+      call lorentz(b2,k)
+      call lorentz(b2,p_i)
+      call lorentz(b2,p_f)
       ! generate random p (electron) and p_p (positron)
       p_abs=sqrt(M**2/4-melec**2)
       p(1:3)=rnOmega()*p_abs
@@ -2915,12 +3366,12 @@ contains
       p_p(1:3)=-p_p(1:3)
 
       ! (4) boost to nucleon rest frame
-      b3 = lorentzCalcBeta (p_i)
-      call lorentz(b3,k,"BH 4.1")
-      call lorentz(b3,p_i,"BH 4.2")
-      call lorentz(b3,p_f,"BH 4.3")
-      call lorentz(b3,p,"BH 4.4")
-      call lorentz(b3,p_p,"BH 4.5")
+      b3 = lorentzCalcBeta(p_i)
+      call lorentz(b3,k)
+      call lorentz(b3,p_i)
+      call lorentz(b3,p_f)
+      call lorentz(b3,p)
+      call lorentz(b3,p_p)
       ! calculate tensor contraction
       q2 = abs4sq(k-p-p_p)
       lw1 = melec**2*(q2+2*melec**2)*(1/SP(p,k)**2+1/SP(p_p,k)**2) + (4*melec**4-q2**2)/SP(p,k)/SP(p_p,k) &
@@ -2935,12 +3386,12 @@ contains
                / float(numEnsembles*num_Runs_SameEnergy*nevent_BH)
 
       ! (5) boost back to nucleus frame
-      call lorentz(-b3,p,"BH 5.1")
-      call lorentz(-b3,p_p,"BH 5.2")
-      call lorentz(-b2,p,"BH 5.3")
-      call lorentz(-b2,p_p,"BH 5.4")
-      call lorentz(-b1,p,"BH 5.5")
-      call lorentz(-b1,p_p,"BH 5.6")
+      call lorentz(-b3,p)
+      call lorentz(-b3,p_p)
+      call lorentz(-b2,p)
+      call lorentz(-b2,p_p)
+      call lorentz(-b1,p)
+      call lorentz(-b1,p_p)
       pdil(:,1)=p
       pdil(:,2)=p_p
       call CS(pdil,17,weight,mediumAtPosition%density,0)
@@ -2949,7 +3400,7 @@ contains
   contains
 
     ! structure functions
-    subroutine struct_func (ch, t, W1, W2)
+    subroutine struct_func(ch, t, W1, W2)
       use constants, only: mN
       use FF_QE_nucleonScattering, only: formfactors_QE
       use leptonicID, only: EM

@@ -100,7 +100,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -110,16 +110,16 @@ contains
     end if
 
 
-    if (sigma_particle%antiParticle.and.kaon_particle%antiParticle) then
+    if (sigma_particle%anti.and.kaon_particle%anti) then
        ! Both are antiparticles: s=0 scattering channel
        !
        ! Invert all particles in antiparticles
        sigma_particle%Charge        =  -sigma_particle%Charge
-       sigma_particle%antiparticle  = .false.
+       sigma_particle%anti  = .false.
        kaon_particle%Charge          =  -kaon_particle%Charge
-       kaon_particle%antiparticle  = .false.
+       kaon_particle%anti  = .false.
        antiParticleInput=.true.
-    else if ((.not.(sigma_particle%antiParticle)).and.(.not.(kaon_particle%antiParticle))) then
+    else if ((.not.(sigma_particle%anti)).and.(.not.(kaon_particle%anti))) then
        ! Both are no antiparticles : s=0 scattering channel
        antiParticleInput=.false.
     else
@@ -186,7 +186,7 @@ contains
 
     subroutine evaluateXsections
 
-      use parametrizationsBarMes, only: huang, huangd
+      use parametrizationBarMes, only: huang, huangd
       use clebschGordan, only: clebschSquared
       use output, only: writeparticle
       use constants, only: mN, mPi

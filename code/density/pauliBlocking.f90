@@ -7,7 +7,7 @@
 ! Pauli blocking of the test-particles.
 !******************************************************************************
 module PauliBlockingModule
-  use histf90
+  use hist
 
   implicit none
 
@@ -24,6 +24,7 @@ module PauliBlockingModule
   ! * 1 : dynamic Pauli blocking (use actual phase space densities)
   ! * 2 : analytic Pauli blocking (use ground state assumption)
   !   (not possible for Heavy Ions!)
+  ! * 3 : dynamic Pauli blocking in a box
   !****************************************************************************
 
   !****************************************************************************
@@ -136,7 +137,7 @@ contains
   ! OUTPUT
   ! * real, optional :: probabilityOut -- probability of blocking, i.e. occupation number
   !****************************************************************************
-  logical function pauliBlocking (momentum, position, Nukcharge, Teilchen, probabilityOut, weight)
+  logical function pauliBlocking(momentum, position, Nukcharge, Teilchen, probabilityOut, weight)
 
     use particledefinition
     use constants, only: pi, hbarc
@@ -177,8 +178,10 @@ contains
        if (present(probabilityOut)) probabilityOut=probability
     case (2) !Analytic Pauli Blocking
        call analyticPauli(pauliBlocking)
+    case (3) !Dynamic Pauli Blocking in a box
+       call dynamicPauliBox(pauliBlocking,probability)
     case default
-       write(*,*) 'This PauliSwitch is not valid:',PauliSwitch,'Choose 1 or 2!'
+       write(*,*) 'This PauliSwitch is not valid:',PauliSwitch
        call Traceback('Stop program')
     end select
 
@@ -187,9 +190,9 @@ contains
     !**************************************************************************
     ! Analytic Pauli Blocking according to Local Density Approximation
     ! Makes only sense if the nucleus stays in groundstate
-    ! Not for  heavy ions!!
+    ! Not for heavy ions!!
     !**************************************************************************
-    subroutine analyticPauli (pauliblocking)
+    subroutine analyticPauli(pauliblocking)
 
       use dichteDefinition
       use densityModule, only: densityAt, FermiMomAt
@@ -215,7 +218,7 @@ contains
       end select
       fermiMomentum=FermiMomAt(position,nukcharge)
       momSave=momentum
-      call lorentz(beta,momSave,'pauliBlocking') !boost momentum to lrf
+      call lorentz(beta,momSave) !boost momentum to lrf
       momAbs=abs3(momSave)
 
       pauliBlocking=(momAbs<fermiMomentum)
@@ -236,7 +239,7 @@ contains
     end subroutine analyticPauli
 
     !**************************************************************************
-    subroutine dynamicPauli (pauliBlocking, probability)
+    subroutine dynamicPauli(pauliBlocking, probability)
 
       use dichteDefinition
       use densityModule, only: densityAt
@@ -291,7 +294,7 @@ contains
             beta = density%proton(1:3)/density%proton(0)
          end if
          momSave=momentum
-         call lorentz(beta,momSave,'pauliBlocking') !boost momentum to lrf
+         call lorentz(beta,momSave) !boost momentum to lrf
          fermiMomentum=(3.*pi**2*dens)**(1./3.)*hbarc
          momAbs=sqrt(momSave(1)**2+momSave(2)**2+momSave(3)**2)
          MomentumCut=max(cutMom,fermiMomentum-momAbs)
@@ -306,17 +309,17 @@ contains
          do j=1,Size(Teilchen,dim=1) !loop over all ensembles
             if (Mod(j,ensembleJump)/=0) cycle !only consider every 5th ensemble
             !Check wether particle is a real nucleon of the considered charge
-            if (Teilchen(j,k)%perturbative.or.(Teilchen(j,k)%id/=nucleon) &
-                .or.(Teilchen(j,k)%charge/=Nukcharge).or.(Teilchen(j,k)%antiParticle)) cycle
+            if (Teilchen(j,k)%pert.or.(Teilchen(j,k)%id/=nucleon) &
+                .or.(Teilchen(j,k)%charge/=Nukcharge).or.(Teilchen(j,k)%anti)) cycle
             !distance to particles in momentum space
-            distMomSQR=(Teilchen(j,k)%momentum(1)-momentum(1))**2 &
-                      +(Teilchen(j,k)%momentum(2)-momentum(2))**2 &
-                      +(Teilchen(j,k)%momentum(3)-momentum(3))**2
+            distMomSQR=(Teilchen(j,k)%mom(1)-momentum(1))**2 &
+                      +(Teilchen(j,k)%mom(2)-momentum(2))**2 &
+                      +(Teilchen(j,k)%mom(3)-momentum(3))**2
             if (distMomSQR>cutMomSQR) cycle
             !distance to particles in position space
-            distPosSQR=(Teilchen(j,k)%position(1)-position(1))**2 &
-                      +(Teilchen(j,k)%position(2)-position(2))**2 &
-                      +(Teilchen(j,k)%position(3)-position(3))**2
+            distPosSQR=(Teilchen(j,k)%pos(1)-position(1))**2 &
+                      +(Teilchen(j,k)%pos(2)-position(2))**2 &
+                      +(Teilchen(j,k)%pos(3)-position(3))**2
             if (distPosSQR>=cutPosSqr) cycle
             index=NINT(Sqrt(distPosSQR)/deltaPos)
             !linear interpolation of weights
@@ -374,7 +377,7 @@ contains
       end do
 
       !Output
-      write(*,*) ' Print weights to pauliWeights.dat'
+      write(*,*) 'Print weights to "pauliWeights.dat"'
       open(15,file='pauliWeights.dat')
       write(15,*) '# Volume of phase space box=',volumeBox
       write(15,*) '# distance , weigth factor of nucleon at this distance'
@@ -384,6 +387,25 @@ contains
       close(15)
 
     end subroutine initWeights
+
+    !**************************************************************************
+    subroutine dynamicPauliBox(pauliBlocking, probability)
+
+      use random, only: rn
+      use densitymodule, only: distMomBox
+      use minkowski, only: abs3
+
+      logical, intent(out) :: pauliBlocking
+      real, intent(out)    :: probability
+      real :: momAbs ! absolute momentum
+
+      momAbs = abs3(momentum)
+      probability = distMomBox(momAbs,nukcharge)
+      pauliblocking = (probability > rn())
+
+!      write(*,*) 'Pauli: ',probability,pauliBlocking
+
+    end subroutine dynamicPauliBox
 
   end function pauliBlocking
 
@@ -436,10 +458,11 @@ contains
     NAMELIST /initPauli/ pauliSwitch, densDepMomCutFlag, Gauss, cutGauss, &
                          cutMom, cutPos, nGridPos, ensembleJump, DoHistogram
 
-    character(len=23), dimension(0:2), parameter :: NN = (/ &
+    character(len=23), dimension(0:3), parameter :: NN = (/ &
          'No Pauli blocking      ', &
          'Dynamic Pauli blocking ', &
-         'Analytic Pauli blocking' /)
+         'Analytic Pauli blocking', &
+         'Dynamic Pauli (Box)    ' /)
     integer :: ios
     type(tNucleus), pointer :: targetNuc
 
@@ -448,7 +471,7 @@ contains
     read(5,nml=initPauli,iostat=ios)
     call Write_ReadingInput('initPauli',0,ios)
 
-    if (pauliSwitch<0 .or. pauliSwitch>2) then
+    if (pauliSwitch<0 .or. pauliSwitch>3) then
        write(*,'(A,i3," = ",A)') ' pauliSwitch        = ',pauliSwitch,&
             ' STOP !!!'
        call Traceback()
@@ -456,9 +479,14 @@ contains
 
     if (pauliSwitch>0) then
        select case (eventType)
-       case (elementary, Box)
+       case (elementary)
           pauliSwitch = 0
-          write(*,*) ' ==> pauliSwitch is set to 0 for elementary target/Box'
+          write(*,*) ' ==> pauliSwitch is set to 0 for elementary target'
+       case (Box)
+          if (pauliSwitch.ne.3) then
+             pauliSwitch = 0
+             write(*,*) ' ==> pauliSwitch is set to 0 for Box'
+          end if
        case default
           targetNuc => getTarget()
           if (targetNuc%mass==1) then
@@ -482,14 +510,15 @@ contains
        write(*,*) 'DoHistogram        = ',DoHistogram
     end if
 
-    if (pauliSwitch == 1) then
+    select case (pauliSwitch)
+    case (1,3)
        if (numEnsembles < 100) then
           write(*,*)
           write(*,*) 'Dynamic Pauli Blocking needs smooth densities!'
           write(*,*) 'Increase numEnsembles in the jobcard to 100 or more.'
           call TraceBack()
        end if
-    end if
+    end select
 
     call Write_ReadingInput('initPauli',1)
 
@@ -529,8 +558,8 @@ contains
 
     ! Check for Pauli blocking of particles in final state
     do i=lbound(teilchen,dim=1),ubound(teilchen,dim=1)
-       if (teilchen(i)%ID==nucleon .and. .not.(teilchen(i)%Antiparticle)) then
-          if (pauliBlocking(teilchen(i)%momentum, teilchen(i)%position, &
+       if (teilchen(i)%ID==nucleon .and. .not.(teilchen(i)%anti)) then
+          if (pauliBlocking(teilchen(i)%mom, teilchen(i)%pos, &
                             teilchen(i)%charge, realParticles, &
                             weight=teilchen(i)%perweight)) then
              checkPauli=.false.

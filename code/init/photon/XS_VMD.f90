@@ -104,7 +104,9 @@ contains
     do i=1,4
        XS_Vp(i) = CXSa(i)*W2**epsilon+CXSb(i)*W2**eta
        if (i>1 .and. srts<mN+mV(i)) XS_Vp(i) = 0.0 ! vacuum thresholds
-       if (present(useVM).and.(.not.(useVM(i))))  XS_Vp(i) = 0.0
+       if (present(useVM)) then
+          if (.not.(useVM(i)))  XS_Vp(i) = 0.0
+       end if
     end do
 
 !...calculate the Dipole factor, the longitudal photon enh. factor
@@ -160,7 +162,7 @@ contains
   ! calculate the GVMD cross sections
   !****************************************************************************
   subroutine gvmd(srts,Q2,eps,siggvmd,useVM)
-    use parBarMes_HighEnergy
+    use parametrizationBarMes_HighEnergy
     use constants, only: alphaQED,pi, mN
 
     real,               intent(in)  :: srts,Q2,eps
@@ -197,7 +199,9 @@ contains
 
     do i=1,4 !...respect vacuum thresholds (attention: vacuum !!!!)
        if (i>1 .and. srts<mN+mV(i)) sigvec(i) = 0.0 ! vacuum thresholds
-       if (present(useVM).and.(.not.(useVM(i))))  sigvec(i) = 0.0
+       if (present(useVM)) then
+          if (.not.(useVM(i)))  sigvec(i) = 0.0
+       end if
     end do
 
     siggvmd(0)=0.

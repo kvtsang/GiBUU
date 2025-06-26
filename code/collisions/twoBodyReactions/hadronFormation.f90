@@ -442,42 +442,42 @@ contains
     logical,intent(in) :: finalFlag
     real :: tForma, timefak, CS0
 
-    if (finalflag) Part%in_Formation=.false. ! Force to hadronize NOW
+    if (finalflag) Part%inF=.false. ! Force to hadronize NOW
 
-    if (.not.Part%in_Formation) then
+    if (.not.Part%inF) then
        Part%scaleCS=1.
        return
     end if
 
-    if (time.lt.Part%productionTime+1.e-06) then
+    if (time.lt.Part%prodTime+1.e-06) then
        Part%scaleCS = 0
        return
     end if
     
     if(use_pCut) then
        if(absMom(Part).lt.pCut) then
-           Part%in_Formation=.false.
+           Part%inF=.false.
            Part%scaleCS = 1.
        else
-           Part%in_Formation=.true.
+           Part%inF=.true.
            Part%scaleCS = 0.
        end if
        return
     end if
 
-    if(useQDM) Part%formationTime=Part%productionTime+2.*absMom(Part)*hbarc/dM2
+    if(useQDM) Part%formTime=Part%prodTime+2.*absMom(Part)*hbarc/dM2
 
     ! If there was a problem in GetJetSetVec, we have set the
     ! FormationTime of the Particle to something <0.
     ! Therefore, also the reported production times are not in use.
 
-    if ((useJetSetVec.or.useQDM).and.Part%formationTime.ge.0.0) then
-       tForma = Part%formationTime
+    if ((useJetSetVec.or.useQDM).and.Part%formTime.ge.0.0) then
+       tForma = Part%formTime
     else
        ! This is called for particles with:
        ! useJetSetVec = .FALSE. or formationTime < 0,
        ! but only if in_Formation=.TRUE. !!!
-       tForma=Part%productionTime+freeEnergy(Part)/Part%mass*tauForma
+       tForma=Part%prodTime+freeEnergy(Part)/Part%mass*tauForma
     end if
 
     if (time.lt.tForma) then
@@ -488,13 +488,13 @@ contains
        if (powerCS==0.0) then
           Part%scaleCS = CS0
        else
-          timefak = (time-Part%productionTime)/(tForma-Part%productionTime)
+          timefak = (time-Part%prodTime)/(tForma-Part%prodTime)
           Part%scaleCS = CS0+(1.0-CS0)*timefak**powerCS
        end if
     else
        Part%scaleCS=1.
-       Part%in_Formation=.false.
-       if (Part%formationTime.lt.0.0)  Part%formationTime = time
+       Part%inF=.false.
+       if (Part%formTime.lt.0.0)  Part%formTime = time
     end if
 
   contains
@@ -561,12 +561,12 @@ contains
     real :: rL
 
     if (isPhoton(Part%ID)) then
-       Part%in_Formation=.false.
+       Part%inF=.false.
        Part%scaleCS=1.
        return
     end if
 
-    Part%in_Formation=.true.
+    Part%inF=.true.
     time = -99.9 ! dummy
 
     if(useQDM) then
@@ -576,7 +576,7 @@ contains
           Part%scaleCS=9.
        end if
        call SetQ_UseQ(HardScaleQ2)
-       time = Part%productionTime
+       time = Part%prodTime
        call performFormation(Part,time,.FALSE.)
        return
     end if
@@ -600,10 +600,10 @@ contains
        call PIL_FormInfo_PUT(Part%number, h)
 
        ! this is just a bad way to get the "time" when the event happened:
-       time = Part%productionTime
+       time = Part%prodTime
        
        if ((EArr(3,iPart)==6).and. .not.GuessDiffrTimes) then
-          Part%in_Formation=.false.
+          Part%inF=.false.
           Part%scaleCS=1.
           return
        end if
@@ -615,24 +615,24 @@ contains
 
           select case (useTimeFrom)
           case (0)
-             Part%productionTime = time                       ! interaction time
+             Part%prodTime = time                       ! interaction time
           case (1)
-             Part%productionTime = time + Arr(iSmaller,4,iPart)   ! smaller time
+             Part%prodTime = time + Arr(iSmaller,4,iPart)   ! smaller time
           case (2)
-             Part%productionTime = time + Arr(3-iSmaller,4,iPart) ! larger time
+             Part%prodTime = time + Arr(3-iSmaller,4,iPart) ! larger time
           case (3)
-             Part%productionTime = time + Arr(3,4,iPart)          ! formation time
+             Part%prodTime = time + Arr(3,4,iPart)          ! formation time
           end select
 
           select case (useTimeTo)
           case (0)
-             Part%formationTime = time                       ! interaction time
+             Part%formTime = time                       ! interaction time
           case (1)
-             Part%formationTime = time + Arr(iSmaller,4,iPart)   ! smaller time
+             Part%formTime = time + Arr(iSmaller,4,iPart)   ! smaller time
           case (2)
-             Part%formationTime = time + Arr(3-iSmaller,4,iPart) ! larger time
+             Part%formTime = time + Arr(3-iSmaller,4,iPart) ! larger time
           case (3)
-             Part%formationTime = time + Arr(3,4,iPart)          ! formation time
+             Part%formTime = time + Arr(3,4,iPart)          ! formation time
           end select
 
        case default ! ----- some severe problems with times:
@@ -641,32 +641,32 @@ contains
 
           select case (useTimeFrom)
           case (0)
-             Part%productionTime = time                  ! interaction time
+             Part%prodTime = time                  ! interaction time
           case (1)
              if (Part%scaleCS.gt.0.0) then
-                Part%productionTime = time
+                Part%prodTime = time
              else
-                Part%productionTime = time + gamma*tauProda
+                Part%prodTime = time + gamma*tauProda
              end if
           case (2)
-             Part%productionTime = time + gamma*tauProda
+             Part%prodTime = time + gamma*tauProda
           case (3)
-             Part%productionTime = time + gamma*tauForma ! formation time
+             Part%prodTime = time + gamma*tauForma ! formation time
           end select
 
           select case (useTimeTo)
           case (0)
-             Part%formationTime = time                  ! interaction time
+             Part%formTime = time                  ! interaction time
           case (1)
              if (Part%scaleCS.gt.0.0) then
-                Part%formationTime = time
+                Part%formTime = time
              else
-                Part%formationTime = time + gamma*tauProda
+                Part%formTime = time + gamma*tauProda
              end if
           case (2)
-             Part%formationTime = time + gamma*tauProda
+             Part%formTime = time + gamma*tauProda
           case (3)
-             Part%formationTime = time + gamma*tauForma ! formation time
+             Part%formTime = time + gamma*tauForma ! formation time
           end select
 
        end select

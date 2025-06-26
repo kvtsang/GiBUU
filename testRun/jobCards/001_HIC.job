@@ -5,19 +5,20 @@
 ! https://gibuu.hepforge.org
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
-        eventtype           =       1 ! Heavy Ion Collisions (low energy)
-        numEnsembles        =     200
-        num_runs_sameEnergy =       1
+      eventtype           =       1 ! Heavy Ion Collisions (low energy)
+      numEnsembles        =     200
+      num_runs_sameEnergy =       1
 
-        numTimeSteps        =     500
-        time_max            =   100.0
+      numTimeSteps        =     500
+      time_max            =   100.0
 
 !      DoPrLevel(1) = .FALSE. ! set this for production runs
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
-        path_To_Input   = '~/GiBUU/buuinput'
+      path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 
@@ -74,20 +75,20 @@
 
 ! file: ./database/particleProperties.f90
 &initDatabase
-      propagationSwitch = 0 ! 0=all resonances with more than 1 star
+      propagationSwitch = 0     ! 0=all resonances with more than 1 star
 /
 
 ! file: ./rmf/RMF.f90
 &RMF_input
-      RMF_flag  = T ! use relativistic mean field
-      N_set     = 3 ! Number of the parameter set
+      RMF_flag  = T             ! use relativistic mean field
+      N_set     = 3             ! Number of the parameter set
 !      fact_hyp =0.667 ! scaling factor for hyperon coupling
 !      fact_kaon=0.333 ! scaling factor for kaon coupling
 /
 
 ! file: ./density/density.f90
 &initDensity
-      densitySwitch       = 1          ! 1=dynamic density according to testparticle density
+      densitySwitch       = 1   ! 1=dynamic density according to testparticle density
       linearInterpolation = F
       gridSize            = 20, 20, 30 ! size of the box [fm]
       gridPoints          = 20, 20, 30 ! Number of grid points
@@ -98,7 +99,7 @@
 !      oneBodyProcesses        = F
 !      twoBodyProcesses        = F
       threeBodyProcesses      = F
-      energyCheck     =  0.100 ! accuracy of energy check in GeV
+      energyCheck     =  0.100  ! accuracy of energy check in GeV
       maxOut  =          20
 /
 
@@ -111,7 +112,7 @@
 
 ! file: ./collisions/twoBodyReactions/HiEnergy/DoCollTools.f90
 &pythia
-      PARP(91) = 0.44     ! width intrinsic kT
+      PARP(91) = 0.44           ! width intrinsic kT
 /
 
 ! file: ./collisions/phaseSpace/winkelVerteilung.f90

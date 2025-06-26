@@ -13,9 +13,9 @@ module ID_translation
   implicit none
   private
 
-  integer, parameter :: zero156 (156) = 0
+  integer, parameter :: zero156(156) = 0
 
-  integer, parameter :: kfbuu (122,-1:2) = reshape ( &   ! array of KF-codes for BUU |ID| and IZ
+  integer, parameter :: kfbuu(122,-1:2) = reshape ( &   ! array of KF-codes for BUU |ID| and IZ
     !--- BARYONS:
     (/     0,  2112,  2212,     0, &  !  1: N(938)
         1114,  2114,  2214,  2224, &  !  2: P33(1232) ****
@@ -110,7 +110,7 @@ module ID_translation
     ,(/122,4/), order=(/2,1/) )
 
 
-  integer, parameter :: kfbuuC (36,-1:3) = reshape ( &         ! compressed for reverse search
+  integer, parameter :: kfbuuC(36,-1:3) = reshape ( &         ! compressed for reverse search
     !--- BARYONS: (14 Entries)
     (/     0,  2112,  2212,     0,   1, &  !  N(938)
         1114,  2114,  2214,  2224,   2, &  !  P33(1232)
@@ -179,11 +179,11 @@ contains
   !****************************************************************************
   !****f* ID_translation/KFfromBUU
   ! NAME
-  ! function KFfromBUU1 (ID, IZ) result (KF)
+  ! function KFfromBUU1(ID, IZ) result (KF)
   ! PURPOSE
   ! translate from BUU code (ID,IZ) to Jetset code (KF)
   !****************************************************************************
-  pure function KFfromBUU1 (ID, IZ) result (KF)
+  pure function KFfromBUU1(ID, IZ) result (KF)
     integer, intent(in) :: ID, IZ
     integer :: KF
 
@@ -198,38 +198,67 @@ contains
   !****************************************************************************
   !****f* ID_translation/KFfromBUU2
   ! NAME
-  ! function KFfromBUU2 (part) result (KF)
+  ! function KFfromBUU2(part) result (KF)
   ! PURPOSE
   ! translate from BUU code to Jetset code (KF)
   !****************************************************************************
-  pure function KFfromBUU2 (part) result (KF)
+  pure function KFfromBUU2(part) result (KF)
     use particleDefinition
-    use IDTable, only: isHadron, photon
+    use IDTable, only: isHadron, photon, Zboson, Wboson, &
+         electron, electronNeutrino, muon, muonNeutrino, tau, tauNeutrino
     type(particle), intent(in) :: part
     integer :: KF
 
     if (isHadron(part%ID)) then
-      if (part%Antiparticle) then
-        KF = -kfbuu(part%ID,-part%charge)
-      else
-        KF = kfbuu(part%ID,part%charge)
-      end if
-    else if (part%ID==photon) then
-      KF = 22
+       if (part%anti) then
+          KF = -kfbuu(part%ID,-part%charge)
+       else
+          KF = kfbuu(part%ID,part%charge)
+       end if
     else
-      KF = -99999
+       select case(part%ID)
+       case (photon)
+          KF = 22
+       case (Zboson)
+          KF = 23
+       case (Wboson)
+          KF = 24
+          if (part%charge < 0) KF = -KF
+       case (electron)
+          KF = 11
+          if (part%charge > 0) KF = -KF
+       case (muon)
+          KF = 13
+          if (part%charge > 0) KF = -KF
+       case (tau)
+          KF = 15
+          if (part%charge > 0) KF = -KF
+       case (electronNeutrino)
+          KF = 12
+          if (part%anti) KF = -KF
+       case (muonNeutrino)
+          KF = 14
+          if (part%anti) KF = -KF
+       case (tauNeutrino)
+          KF = 16
+          if (part%anti) KF = -KF
+
+       case default
+          KF = -99999
+       end select
     end if
+
   end function KFfromBUU2
 
 
   !****************************************************************************
   !****s* ID_translation/KFtoBUU
   ! NAME
-  ! subroutine KFtoBUU (KF, ID, IZ)
+  ! subroutine KFtoBUU(KF, ID, IZ)
   ! PURPOSE
   ! Translate from Jetset code (KF) to BUU code (ID,IZ).
   !****************************************************************************
-  pure subroutine KFtoBUU (KF, ID, IZ)
+  pure subroutine KFtoBUU(KF, ID, IZ)
     use idTable, only: photon, electron
     integer, intent(in) :: KF
     integer, intent(out) :: ID, IZ
@@ -311,12 +340,12 @@ contains
   !****************************************************************************
   !****f* ID_translation/BUUKFDeltaQ
   ! NAME
-  ! integer function BUUKFDeltaQ (deltaQ, ID, IZ) result(iQ)
+  ! integer function BUUKFDeltaQ(deltaQ, ID, IZ) result(iQ)
   ! PURPOSE
   ! return the maximal possible charge correction (iQ) into the direction
   ! (deltaQ) for particle (ID,IZ)
   !****************************************************************************
-  integer function BUUKFDeltaQ (deltaQ, ID, IZ) result(iQ)
+  integer function BUUKFDeltaQ(deltaQ, ID, IZ) result(iQ)
     use idTable, only: photon, isBaryon, isMeson
     use CallStack, only: traceback
     integer, intent(in) :: deltaQ, ID, IZ

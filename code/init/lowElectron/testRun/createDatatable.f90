@@ -34,7 +34,7 @@ program createDataTable
   inPart%ID    = 1
   inPart%Charge= 1
   inPart%mass  = 0.938
-  inPart%momentum(0) = 0.938
+  inPart%mom(0) = 0.938
 
   call WriteParticle(6,1,1,inpart)
 

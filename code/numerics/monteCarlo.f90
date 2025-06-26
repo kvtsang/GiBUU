@@ -39,6 +39,7 @@ contains
   integer function MonteCarloChoose(a, total)
     use random, only: rn
     use callStack, only: traceback
+    use ieee_arithmetic, only: ieee_is_nan
 
     real, dimension(:), intent(in) :: a
     real, intent(out), optional :: total
@@ -47,6 +48,7 @@ contains
     integer :: i
 
     tot=sum(abs(a))
+    if (ieee_is_nan(tot)) tot=0. ! quick'n'dirty
 
     if (present(total)) total = 0.
     MonteCarloChoose = 0 ! indicating failure
@@ -63,6 +65,8 @@ contains
        end if
     end do
 
+    write(*,*) tot,r,x
+    write(*,*) a
     call traceback('No decision has been performed!')
 
   end function MonteCarloChoose
