@@ -80,8 +80,8 @@ program TestIntegral
   TargetNuc%ID = 1
   TargetNuc%charge = cTarget
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
 
   !...Set up the event type
@@ -192,7 +192,7 @@ contains
 
     call getEleptonLimits(IP,eNev,xmin,xmax)
 
-    hh1 = eNev%lepton_in%momentum(0)
+    hh1 = eNev%lepton_in%mom(0)
     hh2 = 0.938*hh1/(0.938+(1-cost)*hh1)
 
     write(*,*) 'Eprime <=',hh2,hh1
@@ -232,7 +232,7 @@ contains
 
     call getEleptonLimits(IP,eNev,xmin,xmax)
 
-    hh1 = eNev%lepton_in%momentum(0)
+    hh1 = eNev%lepton_in%mom(0)
     hh2 = 0.938*hh1/(0.938+(1-cost)*hh1)
 
     write(*,*) 'Eprime <=',hh2,hh1

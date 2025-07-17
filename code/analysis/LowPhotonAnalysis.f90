@@ -156,9 +156,38 @@ module LowPhotonAnalysis
   ! analysis.
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* lowPhotonAnalysis/eta_analysis
+  ! SOURCE
+  !
+  logical, save :: eta_analysis = .false.
+  ! PURPOSE
+  ! Do analysis of eta mesons
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* lowPhotonAnalysis/MissingMass_analysis
+  ! SOURCE
+  !
+  logical, save :: MissingMass_analysis = .false.
+  ! PURPOSE
+  ! Do analysis of missing mass distributions for 1 nucleon and 2 nucleon
+  ! final states
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* lowPhotonAnalysis/DoOutChannels
+  ! SOURCE
+  !
+  logical, save :: DoOutChannels = .false.
+  ! PURPOSE
+  ! switch on/off: reporting of all final state channels
+  !****************************************************************************
+
+
   logical, save :: initFlag=.true.
 
- contains
+contains
 
   !****************************************************************************
   !****s* lowPhotonAnalysis/readinput
@@ -196,13 +225,17 @@ module LowPhotonAnalysis
     ! * pi0gamma_massres_sigma
     ! * pi0gamma_massres_tau
     ! * Ekin_pi0_cut
+    ! * eta_analysis
+    ! * MissingMass_analysis
+    ! * DoOutChannels
     !**************************************************************************
     NAMELIST /lowPhotonAnalysis/ outputEvents, outputEvents_onlyFree, &
          KruscheOutput, kruscheAnalyse_cut, &
          fissumOutput, photonAnalyse, twoPiOutput, &
          pi0gamma_analysis, pi0gamma_momcut, pi0gamma_masscut, &
          pi0gamma_mombin, &
-         pi0gamma_massres_sigma, pi0gamma_massres_tau, Ekin_pi0_cut
+         pi0gamma_massres_sigma, pi0gamma_massres_tau, Ekin_pi0_cut, &
+         eta_analysis, MissingMass_analysis, DoOutChannels
 
     call Write_ReadingInput('lowPhotonAnalysis',0)
     rewind(5)
@@ -211,7 +244,7 @@ module LowPhotonAnalysis
        if (outputEvents_onlyFree) then
           write(*,*) 'All events are printed to files!                   '
        else
-          write(*,*) 'All events are printed to files (but only the free particles)'
+          write(*,*) 'All events are printed to files (but only free particles)'
        end if
     else
        write(*,*) 'Events are NOT printed to files!                   '
@@ -237,6 +270,10 @@ module LowPhotonAnalysis
        write(*,'(A,1F7.4)') ' pi0 kinetic energy cut                     ?', &
             Ekin_pi0_cut
     end if
+    write(*,*) 'Perform eta analysis                       ?', eta_analysis
+    write(*,*) 'Perform missing mass  analysis             ?', MissingMass_analysis
+
+    write(*,*) 'DoOutChannels    : ',DoOutChannels
 
     call Write_ReadingInput('lowPhotonAnalysis',0,IOS)
 
@@ -247,9 +284,9 @@ module LowPhotonAnalysis
   !****************************************************************************
   !****s* LowPhotonAnalysis/analyze_Photon
   ! NAME
-  !  subroutine analyze_Photon(teilchen,finalFlag)
+  !  subroutine analyze_Photon(Parts,finalFlag)
   ! INPUTS
-  !  * type(particle), dimension(:,:) :: teilchen -- particle vector
+  !  * type(particle), dimension(:,:) :: Parts -- particle vector
   !  * logical, :: finalFlag -- .true. if it is the last call for one
   !    specific energy, therefore final output must be made.
   ! OUTPUT
@@ -257,13 +294,13 @@ module LowPhotonAnalysis
   ! PURPOSE
   ! Main routine for the analysis. Calls all subroutines.
   !****************************************************************************
-  subroutine analyze_Photon(teilchen,finalFlag)
+  subroutine analyze_Photon(Parts,finalFlag)
 
     use lowElectronAnalysis, only: lowElectron_Analyze
     use particleDefinition
     use initLowPhoton, only: getTwoPi,getResonances,getSinglePi, getPi0Eta
 
-    type(particle), dimension(:,:), intent(in)  :: teilchen
+    type(particle), dimension(:,:), intent(in)  :: Parts
     logical, intent (in)                        :: finalFlag
 
     if (initFlag) then
@@ -272,20 +309,27 @@ module LowPhotonAnalysis
     end if
 
     if (getTwoPi().and.TwoPiOutput) then
-       call twoPi_outPut(teilchen,finalFlag)
-       call twoPi_outPut_hist(teilchen,finalFlag)
+       call twoPi_outPut(Parts,finalFlag)
+       call twoPi_outPut_hist(Parts,finalFlag)
     end if
 
     if (getResonances().or.getSinglePi().or.getTwoPi().or.getpi0Eta()) &
-         call lowElectron_Analyze(teilchen,finalFlag)
+         call lowElectron_Analyze(Parts,finalFlag)
     if ((getResonances().or.getSinglePi().or.getTwoPi()).and.KruscheOutput) &
-         call kruscheAnalyse(teilchen,finalFlag)
+         call kruscheAnalyse(Parts,finalFlag)
     if ((getResonances().or.getSinglePi().or.getTwoPi()).and.FissumOutput) &
-         call fissumAnalyse(teilchen,finalFlag)
+         call fissumAnalyse(Parts,finalFlag)
 
     ! Metag Omega Experiment
-    if (photonAnalyse .or. outputEvents) call photonFS_Analyse (teilchen)
-    if (pi0gamma_analysis) call pi0gamma_analyze (teilchen)
+    if (photonAnalyse .or. outputEvents .or. DoOutChannels .or. MissingMass_analysis) &
+         call photonFS_Analyse(Parts,finalFlag)
+
+    if (pi0gamma_analysis) &
+         call pi0gamma_analyze(Parts)
+
+    if (eta_analysis) &
+         call etaAnalyse(Parts,finalFlag)
+
 
   end subroutine analyze_Photon
 
@@ -294,38 +338,50 @@ module LowPhotonAnalysis
   !****************************************************************************
   !****s* LowPhotonAnalysis/photonFS_Analyse
   ! NAME
-  ! subroutine photonFS_Analyse(p)
+  ! subroutine photonFS_Analyse(Parts)
   ! INPUTS
-  !  * type(particle), target, dimension(:,:) :: p --- particle vector
-  ! OUTPUT for "outputEvents"
-  ! * Prints all events to a file called 'FinalEvents.dat'
-  ! * Events stemming from omega, rho or phi production are printed to
-  ! seperate files 'FinalEvents.rho.dat', ...
-  ! OUTPUT for "photonAnalyse"
-  ! * Produces files called Photons_m2_vs_m3*.dat and Photons_dsigma_dm*.dat.
-  ! * The first one contains the distribution of the invariant mass of all
-  !   3 gamma combinations vs the inv. mass of all 2gamma combinations.
-  ! * The second one contains the cross section dSigma/dm vs the mass of
-  !   3 gammas.
+  ! * type(particle), target, dimension(:,:) :: Parts --- particle vector
+  ! * logical, finalFlag -- .true. if it is the last call for one specific
+  !   energy, therefore final output must be made.
+  ! OUTPUT
+  ! if "outputEvents" is true:
+  !  * Prints all events to a file called 'FinalEvents.dat'
+  !  * Events stemming from omega, rho or phi production are printed to
+  !    seperate files 'FinalEvents.rho.dat', ...
+  ! if "photonAnalyse" is true:
+  !  * Produces files called Photons_m2_vs_m3*.dat and Photons_dsigma_dm*.dat.
+  !  * The first one contains the distribution of the invariant mass of all
+  !    3 gamma combinations vs the inv. mass of all 2gamma combinations.
+  !  * The second one contains the cross section dSigma/dm vs the mass of
+  !    3 gammas.
   ! PURPOSE
   ! Groups all final state particles into events and writes them to file
   !****************************************************************************
-  subroutine photonFS_Analyse(p)
+  subroutine photonFS_Analyse(Parts,finalFlag)
     use inputGeneral, only: current_run_number
     use particleDefinition
-    use lowElectron, only: le_get_FirstEventRange
+    use initLowElectron, only: le_get_FirstEventRange
     use Electron_origin, only: le_isOmegaEvent,le_ispi0etaEvent, &
          & le_isRhoEvent, &
          & le_isPiPiEvent,le_isResEvent,le_isPhiEvent
     use AnaEventDefinition
     use AnaEvent, only: event_init, event_dump, event_add, event_clear, &
          event_pairPhotons
-    use hist2Df90
-    use histf90
+    use hist2D
+    use hist
+    use PreEvListDefinition
+    use PreEvList, only: CreateSortedPreEvent, PreEvList_CLEAR, PreEvList_INIT,&
+         PreEvList_INSERT, PreEvList_Print
+    use callStack, only: traceback
+    use output, only: inttochar4
+    use initLowPhoton, only: getEnergyGamma
 
-    type(particle), target, dimension(:,:) :: p
+    type(particle), target, dimension(:,:) :: Parts
+    logical, intent(in) :: finalFlag
+
+
     integer, dimension (1:2) :: firstEvents
-    type(particle), POINTER :: particlePointer
+    type(particle), POINTER :: pPart
     type(histogram2D), dimension(0:6),save :: Hist_massPhotons
     type(histogram), dimension(0:6,0:8),save :: dsigma_dm_threeGammas
 
@@ -333,16 +389,32 @@ module LowPhotonAnalysis
     type(tAnaEvent), allocatable, dimension(:) :: events_rho,events_phi,events_omega ! A list of all events coming from rho, phi, omega
     type(tAnaEvent), allocatable, dimension(:) :: events_pipi,events_pi0eta,events_res! A list of all events coming from pi pi, pi0 eta,resonance production
 
-    integer        :: i,j,first
-    character(100) :: filename
+    type(tPreEvListEntry), save :: preEv
+    type(tPreEvList), save :: ListPreEv
 
+    integer        :: i,j,first
+    logical, save  :: initFlag=.true.
+    integer, save  :: nCall = 0, nCall0 = 0
+    real :: mul0, Egamma
+
+
+    ! (0) Global set up
+    !
+    if (initFlag) then
+       call PreEvList_INIT(ListPreEv)
+       nCall = 0
+       nCall0 = nCall0+1
+       initFlag = .false.
+    end if
+
+    nCall = nCall+1
 
     ! (1) Setting up the particles into the events
     ! This is done with the help of %firstIndex:
     ! Particles stemming from the same event get in the init the same
     ! %firstIndex entry. During the run %firstinit stays constant and is
     ! inherited during collisions.
-
+    !
     firstEvents=le_get_FirstEventRange()
     write(*,*) 'firstEvents',firstEvents
 
@@ -364,25 +436,26 @@ module LowPhotonAnalysis
        call event_init(events_res(i))
     end do
 
-    do i=lbound(p,dim=1),ubound(p,dim=1)
-       do j=lbound(p,dim=2),ubound(p,dim=2)
-          if (p(i,j)%ID.le.0) cycle
-          first=p(i,j)%firstEvent
-          particlePointer=>p(i,j)
+    do i=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       do j=lbound(Parts,dim=2),ubound(Parts,dim=2)
+          if (Parts(i,j)%ID.le.0) cycle
+          pPart => Parts(i,j)
+          first = pPart%firstEvent
+
           ! Add particle to the event with its firstEvent index.
-          call event_add(events(first),particlePointer)
+          call event_add(events(first),pPart)
           if (le_isOmegaEvent(first)) &
-               call event_add(events_omega(first), particlePointer)
+               call event_add(events_omega(first), pPart)
           if (le_isRhoEvent(first)) &
-               call event_add(events_rho(first), particlePointer)
+               call event_add(events_rho(first), pPart)
           if (le_isPhiEvent(first)) &
-               call event_add(events_phi(first), particlePointer)
+               call event_add(events_phi(first), pPart)
           if (le_isPiPiEvent(first)) &
-               call event_add(events_pipi(first), particlePointer)
+               call event_add(events_pipi(first), pPart)
           if (le_isResEvent(first)) &
-               call event_add(events_res(first), particlePointer)
+               call event_add(events_res(first), pPart)
           if (le_ispi0etaEvent(first)) &
-               call event_add(events_pi0eta(first), particlePointer)
+               call event_add(events_pi0eta(first), pPart)
        end do
     end do
 
@@ -415,37 +488,47 @@ module LowPhotonAnalysis
     if (outputEvents) then
        write(*,*) 'Writing events to file'
 
-      filename='FinalEvents.dat'
-      call event_dump(current_run_number,events,filename,&
-           outputEvents_onlyFree)
+       call event_dump(current_run_number,events,&
+            'FinalEvents.dat',outputEvents_onlyFree)
+       call event_dump(current_run_number,events_rho,&
+            'FinalEvents.rho.dat',outputEvents_onlyFree)
+       call event_dump(current_run_number,events_omega,&
+            'FinalEvents.omega.dat',outputEvents_onlyFree)
+       call event_dump(current_run_number,events_phi,&
+            'FinalEvents.phi.dat',outputEvents_onlyFree)
+       call event_dump(current_run_number,events_pipi,&
+            'FinalEvents.pipi.dat',outputEvents_onlyFree)
+       call event_dump(current_run_number,events_res,&
+            'FinalEvents.res.dat',outputEvents_onlyFree)
+       call event_dump(current_run_number,events_pi0eta,&
+            'FinalEvents.pi0eta.dat',outputEvents_onlyFree)
 
-      filename='FinalEvents.rho.dat'
-      call event_dump(current_run_number,events_rho,filename,&
-           outputEvents_onlyFree)
-
-      filename='FinalEvents.omega.dat'
-      call event_dump(current_run_number,events_omega,filename,&
-           outputEvents_onlyFree)
-
-      filename='FinalEvents.phi.dat'
-      call event_dump(current_run_number,events_phi,filename,&
-           outputEvents_onlyFree)
-
-      filename='FinalEvents.pipi.dat'
-      call event_dump(current_run_number,events_pipi,filename,&
-           outputEvents_onlyFree)
-
-      filename='FinalEvents.res.dat'
-      call event_dump(current_run_number,events_res,filename,&
-           outputEvents_onlyFree)
-
-      filename='FinalEvents.pi0eta.dat'
-      call event_dump(current_run_number,events_pi0eta,filename,&
-           outputEvents_onlyFree)
     end if
 
+    ! (4) Group events by their final state
 
-    ! (4) Clean Up:
+    if (DoOutChannels) then
+
+       do i=firstEvents(1),firstEvents(2)
+
+          if (CreateSortedPreEvent(events(i),PreEv%preE)) then
+             PreEv%weight = events(i)%Parts%first%V%perweight
+             call PreEvList_INSERT(ListPreEv,PreEv)
+          end if
+
+       end do
+
+    end if
+
+    ! (5) do missing mass analysis for 1- and 2-proton final states
+
+    if (MissingMass_analysis) then
+
+       call doMissingMass()
+
+    end if
+
+    ! (*) Clean Up:
     !     Clear event lists and deallocate memory
 
     do i=firstEvents(1),firstEvents(2)
@@ -466,36 +549,160 @@ module LowPhotonAnalysis
     deallocate(Events_res)
     deallocate(Events_pi0eta)
 
+
+    ! (*) Global clean up (prepare for next energy)
+    if (finalFlag) then
+
+       ! now we are doing finally some of the output...
+
+       if (DoOutChannels) then
+          write(*,*) 'nCall=',nCall,nCall0
+          mul0 = 1.0/nCall
+
+          Egamma = getEnergyGamma()
+
+          open(141,file='OutChannels.FINAL.'//inttochar4(nCall0)//'.dat', status='unknown')
+          rewind(141)
+          Egamma = getEnergyGamma()
+          write(141,"(A,f8.4)") "# E_gamma =",Egamma
+          call PreEvList_Print(141,ListPreEv,mul0)
+          close(141)
+
+          call PreEvList_CLEAR(ListPreEv)
+
+!          call traceback("mutliple energies not yet implemented")
+       end if
+
+       initFlag = .true.
+    end if
+
+
+  contains
+
+    subroutine doMissingMass
+
+      use AnaEvent, only: event_getParticle
+      use hist_multipleRuns_mc
+      use output, only: realToChar4
+
+      integer :: i
+      type(particle) :: p1,p2
+      logical :: flagOK
+      real, dimension(0:3) :: mom
+      real :: missMass2
+      integer :: nPi
+      logical, save :: initFlag = .true.
+
+      type(histogram_mr_mc),save :: dN1dMM2
+
+      if (initFlag) then
+         call CreateHist_mr_mc(dN1dMM2, 'dN/dM^2', -2.0,1.0,0.005,4)
+
+         dN1dMM2%total%ydesc(1:4) = (/ ' 0pi', ' 1pi', ' 2pi', '>2pi' /)
+         dN1dMM2%total%xdesc = 'miss mass^2 [GeV^2]'
+         initFlag = .false.
+      end if
+
+      call startRunHist_mr_mc(dN1dMM2)
+
+      Egamma = getEnergyGamma()
+
+      do i=firstEvents(1),firstEvents(2)
+
+         nPi = sum(events(i)%nParts(1,:))
+         nPi = min(nPi,3)
+
+
+         select case (sum(events(i)%nParts(9,:)))
+         case (1)
+
+            flagOK = event_getParticle(events(i), 1,1, 1, p1, .false.)
+            if (.not.flagOK) &
+                 flagOK = event_getParticle(events(i), 1,0, 1, p1, .false.)
+            if (.not.flagOK) &
+                 call traceback("could not find the nucleon")
+
+            mom = (/ Egamma + 0.938, 0., 0., Egamma /) ! mass of free nucleon
+            mom = mom - p1%mom
+
+            missMass2 = mom(0)**2-sum(mom(1:3)**2)
+
+            write(*,*) 'missMass [1] = ',missMass2,nPi
+            call AddHist_mr_mc(dN1dMM2, missMass2, nPi+1, p1%perweight)
+
+         case (2)
+
+            flagOK = event_getParticle(events(i), 1,1, 1, p1, .false.)
+            if (.not.flagOK) then
+               flagOK = event_getParticle(events(i), 1,0, 1, p1, .false.)
+               if (.not.flagOK) &
+                    call traceback("could not find the first nucleon")
+               flagOK = event_getParticle(events(i), 1,0, 2, p2, .false.)
+               if (.not.flagOK) &
+                    call traceback("could not find the second nucleon")
+            else
+               flagOK = event_getParticle(events(i), 1,1, 2, p2, .false.)
+               if (.not.flagOK) then
+                  flagOK = event_getParticle(events(i), 1,0, 1, p2, .false.)
+                  if (.not.flagOK) &
+                       call traceback("could not find the second nucleon")
+               end if
+            end if
+
+            mom = (/ Egamma + 11.17, 0., 0., Egamma /) ! mass of C12
+            mom = mom - p1%mom - p2%mom
+
+            missMass2 = mom(0)**2-sum(mom(1:3)**2)
+
+            write(*,*) 'missMass [2] = ',missMass2,nPi
+
+         case default
+         end select
+
+      end do
+
+      call endRunHist_mr_mc(dN1dMM2)
+
+      call WriteHist_mr_mc(dN1dMM2,978,&
+           & file='missmass1_'//realToChar4(ANINT(Egamma*1000.))//'_MeV.dat')
+
+      if (finalFlag) then
+         call removeHist_mr_mc(dN1dMM2)
+         initFlag = .true.
+      end if
+
+    end subroutine doMissingMass
+
   end subroutine photonFS_Analyse
 
 
   !****************************************************************************
   !****s* LowPhotonAnalysis/pi0gamma_analyze
   ! NAME
-  ! subroutine pi0gamma_analyze(p)
+  ! subroutine pi0gamma_analyze(Parts)
   ! INPUTS
-  ! * type(particle), target, dimension(:,:) :: p -- particle vector
+  ! * type(particle), target, dimension(:,:) :: Parts -- particle vector
   ! OUTPUT
   ! * Produces an invariant mass spectrum of all pi0 gamma pairs in the final
   !   state and writes it to a file called 'pi0gamma_dsigma_dm.dat'
   !****************************************************************************
-  subroutine pi0gamma_analyze (p)
+  subroutine pi0gamma_analyze(Parts)
     use particleDefinition
     use particlePointerListDefinition
     use AnaEventDefinition
     use IDTable, only: pion, photon
     use minkowski, only: abs4,abs3
     use anaEvent, only: event_init, event_add, event_clear
-    use lowElectron, only: le_get_FirstEventRange
-    use histf90, only: histogram, CreateHist, AddHist, WriteHist, &
+    use initLowElectron, only: le_get_FirstEventRange
+    use hist, only: histogram, CreateHist, AddHist, WriteHist, &
          WriteHist_Gauss, WriteHist_Novo
     use inputGeneral, only: num_Runs_sameEnergy, num_Energies
     use initLowPhoton, only: getEnergyGamma, getDeltaEnergy, energyWeight
     use constants, only: rhoNull
     use PIL_omegaDec, only: PIL_omegaDec_GET
 
-    type(particle), dimension(:,:), target :: p
-    type(particle), pointer :: pp
+    type(particle), dimension(:,:), target :: Parts
+    type(particle), pointer :: pPart
     type(tParticleListNode), pointer :: p_pi, p_gam
     type(tAnaEvent), Allocatable, dimension(:) :: pions, photons
     type(histogram),save :: dsigma_dm, dsigma_dm_momcut, dsigma_dp, dsigma_dE, &
@@ -545,22 +752,25 @@ module LowPhotonAnalysis
     end do
 
     ! loop over all particles and construct events
-    do i=lbound(p,dim=1),ubound(p,dim=1)
-       do j=lbound(p,dim=2),ubound(p,dim=2)
-        !!! write out mass distribution to reproduce Muehlich fig. 9.14.
-        !!!if (p(i,j)%ID==omegaMeson) write(667,'(i12,3G12.7)') p(i,j)%number, abs4(p(i,j)%momentum), abs3(p(i,j)%momentum), &
-        !!!                                                     p(i,j)%momentum(0)
-          ! keep only pions and photons
-          if (p(i,j)%ID/=pion .and. p(i,j)%ID/=photon) cycle
-          pp => p(i,j)
-          first=pp%firstEvent
+    do i=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       do j=lbound(Parts,dim=2),ubound(Parts,dim=2)
+
+          pPart => Parts(i,j)
+
+!!! write out mass distribution to reproduce Muehlich fig. 9.14.:
+!!!if (pPart%ID==omegaMeson) write(667,'(i12,3G12.7)') pPart%number, abs4(pPart%mom), abs3(pPart%mom), pPart%mom(0)
+
+          ! keep only pions and photons:
+          if (pPart%ID/=pion .and. pPart%ID/=photon) cycle
+
+          first=pPart%firstEvent
           ! Add particle to the event with its firstEvent index.
-          if (pp%ID == pion .and. pp%charge == 0 .and. &
-               kineticEnergy(pp)>Ekin_pi0_cut) then
-             call event_add(pions (first), pp)
+          if (pPart%ID == pion .and. pPart%charge == 0 .and. &
+               kineticEnergy(pPart)>Ekin_pi0_cut) then
+             call event_add(pions(first), pPart)
              num_pi=num_pi+1
-          else if (pp%ID == photon) then
-             call event_add(photons (first), pp)
+          else if (pPart%ID == photon) then
+             call event_add(photons(first), pPart)
              num_gam=num_gam+1
           end if
        end do
@@ -572,19 +782,19 @@ module LowPhotonAnalysis
     ! loop over all pi0 gamma pairs, make histogram of inv. mass
     do i=firstEvents(1),firstEvents(2)
        ! loop over all pions
-       p_pi => pions(i)%particleList%first
+       p_pi => pions(i)%Parts%first
        do
           if (.not. associated(p_pi)) exit
           ! loop over all gammas
-          p_gam => photons(i)%particleList%first
+          p_gam => photons(i)%Parts%first
           do
              if (.not. associated(p_gam)) exit
              ! invariant mass of pi0-gamma pair:
-             m     = abs4 (p_pi%V%momentum + p_gam%V%momentum)
+             m     = abs4(p_pi%V%mom + p_gam%V%mom)
              ! absolute 3-momentum of pi0-gamma pair:
-             pabs  = abs3 (p_pi%V%momentum + p_gam%V%momentum)
+             pabs  = abs3(p_pi%V%mom + p_gam%V%mom)
              ! total energy of pi0-gamma pair:
-             E_tot = p_pi%V%momentum(0) + p_gam%V%momentum(0)
+             E_tot = p_pi%V%mom(0) + p_gam%V%mom(0)
              ! kinetic energy of pi0-gamma pair:
              E_kin = E_tot - m
              w = p_pi%V%perweight/float(num_Runs_sameEnergy*num_Energies)
@@ -668,8 +878,8 @@ module LowPhotonAnalysis
     call WriteHist(decDensity, file='pi0gammaDecayDensity.dat')
 
     do i=firstEvents(1),firstEvents(2)
-      call event_clear(pions(i))
-      call event_clear(photons(i))
+       call event_clear(pions(i))
+       call event_clear(photons(i))
     end do
 
     deallocate(pions)
@@ -681,28 +891,30 @@ module LowPhotonAnalysis
   !****************************************************************************
   !****s* LowPhotonAnalysis/kruscheAnalyse
   ! NAME
-  ! subroutine kruscheAnalyse(p,finalFlag)
+  ! subroutine kruscheAnalyse(Parts,finalFlag)
   ! PURPOSE
   ! Evaluates the cross section for pi^0 production in the same way as Krusche
   ! in EPJA 22, 347 (2004)
   ! INPUTS
-  ! * type(particle), dimension(:,:) :: p -- particle vector
+  ! * type(particle), dimension(:,:) :: Parts -- particle vector
   ! * logical, finalFlag -- .true. if it is the last call for one specific
   !   energy, therefore final output must be made.
   ! OUTPUT
   ! * See 'KruscheAnalyse.dat' for Xsections and delta(E) histograms are given
   !   in 'deltaE_E_gamma_'//realToChar4(energy_gamma)//'_GeV.dat'
   !****************************************************************************
-  subroutine kruscheAnalyse(p,finalFlag)
+  subroutine kruscheAnalyse(Parts,finalFlag)
     use particleDefinition
     use output, only: realToChar4
     use initLowPhoton, only: energy_gamma
-    use histf90
+    use hist
     use IDTable, only: pion
 
-    type(particle), dimension(:,:) :: p
-    logical       , intent(in) :: finalFlag
+    type(particle), dimension(:,:), intent(in), target :: Parts
+    logical, intent(in) :: finalFlag
 
+
+    type(particle), pointer :: pPart
     integer, save         :: numberOfCalls=0 ! number of calls per energy
     logical, save         :: firstCall=.true.
     logical, save         :: initFlag=.true.
@@ -711,14 +923,15 @@ module LowPhotonAnalysis
 
     real           :: new, new_cut
     integer        :: i,j
-    !character(100) :: filename
     real           :: deltaE
     integer, dimension (1:2) :: count
 
     count=0
 
     if (firstCall) then
+
        initFlag=.true.
+
        !***********************************************************************
        !****o* kruscheAnalyse/KruscheAnalyse.dat
        ! NAME
@@ -747,9 +960,12 @@ module LowPhotonAnalysis
        write(11,*) '# E_gamma, sigma pi0, sigma pi0 after cut, error sigma pi0, error sigma pi0 after cut'
        write(12,*) '# E_gamma, sigma pi0, sigma pi0 after cut, error sigma pi0, error sigma pi0 after cut'
        firstCall=.false.
+
     else
+
        open(11,file='KruscheAnalyse.dat',position='append')
        open(12,file='KruscheAnalyse_prelim.dat',position='append')
+
     end if
 
     if (initFlag) then
@@ -768,26 +984,30 @@ module LowPhotonAnalysis
     new=0.
     new_cut=0.
 
-    do i=lbound(p,dim=1),ubound(p,dim=1)
-       do j=lbound(p,dim=2),ubound(p,dim=2)
+    do i=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       do j=lbound(Parts,dim=2),ubound(Parts,dim=2)
           ! Select all pi^0
-          if (p(i,j)%ID.ne.pion) cycle
-          if (p(i,j)%Charge.ne.0) cycle
-          new=new+p(i,j)%perweight
-          ! write momentum to histogram
-          call AddHist(hist_dp,absMom(p(i,j)),p(i,j)%perweight,1.)
+          if (Parts(i,j)%ID.ne.pion) cycle
+          if (Parts(i,j)%Charge.ne.0) cycle
 
-          deltaE=get_deltaE(p(i,j))
+          pPart => Parts(i,j)
+
+          new = new + pPart%perweight
+
+          ! write momentum to histogram
+          call AddHist(hist_dp,absMom(pPart),pPart%perweight,1.)
+
+          deltaE=get_deltaE(pPart)
           if (deltaE.gt.0) then
              count(1)=count(1)+1
           else
              count(2)=count(2)+1
           end if
           ! Write deltaE to histogram
-          call AddHist(hist_deltaE,deltaE,p(i,j)%perweight,1.)
+          call AddHist(hist_deltaE,deltaE,pPart%perweight,1.)
           ! Use deltaE to cut on the data
           if (deltaE.ge.kruscheAnalyse_cut) then
-             new_cut=new_cut+p(i,j)%perweight
+             new_cut=new_cut+pPart%perweight
           end if
        end do
     end do
@@ -862,8 +1082,8 @@ module LowPhotonAnalysis
       beta(1:2)=0.
 
       ! Boost particle momentum to gamma N CM System
-      mom=part%momentum(0:3)
-      call lorentz(beta,mom,'kruscheAnalyse/get_deltaE')
+      mom=part%mom(0:3)
+      call lorentz(beta,mom)
 
       ! Define Delta E according to eq. 4 in arXiv:nucl-ex/0406002v1 (June 2004)
       get_deltaE=mom(0) - get_EPion(energy_gamma)
@@ -904,18 +1124,18 @@ module LowPhotonAnalysis
   !****************************************************************************
   !****s* LowPhotonAnalysis/fissumAnalyse
   ! NAME
-  ! subroutine fissumAnalyse(p,finalFlag)
+  ! subroutine fissumAnalyse(Parts,finalFlag)
   ! PURPOSE
   ! Evaluates the cross section for pi^+ production in the same binnings as
   ! Fissum PRC 53,3 pages 1278ff. (19996)
   ! INPUTS
-  ! * type(particle), dimension(:,:) :: p -- particle vector
+  ! * type(particle), dimension(:,:) :: Parts -- particle vector
   ! * logical :: finalFlag -- .true. if it is the last call for one specific
   !   energy, therefore final output must be made.
   ! OUTPUT
   !
   !****************************************************************************
-  subroutine fissumAnalyse(p,finalFlag)
+  subroutine fissumAnalyse(Parts,finalFlag)
     use particleDefinition
     use output, only: realToChar4, realToChar
     use initLowPhoton, only: energy_gamma
@@ -923,8 +1143,10 @@ module LowPhotonAnalysis
     use hist_multipleRuns
     use IDTable, only: pion
 
-    type(particle), dimension(:,:) :: p
-    logical       , intent(in) :: finalFlag
+    type(particle), dimension(:,:), intent(in), target :: Parts
+    type(particle), pointer :: pPart
+
+    logical, intent(in) :: finalFlag
 
     logical, save         :: initFlag=.true.
 
@@ -932,10 +1154,10 @@ module LowPhotonAnalysis
     type(histogram_mr),save,dimension(1:4)  :: dsigmadThetadT_pi
     type(histogram_mr),save                 :: dsigmadTheta_greater17MeV
 
-
     integer        :: i,j,channel
     real           :: theta_lab
     real, dimension(1:4), parameter :: degs=(/51,81,109,141/)
+
     if (initFlag) then
        do i=1,4
           call CreateHist_mr(dsigmadThetadT_pi(i), &
@@ -954,24 +1176,26 @@ module LowPhotonAnalysis
     end do
     call startRunHist_mr(dsigmadTheta_greater17MeV)
 
-    do i=lbound(p,dim=1),ubound(p,dim=1)
-       do j=lbound(p,dim=2),ubound(p,dim=2)
+    do i=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       do j=lbound(Parts,dim=2),ubound(Parts,dim=2)
+
+          pPart => Parts(i,j)
 
           ! Select all pi^+
-          if ((p(i,j)%ID.ne.pion).or.(p(i,j)%Charge.ne.1)) cycle
+          if ((pPart%ID.ne.pion).or.(pPart%Charge.ne.1)) cycle
 
           ! Make histograms for pi^+
-          theta_lab=degrees(acos(p(i,j)%momentum(3)/absMom(p(i,j))))
+          theta_lab=degrees(acos(pPart%mom(3)/absMom(pPart)))
           ! write theta to histogram
-          if (kineticEnergy(p(i,j)).gt.0.017) &
+          if (kineticEnergy(pPart).gt.0.017) &
                call AddHist_mr(dsigmadTheta_greater17MeV, &
-               theta_lab,p(i,j)%perweight,1.)
+               theta_lab,pPart%perweight,1.)
 
           ! dsigma/dOmega/dT_pi at fixed angles:
           channelLoop: do channel=1,4
              if (abs(theta_lab-degs(channel)).lt.5.) then
                 call AddHist_mr(dsigmadThetadT_pi(channel),&
-                     kineticEnergy(p(i,j)),p(i,j)%perweight/10.,1.)
+                     kineticEnergy(pPart),pPart%perweight/10.,1.)
                 exit channelLoop
              end if
           end do channelLoop
@@ -992,20 +1216,178 @@ module LowPhotonAnalysis
     end do
 
     call WriteHist_mr(dsigmadTheta_greater17MeV,978,&
-            & file='fissum_dsigmadTheta_greater17MeV_Egamma_'//realToChar4(energy_gamma*1000.)//'_MeV.dat')
+         & file='fissum_dsigmadTheta_greater17MeV_Egamma_'//realToChar4(energy_gamma*1000.)//'_MeV.dat')
     if (finalFlag) call removeHist_mr(dsigmadTheta_greater17MeV)
 
     if (finalFlag) initFlag=.true.
 
   end subroutine fissumAnalyse
 
+  !****************************************************************************
+  !****s* LowPhotonAnalysis/etaAnalyse
+  ! NAME
+  ! subroutine etaAnalyse(Parts,finalFlag)
+  ! PURPOSE
+  ! ...
+  ! INPUTS
+  ! * type(particle), dimension(:,:) :: Parts -- particle vector
+  ! * logical :: finalFlag -- .true. if it is the last call for one specific
+  !   energy, therefore final output must be made.
+  ! OUTPUT
+  !
+  ! NOTES
+  ! the inclusive production cross sections are averaged over the different
+  ! runs.
+  !****************************************************************************
+  subroutine etaAnalyse(Parts,finalFlag)
+    use particleDefinition
+    use constants, only: mN
+    use output, only: realToChar4, realToChar, intToChar4
+    use initLowPhoton, only: energy_gamma
+    use IDTable, only: pion, eta
+    use Averager
+    use hist
+    use hist2D
+    use minkowski, only: abs4
+
+    type(particle), dimension(:,:), intent(in), target :: Parts
+    logical, intent(in) :: finalFlag
+
+    logical, save :: first = .true.
+    logical, save :: initFlag=.true.
+    integer, save  :: nCall = 0, nCall0 = 0
+
+    type(tAverager), save :: avePi, aveEta, aveEtaCut
+    type(histogram), save :: h_T
+    type(histogram2D), save :: h2D_Pos
+
+    integer :: i,j
+    real :: sumPi, sumEta, sumEtaCut, mul0, bT, missMass
+    real, dimension(1:3) :: pos
+    logical :: lMissMassCut
+    real :: w1, w2
+
+    real, dimension(0:3) :: pIn
+
+    character*(200) :: Buf
+
+    if (first) then
+
+       open(146,file='EtaAna_XS.dat', status='unknown')
+       write(146,*) '# E_gamma, sigma_pi, Err(sigma_pi), sigma_eta, Err(sigma_eta), sigma_eta^cut, Err(sigma_eta^cut)'
+       close(146)
+
+       if (useProductionPos) then
+          call CreateHist2D(h2D_Pos,"Production pos",(/0.,-10./),(/10.,10./),(/.1,.1/),.true.)
+       end if
+
+       call CreateHist(h_T,"T_kin", 0., 2., 0.01)
+
+       first = .false.
+    end if
+
+    if (initFlag) then
+       call AveragerClear(avePi)
+       call AveragerClear(aveEta)
+       call AveragerClear(aveEtaCut)
+
+       if (useProductionPos) then
+          call ClearHist2D(h2D_Pos)
+       end if
+
+       call ClearHist(h_T)
+
+       nCall = 0
+       nCall0 = nCall0+1
+       initFlag = .false.
+    end if
+
+    nCall = nCall+1
+
+    sumPi=0
+    sumEta = 0
+    sumEtaCut = 0
+
+    pIn = (/energy_gamma + mN, 0., 0., energy_gamma/)
+
+    do i=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       do j=lbound(Parts,dim=2),ubound(Parts,dim=2)
+
+          select case(Parts(i,j)%ID)
+          case (pion)
+             sumPi = sumPi + Parts(i,j)%perWeight
+
+          case (eta)
+
+             missMass = abs4(pIn - Parts(i,j)%mom) - mN
+             lMissMassCut = (missMass < 0.140)
+
+             w1 = Parts(i,j)%perWeight
+             w2 = 0.
+             if (lMissMassCut) w2 = w1
+
+             sumEta = sumEta + w1
+             sumEtaCut = sumEtaCut + w2
+
+             if (useProductionPos) then
+                pos = getProductionPos(Parts(i,j))
+                bT = sqrt(pos(1)**2+pos(2)**2)
+                call AddHist2D(h2D_Pos, (/bT,pos(3)/),w1/bT)
+             end if
+
+             call AddHist(h_T, kineticEnergy(Parts(i,j)), w1,w2)
+
+          end select
+
+       end do
+    end do
+
+    call AveragerAdd(avePi,  sumPi)
+    call AveragerAdd(aveEta, sumEta)
+    call AveragerAdd(aveEtaCut, sumEtaCut)
+
+
+
+    if (finalFlag) then
+
+       ! write stuff to file:
+
+       mul0 = 1.0/nCall
+
+       open(146,file='EtaAna_XS.dat', position='append')
+       write(146,'(f13.5,1P,6e13.5)') energy_gamma, &
+            AveragerMean(avePi),  AveragerStdDev(avePi), &
+            AveragerMean(aveEta), AveragerStdDev(aveEta), &
+            AveragerMean(aveEtaCut), AveragerStdDev(aveEtaCut)
+       close(146)
+
+       if (useProductionPos) then
+          call WriteHist2D_Gnuplot(h2D_Pos, &
+               file='eta_Pos.'//inttochar4(nCall0)//'.dat', &
+               mul=mul0, add=1e-20, dump=.true.)
+       end if
+
+       write(Buf,'(A," (nCall= ",i4,"; E_gamma=",f13.5,")")') &
+            "dN/dT_kin", nCall0,energy_gamma
+       call setNameHist(h_T,trim(Buf))
+       call WriteHist(h_T, &
+            file='eta_T.'//inttochar4(nCall0)//'.dat', &
+            mul=mul0, add=1e-20, dump=.true.)
+
+
+       initFlag=.true.
+    end if
+
+  end subroutine etaAnalyse
+
+
 
   !****************************************************************************
   !****s* LowPhotonAnalysis/twoPi_output
   ! NAME
-  ! subroutine twoPi_output(teilchen, finalFlag,elab)
+  ! subroutine twoPi_output(Parts, finalFlag,elab)
   ! INPUTS
-  ! * type(particle), dimension(:,:) :: teilchen -- particle vector
+  ! * type(particle), dimension(:,:) :: Parts -- particle vector
   ! * logical :: finalFlag -- .true. if it is the last call for one specific &
   !   energy, therefore final output must be made.
   ! * real, optional :: elab
@@ -1030,16 +1412,16 @@ module LowPhotonAnalysis
   ! If you want to use this routine for non photon-induced events, then you
   ! must provide "elab"!!!
   !****************************************************************************
-  subroutine twoPi_output(teilchen, finalFlag,elab)
+  subroutine twoPi_output(Parts, finalFlag,elab)
     use particleDefinition
     use idTable, only: pion
     use output, only: paragraph, realTochar4, intTochar
-    use initLowPhoton, only:energy_gamma,getCoordinate
-    use densityModule, only:densityAt
+    use initLowPhoton, only: energy_gamma,getCoordinate
+    use densityModule, only: densityAt
     use dichteDefinition, only: dichte
     use inputGeneral, only: fullEnsemble
 
-    type(particle), dimension(:,:), intent(in)  :: teilchen
+    type(particle), dimension(:,:), intent(in)  :: Parts
     logical, intent (in)                        :: finalFlag
     real, intent(in), optional :: elab
 
@@ -1097,13 +1479,14 @@ module LowPhotonAnalysis
 
     logical,save  :: initFlag=.true.
 
-    integer :: ensemble,index, second, secondEnsemble
+    integer :: iEns,iPart, iPart2, iEns2
     integer :: starter, endEnsemble
     integer :: indexMomentum,indexRadius
     real :: radius, deltaRadius,energy,pairMomentum
     real, dimension(1:3) :: originalCoordinate
     type(dichte) :: density
     logical, save :: veryFirstTime =.true.
+
     if (present(elab)) then
        energy=elab
     else
@@ -1156,34 +1539,34 @@ module LowPhotonAnalysis
        sigmadm_new_cut3(i,:)=0.
     end do
 
-    ensembleLoop :do ensemble=lbound(teilchen,dim=1),ubound(teilchen,dim=1)
-       indexLoop : do index=lbound(teilchen,dim=2),ubound(teilchen,dim=2)
+    ensembleLoop :do iEns=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       indexLoop : do iPart=lbound(Parts,dim=2),ubound(Parts,dim=2)
           flag=.false.
-          if (teilchen(ensemble,index)%ID.eq.pion) then
+          if (Parts(iEns,iPart)%ID.eq.pion) then
              !Search second Pion
              if (fullEnsemble) then
-                endEnsemble=ubound(teilchen,dim=1)
+                endEnsemble=ubound(Parts,dim=1)
              else
-                endEnsemble=ensemble
+                endEnsemble=iEns
              end if
 
-             ensembleLoop_2: do secondEnsemble=ensemble,endEnsemble
-                if (ensemble.eq.secondEnsemble) then
-                   if (index.eq.ubound(teilchen,dim=2)) then
+             ensembleLoop_2: do iEns2=iEns,endEnsemble
+                if (iEns.eq.iEns2) then
+                   if (iPart.eq.ubound(Parts,dim=2)) then
                       cycle ensembleLoop_2
                    else
-                      starter=index+1
+                      starter=iPart+1
                    end if
                 else
                    starter=1
                 end if
-                indexLoop_2: do second=starter,ubound(teilchen,dim=2)
-                   if ((teilchen(ensemble,index)%firstEvent.eq.teilchen(secondensemble,second)%firstEvent)&
-                        &.and.(teilchen(secondensemble,second)%ID.eq.pion)) then
-                      if (teilchen(ensemble,index)%perweight-teilchen(secondensemble,second)%perweight.gt.0.01) then
+                indexLoop_2: do iPart2=starter,ubound(Parts,dim=2)
+                   if ((Parts(iEns,iPart)%firstEvent.eq.Parts(iEns2,iPart2)%firstEvent)&
+                        &.and.(Parts(iEns2,iPart2)%ID.eq.pion)) then
+                      if (Parts(iEns,iPart)%perweight-Parts(iEns2,iPart2)%perweight.gt.0.01) then
                          write(*,*) 'Problems twoPion_output'
-                         write(*,*) teilchen(ensemble,index)%firstEvent,teilchen(secondensemble,second)%firstEvent
-                         write(*,*) teilchen(ensemble,index)%perweight, teilchen(secondensemble,second)%perweight
+                         write(*,*) Parts(iEns,iPart)%firstEvent,Parts(iEns2,iPart2)%firstEvent
+                         write(*,*) Parts(iEns,iPart)%perweight, Parts(iEns2,iPart2)%perweight
                          stop
                       end if
                       totalevents=totalevents+1
@@ -1195,14 +1578,14 @@ module LowPhotonAnalysis
           end if
 
           if (flag) then
-             ! Kan�le belegen :
+             ! Kanäle belegen :
              ! 1 PiNull PiNull
              ! 2 PiNull PiPlus
              ! 3 piNull piMinus
              ! 4 piPlus piMinus
              ! 5 PiPlus PiPlus
              ! 6 piMinus piMinus
-             charge= teilchen(ensemble,index)%charge+ teilchen(secondEnsemble,second)%charge
+             charge= Parts(iEns,iPart)%charge+ Parts(iEns2,iPart2)%charge
 
              select case (charge)
              case (-2)   !piMinus piMinus
@@ -1210,7 +1593,7 @@ module LowPhotonAnalysis
              case (-1)
                 kanal=3
              case (0)
-                if (teilchen(ensemble,index)%charge.ne.0) then
+                if (Parts(iEns,iPart)%charge.ne.0) then
                    kanal=4
                 else
                    kanal=1
@@ -1220,71 +1603,71 @@ module LowPhotonAnalysis
              case (2)
                 kanal=5
              end select
-             mom1= teilchen(ensemble,index)%momentum(1:3)
-             mom2= teilchen(secondensemble,second)%momentum(1:3)
+             mom1= Parts(iEns,iPart)%mom(1:3)
+             mom2= Parts(iEns2,iPart2)%mom(1:3)
 
 
              ! ######### dsigma/dm
-             m= massInv_twoPi(mom1,mom2 , teilchen(ensemble,index)%charge, &
-                  teilchen(secondEnsemble,second)%charge)
+             m= massInv_twoPi(mom1,mom2 , Parts(iEns,iPart)%charge, &
+                  Parts(iEns2,iPart2)%charge)
 
              imass=max(min(Nint((m-Tresh)/deltaM) ,dim),0)
 
              ! Sum all particles
-             sigmadm_new(kanal,imass)=sigmadm_new(kanal,imass)+teilchen(ensemble,index)%perweight/deltaM
+             sigmadm_new(kanal,imass)=sigmadm_new(kanal,imass)+Parts(iEns,iPart)%perweight/deltaM
 
 
              ! Sum only these particles which didn't collide
-             if (abs(teilchen(ensemble,index)%lastCollisionTime+teilchen(secondensemble,second)%lastCollisionTime).lt.0.0001) then
-                sigmadm_new_nocoll(kanal,imass)=sigmadm_new_nocoll(kanal,imass)+teilchen(ensemble,index)%perweight/deltaM
+             if (abs(Parts(iEns,iPart)%lastCollTime+Parts(iEns2,iPart2)%lastCollTime).lt.0.0001) then
+                sigmadm_new_nocoll(kanal,imass)=sigmadm_new_nocoll(kanal,imass)+Parts(iEns,iPart)%perweight/deltaM
              end if
 
 
              ! Sum all particles with a specific total momentum
              pairMomentum=sqrt(Dot_product(mom1+mom2,mom1+mom2))
              if (pairMomentum.lt.cut1) then
-                sigmadm_new_cut1(kanal,imass)=sigmadm_new_cut1(kanal,imass)+teilchen(ensemble,index)%perweight/deltaM
+                sigmadm_new_cut1(kanal,imass)=sigmadm_new_cut1(kanal,imass)+Parts(iEns,iPart)%perweight/deltaM
 
              else if (pairMomentum.ge.cut1.and.pairMomentum.le.cut2) then
-                sigmadm_new_cut2(kanal,imass)=sigmadm_new_cut2(kanal,imass)+teilchen(ensemble,index)%perweight/deltaM
+                sigmadm_new_cut2(kanal,imass)=sigmadm_new_cut2(kanal,imass)+Parts(iEns,iPart)%perweight/deltaM
 
              else if (pairMomentum.gt.cut2) then
-                sigmadm_new_cut3(kanal,imass)=sigmadm_new_cut3(kanal,imass)+teilchen(ensemble,index)%perweight/deltaM
+                sigmadm_new_cut3(kanal,imass)=sigmadm_new_cut3(kanal,imass)+Parts(iEns,iPart)%perweight/deltaM
              end if
 
              ! ######### dsigma/dp
-             mom=AbsMom(teilchen(ensemble,index))
+             mom=AbsMom(Parts(iEns,iPart))
              indexMomentum=max(min(Nint((mom-TreshMom)/deltaMom) ,dimMom),0)
 
-             sigmaMomentum(teilchen(ensemble,index)%charge,indexMomentum)=&
-                  &sigmaMomentum(teilchen(ensemble,index)%charge,indexMomentum)&
-                  & +teilchen(ensemble,index)%perweight/deltaMom
+             sigmaMomentum(Parts(iEns,iPart)%charge,indexMomentum)=&
+                  &sigmaMomentum(Parts(iEns,iPart)%charge,indexMomentum)&
+                  & +Parts(iEns,iPart)%perweight/deltaMom
 
              ! ######### dsigma/dm/dp
 
              ! First Particle
              sigma_dm_momentum(kanal,imass,indexMomentum)=sigma_dm_momentum(kanal,imass,indexMomentum) &
-                  & +teilchen(ensemble,index)%perweight/deltaMom/deltaM/2.
+                  & +Parts(iEns,iPart)%perweight/deltaMom/deltaM/2.
 
-             mom=AbsMom(teilchen(secondEnsemble,second))
+             mom=AbsMom(Parts(iEns2,iPart2))
              indexMomentum=max(min(int((mom-TreshMom)/deltaMom) ,dimMom),0)
-             sigmaMomentum(teilchen(secondEnsemble,second)%charge,indexMomentum)=&
-                  &sigmaMomentum(teilchen(secondEnsemble,second)%charge,indexMomentum)&
-                  & +teilchen(secondEnsemble,second)%perweight/deltaMom
+             sigmaMomentum(Parts(iEns2,iPart2)%charge,indexMomentum)=&
+                  &sigmaMomentum(Parts(iEns2,iPart2)%charge,indexMomentum)&
+                  & +Parts(iEns2,iPart2)%perweight/deltaMom
 
              ! Second Particle
              sigma_dm_momentum(kanal,imass,indexMomentum)=sigma_dm_momentum(kanal,imass,indexMomentum)&
-                  & +teilchen(secondEnsemble,second)%perweight/deltaMom/deltaM/2.
+                  & +Parts(iEns2,iPart2)%perweight/deltaMom/deltaM/2.
 
              ! ######### dsigma/dr
              if (.not.present(elab)) then
-                call getCoordinate(teilchen(ensemble,index)%firstEvent, OriginalCoordinate)
+                call getCoordinate(Parts(iEns,iPart)%firstEvent, OriginalCoordinate)
 
                 radius=sqrt(dot_product(OriginalCoordinate,OriginalCoordinate))
 
                 indexRadius=max(min(int(radius/deltaRadius) ,dimRadius),0)
                 sigmaRadius(kanal,indexRadius)=sigmaRadius(kanal,indexRadius)&
-                     & +teilchen(ensemble,index)%perweight/deltaRadius
+                     & +Parts(iEns,iPart)%perweight/deltaRadius
              end if
 
           end if
@@ -1304,7 +1687,8 @@ module LowPhotonAnalysis
     ! *************************************Generate output*********************
 
     do i=lbound(sigmadm,dim=1),ubound(sigmadm,dim=1)
-       !�Evaluate the error of the mean value:
+
+       ! Evaluate the error of the mean value:
        if (numcalls.gt.1) then
           error_sigmadm(i,:)=sqrt(abs((error_sigmadm(i,:)-1./float(numcalls)*sigmadm(i,:)**2)&
                & /float(numcalls-1))/float(numcalls))
@@ -1419,38 +1803,38 @@ module LowPhotonAnalysis
          & deltaM*(Sum(sigmadm(2,:))+Sum(sigmadm(3,:)))/float(numCalls)
     close(10)
 
-   if (finalFlag) then
-      name='twoPi_Total_final.dat'
-      if ( veryFirstTime ) then
-         open(10,File=name)
-         veryFirstTime=.false.
-      else
-         open(10,File=name,position='append')
-      end if
-      write(10,'(A)') '### 1:lab-energy  2:Pi0 Pi0   3:Pi0 Pi+  4:pi0 pi-  5:pi+ pi-  6:Pi+ Pi+  7:pi- pi-  8:pi0 +chargedPion'
-      write(10,'( 8F15.6)') energy,deltaM*Sum(sigmadm(1,:))/float(numCalls),deltaM*Sum(sigmadm(2,:))/float(numCalls),&
-           & deltaM*Sum(sigmadm(3,:))/float(numCalls),deltaM*Sum(sigmadm(4,:))/float(numCalls),&
-           & deltaM*Sum(sigmadm(5,:))/float(numCalls),deltaM*Sum(sigmadm(6,:))/float(numCalls),&
-           & deltaM*(Sum(sigmadm(2,:))+Sum(sigmadm(3,:)))/float(numCalls)
-      close(10)
-   end if
+    if (finalFlag) then
+       name='twoPi_Total_final.dat'
+       if ( veryFirstTime ) then
+          open(10,File=name)
+          veryFirstTime=.false.
+       else
+          open(10,File=name,position='append')
+       end if
+       write(10,'(A)') '### 1:lab-energy  2:Pi0 Pi0   3:Pi0 Pi+  4:pi0 pi-  5:pi+ pi-  6:Pi+ Pi+  7:pi- pi-  8:pi0 +chargedPion'
+       write(10,'( 8F15.6)') energy,deltaM*Sum(sigmadm(1,:))/float(numCalls),deltaM*Sum(sigmadm(2,:))/float(numCalls),&
+            & deltaM*Sum(sigmadm(3,:))/float(numCalls),deltaM*Sum(sigmadm(4,:))/float(numCalls),&
+            & deltaM*Sum(sigmadm(5,:))/float(numCalls),deltaM*Sum(sigmadm(6,:))/float(numCalls),&
+            & deltaM*(Sum(sigmadm(2,:))+Sum(sigmadm(3,:)))/float(numCalls)
+       close(10)
+    end if
 
 
-   !***************************************************************************
-   !****o* LowPhotonAnalysis/sigmaMomEEEE.dat
-   ! NAME
-   ! file sigmaMomEEEE.dat,   EEEE= energy of the incoming photon  in MeV
-   ! PURPOSE
-   ! The files are produced in the runs with eventtype=3=LowPhoton
-   ! They show  xsec (microbarn) for the  __two-pion events__   versus pion
-   ! momentum (GeV)
-   !
-   ! Columns:
-   ! * #1: momentum (absolute value of the pion 3-momentum)
-   ! * #2: PiMinus (xsec fo pi- )
-   ! * #3: PiNull  (xsec fo pi0 )
-   ! * #4: PiPlus  (xsec fo pi+ )
-   !***************************************************************************
+    !***************************************************************************
+    !****o* LowPhotonAnalysis/sigmaMomEEEE.dat
+    ! NAME
+    ! file sigmaMomEEEE.dat,   EEEE= energy of the incoming photon  in MeV
+    ! PURPOSE
+    ! The files are produced in the runs with eventtype=3=LowPhoton
+    ! They show  xsec (microbarn) for the  __two-pion events__   versus pion
+    ! momentum (GeV)
+    !
+    ! Columns:
+    ! * #1: momentum (absolute value of the pion 3-momentum)
+    ! * #2: PiMinus (xsec fo pi- )
+    ! * #3: PiNull  (xsec fo pi0 )
+    ! * #4: PiPlus  (xsec fo pi+ )
+    !***************************************************************************
 
     name='sigmaMom'//realTochar4(ANINT(energy*1000.))//'.dat'
     ! ANINT - round to nearest integer, return real;  introduced to preven output 199 for enrgy 200
@@ -1561,12 +1945,12 @@ module LowPhotonAnalysis
   !****************************************************************************
   !****s* LowPhotonAnalysis/twoPi_output_hist
   ! NAME
-  ! subroutine twoPi_output_hist(p,finalFlag)
+  ! subroutine twoPi_output_hist(Parts,finalFlag)
   ! PURPOSE
   ! Makes dsigma/dm output for two-pion production processes.
   !
   ! INPUTS
-  !  * type(particle), dimension(:,:) :: p -- particle vector
+  !  * type(particle), dimension(:,:) :: Parts -- particle vector
   !  * logical :: finalFlag -- .true. if it is the last call for one specific
   ! energy, therefore final output must be made.
   ! OUTPUT
@@ -1575,7 +1959,7 @@ module LowPhotonAnalysis
   !
   ! "energy_gamma" is the photon energy
   !****************************************************************************
-  subroutine twoPi_output_hist(p,finalFlag)
+  subroutine twoPi_output_hist(Parts,finalFlag)
     use particleDefinition
     use output, only: realToChar4
     use initLowPhoton, only: energy_gamma
@@ -1584,7 +1968,7 @@ module LowPhotonAnalysis
     use vector, only: absVec
     use IDTable, only: pion
 
-    type(particle), dimension(:,:) :: p
+    type(particle), dimension(:,:) :: Parts
     logical       , intent(in) :: finalFlag
 
     logical, save         :: initFlag=.true.
@@ -1594,7 +1978,7 @@ module LowPhotonAnalysis
 
 
     integer :: channel,charge!,i
-    integer :: ensemble, index,endEnsemble, secondEnsemble, second, starter
+    integer :: iEns, iPart,endEnsemble, iEns2, iPart2, starter
     logical :: flag
     real    :: m, ptot
     real, dimension(1:3) :: mom1,mom2
@@ -1623,34 +2007,34 @@ module LowPhotonAnalysis
 
 
 
-    ensembleLoop :do ensemble=lbound(p,dim=1),ubound(p,dim=1)
-       indexLoop : do index=lbound(p,dim=2),ubound(p,dim=2)
+    ensembleLoop :do iEns=lbound(Parts,dim=1),ubound(Parts,dim=1)
+       indexLoop : do iPart=lbound(Parts,dim=2),ubound(Parts,dim=2)
           flag=.false.
-          if (p(ensemble,index)%ID.eq.pion) then
+          if (Parts(iEns,iPart)%ID.eq.pion) then
              !Search second Pion
              if (fullEnsemble) then
-                endEnsemble=ubound(p,dim=1)
+                endEnsemble=ubound(Parts,dim=1)
              else
-                endEnsemble=ensemble
+                endEnsemble=iEns
              end if
 
-             ensembleLoop_2: do secondEnsemble=ensemble,endEnsemble
-                if (ensemble.eq.secondEnsemble) then
-                   if (index.eq.ubound(p,dim=2)) then
+             ensembleLoop_2: do iEns2=iEns,endEnsemble
+                if (iEns.eq.iEns2) then
+                   if (iPart.eq.ubound(Parts,dim=2)) then
                       cycle ensembleLoop_2
                    else
-                      starter=index+1
+                      starter=iPart+1
                    end if
                 else
                    starter=1
                 end if
-                indexLoop_2: do second=starter,ubound(p,dim=2)
-                   if ((p(ensemble,index)%firstEvent.eq.p(secondensemble,second)%firstEvent)&
-                        &.and.(p(secondensemble,second)%ID.eq.pion)) then
-                      if (p(ensemble,index)%perweight-p(secondensemble,second)%perweight.gt.0.01) then
+                indexLoop_2: do iPart2=starter,ubound(Parts,dim=2)
+                   if ((Parts(iEns,iPart)%firstEvent.eq.Parts(iEns2,iPart2)%firstEvent)&
+                        &.and.(Parts(iEns2,iPart2)%ID.eq.pion)) then
+                      if (Parts(iEns,iPart)%perweight-Parts(iEns2,iPart2)%perweight.gt.0.01) then
                          write(*,*) 'Problems twoPion_output'
-                         write(*,*) p(ensemble,index)%firstEvent,p(secondensemble,second)%firstEvent
-                         write(*,*) p(ensemble,index)%perweight, p(secondensemble,second)%perweight
+                         write(*,*) Parts(iEns,iPart)%firstEvent,Parts(iEns2,iPart2)%firstEvent
+                         write(*,*) Parts(iEns,iPart)%perweight, Parts(iEns2,iPart2)%perweight
                          stop
                       end if
                       flag=.true. !=found second pion
@@ -1669,7 +2053,7 @@ module LowPhotonAnalysis
              ! 5 PiPlus PiPlus
              ! 6 piMinus piMinus
              ! 7 piMinus/piPlus + piZero
-             charge= p(ensemble,index)%charge+ p(secondEnsemble,second)%charge
+             charge= Parts(iEns,iPart)%charge + Parts(iEns2,iPart2)%charge
 
              select case (charge)
              case (-2)   !piMinus piMinus
@@ -1677,7 +2061,7 @@ module LowPhotonAnalysis
              case (-1)
                 channel=3
              case (0)
-                if (p(ensemble,index)%charge.ne.0) then
+                if (Parts(iEns,iPart)%charge.ne.0) then
                    channel=4
                 else
                    channel=1
@@ -1687,26 +2071,26 @@ module LowPhotonAnalysis
              case (2)
                 channel=5
              end select
-             mom1= p(ensemble,index)%momentum(1:3)
-             mom2= p(secondensemble,second)%momentum(1:3)
+             mom1= Parts(iEns,iPart)%mom(1:3)
+             mom2= Parts(iEns2,iPart2)%mom(1:3)
 
              ! ######### dsigma/dm
-             m= massInv_twoPi(mom1,mom2 , p(ensemble,index)%charge, p(secondEnsemble,second)%charge)
+             m= massInv_twoPi(mom1,mom2 , Parts(iEns,iPart)%charge, Parts(iEns2,iPart2)%charge)
 
-             call AddHist_mr_mc(dsigmadm,m,channel,p(ensemble,index)%perweight)
-             if (channel.eq.3.or.channel.eq.2) call AddHist_mr_mc(dsigmadm,m,7,p(ensemble,index)%perweight)
+             call AddHist_mr_mc(dsigmadm,m,channel,Parts(iEns,iPart)%perweight)
+             if (channel.eq.3.or.channel.eq.2) call AddHist_mr_mc(dsigmadm,m,7,Parts(iEns,iPart)%perweight)
 
              ! ######### dsigma/dp_tot
              ptot=AbsVec(mom1+mom2)
 
              ! Check for collisions of the particle using lastCollisionTime=0.
-             if (abs(p(ensemble,index)%lastCollisionTime+p(secondensemble,second)%lastCollisionTime).lt.0.0001) then
-                call AddHist_mr_mc(dsigmadp_tot_noColl,ptot,channel,p(ensemble,index)%perweight)
-                if (channel.eq.3.or.channel.eq.2) call AddHist_mr_mc(dsigmadp_tot_noColl,ptot,7,p(ensemble,index)%perweight)
+             if (abs(Parts(iEns,iPart)%lastCollTime+Parts(iEns2,iPart2)%lastCollTime).lt.0.0001) then
+                call AddHist_mr_mc(dsigmadp_tot_noColl,ptot,channel,Parts(iEns,iPart)%perweight)
+                if (channel.eq.3.or.channel.eq.2) call AddHist_mr_mc(dsigmadp_tot_noColl,ptot,7,Parts(iEns,iPart)%perweight)
              end if
 
-             call AddHist_mr_mc(dsigmadp_tot,ptot,channel,p(ensemble,index)%perweight)
-             if (channel.eq.3.or.channel.eq.2) call AddHist_mr_mc(dsigmadp_tot,ptot,7,p(ensemble,index)%perweight)
+             call AddHist_mr_mc(dsigmadp_tot,ptot,channel,Parts(iEns,iPart)%perweight)
+             if (channel.eq.3.or.channel.eq.2) call AddHist_mr_mc(dsigmadp_tot,ptot,7,Parts(iEns,iPart)%perweight)
 
           end if
 

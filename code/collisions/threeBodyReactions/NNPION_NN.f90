@@ -17,127 +17,152 @@ contains
   !****************************************************************************
   !****f* NNPION_NN/gamma_NNPion
   ! NAME
-  ! function gamma_NNPion_NN(srts,Epion,Enucleon,rhoProton,rhoNeutron,chargePion,chargeNucleon,OutPutFlag) Result(gamma)
+  ! function gamma_NNPion_NN(srts,Epion,Enucleon,rhoProton,rhoNeutron,
+  ! chargePion,chargeNucleon,s_wave_abs,OutPutFlag) Result(gamma)
+  !
   ! PURPOSE
-  ! Evaluates Gammas for pion absorption on a pair of nucleons. There exist the following possible channels:
+  ! Evaluates Gammas for pion absorption on a pair of nucleons.
+  ! There exist the following possible channels:
   ! * 1: p p pi^0-> p p  ; which is equivalent to n n -> n n pi^0
   ! * 2: n n pi^+-> n p  ; which is equivalent to  p n -> p p pi^-
   ! * 3: p n pi^0-> p n  ;
   ! * 4: p n pi^+-> p p  ; which is equivalent to n n -> p n pi^-
+  !
   ! OUTPUT
-  ! * real :: gamma ! absorption rate of pion on one specific pair on nucleons of the input
+  ! * real :: gamma -- absorption rate of pion on one specific pair on
+  !   nucleons of the input
+  !
   ! INPUTS
-  ! * real, intent(in) :: srts ! SQRT(s)
-  ! * real, intent(in) :: Epion ! Energy of pion
-  ! * real, intent(in),dimension(1:2) :: Enucleon !  Energies of nucleons
+  ! * real, intent(in) :: srts -- SQRT(s)
+  ! * real, intent(in) :: Epion -- Energy of pion
+  ! * real, intent(in),dimension(1:2) :: Enucleon -- Energies of nucleons
   ! * real, intent(in) :: rhoProton
   ! * real, intent(in) :: rhoNeutron
   ! * integer, intent(in) :: chargePion
   ! * integer, dimension(1:2), intent(in) :: chargeNucleon
-  ! * real,intent(out) :: gamma
-  ! * logical, optional,intent(in) :: outputFlag
+  ! * logical, intent(in) :: s_wave_abs
+  ! * logical, optional, intent(in) :: outputFlag
   !****************************************************************************
-  function gamma_NNPion_NN(srts,Epion,Enucleon,rhoProton,rhoNeutron,chargePion,chargeNucleon,OutPutFlag) Result(gamma)
+  function gamma_NNPion_NN(srts,Epion,Enucleon,rhoProton,rhoNeutron, &
+       chargePion,chargeNucleon,s_wave_abs,OutPutFlag) Result(gamma)
 
     use constants, only: pi, mN, mPi, hbarc, GeVSquared_times_mb
     use twoBodyTools, only: pCM
 
+
     real, intent(in) :: srts, Epion, Enucleon(1:2), rhoProton, rhoNeutron
     integer, intent(in) :: chargePion, chargeNucleon(1:2)
     logical, optional, intent(in) :: outputFlag
+    logical, intent(in) :: s_wave_abs
     real :: gamma
 
     integer :: k
-    real, dimension(1:4) :: matrixelements,rhoTwo
+    real, dimension(1:4) :: matrixelements
+    real :: rhoTwo
     logical, save,dimension(-1:1) :: openFlag=.true.
-    character(20), dimension(-1:1), parameter :: fileName = (/ 'gamma_PiMinus.dat', &
-                                                               'gamma_PiNull.dat ', &
-                                                               'gamma_PiPlus.dat ' /)
+    character(20), dimension(-1:1), parameter :: fileName = (/ &
+         'gamma_PiMinus.dat', &
+         'gamma_PiNull.dat ', &
+         'gamma_PiPlus.dat ' /)
 
     rhoTwo=0.
     gamma=0.
 
     select case (chargePion)
     case (-1)
-      select case (sum(chargeNucleon))
-      case (2)  ! pi- pp -> pn
-        rhoTwo(2)=rhoProton**2/2.
-        k=2
-      case (1)  ! pi- pn -> nn
-        rhoTwo(4)=rhoProton*rhoNeutron
-        k=4
-      case default
-        return
-      end select
+       select case (sum(chargeNucleon))
+       case (2)  ! pi- pp -> pn
+          rhoTwo=(rhoProton**2)/2.
+          k=2
+       case (1)  ! pi- pn -> nn
+          rhoTwo=rhoProton*rhoNeutron
+          k=4
+       case default
+          return
+       end select
     case (0)
-      select case (sum(chargeNucleon))
-      case (2)  ! pi0 pp -> pp
-        rhoTwo(1)=(rhoProton**2)/2.
-        k=1
-      case (0)  ! pi0 nn -> nn
-        rhoTwo(1)=(rhoNeutron**2)/2.
-        k=1
-      case (1)  ! pi0 pn -> pn
-        rhoTwo(3)=rhoProton*rhoNeutron
-        k=3
-      end select
+       select case (sum(chargeNucleon))
+       case (2)  ! pi0 pp -> pp
+          rhoTwo=(rhoProton**2)/2.
+          k=1
+       case (0)  ! pi0 nn -> nn
+          rhoTwo=(rhoNeutron**2)/2.
+          k=1
+       case (1)  ! pi0 pn -> pn
+          rhoTwo=rhoProton*rhoNeutron
+          k=3
+       end select
     case (1)
-      select case (sum(chargeNucleon))
-      case (0)  ! pi+ nn -> pn
-        rhoTwo(2)=rhoNeutron**2/2.
-        k=2
-      case (1)  ! pi+ pn -> pp
-        rhoTwo(4)=rhoProton*rhoNeutron
-        k=4
-      case default
-        return
-      end select
+       select case (sum(chargeNucleon))
+       case (0)  ! pi+ nn -> pn
+          rhoTwo=(rhoNeutron**2)/2.
+          k=2
+       case (1)  ! pi+ pn -> pp
+          rhoTwo=rhoProton*rhoNeutron
+          k=4
+       case default
+          return
+       end select
     end select
 
-    matrixElements = matrix_NN_NNPion(srts)
+    if (s_wave_abs) then
+       ! gamma in GeV, from Eq. (3.13) in Salcedo et al, NPA484 (1988) 557 and from Eq. (18) in Nieves et al NPA 554 (1993)
+       gamma = 4.0*pi/epion * (1. + epion/(2*mN)) * 0.041/mPi**4 * 4 * (rhoProton*rhoNeutron) * (0.19732)**5
+       ! this gamma is consistent with the imaginary part of the s-wave amplitude in function pionPot_Oset,
+       ! assumes that absorption on T=1 nucleon pairs is suppressed
+    else
+       matrixElements = matrix_NN_NNPion(srts)
+       gamma = Min(100000., gamma+matrixElements(k)*pCM(srts,mN,mN)/ srts/4. /pi*rhoTwo/8./ePion/eNucleon(1)/eNucleon(2) &
+            * hbarc**6 * GeVSquared_times_mb)
+    end if
 
-    gamma = Min(100000., gamma+matrixElements(k)*pCM(srts,mN,mN)/ srts/4. /pi*rhoTwo(k)/8./ePion/eNucleon(1)/eNucleon(2) &
-                         * hbarc**6 * GeVSquared_times_mb)
-
-     ! Make output
-     if (present(outputFlag)) then
-        if (OutPutFlag) then
-           if (openFlag(chargePion)) then
-              open(11, File=fileName(chargePion))
-              openFlag(chargePion)=.false.
-           else
-              open(11, File=fileName(chargePion),position='Append')
-           end if
-           write(11,'(5F15.3,2I5)') ePion-mPi,eNucleon,srts,gamma,chargeNucleon
-           close(11)
-        end if
-     end if
+    ! Make output
+    if (present(outputFlag)) then
+       if (OutPutFlag) then
+          if (openFlag(chargePion)) then
+             open(11, File=fileName(chargePion))
+             openFlag(chargePion)=.false.
+          else
+             open(11, File=fileName(chargePion),position='Append')
+          end if
+          write(11,'(5F15.3,2I5)') ePion-mPi,eNucleon,srts,gamma,chargeNucleon
+          close(11)
+       end if
+    end if
 
   end function gamma_NNPion_NN
 
 
-  !****************************************************************************
-  !****f* NNPION_NN/gamma_NNPion_NN_output
-  ! NAME
-  ! function gamma_NNPion_NN_output(srts,Epion,rhoProton,rhoNeutron,chargePion,OutPutFlag) result (gamma)
-  ! NOTES
-  ! Evaluates Gamma for the channels:
-  ! * 1: p p pi^0-> p p  ; which is equivalent to n n -> n n pi^0
-  ! * 2: n n pi^+-> n p  ; which is equivalent to  p n -> p p pi^-
-  ! * 3: p n pi^0-> p n  ;
-  ! * 4: p n pi^+-> p p  ; which is equivalent to n n -> p n pi^-
-  ! The nucleons are considered to rest.
-  ! This routine is mainly suited for output.
-  ! OUTPUT
-  ! * real, dimension(1:4),intent(out) :: gamma
-  ! INPUTS
-  ! * real, intent(in) :: srts ! SQRT(s)
-  ! * real, intent(in) :: Epion ! Energy of pion
-  ! * real, intent(in) :: rhoProton
-  ! * real, intent(in) :: rhoNeutron
-  ! * integer, intent(in) :: chargePion
-  ! * logical, optional,intent(in) :: outputFlag  -  if .true. then results are written to files "gamma_NNPiPlus_NN.dat","gamma_NNPiNull_NN.dat","gamma_NNPiMinus_NN.dat"
-  !****************************************************************************
+!  !****************************************************************************
+!  !****f* NNPION_NN/gamma_NNPion_NN_output
+!  ! NAME
+!  ! function gamma_NNPion_NN_output(srts,Epion,rhoProton,rhoNeutron,
+!  ! chargePion,OutPutFlag) result (gamma)
+!  !
+!  ! PURPOSE
+!  ! Evaluates Gamma for the channels:
+!  ! * 1: p p pi^0-> p p  ; which is equivalent to n n -> n n pi^0
+!  ! * 2: n n pi^+-> n p  ; which is equivalent to p n -> p p pi^-
+!  ! * 3: p n pi^0-> p n  ;
+!  ! * 4: p n pi^+-> p p  ; which is equivalent to n n -> p n pi^-
+!  !
+!  ! OUTPUT
+!  ! * real, dimension(1:4),intent(out) :: gamma
+!  !
+!  ! INPUTS
+!  ! * real, intent(in) :: srts -- SQRT(s)
+!  ! * real, intent(in) :: Epion -- Energy of pion
+!  ! * real, intent(in) :: rhoProton
+!  ! * real, intent(in) :: rhoNeutron
+!  ! * integer, intent(in) :: chargePion
+!  ! * logical, optional,intent(in) :: outputFlag  --  if .true. then results
+!  !   are written to files "gamma_NNPiPlus_NN.dat","gamma_NNPiNull_NN.dat",
+!  !   "gamma_NNPiMinus_NN.dat"
+!  !
+!  ! NOTES
+!  ! * The nucleons are considered to rest.
+!  ! * This routine is mainly suited for output.
+!  !****************************************************************************
 !   function gamma_NNPion_NN_output(srts,Epion,rhoProton,rhoNeutron,chargePion,OutPutFlag) result (gamma)
 !
 !     use constants, only: pi, mN, mPi, hbarc, GeVSquared_times_mb
@@ -204,14 +229,19 @@ contains
   !****f* NNPION_NN/matrix_NN_NNPion
   ! NAME
   ! function matrix_NN_NNPion(srts,outputFlag) result (matrixElements)
+  !
   ! PURPOSE
-  ! Implements the Matrix elements for N N Pion -> N N in units of  "GeV**2 * mB"  for the channels:
+  ! Implements the Matrix elements for N N Pion -> N N in units of
+  ! "GeV**2 * mB"  for the channels:
   ! * 1: p p -> p p pi^0 ; which is equivalent to n n -> n n pi^0
   ! * 2: p n -> n n pi^+ ; which is equivalent to  p n -> p p pi^-
   ! * 3: p n -> p n pi^0 ;
   ! * 4: p p -> p n pi^+ ; which is equivalent to n n -> p n pi^-
+  !
   ! INPUTS
-  ! * real, intent(in) ::srts
+  ! * real :: srts
+  ! * logical,optional :: outputFlag
+  !
   ! OUTPUT
   ! * real, dimension(1:4), intent(out) :: matrixElements
   !****************************************************************************
@@ -222,8 +252,8 @@ contains
     use constants, only: pi, mN, mPi
     use twoBodyTools, only: pCM
 
-    real, intent(in) ::srts
-    logical, optional, intent(in) ::outputFlag
+    real, intent(in) :: srts
+    logical, optional, intent(in) :: outputFlag
     real, dimension(1:4) :: matrixElements
 
     real, dimension (1:4) :: Sigma_NNPion
@@ -233,37 +263,37 @@ contains
     ! detailed balance: pi N N -> N N
     ! (see p.46 of Effenbergers diploma thesis)
     ! or page 56 of Buss' thesis
-    ps = Integrate_3bodyPS (srts, mN, mN, mPi)
+    ps = Integrate_3bodyPS(srts, mN, mN, mPi)
     ! ps=\int dm12 dm23 /s (!)
 
-    Sigma_NNPion = NN_NNpi_direct (srts)
+    Sigma_NNPion = NN_NNpi_direct(srts)
     ! Field Sigma_NNPion:
     ! 1: p p -> p p pi^0 ; which is equivalent to n n -> n n pi^0
-    ! 2: p n -> n n pi^+ ; which is equivalent to  p n -> p p pi^-
+    ! 2: p n -> n n pi^+ ; which is equivalent to p n -> p p pi^-
     ! 3: p n -> p n pi^0 ;
     ! 4: p p -> p n pi^+ ; which is equivalent to n n -> p n pi^-
 
     if (ps>1E-12) then
-      matrixElements(1:4) = 64.*(2.*pi)**3*pCM(srts,mN,mN)*srts*Sigma_NNPion(1:4)/ps &   ! units GeV**2 mB
-                            * (/1.,2.,1.,0.5/)                                           ! factor for identical particles
+       matrixElements(1:4) = 64.*(2.*pi)**3*pCM(srts,mN,mN)*srts*Sigma_NNPion(1:4)/ps &   ! units GeV**2 mB
+            * (/1.,2.,1.,0.5/)                                           ! factor for identical particles
     else
-      matrixElements(1:4) = 0.
+       matrixElements(1:4) = 0.
     end if
 
-     ! Make output
-     if (present(outputFlag)) then
-        if (outputFlag) then
-           if (Openflag) then
-              open(11, File='matrixelements_NN_NNPION.dat')
-              openFlag=.false.
-           else
-              open(11, File='matrixelements_NN_NNPION.dat',position='append')
-           end if
-           write(11,'(5F25.9)') srts, matrixElements
-           close(11)
-        end if
-     end if
+    ! Make output
+    if (present(outputFlag)) then
+       if (outputFlag) then
+          if (Openflag) then
+             open(11, File='matrixelements_NN_NNPION.dat')
+             openFlag=.false.
+          else
+             open(11, File='matrixelements_NN_NNPION.dat',position='append')
+          end if
+          write(11,'(5F25.9)') srts, matrixElements
+          close(11)
+       end if
+    end if
 
-   end function matrix_NN_NNPion
+  end function matrix_NN_NNPion
 
 end module NNPION_NN

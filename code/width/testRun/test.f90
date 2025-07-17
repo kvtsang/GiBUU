@@ -5,13 +5,13 @@ program test
   use particleProperties, only: InitParticleProperties, hadron, nDecays
   implicit none
 
-  write(*,*) "**********************************" 
-  write(*,*) "**********************************" 
+  write(*,*) "**********************************"
+  write(*,*) "**********************************"
   write(*,*)
   Write(*,*)      "Testing the routines which generate the width of the resonances "
   write(*,*)
-  write(*,*) "**********************************" 
-  write(*,*) "**********************************" 
+  write(*,*) "**********************************"
+  write(*,*) "**********************************"
   write(*,*)
 
   call readinputGeneral
@@ -20,7 +20,7 @@ program test
 
  call testBaryon
 !  call testDelta
-!  call testDecay 
+!  call testDecay
 !   call testMeson
 
 
@@ -42,20 +42,20 @@ subroutine testDelta
   ! files : fort.100 = Full width, FullWidthMedium
   ! files : fort.200 = Sum of In-Width
   ! files : fort.300 = Sum of Out-Width
- 
+
   mediumAtPosition%useMedium=.true.
   mediumAtPosition%densityProton=rhoNull/2.
   mediumAtPosition%densityNeutron=rhoNull/2
   mediumAtPosition%density=rhoNull
 
 
-  write(*,*) "**********************************" 
+  write(*,*) "**********************************"
   write(*,*)
   Write(*,*)      "Testing 'FullWidthBaryon for delta at rhoNull'"
   Open(999,file='DeltaWidth.dat')
   id=2
-  
-  do i=0,52  
+
+  do i=0,52
      do j=0,20
         mom=(/0.,j*0.05,0.,0./)
         mass=1.071+float(i)*0.01
@@ -99,10 +99,10 @@ end subroutine testDelta
 !   Allocate(decayWidth(1:size(decays2body_baryon)))
 
 !!$
-!!$  write(*,*) "**********************************" 
+!!$  write(*,*) "**********************************"
 !!$  write(*,*)
 !!$  Write(*,*)      "Testing Delta Decay Width'"
-!!$  
+!!$
 !  mom=(/0.,0.,0.,0./)
 !!$  mass=baryon(delta)%mass
 !!$  call decayWidthBaryonMedium(delta,mass,mom,mediumATposition, decayWidth, pauliFlag)
@@ -112,18 +112,18 @@ end subroutine testDelta
 
   mass=hadron(kaonStarBar)%mass-0.1
   Write(*,*)      "Testing Decay Width' of kaonStarBar"
-  decay = decayWidthMesonMedium(kaonStarBar,mass,0,pauliFlag)
+  decay = decayWidthMesonMedium(kaonStarBar,mass,0)
   Do i=1,nDecays
      write(*,*) i , decay(i), pauliFlag,mass
   End Do
 
   Write(*,*)      "Testing Decay Width' of kaonStar"
   mass=hadron(kaonStar)%mass-0.1
-  decay = decayWidthMesonMedium(kaonStar,mass,0,pauliFlag)
+  decay = decayWidthMesonMedium(kaonStar,mass,0)
   Do i=1,nDecays
      write(*,*) i , decay(i), pauliFlag,mass
   End Do
-  
+
 end subroutine testDecay
 
 
@@ -150,7 +150,7 @@ end subroutine testDecay
   write(*,*) "Testing 'FullWidthBaryon'"
   write(*,*) "**********************************"
   do id=1,nbar
-     do i=1,400  
+     do i=1,400
         mass = hadron(id)%minmass+i*0.01
         write(id+100,*) mass, FullWidthBaryon(id,mass), WidthBaryonMedium(id,mass,mom,mediumAtPosition), decayWidthBaryon(Id,mass)
      end do
@@ -162,7 +162,7 @@ end subroutine testDecay
   write(*,*) "******************************************"
   do id=1,nbar
      Print *, "resonance=",id
-     do i=1,40  
+     do i=1,40
         mass = hadron(id)%minmass+i*0.05
         sum=0.
         do mesonID=pion,dsStar_Minus
@@ -170,7 +170,7 @@ end subroutine testDecay
               sum=sum+partialwidthBaryon(ID,mass,.false.,mesonID,baryonID)
             end do
         end do
-        If (Abs(sum-FullWidthBaryon(id,mass))>1E-5) then 
+        If (Abs(sum-FullWidthBaryon(id,mass))>1E-5) then
            Print *, "Sum of partial width not equal full width"
            Print *, "Resonance=",id
            Print *, "Mass=",mass
@@ -187,7 +187,7 @@ end subroutine testDecay
   write(*,*) "*******************************************"
   do id=1,nbar
      Print *, "resonance=",id
-     do i=1,40  
+     do i=1,40
         mass = hadron(id)%minmass+i*0.05
         sum=0.
         do mesonID=pion,dsStar_Minus
@@ -195,7 +195,7 @@ end subroutine testDecay
               sum=sum+partialwidthBaryonMedium(ID,mass,.false.,mesonID,baryonID,mom, mediumAtPosition)
             end do
         end do
-        If (Abs(sum-widthBaryonMedium(id,mass,mom,MediumAtPosition))>1E-5) then 
+        If (Abs(sum-widthBaryonMedium(id,mass,mom,MediumAtPosition))>1E-5) then
            Print *, "Sum of partial width not equal full width"
            Print *, "Resonance=",id
            Print *, "Mass=",mass
@@ -213,7 +213,7 @@ end subroutine testDecay
   do id=1,nbar
      Print *, "resonance=",id
      write(200+id,*) "#Resonance ",id, "; Sum of In width over all baryon meson combinations"
-     do i=1,50  
+     do i=1,50
         mass = hadron(id)%minmass+i*0.04
         sum=0.
         feld=0.
@@ -237,7 +237,7 @@ end subroutine testDecay
    do id=1,nbar
       Print *, "resonance=",id
       write(300+id,*) "#Resonance ",id, "; Sum of In width over all baryon meson combinations"
-      do i=1,50  
+      do i=1,50
          mass = hadron(id)%minmass+i*0.04
          sum=0.
          feld=0.
@@ -278,21 +278,21 @@ end subroutine testDecay
   mom=(/0.,0.,0.,0./)
 
 
-   write(*,*) 
-   write(*,*) "**********************************" 
-   write(*,*) "**********************************" 
+   write(*,*)
+   write(*,*) "**********************************"
+   write(*,*) "**********************************"
    write(*,*) 'TESTING MESON-SECTOR      '
-   write(*,*) "**********************************" 
-   write(*,*) "**********************************" 
-   write(*,*) 
+   write(*,*) "**********************************"
+   write(*,*) "**********************************"
+   write(*,*)
 
 
-   write(*,*) "**********************************" 
+   write(*,*) "**********************************"
    write(*,*)
    Write(*,*)      "Testing 'FullWidthMeson'"
    do id=pion,pion+nmes-1
 
-      do i=1,10000  
+      do i=1,10000
          mass=i*0.0004
          write(id-pion+1+500,*) mass,FullWidthMeson(id,mass),WidthMesonMedium(id,mass,mom,mediumAtPosition)
       end do
@@ -300,7 +300,7 @@ end subroutine testDecay
 
 
 
-   write(*,*) "**********************************" 
+   write(*,*) "**********************************"
    write(*,*)
    Write(*,*)      "Testing 'Partial WidthMeson' "
    do id=pion,pion+nmes-1
@@ -308,7 +308,7 @@ end subroutine testDecay
       Print *, "resonance=",id
       write(id-pion+1+600,*) "#Resonance ",id, "; Sum of partial width "
 
-      do i=0,100 
+      do i=0,100
          mass=i*0.05
          sum=0.
          ! two Channels with only mesons

@@ -65,10 +65,10 @@ contains
        !Applying HypCoalescence to spectators (projectile and target)
        SourceSpect = TheSource(NumEns,js)
        !check that it is realy projectile:
-       !    if (SourceProj%velocity(3)<0.) then
+       !    if (SourceProj%vel(3)<0.) then
        !       write(*,*) 'Module/routine MultifragmentationHyp:'
        !       write(*,'(A,2i5,2f8.4)') 'Wrong projectile selected...',&
-       !            & NumEns,js,SourceProj%position(1),SourceProj%velocity(3)
+       !            & NumEns,js,SourceProj%pos(1),SourceProj%vel(3)
        !       write(*,*) 'STOP'
        !       STOP
        !    endif
@@ -155,14 +155,14 @@ contains
        if (realParticle(j)%ID < 32 .or. realParticle(j)%ID > 33) cycle
        if (hypBound(j)) cycle !hyperon already bound
 
-       rdist(1:3)   = realParticle(j)%position(1:3) - SourceSpect%position(1:3)
+       rdist(1:3)   = realParticle(j)%pos(1:3) - SourceSpect%pos(1:3)
        hypDist      = sqrt( dot_product(rdist,rdist) )
-       MomPart(1:3) = realParticle(j)%momentum(1:3) / realParticle(j)%momentum(0)
-!       MomFra(1:3)  = fragment%momentum(1:3)/fragment%Mass
-       MomFra(1:3)  = fragment%momentum(1:3)/fragment%momentum(0)
+       MomPart(1:3) = realParticle(j)%mom(1:3) / realParticle(j)%mom(0)
+!       MomFra(1:3)  = fragment%mom(1:3)/fragment%Mass
+       MomFra(1:3)  = fragment%mom(1:3)/fragment%mom(0)
        Pcoala(:)    = MomPart(:)-MomFra(:)
        pdiff        = sqrt( dot_product(Pcoala,Pcoala) )
-       rdist(:)     = realParticle(j)%position(:)-fragment%position(:)
+       rdist(:)     = realParticle(j)%pos(:)-fragment%pos(:)
        rabs         = sqrt( dot_product(rdist,rdist) )
 
        !--------------------------------------------------------------------
@@ -246,23 +246,23 @@ contains
     !update elements of the type(cluster) "fragment%..."
     !We do not update Mass- and Charge-Numbers
 !    fragment%MassNumber  = fragment%MassNumber + HypFound
-    PosNew(:) = fragment%position(:)*fragment%mass ![fm*GeV] !!!
+    PosNew(:) = fragment%pos(:)*fragment%mass ![fm*GeV] !!!
     MassNew   = fragment%mass     ![GeV]!!!
-    MomNew(:) = fragment%momentum(:) 
+    MomNew(:) = fragment%mom(:) 
     Lambda    = 0
     Sigma     = 0
     do i=1,HypFound
        j=hypNumber(i)
-       PosNew(:) = PosNew(:) + realParticle(j)%position(:)*realParticle(j)%mass
+       PosNew(:) = PosNew(:) + realParticle(j)%pos(:)*realParticle(j)%mass
        MassNew   = MassNew   + realParticle(j)%mass
-       MomNew(:) = MomNew(:) + realParticle(j)%momentum(:)
+       MomNew(:) = MomNew(:) + realParticle(j)%mom(:)
        if (realParticle(j)%ID==32) Lambda = Lambda + 1
        if (realParticle(j)%ID==33) Sigma  = Sigma  + 1
     end do
 
-    fragment%position(:) = PosNew(:)/MassNew
+    fragment%pos(:) = PosNew(:)/MassNew
     fragment%Mass        = MassNew
-    fragment%momentum(:) = MomNew(:)
+    fragment%mom(:) = MomNew(:)
     fragment%HypNumber   = HypFound
 
     !store index of bound hyperons for detailed analysis:
@@ -344,8 +344,8 @@ contains
        if (realParticle(j)%ID /= 101) cycle
        if (pionBound(j)) cycle !pion already bounded
 
-       MomPion(0:3) = realParticle(j)%momentum(0:3)
-       MomF(0:3)  = fragment%momentum(0:3)/fragment%Mass
+       MomPion(0:3) = realParticle(j)%mom(0:3)
+       MomF(0:3)  = fragment%mom(0:3)/fragment%Mass
        Pdummy(:)  = MomPion(:)+MomF(:)
        pdiff      = Pdummy(0)**2 - dot_product(Pdummy(1:3),Pdummy(1:3))
        if (pdiff < 0.00001) then
@@ -359,7 +359,7 @@ contains
           SRT = sqrt(pdiff)
        endif
 
-       rdist(:) = realParticle(j)%position(:)-fragment%position(:)
+       rdist(:) = realParticle(j)%pos(:)-fragment%pos(:)
        rabs     = sqrt( dot_product(rdist,rdist) )
 
        !--------------------------------------------------------------------

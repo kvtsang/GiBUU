@@ -82,8 +82,8 @@ subroutine testMassAss
   pairIN(2)%mass=meson(pion)%mass
   pairIN(1)%charge=0
   pairIN(2)%Charge=0
-  pairIN(1)%momentum(0)=baryon(nucleon)%mass
-  pairIN(1)%momentum(1:3)=0.
+  pairIN(1)%mom(0)=baryon(nucleon)%mass
+  pairIN(1)%mom(1:3)=0.
 
 
   Do i=1,100
@@ -93,19 +93,19 @@ subroutine testMassAss
      write(*,*) '***********************************************************************'
      plab=0.1+i*deltaP
 
-     pairIN(2)%momentum(0)=sqrt(pairIN(2)%mass**2+pLab**2)
-     pairIN(2)%momentum(1:3)=(/0.,0.,pLab/)
-     srts=SQRT((Sum(pairIN%momentum(0)))**2-Dot_Product(pairIN(2)%momentum(1:3),pairIN(2)%momentum(1:3)))
+     pairIN(2)%mom(0)=sqrt(pairIN(2)%mass**2+pLab**2)
+     pairIN(2)%mom(1:3)=(/0.,0.,pLab/)
+     srts=SQRT((Sum(pairIN%mom(0)))**2-Dot_Product(pairIN(2)%mom(1:3),pairIN(2)%mom(1:3)))
      write(*,*) 'srts vorher=', srts
 
      If(srts.gt.3.) exit
 
      betaToLRF=0.
-     betaToCM=(/0.,0.,pLab/)/(pairIN(1)%momentum(0)+pairIN(2)%momentum(0))
+     betaToCM=(/0.,0.,pLab/)/(pairIN(1)%mom(0)+pairIN(2)%mom(0))
 
      Write(*,*) pairIN(:)%ID
-     Write(*,'(3F8.3)') pairIN(1)%Momentum(1:3)
-     Write(*,'(3F8.3)') pairIN(2)%Momentum(1:3)
+     Write(*,'(3F8.3)') pairIN(1)%mom(1:3)
+     Write(*,'(3F8.3)') pairIN(2)%mom(1:3)
      Write(*,*) 'Masses IN' , pairIN(1)%Mass , pairIN(2)%Mass
      Write(*,*) 'Charges IN' ,pairIN(1)%Charge, pairIN(2)%Charge
 
@@ -115,21 +115,21 @@ subroutine testMassAss
 
      If (flag) then
         Write(*,*) pairOut(:)%ID
-        Write(*,'(3F8.3)') pairOut(1)%Momentum(1:3)
-        Write(*,'(3F8.3)') pairOut(2)%Momentum(1:3)
+        Write(*,'(3F8.3)') pairOut(1)%mom(1:3)
+        Write(*,'(3F8.3)') pairOut(2)%mom(1:3)
         Write(*,*) 'Masses OUT' , pairOut(1)%Mass ,  pairOut(2)%Mass
         Write(*,*) 'Charges OUT', pairOut(1)%Charge , pairOut(2)%Charge
 
-        pairOut(1)%Momentum(0)=sqrt( pairOut(1)%mass**2+Dot_Product(pairOut(1)%Momentum,pairOut(1)%Momentum))
-        pairOut(2)%Momentum(0)=sqrt( pairOut(2)%mass**2+Dot_Product(pairOut(2)%Momentum,pairOut(2)%Momentum))
+        pairOut(1)%mom(0)=sqrt( pairOut(1)%mass**2+Dot_Product(pairOut(1)%mom,pairOut(1)%mom))
+        pairOut(2)%mom(0)=sqrt( pairOut(2)%mass**2+Dot_Product(pairOut(2)%mom,pairOut(2)%mom))
 
         betaToCM=-betaToCM
-        call lorentz(betaTOCM,pairOUT(1)%momentum)
-        call lorentz(betaTOCM,pairOUT(2)%momentum)
+        call lorentz(betaTOCM,pairOUT(1)%mom)
+        call lorentz(betaTOCM,pairOUT(2)%mom)
 
-        srts=sqrt(Sum(pairOUT%momentum(0))**2-Dot_Product(pairOUT(2)%momentum(1:3)+pairOUT(1)%momentum(1:3), &
-                                                          pairOUT(2)%momentum(1:3)+pairOUT(1)%momentum(1:3)))
-        write(*,*) 'P nachher=', pairOUT(2)%momentum(1:3)+pairOUT(1)%momentum(1:3)
+        srts=sqrt(Sum(pairOUT%mom(0))**2-Dot_Product(pairOUT(2)%mom(1:3)+pairOUT(1)%mom(1:3), &
+                                                          pairOUT(2)%mom(1:3)+pairOUT(1)%mom(1:3)))
+        write(*,*) 'P nachher=', pairOUT(2)%mom(1:3)+pairOUT(1)%mom(1:3)
         write(*,*) 'srts nachher=' , srts
      else
         Write(*,*) 'Failed to find solution!!!'
@@ -173,8 +173,8 @@ subroutine testAssMass
   pairIN(2)%mass=meson(pion)%mass
   pairIN(1)%charge=0
   pairIN(2)%Charge=0
-  pairIN(1)%momentum(0)=baryon(nucleon)%mass
-  pairIN(1)%momentum(1:3)=0.
+  pairIN(1)%mom(0)=baryon(nucleon)%mass
+  pairIN(1)%mom(1:3)=0.
 
 
   Do i=1,100
@@ -184,19 +184,19 @@ subroutine testAssMass
      write(*,*) '***********************************************************************'
      plab=0.1+i*deltaP
 
-     pairIN(2)%momentum(0)=sqrt(pairIN(2)%mass**2+pLab**2)
-     pairIN(2)%momentum(1:3)=(/0.,0.,pLab/)
-     srts=SQRT((Sum(pairIN%momentum(0)))**2-Dot_Product(pairIN(2)%momentum(1:3),pairIN(2)%momentum(1:3)))
+     pairIN(2)%mom(0)=sqrt(pairIN(2)%mass**2+pLab**2)
+     pairIN(2)%mom(1:3)=(/0.,0.,pLab/)
+     srts=SQRT((Sum(pairIN%mom(0)))**2-Dot_Product(pairIN(2)%mom(1:3),pairIN(2)%mom(1:3)))
      write(*,*) 'srts vorher=', srts
 
      If(srts.gt.3.) exit
 
      betaToLRF=0.
-     betaToCM=(/0.,0.,pLab/)/(pairIN(1)%momentum(0)+pairIN(2)%momentum(0))
+     betaToCM=(/0.,0.,pLab/)/(pairIN(1)%mom(0)+pairIN(2)%mom(0))
 
      Write(*,*) pairIN(:)%ID
-     Write(*,'(3F8.3)') pairIN(1)%Momentum(1:3)
-     Write(*,'(3F8.3)') pairIN(2)%Momentum(1:3)
+     Write(*,'(3F8.3)') pairIN(1)%mom(1:3)
+     Write(*,'(3F8.3)') pairIN(2)%mom(1:3)
      Write(*,*) 'Masses IN' , pairIN(1)%Mass , pairIN(2)%Mass
      Write(*,*) 'Charges IN' ,pairIN(1)%Charge, pairIN(2)%Charge
      write(*,*) 'P vorher=', pLab
@@ -206,25 +206,25 @@ subroutine testAssMass
 
      If (flag) then
         Write(*,*) pairOut(:)%ID
-        Write(*,'(3F8.3)') pairOut(1)%Momentum(1:3)
-        Write(*,'(3F8.3)') pairOut(2)%Momentum(1:3)
-        Write(*,'(3F8.3)') pairOut(3)%Momentum(1:3)
+        Write(*,'(3F8.3)') pairOut(1)%mom(1:3)
+        Write(*,'(3F8.3)') pairOut(2)%mom(1:3)
+        Write(*,'(3F8.3)') pairOut(3)%mom(1:3)
         Write(*,*) 'Masses OUT' , pairOut(1)%Mass ,  pairOut(2)%Mass,  pairOut(3)%Mass
         Write(*,*) 'Charges OUT', pairOut(1)%Charge , pairOut(2)%Charge,   pairOut(3)%Mass
 
-        pairOut(1)%Momentum(0)=sqrt( pairOut(1)%mass**2+Dot_Product(pairOut(1)%Momentum(1:3),pairOut(1)%Momentum(1:3)))
-        pairOut(2)%Momentum(0)=sqrt( pairOut(2)%mass**2+Dot_Product(pairOut(2)%Momentum(1:3),pairOut(2)%Momentum(1:3)))
-        pairOut(3)%Momentum(0)=sqrt( pairOut(3)%mass**2+Dot_Product(pairOut(3)%Momentum(1:3),pairOut(3)%Momentum(1:3)))
+        pairOut(1)%mom(0)=sqrt( pairOut(1)%mass**2+Dot_Product(pairOut(1)%mom(1:3),pairOut(1)%mom(1:3)))
+        pairOut(2)%mom(0)=sqrt( pairOut(2)%mass**2+Dot_Product(pairOut(2)%mom(1:3),pairOut(2)%mom(1:3)))
+        pairOut(3)%mom(0)=sqrt( pairOut(3)%mass**2+Dot_Product(pairOut(3)%mom(1:3),pairOut(3)%mom(1:3)))
 
         betaToCM=-betaToCM
-        call lorentz(betaTOCM,pairOUT(1)%momentum)
-        call lorentz(betaTOCM,pairOUT(2)%momentum)
-        call lorentz(betaTOCM,pairOUT(3)%momentum)
+        call lorentz(betaTOCM,pairOUT(1)%mom)
+        call lorentz(betaTOCM,pairOUT(2)%mom)
+        call lorentz(betaTOCM,pairOUT(3)%mom)
 
-        srts = sqrt(Sum(pairOUT%momentum(0))**2 - &
-                    Dot_Product(pairOUT(3)%momentum(1:3)+pairOUT(2)%momentum(1:3)+pairOUT(1)%momentum(1:3), &
-                                pairOUT(3)%momentum(1:3)+pairOUT(2)%momentum(1:3)+pairOUT(1)%momentum(1:3)))
-        write(*,*) 'P nachher=', pairOUT(2)%momentum(1:3)+pairOUT(1)%momentum(1:3)+pairOUT(3)%momentum(1:3)
+        srts = sqrt(Sum(pairOUT%mom(0))**2 - &
+                    Dot_Product(pairOUT(3)%mom(1:3)+pairOUT(2)%mom(1:3)+pairOUT(1)%mom(1:3), &
+                                pairOUT(3)%mom(1:3)+pairOUT(2)%mom(1:3)+pairOUT(1)%mom(1:3)))
+        write(*,*) 'P nachher=', pairOUT(2)%mom(1:3)+pairOUT(1)%mom(1:3)+pairOUT(3)%mom(1:3)
         write(*,*) 'srts nachher=' , srts
      else
         Write(*,*) 'Failed to find solution!!!'

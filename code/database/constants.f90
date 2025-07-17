@@ -36,6 +36,9 @@ module constants
   real, parameter :: melec = 0.00051099892                    ! electron mass
   real, parameter :: mmuon = 0.105658369                      ! muon mass
   real, parameter :: mtau  = 1.77699                          ! tau mass
+  real, parameter :: mW = 80.3379                             ! W boson mass
+  real, parameter :: mZ = 91.1876                             ! Z boson mass
+  
   ! hadrons
   real, parameter :: mPi   = 0.138                            ! pion mass
   real, parameter :: mN    = 0.938                            ! nucleon mass

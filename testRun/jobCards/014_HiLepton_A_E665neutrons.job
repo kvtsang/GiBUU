@@ -27,7 +27,7 @@
     flagTwoJets=.false.
 /
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =          14 ! HiLepton
       numEnsembles    =         200
@@ -39,6 +39,7 @@
       DoPrLevel(1) = T
       DoPrLevel(2) = .FALSE.
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./density/nucleus.f90

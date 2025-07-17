@@ -24,6 +24,15 @@ echo "Generate: ${pathrundir}"
 mkdir $pathrundir
 cd $pathrundir
 
+# copy the jobcards and replace path to buuinput:
+buuinputdir=`readlink -f ${path}/../buuinput`
+echo "buuinput: ${buuinputdir}"
+for job in `ls ${path}/testRun/jobCards/*.job`; do
+    cp $job .
+    f=`basename $job`
+    sed -i "s|~/GiBUU/buuinput|${buuinputdir}|" $f
+done
+
 task()
 {
     jobbase=`basename $1 .job`
@@ -61,6 +70,6 @@ fi
 echo "Parallelize with Ntask=$Ntask"
 open_sem $Ntask
 
-for job in `ls ${path}/testRun/jobCards/*.job`; do
+for job in `ls ${pathrundir}/*.job`; do
     run_with_lock task "$job"
 done

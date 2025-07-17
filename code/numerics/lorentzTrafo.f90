@@ -19,25 +19,21 @@ module lorentzTrafo
   !****************************************************************************
   !****f* lorentzTrafo/lorentzCalcBeta
   ! NAME
-  ! function lorentzCalcBeta (Mom, CallName) result (beta)
-  ! function lorentzCalcBeta (Mom, flagOK, CallName) result (beta)
-  ! function lorentzCalcBeta (mom3, mass, CallName) result (beta)
+  ! function lorentzCalcBeta(Mom) result (beta)
+  ! function lorentzCalcBeta(mom3, mass) result (beta)
   ! PURPOSE
   ! calculate the beta-Vector for a Lorentz-Boost.
   ! checks whether a valid vector results
   ! INPUTS
   ! * real,dimension(0:3)    :: Mom
-  ! * character(40),optional :: CallName
   ! or:
   ! * real, dimension(1:3)   :: mom3
   ! * real                   :: mass
-  ! * character(40),optional :: CallName
   ! RESULT
   ! * real, dimension(1:3) :: beta
-  ! * logical :: flagOK -- indicates success (if given, code does not stop)
   !****************************************************************************
   interface lorentzCalcBeta
-     module procedure lorentzCalcBeta4,lorentzCalcBeta4f,lorentzCalcBeta3
+     module procedure lorentzCalcBeta4,lorentzCalcBeta3
   end interface
 
 contains
@@ -69,35 +65,28 @@ contains
   !****************************************************************************
   !****s* lorentzTrafo/lorentz
   ! NAME
-  ! subroutine lorentz(beta,fourVector,CallName)
+  ! subroutine lorentz(beta,fourVector)
   ! PURPOSE
   ! performs Lorentz transformation of fourVector into a
   ! system which is traveling with the velocity beta(1:3)
   ! INPUTS
   ! * real,dimension(0:3),intent(inout) :: fourVector
   ! * real,dimension(1:3),intent(in)    :: beta
-  ! * character(*),intent(in),optional  :: CallName
   ! RESULT
   ! * real,dimension(0:3),intent(inout) :: fourVector
   !****************************************************************************
-  subroutine lorentz (beta, fourVector, CallName)
+  subroutine lorentz(beta, fourVector)
     use callstack, only: traceback
 
     real,dimension(0:3),intent(inout) :: fourVector
     real,dimension(1:3),intent(in)    :: beta
-    character(*),optional,intent(in)  :: CallName
 
     real :: gamma, betaFour
-
-    !Evaluate gamma
 
     gamma = Dot_Product(beta,beta)
     if (gamma<1e-20) return ! do nothing
     if (gamma>=1.0) then
        write(*,*)
-       if (present(CallName)) then
-          write(*,*) 'lorentz called by ',CallName
-       end if
        write(*,*) '(1-beta**2) in lorentz less or equal zero: ', 1.0-gamma
        write(*,*) 'beta=',  beta
        write(*,*) 'Stop program'
@@ -105,9 +94,8 @@ contains
     end if
     gamma = 1.0/sqrt(1.0-gamma)
 
-    !beta*fourVector(1:3)
     betaFour = Dot_Product(beta, fourVector(1:3))
-    !do transformation
+
     fourVector(1:3)= fourVector(1:3) + gamma*beta(1:3)*(gamma/(gamma+1.)*betaFour-fourvector(0))
     fourVector(0)= gamma*(fourVector(0)-betaFour)
     return
@@ -117,22 +105,17 @@ contains
   !****************************************************************************
   ! cf. interface lorentzCalcBeta
   !****************************************************************************
-  function lorentzCalcBeta4(Mom, CallName) result (beta)
+  function lorentzCalcBeta4(Mom) result (beta)
     use minkowski, only: abs4Sq
     use callstack, only: traceback
 
     real, dimension(0:3), intent(in)   :: Mom
-    character(*), intent(in), optional :: CallName
     real, dimension(1:3) :: beta
-    character(80) :: Name
 
-    if (abs4Sq(Mom) .le. 0.) then
-       if (present(CallName)) then
-          Name = 'lorentzCalcBeta  (called by '//CallName//')'
-       else
-          Name = 'lorentzCalcBeta'
-       end if
-       write(*,*) Name,': not a valid boost vector!'
+    real, parameter :: eps = 1e-10 ! accuracy
+
+    if (abs4Sq(Mom) < eps*Mom(0)**2) then
+       write(*,*) 'lorentzCalcBeta: not a valid boost vector!'
        write(*,*) Mom,Mom(0)**2-Dot_Product(Mom(1:3),Mom(1:3))
        call traceBack()
        stop
@@ -141,47 +124,17 @@ contains
     beta(1:3) = Mom(1:3)/Mom(0)
 
   end function lorentzCalcBeta4
-
   !---------------------------------------------------------------------------
-  function lorentzCalcBeta4f(Mom, flagOK, CallName) result (beta)
-    use minkowski, only: abs4Sq
-    use callstack, only: traceback
-
-    real, dimension(0:3), intent(in)   :: Mom
-    logical, intent(out) :: flagOK
-    character(*), intent(in), optional :: CallName
-    real, dimension(1:3) :: beta
-    character(80) :: Name
-
-    if (abs4Sq(Mom) .le. 0.) then
-       if (present(CallName)) then
-          Name = 'lorentzCalcBeta  (called by '//CallName//')'
-       else
-          Name = 'lorentzCalcBeta'
-       end if
-       write(*,*) Name,': not a valid boost vector!'
-       write(*,*) Mom,Mom(0)**2-Dot_Product(Mom(1:3),Mom(1:3))
-       call traceBack(user_exit_code=-1)
-       beta = 0
-       flagOK = .false.
-    else
-       beta(1:3) = Mom(1:3)/Mom(0)
-       flagOK = .true.
-    end if
-
-  end function lorentzCalcBeta4f
-  !---------------------------------------------------------------------------
-  function lorentzCalcBeta3(mom3, mass, CallName) result (beta)
+  function lorentzCalcBeta3(mom3, mass) result (beta)
     real, dimension(1:3), intent(in)   :: mom3
     real, intent(in)                   :: mass
-    character(*), intent(in), optional :: CallName
     real, dimension(1:3) :: beta
 
     real,dimension(0:3)  :: Mom
 
     Mom(0) = sqrt(mass**2+sum(mom3**2))
     Mom(1:3) = mom3(1:3)
-    beta = lorentzCalcBeta4 (Mom, CallName)
+    beta = lorentzCalcBeta4(Mom)
   end function lorentzCalcBeta3
 
 
@@ -284,7 +237,7 @@ contains
   ! * Note that the formula given in Effenberger's diploma thesis is only
   !   very approximate!!
   !****************************************************************************
-  real function eval_sigmaBoost (mom1, mom2)
+  real function eval_sigmaBoost(mom1, mom2)
     use particleDefinition
     use minkowski, only: abs3, abs4, abs4Sq
     use callStack, only: TRACEBACK

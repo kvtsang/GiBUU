@@ -103,12 +103,28 @@ endif
 
 endif
 
+### Compiler flags for usage of HepMC3:
+
+ifneq ($(withHEPMC3),$(EMPTY))
+HEPMC3CONFIG=$(strip $(shell which HepMC3-config 2>/dev/null))
+ifneq ($(HEPMC3CONFIG),$(EMPTY))
+	FLAGS_HEPMC3:=$(shell HepMC3-config --cflags)
+	FLAGS_HEPMC3:=$(subst -std=c++11, , $(FLAGS_HEPMC3))
+	FLAGSLD_HEPMC3:=$(shell HepMC3-config --libs) -lstdc++
+endif
+HEPMC3EVENTCONFIG=$(strip $(shell which HepMC3event-config 2>/dev/null))
+ifneq ($(HEPMC3EVENTCONFIG),$(EMPTY))
+	FLAGSLD_HEPMC3:=$(shell HepMC3event-config --libs) -lstdc++
+endif
+
+endif
+
 ### Compiler flags: (use as abbreviation)
 
-FLAGSF77c:=$(FLAGSF77) $(FLAGSDOUBLE) $(FLAGSFORALL) $(FLAGS_FGSL) $(FLAGS_ROOT) -I$(OBJDIR)
-FLAGSF90c:=$(FLAGSF90) $(FLAGSDOUBLE) $(FLAGSFORALL) $(FLAGS_FGSL) $(FLAGS_ROOT) -I$(OBJDIR)
+FLAGSF77c:=$(FLAGSF77) $(FLAGSDOUBLE) $(FLAGSFORALL) $(FLAGS_FGSL) $(FLAGS_ROOT) $(FLAGS_HEPMC3) -I$(OBJDIR)
+FLAGSF90c:=$(FLAGSF90) $(FLAGSDOUBLE) $(FLAGSFORALL) $(FLAGS_FGSL) $(FLAGS_ROOT) $(FLAGS_HEPMC3) -I$(OBJDIR)
 
-FLAGSLD:=-L$(strip $(LIBDIR)) -lPDF -lbz2 -lRootTuple $(FLAGSLD_FGSL) $(FLAGSLD_LHAPDF) $(FLAGSLD_ROOT)
+FLAGSLD:=-L$(strip $(LIBDIR)) -lPDF -lbz2 -lRootTuple -lHEPMC3event $(FLAGSLD_FGSL) $(FLAGSLD_LHAPDF) $(FLAGSLD_ROOT) $(FLAGSLD_HEPMC3)
 
 ### RULES:
 
@@ -240,7 +256,7 @@ ModGraph:
 ### Rules in order to produce specific libraries from *.o files:
 # (This is only necessary in directory /objects)
 
-buildLIBS: buildLIBS_PDF buildLIBS_RootTuple
+buildLIBS: buildLIBS_PDF buildLIBS_RootTuple buildLIBS_HEPMC3event
 
 
 buildLIBS_PDF: buildLIBpdfstub
@@ -288,6 +304,29 @@ ifneq ($(ROOTTUPLECONFIG),$(EMPTY))
 	@-rm -f $(LIBDIR)/libRootTuple.a
 endif
 
+buildLIBS_HEPMC3event: buildLIBhepmc3eventstub
+	@-rm -f $(LIBDIR)/libHEPMC3event.a
+ifneq ($(withHEPMC3),$(EMPTY))
+ifneq ($(HEPMC3EVENTCONFIG),$(EMPTY))
+	@echo "Using HepMC3event (systemwide installation)..."
+else
+	@echo "Using HepMC3event (local installation)..."
+	@if [ -f $(LIBDIR)/libHEPMC3event.100.a ]; then \
+	ln -s $(LIBDIR)/libHEPMC3event.100.a $(LIBDIR)/libHEPMC3event.a; \
+        else \
+	echo "ERROR: $(LIBDIR)/libHEPMC3event.100.a does not exist."; \
+	fi
+endif
+endif
+	@if [ ! -f $(LIBDIR)/libHEPMC3event.a ]; then \
+	echo "Using HepMC3eventstub..."; \
+	ln -s $(LIBDIR)/libHEPMC3eventstub.a $(LIBDIR)/libHEPMC3event.a; \
+	fi
+ifneq ($(HEPMC3EVENTCONFIG),$(EMPTY))
+	@-rm -f $(LIBDIR)/libHEPMC3event.a
+endif
+
+
 buildLIBpdfstub: libPDFstub.orig.6225.a
 	@-rm -f $(LIBDIR)/$<
 	@ln -s $(CURDIR)/$< $(LIBDIR)
@@ -296,11 +335,15 @@ buildLIBroottuplestub: libRootTuplestub.a
 	@-rm -f $(LIBDIR)/$<
 	@ln -s $(CURDIR)/$< $(LIBDIR)
 
+buildLIBhepmc3eventstub: libHEPMC3eventstub.a
+	@-rm -f $(LIBDIR)/$<
+	@ln -s $(CURDIR)/$< $(LIBDIR)
+
 
 lib%.a: %.o
 	@-rm -f $@
-	$(AR) r $@ $<
-	@$(AR) s $@
+	$(AR) rs $@ $<
+#	@$(AR) s $@
 	@-rm -f $<
 
 

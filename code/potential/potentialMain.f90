@@ -1,17 +1,17 @@
 !******************************************************************************
-!****m* /potentialModule
+!****m* /potentialMain
 ! NAME
-! module potentialModule
+! module potentialMain
 ! PURPOSE
 ! Does administration for the hadronic potentials in the code.
 !******************************************************************************
-module potentialModule
+module potentialMain
 
   implicit none
   private
 
   !****************************************************************************
-  !****s* potentialModule/massDetermination
+  !****s* potentialMain/massDetermination
   ! NAME
   ! subroutine massDetermination(particleID,momentumLRF,med,baremass,verbose,success,pos)
   !
@@ -54,7 +54,7 @@ module potentialModule
   End Interface
 
   !****************************************************************************
-  !****f* potentialModule/potential_LRF
+  !****f* potentialMain/potential_LRF
   ! NAME
   ! real function potential_LRF(teilchen, addCoulomb)
   !
@@ -103,7 +103,7 @@ module potentialModule
   End Interface
 
   !****************************************************************************
-  !****f* potentialModule/scaPot
+  !****f* potentialMain/scaPot
   ! NAME
   ! real function scapot(part,baremass_out,success, addCoulomb)
   !
@@ -163,8 +163,8 @@ contains
   !-------------------------------------------------------------------------
   real function potential_LRF_1C(teilchen, addCoulomb)
     use particleDefinition
-    use mesonPotentialModule, only: MesonPotential
-    use baryonPotentialModule, only: BaryonPotential
+    use mesonPotentialMain, only: MesonPotential
+    use baryonPotentialMain, only: BaryonPotential
     use mediumDefinition
     use mediumModule, only: mediumAt
     use callStack
@@ -179,7 +179,7 @@ contains
     potential_LRF_1C=0.
 
     ! The position of the particle is well defined, therefore we use the position to deduce the density
-    med = mediumAt(teilchen%position)
+    med = mediumAt(teilchen%pos)
 
     if (isBaryon(teilchen%ID)) then !All baryons
        potential_LRF_1C=BaryonPotential(teilchen,med,.false.)
@@ -191,7 +191,7 @@ contains
     end if
 
     if (addCoulomb) potential_LRF_1C = potential_LRF_1C &
-         + emfoca(teilchen%position,teilchen%momentum(1:3),teilchen%charge,teilchen%ID)
+         + emfoca(teilchen%pos,teilchen%mom(1:3),teilchen%charge,teilchen%ID)
 
   end function potential_LRF_1C
   !-------------------------------------------------------------------------
@@ -227,12 +227,12 @@ contains
     call SetToDefault(part)
     part%ID=ID
     part%charge=IQ
-    part%antiparticle=.false.
+    part%anti=.false.
     part%mass=mN ! <=== only with ID=1; necessary ???
-    part%momentum(1:3)=mom(1:3) ! <=== ???
-    part%position=pos
-    part%antiparticle=.false.
-    part%perturbative=.true.
+    part%mom(1:3)=mom(1:3) ! <=== ???
+    part%pos=pos
+    part%anti=.false.
+    part%pert=.true.
 
     potential_LRF_2C = potential_LRF_1C(part, addCoulomb)
 
@@ -282,8 +282,8 @@ contains
   !-------------------------------------------------------------------------
   real function potential_LRF_4C(teilchen,med, addCoulomb)
     use particleDefinition
-    use mesonPotentialModule, only: MesonPotential
-    use baryonPotentialModule, only: BaryonPotential
+    use mesonPotentialMain, only: MesonPotential
+    use baryonPotentialMain, only: BaryonPotential
     use mediumDefinition
     use callStack
     use IDTable, only: photon, isMeson, isBaryon
@@ -322,8 +322,8 @@ contains
   !-------------------------------------------------------------------------
   real function potential_LRF_5C(teilchen,density, addCoulomb)
     use particleDefinition
-    use mesonPotentialModule, only: MesonPotential
-    use baryonPotentialModule, only: BaryonPotential
+    use mesonPotentialMain, only: MesonPotential
+    use baryonPotentialMain, only: BaryonPotential
     use mediumDefinition
     use mediumModule, only: mediumAt
     use callStack
@@ -341,7 +341,7 @@ contains
 
     ! The position of the particle is well defined, therefore we use the
     ! position to deduce the density
-    med = mediumAt(density,teilchen%position)
+    med = mediumAt(density,teilchen%pos)
 
     if (isBaryon(Teilchen%ID)) then !All baryons
        potential_LRF_5C=BaryonPotential(teilchen,med,.false.)
@@ -353,7 +353,7 @@ contains
     end if
 
     if (addCoulomb) potential_LRF_5C = potential_LRF_5C &
-         + emfoca(teilchen%position,teilchen%momentum(1:3),teilchen%charge,teilchen%ID)
+         + emfoca(teilchen%pos,teilchen%mom(1:3),teilchen%charge,teilchen%ID)
 
   end function potential_LRF_5C
   !****************************************************************************
@@ -389,7 +389,7 @@ contains
 
     vecpot=potential_LRF(part, addC)
 
-    p = part%momentum
+    p = part%mom
     invMass=abs4(p,flagOK)
     if ((.not.flagOK).or.(invMass.le.1E-3)) return ! ==> failure
 
@@ -401,9 +401,9 @@ contains
           write(*,*) 'final state mass less than zero!',abs4Sq(p),&
                ' count = ',zerocount
           write(*,*) 'pot=',vecpot
-          write(*,*) 'mom=',part%momentum(1:3)
-          write(*,*) 'pos=',part%position(1:3)
-          dens=densityAt(part%position(1:3))
+          write(*,*) 'mom=',part%mom(1:3)
+          write(*,*) 'pos=',part%pos(1:3)
+          dens=densityAt(part%pos(1:3))
           write(*,*) 'dens=',dens%baryon,dens%proton,dens%neutron
        end if
        return ! ==> failure
@@ -418,7 +418,7 @@ contains
   !-------------------------------------------------------------------------
   real function scapot2(ID,IQ,mom,pos, baremass_out,success, addCoulomb)
     use particleDefinition
-    use baryonPotentialmodule, only: getPotentialEQSType
+    use baryonPotentialMain, only: getPotentialEQSType
     use minkowski, only: abs4, abs4Sq
     use densitymodule, only: densityAt
     use dichteDefinition
@@ -448,10 +448,10 @@ contains
     call setToDefault(part)
     part%ID=ID
     part%charge=IQ
-    part%momentum=mom
-    part%position=pos
-    part%antiparticle=.false.
-    part%perturbative=.true.
+    part%mom=mom
+    part%pos=pos
+    part%anti=.false.
+    part%pert=.true.
 
 
     ! determine bare mass of the particle,
@@ -481,9 +481,9 @@ contains
           write(*,*) 'final state mass less than zero!',abs4Sq(p),&
                ' count = ',zerocount
           write(*,*) 'pot=',vecpot
-          write(*,*) 'mom=',part%momentum(1:3)
-          write(*,*) 'pos=',part%position(1:3)
-          dens=densityAt(part%position(1:3))
+          write(*,*) 'mom=',part%mom(1:3)
+          write(*,*) 'pos=',part%pos(1:3)
+          dens=densityAt(part%pos(1:3))
           write(*,*) 'dens=',dens%baryon
           write(*,*) 'dens=',dens%proton
           write(*,*) 'dens=',dens%neutron
@@ -499,9 +499,9 @@ contains
   end function scapot2
 
   !****************************************************************************
-  !****s* potentialModule/trueEnergy
+  !****s* potentialMain/trueEnergy
   ! NAME
-  ! function trueEnergy(part)
+  ! function trueEnergy(part, addCoulomb, partOut)
   ! PURPOSE
   ! * (1) Boosts particle to "Local Rest Frame" (LRF).
   ! * (2) Evaluates energy-rearrangement terms.
@@ -509,24 +509,28 @@ contains
   ! INPUTS
   ! * type(particle) :: part -- Particle whose energy is to be calculated
   ! NOTES
-  ! The LRF is the frame in which the baryon current vanishes.
-  ! If the density is very small, then no boost takes place, and the free
+  ! * The LRF is the frame in which the baryon current vanishes.
+  ! * If the density is very small, then no boost takes place, and the free
   ! energy is assumed.
-  ! For all particles besides the nucleon, the free 1-particle energy is
+  ! * For all particles besides the nucleon, the free 1-particle energy is
   ! equal to the true energy. But for the nucleon we need to substract the
   ! rearrangement terms due to the potential.
+  ! * do not give the same variable both for part and partOut: You will get
+  ! errors like 'ID=0' in this case.
   !****************************************************************************
-  real function trueEnergy(partIn, addCoulomb)
+  real function trueEnergy(partIn, addCoulomb, partOut)
     use particleDefinition
     use mediumDefinition
     use densitymodule, only: boostToLRF
     use mediumModule, only: mediumAt
-    use baryonPotentialModule, only: rearrangementPotential
+    use baryonPotentialMain, only: rearrangementPotential
     use IdTable, only: isMeson, isBaryon
     use coulomb, only: emfoca
+    use callStack
 
     type(particle), intent(in) :: partIn
-    logical,intent(in),OPTIONAL :: addCoulomb
+    logical, intent(in),OPTIONAL :: addCoulomb
+    type(particle), intent(out),OPTIONAL :: partOut
 
     logical :: doC
     type(medium) :: med
@@ -538,28 +542,30 @@ contains
     if (present(addCoulomb)) doC = addCoulomb
 
     if (isBaryon(Part%Id)) then
-       med = mediumAt(part%position(1:3))  ! evaluate density
+       med = mediumAt(part%pos(1:3))  ! evaluate density
        call boostToLRF(part,1)  ! boost from calculation frame to LRF
-       part%momentum(0) = part%momentum(0) &
+       part%mom(0) = part%mom(0) &
             + rearrangementPotential(part, med)
-       if (doC) part%momentum(0) = part%momentum(0) &
-            - emfoca(part%position,part%momentum(1:3),part%charge,part%ID)/2
+       if (doC) part%mom(0) = part%mom(0) &
+            - emfoca(part%pos,part%mom(1:3),part%charge,part%ID)/2
        call boostToLRF(part,2)  ! boost from LRF to calculation frame
 
     else if (isMeson(Part%Id)) then
        if (doC .and. part%ID.ne.0) then
           call boostToLRF(part,1)  ! boost from calculation frame to LRF
-          part%momentum(0) = part%momentum(0) &
-               - emfoca(part%position,part%momentum(1:3),part%charge,part%ID)/2
+          part%mom(0) = part%mom(0) &
+               - emfoca(part%pos,part%mom(1:3),part%charge,part%ID)/2
           call boostToLRF(part,2)  ! boost from LRF to calculation frame
        end if
     else
        trueEnergy=0.
        write(*,*) 'Funny particle in trueEnergy. ID=',Part%ID
-       stop
+       call traceback()
     end if
 
-    trueEnergy=part%momentum(0)
+    if (present(partOut)) partOut = part
+
+    trueEnergy=part%mom(0)
 
   end function trueEnergy
 
@@ -594,10 +600,10 @@ contains
     ! Evaluate scalar potential in LRF:
     call setToDefault(teilchen)
     teilchen%ID      =  ID
-    teilchen%momentum=  momLRF
-    teilchen%perturbative = .false.
+    teilchen%mom=  momLRF
+    teilchen%pert = .false.
 
-    if (present(pos)) teilchen%position = pos
+    if (present(pos)) teilchen%pos = pos
 
     if (isMeson(teilchen%ID)) then
       rp = get_realPart(ID, abs4(momLRF), med)
@@ -612,7 +618,7 @@ contains
     else
        pot = potential_LRF(teilchen,med,.false.)
     end if
-    bareMassSquared=(teilchen%momentum(0)-pot)**2-AbsMom(teilchen)**2-rp
+    bareMassSquared=(teilchen%mom(0)-pot)**2-AbsMom(teilchen)**2-rp
 
     if (bareMassSquared.lt.0) then
        if (verbose_) then
@@ -678,7 +684,7 @@ contains
 
     ! (1.1) Boost to calculation frame
     if (present(betaToCF)) then  !boost particle to calculation frame
-       call lorentz(betaToCF, teilchen%momentum, 'massDetermination')
+       call lorentz(betaToCF, teilchen%mom)
     end if
 
     ! (1.2) Boost from calculation frame to LRF
@@ -686,18 +692,18 @@ contains
 
     ! p_0=sqrt(p**2+m**2)+V_LRF_0 (p(1:3)) =>
 
-    h = (teilchen%momentum(0)-potential_LRF(teilchen))**2-AbsMom(teilchen)**2
+    h = (teilchen%mom(0)-potential_LRF(teilchen))**2-AbsMom(teilchen)**2
 
     if (h<0.) then
-       if (verbose_) write(*,*) 'WARNING in massDetermination: negative mass',teilchen%ID,h
+       if (verbose_) write(*,*) 'WARNING in massDetermination: negative mass',teilchen%ID,teilchen%number,h
        if (.not.present(success)) then
           write(*,*) 'Deleting particle ! teilchenIn%ID=0 !'
           partIn%ID=0 ! delete particle
        end if
     else
        if (isMeson(teilchen%ID)) then
-          med = mediumAt(teilchen%position)
-          rp = get_realPart(teilchen%ID, abs4(teilchen%momentum), med)
+          med = mediumAt(teilchen%pos)
+          rp = get_realPart(teilchen%ID, abs4(teilchen%mom), med)
        else
           rp = 0.
        end if
@@ -718,12 +724,12 @@ contains
       write(*,*) 'ID:           ', partIn%Id
       write(*,*) 'Charge:       ', partIn%charge
       write(*,*) 'Bare mass:    ', partIn%mass
-      write(*,*) 'Eff. mass:    ', abs4(partIn%momentum)
-      write(*,*) 'Momentum:     ', partIn%momentum
-      write(*,*) 'Position:     ', partIn%position
-      write(*,*) 'Perturbative: ', partIn%perturbative
-      write(*,*) 'Offshell par: ', partIn%offshellParameter
-      dens = densityAt(partIn%position)
+      write(*,*) 'Eff. mass:    ', abs4(partIn%mom)
+      write(*,*) 'Momentum:     ', partIn%mom
+      write(*,*) 'Position:     ', partIn%pos
+      write(*,*) 'Perturbative: ', partIn%pert
+      write(*,*) 'Offshell par: ', partIn%offshellPar
+      dens = densityAt(partIn%pos)
       write(*,*) 'Density:      ', dens%baryon, dens%proton, dens%neutron
       if (present(betaToCF)) write(*,*) 'beta to calculation frame: ', betaToCF
       write(*,*)
@@ -736,4 +742,4 @@ contains
 
 
 
-end module potentialModule
+end module potentialMain

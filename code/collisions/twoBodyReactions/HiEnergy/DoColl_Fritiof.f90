@@ -55,7 +55,7 @@ contains
     use IdTable, only: nucleon, Delta
     use CollTools, only: ReduceCharge, ConvertInPartFritiof, SetSomeDefaults_FR, SetVectorFromPYJETS, CorrectChargeVector
     use twoBodyTools, only: IsElastic, IsChargeExchange
-    use CollGetLeading, only: GetLeading_FR
+    use GetLeading, only: GetLeading_FR
     use hadronFormation, only: useJetSetVec
     use ID_translation, only: KFfromBUU
 
@@ -122,8 +122,8 @@ contains
     !...Set ID etc
     ID1 = inPart(1)%ID
     ID2 = inPart(2)%ID
-    if (inPart(1)%antiparticle) ID1 = -ID1
-    if (inPart(2)%antiparticle) ID2 = -ID2
+    if (inPart(1)%anti) ID1 = -ID1
+    if (inPart(2)%anti) ID2 = -ID2
     IZ1 = inPart(1)%charge
     IZ2 = inPart(2)%charge
 
@@ -244,7 +244,7 @@ contains
           ! Test for charge exchange event for antinucleon-nucleon,
           ! antinucleon-delta or nucleon-antidelta collision
           if ((InPart(1)%Id+InPart(2)%Id<=nucleon+delta) .and. &
-              (InPart(1)%antiParticle.neqv.InPart(2)%antiParticle) .and. &
+              (InPart(1)%anti.neqv.InPart(2)%anti) .and. &
               IsChargeExchange(InPart(1),InPart(2),OutPart(1),OutPart(2))) cycle
 
        end if

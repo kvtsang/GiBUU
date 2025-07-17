@@ -192,7 +192,7 @@ contains
     ! set kinematical cuts
 
     x = eNeV_Get_LightX(eNev)
-    Q2 = eNev%QSquared
+    Q2 = eNev%Q2
 
     CKIN(61) = x
     CKIN(62) = x * 1.001d0
@@ -208,8 +208,8 @@ contains
     ! around the z-axis in order to set the y-component to 0 !!!
 
 
-    pB = eNev%lepton_in%momentum
-    pT = eNev%nucleon_free%momentum
+    pB = eNev%lepton_in%mom
+    pT = eNev%nucleon_free%mom
 
     phi = atan2(eNev%pcm(2),eNeV%pcm(1))
     theta = atan2(sqrt(eNev%pcm(1)**2+eNev%pcm(2)**2),eNev%pcm(3))
@@ -232,7 +232,7 @@ contains
 
     ! Initialize Pythia
 
-    call PYINIT('3MOM', cBeam, cTarget, eNev%lepton_in%momentum(0))
+    call PYINIT('3MOM', cBeam, cTarget, eNev%lepton_in%mom(0))
 
   end subroutine InitPythia
 
@@ -292,11 +292,18 @@ contains
     SAVE /PYSUBS/
 
     integer i,i1
+    logical ldum
 
     if (MINT(121).GT.1) CALL PYSAVE(5,0) ! ?????
 
     do i=0,500
-       if (i.eq.0 .or. MSUB(i).eq.1) then
+       ! if (i.eq.0 .or. MSUB(i).eq.1) then !!! Fortran has no short-circuit
+       if (i.eq.0) then
+          ldum=.true.
+       else
+          ldum = (MSUB(i).eq.1)
+       end if
+       if (ldum) then
           i1=i1+1
           if (i1.gt.N) stop
           iXS(i1) = i

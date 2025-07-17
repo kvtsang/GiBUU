@@ -20,16 +20,19 @@ program CalcJoos76
   use output
   use minkowski, only: abs4
 
-  use collisionTerm, only: collideMain
+  use collisionTerm, only: ForceDecays
   use preEventDefinition
   use PreEvListDefinition
-  use PreEvList, only: CreateSortedPreEvent,PreEvList_PrintEntry
+  use PreEvList, only: CreateSortedPreEvent,PreEvList_PrintEntry,&
+       ComparePreEvent
   use Electron_origin, only : origin_singlePi,origin_doublePi,origin_DIS
   use insertion, only: GarbageCollection
 
   use PILCollected
 
   implicit none
+
+  logical, parameter :: calcOnlyMaid = .true.
 
   integer :: iW,iQ2,iN,iNdone,iN2,iHH,iiW
 
@@ -49,13 +52,14 @@ program CalcJoos76
   real :: s,x
 
   real :: XS
-  real :: hhh
-  
+  real :: hhh, sigmaBosted
+
   type(particle) :: TargetNuc
   type(particle), dimension(1,1) :: realPart
   type(particle),dimension(1,1:25)  :: finalState
 
-  type(preEvent), dimension(1:25) :: PreE
+!  type(preEvent), dimension(1:25) :: PreE
+  type(tPreEvListEntry) :: PreEv
   type(tPreEvListEntry), dimension(1:6) :: Pre1Pi
   type(tPreEvListEntry), dimension(1:12) :: Pre2Pi
   integer :: iC1,iC2,iC3, iiC, i
@@ -72,12 +76,15 @@ program CalcJoos76
 
   call SetSomeDefaults_PY
 
+  call setToDefault(realPart)
+!  realPart%ID = 0
+
   call setToDefault(TargetNuc)
   TargetNuc%ID = 1
   TargetNuc%charge = 1
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
   Ebeam = 7.2 ! Joos 1976
 
@@ -122,7 +129,7 @@ program CalcJoos76
   write(100,*) '1--Pion FinalStates:'
 
   finalstate%ID = 0
-  finalstate%antiparticle = .false.
+  finalstate%anti = .false.
   finalstate(1,1:2)%ID=(/1,101/)
 
   iiC=0
@@ -146,7 +153,7 @@ program CalcJoos76
   write(100,*) '2--Pion FinalStates:'
 
   finalstate%ID = 0
-  finalstate%antiparticle = .false.
+  finalstate%anti = .false.
   finalstate(1,1:3)%ID=(/1,101,101/)
 
   iiC=0
@@ -177,12 +184,15 @@ program CalcJoos76
         W = iW*0.001
         iiW = iiW+1
 
-        eNev_InitData = eNev_init_BWQ(Ebeam,W,Q2)
-        eNev = eNev_init_Target(eNev_InitData,TargetNuc,flagOK)
+        call eNev_SetProcess(eNev, 1,1)  ! set to EM and electron
+        call eNev_init_BWQ(eNev, Ebeam,W,Q2, flagOK)
+!        write(*,*) flagOK
+        call eNev_init_Target(eNev,TargetNuc,flagOK)
+!        write(*,*) flagOK
 
-        call write_electronNucleon_event(eNev,.FALSE.,.FALSE.) 
+        call write_electronNucleon_event(eNev,.FALSE.,.FALSE.)
         call eNeV_GetKinV(eNev, nu,Q2,W,Wfree,eps,fT)
-        s=abs4(eNev%nucleon%momentum+eNev%electron_in)
+        s=abs4(eNev%nucleon%mom+eNev%lepton_in%mom)
         x=eNeV_Get_LightX(eNev)
         write(*,*) 'nu :',nu
         write(*,*) 'xB :',Q2/(2*0.938*nu)
@@ -200,19 +210,31 @@ program CalcJoos76
         Sum2pi = 0.0
 
 
+        call ParamEP_Bosted(W,Q2,eps, sigmaBosted)
 
         hhh = 1./(137.*4*3.14*(Ebeam*0.938)**2) * W*(W**2-0.938**2)/((1-eps)*Q2)
 
-        write(  *,'(2f7.3,1P,12e13.4)') W,Q2, nu,Q2/(2*0.938*nu),eps,fT,hhh
-        write(111,'(2f7.3,1P,12e13.4)') W,Q2, nu,Q2/(2*0.938*nu),eps,fT,hhh
+        write(  *,'(2f7.3,1P,99e13.4)') W,Q2, nu,Q2/(2*0.938*nu),eps,fT,hhh
+        write(111,'(2f7.3,1P,99e13.4)') W,Q2, nu,Q2/(2*0.938*nu),eps,fT,hhh,&
+             1./ ( 1e3* pi/(eNev%lepton_out%mom(0)*eNev%lepton_in%mom(0))),&
+             sigmaBosted
+
+        if (calcOnlyMaid) then
+           call calcMAID()
+           cycle ! avoid all event generation
+        end if
+
 
         do iN=1,iNmax
            if (DoPR(2)) write(*,*) '=======iN =',iN
 
            if (W.lt.2.0) then
-              call eventGen_eN_lowEnergy(eNev,doQE,doRes,useRes,do1Pi,do2Pi,doDIS,finalState(1,:),channel,flagOK,XS)
+              call eventGen_eN_lowEnergy(eNev,&
+                   (/doQE,doRes,do1Pi,do2Pi,doDIS, .false.,.false.,.false./),&
+                   useRes, .false., realPart,finalState(1,:),channel,flagOK,XS)
            else
-              call eventGen_eN_HiEnergy(eNev,iN,(/1.,1.,1.,1./),finalState(1,:),channel,flagOK,XS)
+              call eventGen_eN_HiEnergy(eNev,iN,(/1.,1.,1.,1./),.false., &
+                   realPart, finalState(1,:),channel,flagOK,XS)
            endif
 
            if (.not.flagOK) cycle
@@ -220,12 +242,16 @@ program CalcJoos76
            if (DoPR(2)) write(*,*) 'channel:',channel
 !           call WriteParticle(6,1,finalState(1,:))
 
-           call collideMain(finalstate,realPart, 0.0, .true.)
+           call ForceDecays(finalstate,realPart, 0.0)
 !           call WriteParticle(6,1,finalState(1,:))
 
            call GarbageCollection(finalstate)
 
-           if (.not.CreateSortedPreEvent(finalState(1,:),preE)) then
+!!$              if (iHH.eq.2) then
+!!$                 call WriteParticle(79,1,finalState(1,:))
+!!$              end if
+
+           if (.not.CreateSortedPreEvent(finalState(1,:),preEv%preE)) then
               write(*,*) 'Error PreE'
               call WriteParticle(6,1,finalState(1,:))
               cycle
@@ -261,39 +287,29 @@ program CalcJoos76
 
            !... 1Pion final state:
            do iiC=1,6
-              flagOK=.true.
-              do i=1,5
-                 if (preE(i)%mass.ne.pre1Pi(iiC)%preE(i)%mass) flagOK=.false. ! attention: abuse of mass
-              end do
-              if(flagOK) then
-                 Sum1pi(0,  0)  = Sum1pi(0,  0)  +XS
-                 Sum1pi(0,  iHH)= Sum1pi(0,  iHH)+XS
-                 Sum1pi(iiC,0)  = Sum1pi(iiC,0)  +XS
-                 Sum1pi(iiC,iHH)= Sum1pi(iiC,iHH)+XS
-                 exit
-              end if
+              if (ComparePreEvent(preEv%preE,pre1Pi(iiC)%preE).ne.0) cycle
+              Sum1pi(0,  0)  = Sum1pi(0,  0)  +XS
+              Sum1pi(0,  iHH)= Sum1pi(0,  iHH)+XS
+              Sum1pi(iiC,0)  = Sum1pi(iiC,0)  +XS
+              Sum1pi(iiC,iHH)= Sum1pi(iiC,iHH)+XS
+              exit
            end do
 
            !... 2Pion final state:
            do iiC=1,12
-              flagOK=.true.
-              do i=1,5
-                 if (preE(i)%mass.ne.pre2Pi(iiC)%preE(i)%mass) flagOK=.false. ! attention: abuse of mass
-              end do
-              if(flagOK) then
-                 Sum2pi(0,  0)  = Sum2pi(0,  0)  +XS
-                 Sum2pi(0,  iHH)= Sum2pi(0,  iHH)+XS
-                 Sum2pi(iiC,0)  = Sum2pi(iiC,0)  +XS
-                 Sum2pi(iiC,iHH)= Sum2pi(iiC,iHH)+XS
-                 exit
-              end if
+              if (ComparePreEvent(preEv%preE,pre2Pi(iiC)%preE).ne.0) cycle
+              Sum2pi(0,  0)  = Sum2pi(0,  0)  +XS
+              Sum2pi(0,  iHH)= Sum2pi(0,  iHH)+XS
+              Sum2pi(iiC,0)  = Sum2pi(iiC,0)  +XS
+              Sum2pi(iiC,iHH)= Sum2pi(iiC,iHH)+XS
+              exit
            end do
 
         end do
 
         call eNeV_GetKinV(eNev, nu,Q2,W,Wfree,eps,fT)
         if (W.lt.2.0) then
-           fT = fT/ ( 1e3* pi/(eNev%electron_out(0)*eNev%electron_in(0)))
+           fT = fT/ ( 1e3* pi/(eNev%lepton_out%mom(0)*eNev%lepton_in%mom(0)))
         else
            fT = 1.0
         end if
@@ -301,16 +317,26 @@ program CalcJoos76
         SumALL = SumALL/(iNmax*fT)
         Sum1pi = Sum1pi/(iNmax*fT)
         Sum2pi = Sum2pi/(iNmax*fT)
- 
+
 
         write(121,'(2f7.3,i9,1P,12e13.4)') W,Q2, iNdone,SumALL
+        call flush(121)
 
         do iHH=0,5
            write( 130+iHH,'(2f7.3,i9,1P,20e13.4)') W,Q2, -99,Sum1pi(:,iHH)
            write(1300+iHH,'(2f7.3,i9,1P,20e13.4)') W,Q2, -99,Sum2pi(:,iHH)
+           call flush( 130+iHH)
+           call flush(1300+iHH)
         end do
 
      end do
+
+     if (calcOnlyMaid) then
+        if (iiW>1) then ! write empty lines for gnuplot (cf. index)
+           write(721,*)
+           cycle
+        end if
+     end if
 
      if (iiW>1) then ! write empty lines for gnuplot (cf. index)
         write(111,*)
@@ -328,5 +354,46 @@ program CalcJoos76
   end do
   write(*,*) 'Done.'
 
+contains
+
+  subroutine calcMAID
+
+    use electronPionProd_medium_eN, only: dSdO_fdE_fdO_k_med_eN
+    use random, only: rn, rnCos
+    use degRad_conversion, only: degrees
+
+    integer :: pionCharge, iMC
+    real :: S, phi_k, theta_k
+    real, dimension(0:3) :: k,pf
+
+    integer, parameter :: nMC = 1000
+    real, dimension(-1:1) :: sigma
+
+    sigma = 0.
+
+    do iMC = 1,nMC
+       phi_k=rn()*360.
+       theta_k=degrees(rnCos())
+
+       do pionCharge=0,1 ! onli pi+ and pi0 possible
+          S = dSdO_fdE_fdO_k_med_eN(eNev, pionCharge, phi_k, theta_k, &
+               k, pf, pionNucleonSystem=2)
+
+          sigma(pionCharge) = sigma(pionCharge) + S
+       end do
+    end do
+
+    sigma = sigma / nMC
+    ! This is now dsigma/(dOmega' dE') in mb/GeV
+
+
+
+
+    write(721,'(2f7.3,i9,1P,12e13.4)') W,Q2, nMC,sigma
+    call flush(721)
+
+
+
+  end subroutine calcMAID
 
 end program CalcJoos76

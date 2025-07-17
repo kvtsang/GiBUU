@@ -83,7 +83,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -94,16 +94,16 @@ contains
 
     if (abs(rho_particle%charge).gt.1) write(*,*) 'wrong rho charge in rhoNuc', rho_particle%charge
 
-    if (rho_particle%antiParticle) then
+    if (rho_particle%anti) then
        ! This case is not considered yet
-       write(*,*) 'rho is antiparticle in "rhoNuc"!!!',partIn%ID,partIn%antiparticle
+       write(*,*) 'rho is antiparticle in "rhoNuc"!!!',partIn%ID,partIn%anti
        stop
     end if
 
-    if (Delta_particle%antiParticle) then
+    if (Delta_particle%anti) then
        ! Invert all particles in antiparticles
        Delta_particle%Charge        =  -Delta_particle%Charge
-       Delta_particle%antiparticle  = .false.
+       Delta_particle%anti  = .false.
        rho_particle%Charge          =  -rho_particle%Charge
        antiParticleInput=.true.
     else
@@ -161,8 +161,8 @@ contains
       real, dimension(1:3) ::  position
       logical :: perturbative
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.

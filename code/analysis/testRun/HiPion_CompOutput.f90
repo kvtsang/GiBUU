@@ -1,7 +1,7 @@
 program main
 
-  use histf90
-  use hist2Df90
+  use hist
+  use hist2D
 
   type(histogram),save :: hist1
   type(histogram),save :: histPT_pi0,histPT_pip,histPT_pim

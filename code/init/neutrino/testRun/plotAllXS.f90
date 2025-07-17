@@ -24,7 +24,7 @@ program plotAllXS
 
   use eN_eventDefinition
   use eN_event
-!  use eventGenerator_eN_lowEnergy
+  !  use eventGenerator_eN_lowEnergy
   !  use eventGenerator_eN_HiEnergy
   use neutrinoXsection
 
@@ -39,7 +39,7 @@ program plotAllXS
   use collisionTerm, only:  ForceDecays
   use insertion, only: GarbageCollection
 
-  use histf90
+  use hist
 
   implicit none
 
@@ -68,8 +68,8 @@ program plotAllXS
   type(particle) :: TargetNuc
   integer :: chargeTarget
 
-  logical :: doMultAna = .true.
-!  logical :: doMultAna = .false.
+!  logical :: doMultAna = .true.
+  logical :: doMultAna = .false.
   character*(20) :: Prefix_MultAna
   type(particle), POINTER :: pPart
   type(tAnaEvent)            :: tEv
@@ -81,6 +81,8 @@ program plotAllXS
   logical :: flag1,flag2
   real :: W1, W2
 
+  logical, parameter :: useBostedFT = .true.
+
   NAMELIST /datatable/ iWmin,iWmax,iWdelta,iQ2min,iQ2max,iQ2delta,iNmax,&
        & verbose, chargeTarget
 
@@ -91,7 +93,8 @@ program plotAllXS
 !  call InitParticleProperties
 
 !  call ReadHiGammaNucleus
-  call get_xsection_namelist(0)
+!  call get_xsection_namelist(0)
+  call readInput ! neutrinoXsection
 
   call SetSomeDefaults_PY
   call event_INIT(tEv)
@@ -129,9 +132,9 @@ program plotAllXS
   TargetNuc%ID = 1
   TargetNuc%charge = chargeTarget
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-!  TargetNuc%momentum = (/0.1, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+!  TargetNuc%mom = (/0.1, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
   realPart(1,1)%ID = 0
 
@@ -156,9 +159,12 @@ program plotAllXS
 
 !        call write_electronNucleon_event(eNev1,.FALSE.,.FALSE.)
         call eNeV_GetKinV(eNev1, nu,Q2,W,Wfree,eps,fT1)
-        fT1 = fT1/ ( 1e-3* pi/(eNev1%lepton_out%momentum(0)*eNev1%lepton_in%momentum(0)))
-
-        s1=abs4(eNev1%nucleon%momentum+eNev1%lepton_in%momentum)
+        if (useBostedFT) then
+           fT1 = Flux_Bosted(W,Q2,eps)*1e3
+        else
+           fT1 = fT1/ ( 1e-3* pi/(eNev1%lepton_out%mom(0)*eNev1%lepton_in%mom(0)))
+        end if
+        s1=abs4(eNev1%nucleon%mom+eNev1%lepton_in%mom)
         x1=eNeV_Get_LightX(eNev1)
 !        write(*,*) 'nu :',nu
 !        write(*,*) 'xB :',Q2/(2*0.938*nu)
@@ -167,13 +173,19 @@ program plotAllXS
 
 !        call write_electronNucleon_event(eNev2,.FALSE.,.FALSE.)
         call eNeV_GetKinV(eNev2, nu,Q2,W,Wfree,eps,fT2)
-        fT2 = fT2/ ( 1e-3* pi/(eNev2%lepton_out%momentum(0)*eNev2%lepton_in%momentum(0)))
-        s2=abs4(eNev2%nucleon%momentum+eNev2%lepton_in%momentum)
+        if (useBostedFT) then
+           fT2 = Flux_Bosted(W,Q2,eps)*1e3
+        else
+           fT2 = fT2/ ( 1e-3* pi/(eNev2%lepton_out%mom(0)*eNev2%lepton_in%mom(0)))
+        end if
+        s2=abs4(eNev2%nucleon%mom+eNev2%lepton_in%mom)
         x2=eNeV_Get_LightX(eNev2)
 !        write(*,*) 'nu :',nu
 !        write(*,*) 'xB :',Q2/(2*0.938*nu)
 !        write(*,*) 'sqrt(s) :',s2
 !        write(*,*) 'x  :',x2
+
+!        write(*,*) W,Q2,fT1,fT2
 
         write(111,'(2f7.3,1P,12e13.4)') W,Q2, nu,Q2/(2*0.938*nu),&
              &s1,x1,(1-x1)*(s1**2-2*0.938**2),&
@@ -210,8 +222,8 @@ program plotAllXS
            !===============================================================
 
            sig = 0.
-!           do k=2,37 ! no QE!
-           do k=34,34 ! only DIS!
+           do k=2,37 ! no QE!
+!           do k=34,34 ! only DIS!
               eNev = eNev1
               call XsecdCosthetadElepton(eNev,k,finalState(1,:),sig(k))
 
@@ -259,7 +271,7 @@ program plotAllXS
                     pPart => finalstateBAK(1,i)
                     call event_ADD(tEv,pPart)
                     nPart0 = nPart0+1
-                    MomSum1 = MomSum1 + pPart%momentum
+                    MomSum1 = MomSum1 + pPart%mom
                  end do
                  call Multiplicity_AddEvent(tEv)
 
@@ -287,8 +299,8 @@ program plotAllXS
            !===============================================================
 
            sig = 0.
-!           do k=2,37 ! no QE!
-           do k=34,34 ! only DIS!
+           do k=2,37 ! no QE!
+!           do k=34,34 ! only DIS!
               eNev = eNev2
               call XsecdCosthetadElepton(eNev,k,finalState(1,:),sig(k))
 
@@ -335,7 +347,7 @@ program plotAllXS
                     pPart => finalstateBAK(1,i)
                     call event_ADD(tEv,pPart)
                     nPart0 = nPart0+1
-                    MomSum2 = MomSum2 + pPart%momentum
+                    MomSum2 = MomSum2 + pPart%mom
                  end do
                  call Multiplicity_AddEvent(tEv)
 
@@ -390,8 +402,8 @@ program plotAllXS
         call flush(121)
         call flush(122)
 
-        call CalcParamEP(W,Q2,eps1, XS_sum1)
-        call CalcParamEP(W,Q2,eps2, XS_sum2)
+        call ParamEP_Bosted(W,Q2,eps1, XS_sum1)
+        call ParamEP_Bosted(W,Q2,eps2, XS_sum2)
 
         write(221,'(2f7.3,1P,12e13.4)') W,Q2, XS_sum1, XS_sum2
         write(222,'(2f7.3,1P,12e13.4)') W,Q2, (XS_sum1-XS_sum2)/(eps1-eps2),&
@@ -405,10 +417,10 @@ program plotAllXS
         XS_sum1 = 0.
         XS_sum2 = 0.
         if (W>1.75) then
-           call CalcParamEP_ALLM(W,Q2,XS_sum1)
-           call CalcParamEP_ALLM97(W,Q2,XS_sum2)
+           call ParamEP_ALLM(W,Q2,XS_sum1)
+           call ParamEP_ALLM97(W,Q2,XS_sum2)
         endif
-        call CalcParamEP_R1990(W,Q2,R1)
+        R1 = ParamEP_R1990(W,Q2)
 
         write(301,'(2f7.3,1P,12e13.4)') W,Q2, Q2/(2*0.938*nu), XS_sum1, XS_sum2, R1, Q2/nu**2
         call flush(301)
@@ -425,7 +437,7 @@ program plotAllXS
         call writeHist(hW1, add=1e-20, mul=1./iN2, file="hadrW1.dat")
         call writeHist(hW2, add=1e-20, mul=1./iN2, file="hadrW2.dat")
 
-        stop
+!        stop
 
 
      end do

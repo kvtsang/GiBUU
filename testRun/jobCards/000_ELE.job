@@ -6,10 +6,10 @@
 !------------------------------------------------------------------------------
 
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =           0 ! elementary interactions
-      numEnsembles    =        2
+      numEnsembles    =          -2
       numTimeSteps    =           2
       delta_T         =      1.0    ! time step size [fm]
       num_runs_SameEnergy=      200 ! number of runs per energy
@@ -19,6 +19,7 @@
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
 
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./init/initElementary.f90

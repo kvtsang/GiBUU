@@ -4,21 +4,23 @@
 
 $Plotter
   ! Important: Id's must be integers (e.g. not pion or nucleon)
-  ! These ID-numbers can be found in the tex-files which are 
+  ! These ID-numbers can be found in the tex-files which are
   ! generated in each run
 
   ! projectile:
-  id1   = 101
-  q1    = -1
+  id1   = 103
+  q1    = 0
   anti1 = .false.
-  
+!  mass1 = 0.600
+
   ! target:
   id2   = 1
   q2    = 1
   anti2 = .false.
+!  mass2 = 0.938
 
   srts_max = 100.
-$end          
+$end
 
 
 !************************************************************
@@ -36,7 +38,7 @@ $input
 !      length_perturbative = 2000 ! ..., Xe
 !      length_perturbative = 4000 ! Pb
 
-      length_real = 100 ! 
+      length_real = 100 !
 !      length_perturbative = 4000 ! Pb
 
 !      num_runs_SameEnergy= 500  ! number of runs per energy
@@ -89,7 +91,7 @@ $target
 !      target_Z=  7, target_A= 14 ! N
 !      target_Z= 10, target_A= 20 ! Ne
 !      target_Z= 16, target_A= 32 ! S
-!      target_Z= 26, target_A= 56 ! Fe 
+!      target_Z= 26, target_A= 56 ! Fe
 !      target_Z= 29, target_A= 64 ! Cu
 !      target_Z= 36, target_A= 84 ! Kr
 !      target_Z= 54, target_A=131 ! Xe

@@ -41,6 +41,7 @@ module histMC_avg
 
   public :: CreateHistMC_avg, CopyDesc_avg, AddHistMC_avg, WriteHistMC_avg
   public :: ReadHistMC_avg, sumHistMC_avg
+  public :: FetchHistMC_avg
 
 contains
 
@@ -298,13 +299,14 @@ contains
   !****************************************************************************
   !****s* histMC_avg/WriteHistMC_avg
   ! NAME
-  ! subroutine WriteHistMC_avg(H,file,mul)
+  ! subroutine WriteHistMC_avg(H,file,mul,dump)
   ! PURPOSE
   ! Write out the histogram. The entries are multiplied by 'mul'.
   ! INPUTS
   ! * type(histogramMC_avg) :: H   -- Histogramm to be used
   ! * character*(*) :: file        -- name of file to open and close
   ! * real :: mul                  -- factor to multiply [OPTIONAL]
+  ! * logical      :: dump  -- if true, also dump it binary to file [OPTIONAL]
   ! OUTPUT
   ! write to file
   !
@@ -318,17 +320,19 @@ contains
   ! NOTES
   ! The Histogram data is not affected.
   !****************************************************************************
-  subroutine WriteHistMC_avg(H,file,mul)
+  subroutine WriteHistMC_avg(H,file,mul,dump)
     type(histogramMC_avg), intent(in) :: H
     character*(*), intent(in) :: file
     real, intent(in), optional :: mul
+    logical,          intent(in),optional :: dump
 
     character(20) :: f
     integer :: iBin, iBinMax, nCh, cnt
-    real :: mulFak
+    real :: addFak, mulFak
     integer, parameter:: iFile = 62
     real, dimension(:), allocatable :: avg
 
+    addFak = 0.
     mulFak = 1.
     if (present(mul)) mulFak = mul
 
@@ -361,6 +365,13 @@ contains
     end if
 
     close(iFile)
+
+    if (present(dump)) then
+       if (dump) then
+          call DumpHistMC_avg(H,file//".bin",iFile,addFak,mulFak)
+       end if
+    end if
+
 
   end subroutine WriteHistMC_avg
 
@@ -540,5 +551,160 @@ contains
 
   end subroutine sumHistMC_avg
 
+  !****************************************************************************
+  !****s* histMC/DumpHistMC_avg
+  ! NAME
+  ! subroutine DumpHistMC_avg(H,file,iFile, add,mul)
+  ! PURPOSE
+  ! Write all the histogram information unformatted (i.e. binary) to a file
+  !
+  ! INPUTS
+  ! * type(histogramMC_avg) :: H     -- Histogramm to be used
+  ! * character*(*)     :: file  -- name of file to open and close
+  ! * integer,OPTIONAL  :: iFile -- File number output to redirect [OPTIONAL]
+  ! * real            :: add   -- factor to add      [OPTIONAL]
+  ! * real            :: mul   -- factor to multiply [OPTIONAL]
+  ! OUTPUT
+  ! H is written UNFORMATTED to the given file
+  !
+  !****************************************************************************
+  subroutine DumpHistMC_avg(H,file,iFile, add,mul)
+    type(histogramMC_avg),intent(in)          :: H
+    character*(*),    intent(in)          :: file
+    integer,          intent(in),optional :: iFile
+    real,             intent(in),optional :: add,mul
+
+    integer :: iF
+    real :: addFak,mulFak
+    logical :: WriteFaks
+
+    iF=121
+    if (present(iFile)) iF = iFile
+
+    open(iF,file=file,status='UNKNOWN',form='UNFORMATTED')
+    rewind(iF)
+
+    write(iF) H%xMin,H%xMax,H%xBin,H%xExtreme
+    write(iF) H%Name
+    write(iF) H%xDesc
+    write(iF) size(H%yDesc)
+    write(iF) H%yDesc
+    write(iF) H%yVal
+    write(iF) H%counts
+
+    WriteFaks = .false.
+    addFak = 0.0
+    mulFak = 1.0
+    if (present(mul)) then
+       mulFak = mul
+       WriteFaks = .true.
+    end if
+    if (present(add)) then
+       addFak = add
+       WriteFaks = .true.
+    end if
+
+    if (WriteFaks) write(iF) addFak,mulFak
+
+    close(iF)
+
+  end subroutine DumpHistMC_avg
+
+  !****************************************************************************
+  !****s* histMC/FetchHistMC_avg
+  ! NAME
+  ! subroutine FetchHistMC_avg(H,file,iFile, add,mul,flagOK)
+  ! PURPOSE
+  ! Read in all the histogram information previously dumped unformatted
+  ! (i.e. binary) to a file
+  !
+  ! INPUTS
+  ! * character*(*)   :: file  -- name of file to open and close
+  ! * integer,OPTIONAL:: iFile -- File number input to redirect [OPTIONAL]
+  ! OUTPUT
+  ! * type(histogramMC_avg) :: H     -- Histogramm to be used
+  ! * real            :: add   -- factor to add      [OPTIONAL]
+  ! * real            :: mul   -- factor to multiply [OPTIONAL]
+  ! * logical         :: flagOK -- flag, if reading was okay [OPTIONAL]
+  !
+  ! H is read UNFORMATTED from the given file. Sizes are calculated as in
+  ! CreateHist, also memory is allocated.
+  !
+  ! NOTES
+  ! No checks about input are performed!
+  !****************************************************************************
+  subroutine FetchHistMC_avg(H,file,iFile, add,mul, flagOK)
+    type(histogramMC_avg),intent(inout)       :: H
+    character*(*),    intent(in)          :: file
+    integer,          intent(in),optional :: iFile
+    real,             intent(out),optional:: add,mul
+    logical,          intent(out),optional:: flagOK
+
+    integer :: iF, nCh, L
+    real :: addFak,mulFak
+    integer :: ios
+    logical, parameter :: verbose = .true.
+
+    iF=121
+    if (present(iFile)) iF = iFile
+
+    open(iF,file=file,status='OLD',form='UNFORMATTED',iostat=ios)
+    if (ios.ne.0) then
+       close(iF)
+       if (present(flagOK)) flagOK=.false.
+       if (verbose) write(*,*) "ERROR: file '",trim(file),"' not found."
+       return
+    end if
+    rewind(iF)
+
+    read(iF,iostat=ios) H%xMin,H%xMax,H%xBin,H%xExtreme
+    if (ios.ne.0) then
+       close(iF)
+       if (present(flagOK)) flagOK=.false.
+       if (verbose) write(*,*) 'MESSAGE (2)'
+       return
+    end if
+    read(iF) H%Name
+    read(iF) H%xDesc
+    read(iF) nCh
+
+    if (allocated(H%yVal)) deallocate(H%yVal)
+    if (allocated(H%counts)) deallocate(H%counts)
+    if (allocated(H%yDesc)) deallocate(H%yDesc)
+
+    L  = ceiling((H%xMax-H%xMin)/H%xBin)
+    allocate(H%yVal(-1:L,nCh))
+    allocate(H%counts(-1:L,nCh))
+    allocate(H%yDesc(nCh))
+
+    read(iF) H%yDesc
+    read(iF) H%yVal
+    read(iF) H%counts
+
+    H%initialized = .true.
+
+    if (present(add).or.present(mul)) then
+       addFak = 0.0
+       mulFak = 1.0
+       read(iF,iostat=ios) addFak,mulFak
+       if (ios.ne.0) then
+          write(*,*) 'FetchHist: old file version, no add/mul info!'
+          addFak = 0.0
+          mulFak = 1.0
+       else
+          mulFak = mulFak*H%xBin
+       end if
+       if (present(add)) add=addFak
+       if (present(mul)) mul=mulFak
+    end if
+
+    close(iF)
+    if (present(flagOK)) flagOK=.true.
+
+    H%initialized = .true.
+
+  end subroutine FetchHistMC_avg
+
+  !****************************************************************************
 
 end module histMC_avg

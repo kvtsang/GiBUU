@@ -49,12 +49,12 @@ subroutine testXsectionMaster
      teilchenIN%Charge=(/-1,1/)
      mediumATCollision%UseMedium=.false.
 
-     teilchenIN(1)%momentum(1:3)=(/p,0.,0./)
-     teilchenIN(2)%momentum(1:3)=(/0.,0.,0./)
-     teilchenIN(1)%momentum(0)=SQRT(teilchenIN(1)%mass**2+Dot_Product(teilchenIN(1)%momentum(1:3),teilchenIN(1)%momentum(1:3)))
-     teilchenIN(2)%momentum(0)=SQRT(baryon(nucleon)%mass**2+Dot_Product(teilchenIN(1)%momentum(1:3),teilchenIN(1)%momentum(1:3)))
+     teilchenIN(1)%mom(1:3)=(/p,0.,0./)
+     teilchenIN(2)%mom(1:3)=(/0.,0.,0./)
+     teilchenIN(1)%mom(0)=SQRT(teilchenIN(1)%mass**2+Dot_Product(teilchenIN(1)%mom(1:3),teilchenIN(1)%mom(1:3)))
+     teilchenIN(2)%mom(0)=SQRT(baryon(nucleon)%mass**2+Dot_Product(teilchenIN(1)%mom(1:3),teilchenIN(1)%mom(1:3)))
 
-     momentumLRF=teilchenIn(1)%momentum+teilchenIN(2)%momentum
+     momentumLRF=teilchenIn(1)%mom+teilchenIN(2)%mom
      srts=sqrtS(teilchenIN(1),teilchenIN(2))
      write(*,*) 'srts=', srts
 
@@ -108,25 +108,25 @@ subroutine testCollisionTerm
 
   pair%mass=(/baryon(nucleon)%mass,baryon(nucleon)%mass/)
 
-  pair(1)%position=(/0.1,0.,0./)
-  pair(2)%position=(/0.,0.,0./)
+  pair(1)%pos=(/0.1,0.,0./)
+  pair(2)%pos=(/0.,0.,0./)
 
-  pair(1)%momentum(1:3)=(/0.,0.,0./)
-  pair(2)%momentum(1:3)=(/0.,1.3,0./)
+  pair(1)%mom(1:3)=(/0.,0.,0./)
+  pair(2)%mom(1:3)=(/0.,1.3,0./)
 
-  pair(1)%momentum(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
-  pair(2)%momentum(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+  pair(1)%mom(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
+  pair(2)%mom(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
 
-  pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
-  pair(2)%velocity=pair(2)%momentum(1:3)/pair(2)%momentum(0)
-  Print*, 'Velocities=', pair(1)%velocity,pair(2)%velocity
+  pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
+  pair(2)%vel=pair(2)%mom(1:3)/pair(2)%mom(0)
+  Print*, 'Velocities=', pair(1)%vel,pair(2)%vel
 
   Do i=1,m
      teilchenReal(i,1)=pair(1)
-     teilchenReal(i,1)%perturbative=.false.
+     teilchenReal(i,1)%pert=.false.
 
      teilchenPert(i,(/1,5,10,15,20,25,30,35/))=pair(2)
-     teilchenPert(i,:)%perturbative=.true.  
+     teilchenPert(i,:)%pert=.true.  
      teilchenPert(i,:)%perweight=float(i)
   End do
 
@@ -134,13 +134,13 @@ subroutine testCollisionTerm
   call setNumber(teilchenPert)
 
   Print *, 'positions'
-  Print *, pair(1)%position
-  Print *, pair(2)%position
+  Print *, pair(1)%pos
+  Print *, pair(2)%pos
   Print *, 'momenta'
-  Print *, pair(1)%momentum
-  Print *, pair(2)%momentum
+  Print *, pair(1)%mom
+  Print *, pair(2)%mom
   Print *, 'Wurzel(s)=',sqrts(pair(1),pair(2))
-  Print *, 'Total momentum=',pair(1)%momentum+pair(2)%momentum
+  Print *, 'Total momentum=',pair(1)%mom+pair(2)%mom
   print * ,'***********************'
 
   Print *, 'Testing the collisions'
@@ -195,9 +195,9 @@ subroutine writeParticleOut(teilchen)
   use particleDefinition
   type(particle) :: teilchen
   write(*,'(2I3,2L,4F6.3,L,3I8)')&
-       & teilchen%ID,teilchen%Charge,teilchen%perturbative,teilchen%antiparticle, teilchen%perweight,teilchen%scaleCS, &
-       & teilchen%lastCollisionTime, teilchen%productionTime, &
-       & teilchen%in_Formation,teilchen%number,teilchen%event 
+       & teilchen%ID,teilchen%Charge,teilchen%pert,teilchen%anti, teilchen%perweight,teilchen%scaleCS, &
+       & teilchen%lastCollTime, teilchen%prodTime, &
+       & teilchen%inF,teilchen%number,teilchen%event 
 end subroutine writeParticleOut
 
 !*************************************************************************************************
@@ -243,20 +243,20 @@ subroutine test3Body
      Do j=1,4
         teilchenReal(i,j)%Id=nucleon
         teilchenReal(i,j)%mass=baryon(nucleon)%mass
-        teilchenReal(i,j)%momentum=(/baryon(nucleon)%mass,0.,0.,0./)
-        teilchenReal(i,j)%velocity=teilchenReal(i,j)%momentum(1:3)/teilchenReal(i,j)%momentum(0)
+        teilchenReal(i,j)%mom=(/baryon(nucleon)%mass,0.,0.,0./)
+        teilchenReal(i,j)%vel=teilchenReal(i,j)%mom(1:3)/teilchenReal(i,j)%mom(0)
         teilchenReal(i,j)%event=0
-        teilchenReal(i,j)%perturbative=.false.
-        teilchenReal(i,j)%antiparticle=.false.
+        teilchenReal(i,j)%pert=.false.
+        teilchenReal(i,j)%anti=.false.
      end do
      teilchenReal(i,1)%charge=1
-     teilchenReal(i,1)%position=(/0.,0.,1./)
+     teilchenReal(i,1)%pos=(/0.,0.,1./)
      teilchenReal(i,2)%charge=1
-     teilchenReal(i,2)%position=(/0.,1.,0./)
+     teilchenReal(i,2)%pos=(/0.,1.,0./)
      teilchenReal(i,3)%charge=0
-     teilchenReal(i,3)%position=(/1.,0.,0./)
+     teilchenReal(i,3)%pos=(/1.,0.,0./)
      teilchenReal(i,4)%charge=0
-     teilchenReal(i,4)%position=(/-1.,0.,0./)
+     teilchenReal(i,4)%pos=(/-1.,0.,0./)
   end do
 
   ! Set up perturbative particles
@@ -265,14 +265,14 @@ subroutine test3Body
      Do j=lBound(teilchenPert,dim=2),NINT(float(uBound(teilchenPert,dim=2))/3.)
         teilchenPert(i,j)%Id=pion
         teilchenPert(i,j)%mass=meson(pion)%mass
-        teilchenPert(i,j)%momentum(0)=baryon(nucleon)%mass+elab
-        teilchenPert(i,j)%momentum(1:3)=(/0.,0.,SQRT((meson(pion)%mass+elab)**2-meson(pion)%mass**2) /)
-        teilchenPert(i,j)%velocity=teilchenPert(i,j)%momentum(1:3)/teilchenPert(i,j)%momentum(0)
+        teilchenPert(i,j)%mom(0)=baryon(nucleon)%mass+elab
+        teilchenPert(i,j)%mom(1:3)=(/0.,0.,SQRT((meson(pion)%mass+elab)**2-meson(pion)%mass**2) /)
+        teilchenPert(i,j)%vel=teilchenPert(i,j)%mom(1:3)/teilchenPert(i,j)%mom(0)
         teilchenPert(i,j)%event=-999
-        teilchenPert(i,j)%perturbative=.true.
-        teilchenPert(i,j)%antiparticle=.false.
+        teilchenPert(i,j)%pert=.true.
+        teilchenPert(i,j)%anti=.false.
         teilchenPert(i,j)%charge=charge
-        teilchenPert(i,j)%position=(/0.,0.,0./)
+        teilchenPert(i,j)%pos=(/0.,0.,0./)
         teilchenPert(i,j)%perweight=float(i)
         numberPions_before=numberPions_before+1
      end do
@@ -283,7 +283,7 @@ subroutine test3Body
 
   If(m.lt.10) then
      Print *, 'Wurzel(s)=',sqrts(teilchenPert(1,1),teilchenReal(1,1),teilchenReal(1,2))
-     Print *, 'Total momentum=',teilchenPert(1,1)%momentum+teilchenReal(1,1)%momentum+teilchenReal(1,2)%momentum
+     Print *, 'Total momentum=',teilchenPert(1,1)%mom+teilchenReal(1,1)%mom+teilchenReal(1,2)%mom
      print * ,'***********************'
 
      Print *, 'Testing the collisions'

@@ -3,7 +3,9 @@
 ! NAME
 ! module dimi
 ! PURPOSE
-! Includes the N N <-> Delta N cross sections according to the OPE model by Dmitriev et al.
+! Includes the N N <-> Delta N cross sections according to the OPE model by
+! Dmitriev et al.
+!
 ! See:
 ! * Diploma Thesis Effenberger, chapter 3.3.1
 ! * Dmitriev/Sushkov/Gaarde, Nucl. Phys. A 459 (1986) 503-524
@@ -20,23 +22,23 @@ module dimi
   public :: dimidm
   public :: setMaxSqrts
 
-  real, parameter :: delta_mass = 0.010
+  real, parameter :: dMass = 0.001
 
-  real, parameter :: delta_srts = 0.010
+  real, parameter :: dSrts = 0.001
   real, parameter :: srtsMin = 2.*mN + mPi
-  integer, save :: maxPoints_srts = 400     ! this will be overwritten by 'setMaxSqrts', according to the high energy thresholds in master_2body
+  integer, save :: maxPoints_srts = 4000     ! this will be overwritten by 'setMaxSqrts', according to the high energy thresholds in master_2body
 
 contains
 
   !****************************************************************************
   !****f* dimi/massNN_NDelta
   ! NAME
-  ! function massNN_NDelta (srts) result (massDelta)
+  ! function massNN_NDelta(srts) result (massDelta)
   ! PURPOSE
   ! Evaluates masses in N N -> N Delta process using dimidm.
   ! This is done by a Monte-Carlo process utilizing dsigma/dm.
   !****************************************************************************
-  function massNN_NDelta (srts) result (massDelta)
+  function massNN_NDelta(srts) result (massDelta)
     use constants, only: mN
     use random, only: rn
     use particleProperties, only: hadron
@@ -45,16 +47,16 @@ contains
     real, intent(in) :: srts
     real :: massDelta
 
-    integer :: indexMass
+    integer :: iMass
     real :: sum_dsdm, x, dsdm, dsdm_Integrated, sigma
 
-    indexMass=0
+    iMass=0
     sum_dsdm=0.
     x=rn()
     do
-       massDelta=hadron(Delta)%minMass+float(indexMass)*delta_Mass
+       massDelta=hadron(Delta)%minMass+float(iMass)*dMass
        call dimidm(dsdm,dsdm_Integrated,sigma,srts,massDelta)
-       sum_dsdm=sum_dsdm+dsdm*delta_Mass
+       sum_dsdm=sum_dsdm+dsdm*dMass
        if (sum_dsdm >= x*dsdm_Integrated) exit
        if (massDelta > 6.) then
           write(*,*) 'Problem in massNN_NDelta. massDelta > 6 GeV'
@@ -63,18 +65,20 @@ contains
           write(*,*) sum_dsdm, dsdm_Integrated,x
           stop
        end if
-       indexMass=indexMass+1
+       iMass=iMass+1
     end do
 
-    if (indexMass==0) then
-       massDelta= hadron(Delta)%minMass + rn()*(srts - hadron(Delta)%minMass - mN)
+    if (iMass==0) then
+       massDelta= hadron(Delta)%minMass &
+            + rn()*(srts - hadron(Delta)%minMass - mN)
     else
-       massDelta= massDelta + (rn()-0.5)*delta_Mass
+       massDelta= massDelta + (rn()-0.5)*dMass
        if (massDelta > srts-mN) then
-          massDelta = hadron(Delta)%minMass + (float(indexMass)-0.5)*delta_Mass &
-                      + rn() * (srts - mN - hadron(Delta)%minMass - (float(indexMass)-0.5)*delta_Mass)
+          massDelta = hadron(Delta)%minMass &
+               + (float(iMass)-0.5)*dMass &
+               + rn() * (srts - mN - hadron(Delta)%minMass - (float(iMass)-0.5)*dMass)
           if (massDelta > srts-mN) then
-             write(*,*) 'problems in massNN_NDelta:',srts,massDelta,indexMass
+             write(*,*) 'problems in massNN_NDelta:',srts,massDelta,iMass
              stop
           end if
        end if
@@ -86,32 +90,36 @@ contains
   !****************************************************************************
   !****f* dimi/dimiSigma
   ! NAME
-  ! function dimiSigma (srts, massDelta) result (sigma)
+  ! function dimiSigma(srts, massDelta) result (sigma)
   ! PURPOSE
   ! Returns the cross section for Delta++ n -> pp scattering.
+  ! NOTES
+  ! The return value is not a cross section, but has to be divided by p_in
   !****************************************************************************
-  function dimiSigma (srts, massDelta) result (sigma)
+  function dimiSigma(srts, massDelta) result (sigma)
     real, intent(in)  :: srts, massDelta
     real :: sigma
     real :: dummy1, dummy2
-    call dimidm (dummy1, dummy2, sigma, srts, massDelta)
+    call dimidm(dummy1, dummy2, sigma, srts, massDelta)
   end function dimiSigma
 
 
   !****************************************************************************
   !****f* dimi/dimiIntegrated
   ! NAME
-  ! function dimiIntegrated (srts) result (dsdm_Integrated)
+  ! function dimiIntegrated(srts) result (dsdm_Integrated)
   ! PURPOSE
   ! Returns the cross section for p p -> Delta++ n scattering, integrated
   ! over the Delta mass.
+  ! NOTES
+  ! The return value is not a cross section, but has to be divided by p_in
   !****************************************************************************
-  function dimiIntegrated (srts) result (dsdm_Integrated)
+  function dimiIntegrated(srts) result (dsdm_Integrated)
     real, intent(in) ::  srts
     real :: dsdm_Integrated
     real, parameter :: dummy1=1.2
     real :: dummy2, dummy3
-    call dimidm (dummy2, dsdm_Integrated, dummy3, srts, dummy1)
+    call dimidm(dummy2, dsdm_Integrated, dummy3, srts, dummy1)
   end function dimiIntegrated
 
 
@@ -124,16 +132,17 @@ contains
   !****************************************************************************
   subroutine setMaxSqrts(srtsMax)
     real, intent(in) :: srtsMax
-    maxPoints_srts = ceiling((srtsMax - srtsMin) / delta_Srts)
+    maxPoints_srts = ceiling((srtsMax - srtsMin) / dSrts)
   end subroutine setMaxSqrts
 
 
   !****************************************************************************
   !****s* dimi/dimidm
   ! NAME
-  ! subroutine dimidm (dsdm, dsdmIntegrated, sigma, srts, mdel)
+  ! subroutine dimidm(dsdm, dsdmIntegrated, sigma, srts, mdel)
   ! PURPOSE
   ! this subroutine calculates the cross sections for p p <-> Delta++ n
+  !
   ! Stores cross sections at first call to a field and then it only returns
   ! those field values.
   ! INPUTS
@@ -145,8 +154,10 @@ contains
   !   and srts (for reaction with outgoing delta)
   ! * real :: dsdm_Integrated -- mass differential cross section integrated
   !   over mass as function of srts (for reaction with outgoing delta)
+  ! NOTES
+  ! The return values are not cross sections, but have to be divided by p_in
   !****************************************************************************
-  subroutine dimidm (dsdm, dsdm_Integrated, sigma, srts, mdel)
+  subroutine dimidm(dsdm, dsdm_Integrated, sigma, srts, mdel)
 
     use particleProperties, only: hadron
     use idTable, only: Delta
@@ -155,68 +166,68 @@ contains
     real, intent(in) :: srts, mdel
 
     logical,save       :: initFlag=.true.
-    integer, parameter :: maxPoints_mass=400
+    integer, parameter :: maxPoints_mass=4000
 
     real, allocatable, dimension(:,:), save :: dsdm_save, sigma_save
     real, allocatable, dimension(:)  , save :: dsdm_integrated_save
-    real :: mass, delta_mass_new, srts_down, mass_down, srts_weight, mass_weight
-    integer :: srts_index, mass_index
+    real :: mass, dMass_new, srts_down, mass_down, wSrts, wMass
+    integer :: iSrts, iMass
 
     if (initFlag) call init
 
-    srts_index = floor((srts-srtsMin)/delta_srts)
-    mass_index = floor((mdel-hadron(Delta)%minMass)/delta_mass)
+    iSrts = floor((srts-srtsMin)/dSrts)
+    iMass = floor((mdel-hadron(Delta)%minMass)/dMass)
 
-    if (srts_index<0 .or. mass_index<0) then
+    if (iSrts<0 .or. iMass<0) then
        dsdm = 0.
        dsdm_integrated = 0.
        sigma = 0.
-    else if (srts_index>maxPoints_srts-1 .or. mass_index>maxPoints_mass-1) then
+    else if (iSrts>maxPoints_srts-1 .or. iMass>maxPoints_mass-1) then
        ! no fast possibility to get cross section
        ! give warning to tell user that system slows down
        write(*,*) 'Warning!!!!!! dimidm is out of bounds.'
        write(*,*) ' Need to calculate it. System therefore slow. If this happens too often, then change bounds.'
-       write(*,*) 'SquareRoot(s)= ',srts, srts_index, maxPoints_srts
-       write(*,*) 'Mass of delta= ',mdel, mass_index, maxPoints_mass
+       write(*,*) 'SquareRoot(s)= ',srts, iSrts, maxPoints_srts
+       write(*,*) 'Mass of delta= ',mdel, iMass, maxPoints_mass
        dsdm_integrated=0.
 
-       if (mass_Index > maxPoints_mass) then
+       if (iMass > maxPoints_mass) then
           ! Increase mass step size
-          delta_mass_new=delta_mass*10.
-          mass_Index=Max(0, NINT((mdel-hadron(Delta)%minMass)/delta_mass_new) )
-          if (mass_Index.gt.maxPoints_mass) then
+          dMass_new=dMass*10.
+          iMass=Max(0, NINT((mdel-hadron(Delta)%minMass)/dMass_new) )
+          if (iMass.gt.maxPoints_mass) then
              write(*,*) 'Critical error.stop!'
           end if
-          write(*,*) 'New indizes for mass= ',mass_Index, maxPoints_mass
+          write(*,*) 'New indizes for mass= ',iMass, maxPoints_mass
        else
-          delta_mass_new=delta_Mass
+          dMass_new=dMass
        end if
 
-       do mass_Index=1,maxPoints_mass
-          mass = hadron(Delta)%minMass + Real(mass_Index) * delta_mass_new
+       do iMass=1,maxPoints_mass
+          mass = hadron(Delta)%minMass + Real(iMass) * dMass_new
           call calculate(dsdm,sigma,srts,mass)
-          dsdm_integrated = dsdm_integrated+dsdm * delta_mass_new
+          dsdm_integrated = dsdm_integrated+dsdm * dMass_new
        end do
 
        call calculate(dsdm,sigma,srts,mdel)
     else
-       srts_down = srtsMin + float(srts_index) * delta_srts
-       mass_down = hadron(Delta)%minMass + float(mass_index) * delta_mass
-       srts_weight = (srts-srts_down)/delta_srts
-       mass_weight = (mdel-mass_down)/delta_mass
+       srts_down = srtsMin + float(iSrts) * dSrts
+       mass_down = hadron(Delta)%minMass + float(iMass) * dMass
+       wSrts = (srts-srts_down)/dSrts
+       wMass = (mdel-mass_down)/dMass
 
-       dsdm = dsdm_save(srts_index  , mass_index  ) * (1.-srts_weight) * (1.-mass_weight) &
-            + dsdm_save(srts_index  , mass_index+1) * (1.-srts_weight) * mass_weight      &
-            + dsdm_save(srts_index+1, mass_index  ) * srts_weight      * (1.-mass_weight) &
-            + dsdm_save(srts_index+1, mass_index+1) * srts_weight      * mass_weight
+       dsdm = dsdm_save(iSrts  , iMass  ) * (1.-wSrts) * (1.-wMass) &
+            + dsdm_save(iSrts  , iMass+1) * (1.-wSrts) * wMass      &
+            + dsdm_save(iSrts+1, iMass  ) * wSrts      * (1.-wMass) &
+            + dsdm_save(iSrts+1, iMass+1) * wSrts      * wMass
 
-       dsdm_integrated = dsdm_integrated_save(srts_Index  ) * (1.-srts_weight) &
-                       + dsdm_integrated_save(srts_Index+1) * srts_weight
+       dsdm_integrated = dsdm_integrated_save(iSrts  ) * (1.-wSrts) &
+                       + dsdm_integrated_save(iSrts+1) * wSrts
 
-       sigma = sigma_save(srts_Index  , mass_Index  ) * (1.-srts_weight) * (1.-mass_weight) &
-             + sigma_save(srts_Index  , mass_Index+1) * (1.-srts_weight) * mass_weight      &
-             + sigma_save(srts_Index+1, mass_Index  ) * srts_weight      * (1.-mass_weight) &
-             + sigma_save(srts_Index+1, mass_Index+1) * srts_weight      * mass_weight
+       sigma = sigma_save(iSrts  , iMass  ) * (1.-wSrts) * (1.-wMass) &
+             + sigma_save(iSrts  , iMass+1) * (1.-wSrts) * wMass      &
+             + sigma_save(iSrts+1, iMass  ) * wSrts      * (1.-wMass) &
+             + sigma_save(iSrts+1, iMass+1) * wSrts      * wMass
 
     end if
 
@@ -225,7 +236,7 @@ contains
     subroutine init
       use output, only: Write_InitStatus
 
-      integer :: srts_Index, mass_Index
+      integer :: iSrts, iMass
       real :: wurzelS
 
       call Write_InitStatus('Dimitriev Xsections',0)
@@ -234,16 +245,16 @@ contains
       allocate(sigma_save(0:maxPoints_srts, 0:maxPoints_mass))
       allocate(dsdm_integrated_save(0:maxPoints_srts))
 
-      do srts_Index=0,maxPoints_srts
-        do mass_Index=0,maxPoints_mass
-          mass    = hadron(Delta)%minMass + Real(mass_Index) * delta_mass
-          wurzelS = srtsMin               + Real(srts_Index) * delta_srts
+      do iSrts=0,maxPoints_srts
+        do iMass=0,maxPoints_mass
+          mass    = hadron(Delta)%minMass + Real(iMass) * dMass
+          wurzelS = srtsMin               + Real(iSrts) * dSrts
           call calculate(dsdm,sigma,wurzelS,mass)
-          dsdm_save(srts_Index, mass_Index)=dsdm
-          sigma_save(srts_Index, mass_Index)=sigma
+          dsdm_save(iSrts, iMass)=dsdm
+          sigma_save(iSrts, iMass)=sigma
         end do
         ! Integrate dsDm_save over the mass index
-        dsdm_integrated_save(srts_Index) = Sum(dsdm_save(srts_Index, : )) * delta_mass
+        dsdm_integrated_save(iSrts) = Sum(dsdm_save(iSrts, : )) * dMass
       end do
       initFlag=.false.
 
@@ -252,7 +263,7 @@ contains
     end subroutine init
 
 
-    subroutine calculate (dsdm, sigma, srts, mdel)
+    subroutine calculate(dsdm, sigma, srts, mdel)
       use constants, only: pi, mN, mPi, GeVSquared_times_mb
       use baryonWidth, only: fullWidthBaryon
 
@@ -295,7 +306,7 @@ contains
          u= 2.*mN**2 - 2.*E3*E2 - 2.*cost*sqrt(pi2*pf2)
 
          !****    Relativistic matrix element^2, with some factors
-         melem2 = 1./(32.*pi*srts**2) * mnnnd2 (t,u,mdel) / GeVSquared_times_mb
+         melem2 = 1./(32.*pi*srts**2) * mnnnd2(t,u,mdel) / GeVSquared_times_mb
 
          !****    p p -> n Delta++ :
          dsdodm = melem2 * sqrt(pf2) * 2.*mdel*f
@@ -331,7 +342,7 @@ contains
   ! * real :: mdel  -- current mass of delta
   !
   !****************************************************************************
-  real function mnnnd2 (t, u, mdel)
+  real function mnnnd2(t, u, mdel)
 
     use constants, only: mN
     use particleProperties, only: hadron
@@ -342,8 +353,8 @@ contains
 
     real :: zt,zu,m1,m2,m12,ft,fu,pt,pu,dmass2,mdel2
 
-    real, parameter :: fps    = 2.202     ! coupling constant of the pi-N-N vertex
-    real, parameter :: fp     = 1.008     ! coupling constant of the pi-N-Delta vertex
+    real, parameter :: fps    = 2.202     ! coupling constant pi-N-N vertex
+    real, parameter :: fp     = 1.008     ! coupling constant pi-N-Delta vertex
     real, parameter :: lamda2 = 0.63**2   ! cutoff parameter in the form factor [in GeV^2]
     real, parameter :: c2     = 0.2**2    ! kappa^2 [in GeV^2]
     real, parameter :: mpi    = 0.14      ! pion mass in GeV, slightly different from GiBUU value. Don't change !!!

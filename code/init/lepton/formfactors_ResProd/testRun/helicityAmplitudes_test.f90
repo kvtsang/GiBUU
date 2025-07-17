@@ -4,17 +4,20 @@
 ! program helicityAmplitudes_test
 ! PURPOSE
 ! * Checks our form factors for consistency with the underlying helicity amplitudes.
-! * Therefore the MAID amplitudes are printed to files and ours are calculated using  
+! * Therefore the MAID amplitudes are printed to files and ours are calculated using
 !   formulas E.7-E.16 of the Phd-thesis of Oliver Buss.
 !***************************************************************************************************
 program helicityAmplitudes_test
   ! Tests our form factors
 
+  use inputGeneral
   use particleProperties, only: initParticleProperties
   implicit none
 
+
+  call readinputGeneral
   call initParticleProperties
-  
+
   ! Print MAID's helicity amplitudes
   call printMAID()
 
@@ -32,7 +35,7 @@ subroutine printOurs()
   ! Output to files
   ! * Helicities_proton.dat
   ! * Helicities_neutron.dat
-  ! 
+  !
   ! Here we use the Formfactors as input and apply formulas E.7-E.16 of the Phd-thesis of Oliver Buss
   !
 
@@ -51,15 +54,15 @@ subroutine printOurs()
   real :: QS, W, factor
   real, parameter :: delta_QS=0.01
 
-  write(*,'(A)') 
+  write(*,'(A)')
   write(*,'(2A)') "Routine prints our helicity amplitudes at the pole position as a function", &
        & " of Q^2 for the following resonances:"
   write(*,'(A)') " * delta,D13_1520,S11_1535,P11_1440"
-  write(*,'(A)') 
+  write(*,'(A)')
   write(*,'(A)') "Output to files"
   write(*,'(A)') " * Helicities_proton.dat"
   write(*,'(A)') " * Helicities_neutron.dat"
-  write(*,'(A)') 
+  write(*,'(A)')
 
   nucleonCharge_loop: do targetCharge=0,1
      if(targetCharge.eq.1) then
@@ -161,7 +164,7 @@ subroutine printOurs_atPhotonPoint()
   ! Output to files
   ! * Helicities_proton.dat
   ! * Helicities_neutron.dat
-  ! 
+  !
   ! Here we use the Formfactors as input and apply formulas E.7-E.16 of the Phd-thesis of Oliver Buss
   !
 
@@ -179,15 +182,15 @@ subroutine printOurs_atPhotonPoint()
   real :: QS, W, factor
   real, parameter :: delta_W=0.01
 
-  write(*,'(A)') 
-  write(*,'(2A)') "Routine prints our helicity amplitudes at the photon point (Q^2=0) as a function of W" & 
+  write(*,'(A)')
+  write(*,'(2A)') "Routine prints our helicity amplitudes at the photon point (Q^2=0) as a function of W" &
        & ,"for the following resonances:"
   write(*,'(A)') " * delta,D13_1520,S11_1535,P11_1440"
-  write(*,'(A)') 
+  write(*,'(A)')
   write(*,'(A)') "Output to files"
   write(*,'(A)') " * Helicities_proton_.dat"
   write(*,'(A)') " * Helicities_neutron.dat"
-  write(*,'(A)') 
+  write(*,'(A)')
 
   nucleonCharge_loop: do targetCharge=0,1
      if(targetCharge.eq.1) then
@@ -260,7 +263,7 @@ subroutine printOurs_atPhotonPoint()
               A32(i)=0.
               factor=sqrt(pi*alphaQED/mN*((mN-W)**2+QS)/(W**2-mN**2))*((W+Mn)**2+qs)/(4.*w*Mn)
               S12(i)=factor*((W-mN)/(2.*mN)*f(1)-f(2))
-              
+
            case(P11_1440)
               ! S=1/2, P=+1
               factor=sqrt(2.*pi*alphaQED/mN*((w-mN)**2+QS)/(W**2-mN**2))
@@ -304,17 +307,17 @@ subroutine printMAID()
   real, parameter :: delta_QS=0.01
 
 
-  write(*,'(A)') 
+  write(*,'(A)')
   write(*,'(A)') "Routine prints MAID helicity amplitudes at the pole position as a", &
        & "function of Q^2 for the following resonances:"
   write(*,'(A)') " * delta,D13_1520,S11_1535,P11_1440"
-  write(*,'(A)') 
+  write(*,'(A)')
   write(*,'(A)') "Output to files"
   write(*,'(A)') " * Helicities_MAID03_proton.dat"
   write(*,'(A)') " * Helicities_MAID05_proton.dat"
   write(*,'(A)') " * Helicities_MAID03_neutron.dat"
   write(*,'(A)') " * Helicities_MAID05_neutron.dat"
-  write(*,'(A)') 
+  write(*,'(A)')
 
 
   open(101,file="Helicities_MAID03_proton.dat")
@@ -327,10 +330,10 @@ subroutine printMAID()
   write(102,*) "# e.g.: column 2= A_1_2 (Delta), 3= A_3_2(Delta), ..., 5=A_1_2(D13_1520), ...."
 
   QS=0.
-  do 
+  do
      do i=1,4
-        call get_helicityAmplitudes(1,id(i),Qs,A12maid(i,1),A32maid(i,1),S12maid(i,1),1)  !MAID 2003
-        call get_helicityAmplitudes(1,id(i),Qs,A12maid(i,2),A32maid(i,2),S12maid(i,2),2)  !MAID 2005
+        call get_helicityAmplitudes(1,id(i),Qs,A12maid(i,1),A32maid(i,1),S12maid(i,1),2003)  !MAID 2003
+        call get_helicityAmplitudes(1,id(i),Qs,A12maid(i,2),A32maid(i,2),S12maid(i,2),2005)  !MAID 2005
      end do
      write(101,'(13E15.4)')  QS,( (/ A12maid(i,1),A32maid(i,1),S12maid(i,1) /), i=1,4 )
      write(102,'(13E15.4)')  QS,( (/ A12maid(i,2),A32maid(i,2),S12maid(i,2) /), i=1,4 )
@@ -350,10 +353,10 @@ subroutine printMAID()
   write(102,*) "# e.g.: column 2= A_1_2 (Delta), 3= A_3_2(Delta), ..., 5=A_1_2(D13_1520), ...."
 
   QS=0.
-  do 
+  do
      do i=1,4
-        call get_helicityAmplitudes(0,id(i),Qs,A12maid(i,1),A32maid(i,1),S12maid(i,1),1)  !MAID 2003
-        call get_helicityAmplitudes(0,id(i),Qs,A12maid(i,2),A32maid(i,2),S12maid(i,2),2)  !MAID 2005
+        call get_helicityAmplitudes(0,id(i),Qs,A12maid(i,1),A32maid(i,1),S12maid(i,1),2003)  !MAID 2003
+        call get_helicityAmplitudes(0,id(i),Qs,A12maid(i,2),A32maid(i,2),S12maid(i,2),2005)  !MAID 2005
      end do
      write(101,'(13E15.4)')  QS,( (/ A12maid(i,1),A32maid(i,1),S12maid(i,1) /), i=1,4 )
      write(102,'(13E15.4)')  QS,( (/ A12maid(i,2),A32maid(i,2),S12maid(i,2) /), i=1,4 )

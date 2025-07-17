@@ -5,14 +5,14 @@
 ! * http://inspirehep.net/record/810890
 ! * http://inspirehep.net/record/1397003
 !------------------------------------------------------------------------------
-! $HeadURL: svn+ssh://vcs@phab.hepforge.org/source/gibuusvn/releases/release2021/testRun/jobCards/012_HARP.job $
-! $LastChangedRevision: 8221 $
+! $HeadURL: svn+ssh://vcs@phab.hepforge.org/source/gibuusvn/releases/release2025/testRun/jobCards/012_HARP.job $
+! $LastChangedRevision: 8846 $
 !------------------------------------------------------------------------------
 ! please visit the GiBUU homepage for further information:
 ! https://gibuu.hepforge.org
 !------------------------------------------------------------------------------
 
-! file: ./inputOutput/input.f90
+! file: ./inputOutput/inputGeneral.f90
 &input
       eventtype       =          12 ! HiPion
       numEnsembles    =         100
@@ -31,6 +31,7 @@
 !      DoPrLevel(1) = .FALSE. ! set this for production runs
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
       path_To_Input   = '~/GiBUU/buuinput'
+      version = 2025
 /
 
 ! file: ./density/nucleus.f90

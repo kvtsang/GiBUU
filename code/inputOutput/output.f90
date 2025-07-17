@@ -141,8 +141,8 @@ module output
 
   public :: Write_ReadingInput, Write_InitStatus, writeFileDocu
   public :: WriteParticle, WriteParticle_debug, WriteParticleVector
-  public :: intToChar, intToChar4, intToChar_pm
-  public :: realToChar, realTochar4
+  public :: intToChar, intToChar1, intToChar2, intToChar4, intToChar_pm
+  public :: realToChar, realToChar4
   public :: timeMeasurement, printTime
   public :: DoPr
   public :: notInRelease
@@ -162,8 +162,8 @@ contains
   ! subroutine notInRelease(feature)
   !
   ! PURPOSE
-  ! Prints a message which states the given "feature" is not included in the present
-  ! released code version and stops the code.
+  ! Prints a message which states the given "feature" is not included in the
+  ! present released code version and stops the code.
   !
   ! INPUTS
   ! * character(*) :: feature
@@ -225,7 +225,7 @@ contains
   ! OUTPUT
   ! * character(3)
   !****************************************************************************
-  character(3) function intToChar (nr)
+  character(3) function intToChar(nr)
     integer, intent(in) :: nr
 
     integer p0,p1,p2
@@ -235,6 +235,47 @@ contains
 
     intToChar = Achar(p2+48)//Achar(p1+48)//Achar(p0+48)
   end function intToChar
+
+  !****************************************************************************
+  !****s* output/intToChar1
+  ! NAME
+  ! function intToChar1(nr)
+  ! PURPOSE
+  ! Convert an integer into a character string of length 1.
+  ! INPUTS
+  ! * integer :: nr -- number to convert (0..9)
+  ! OUTPUT
+  ! * character(1)
+  !****************************************************************************
+  character(1) function intToChar1(nr)
+    integer, intent(in) :: nr
+
+    integer p0
+    p0 = Mod(nr,10)
+
+    intToChar1 = Achar(p0+48)
+  end function intToChar1
+
+  !****************************************************************************
+  !****s* output/intToChar2
+  ! NAME
+  ! function intToChar2(nr)
+  ! PURPOSE
+  ! Convert an integer into a character string of length 2.
+  ! INPUTS
+  ! * integer :: nr -- number to convert (0..99)
+  ! OUTPUT
+  ! * character(2)
+  !****************************************************************************
+  character(2) function intToChar2(nr)
+    integer, intent(in) :: nr
+
+    integer p0,p1
+    p1 = Mod(nr/10,10)
+    p0 = Mod(nr,10)
+
+    intToChar2 = Achar(p1+48)//Achar(p0+48)
+  end function intToChar2
 
   !****************************************************************************
   !****s* output/intToChar4
@@ -247,7 +288,7 @@ contains
   ! OUTPUT
   ! * character(3)
   !****************************************************************************
-  character(4) function intToChar4 (nr)
+  character(4) function intToChar4(nr)
     integer, intent(in) :: nr
 
     integer p0,p1,p2,p3
@@ -271,7 +312,7 @@ contains
   ! OUTPUT
   ! * character(3)
   !****************************************************************************
-  character(2) function intToChar_pm (nr)
+  character(2) function intToChar_pm(nr)
     integer, intent(in) :: nr
 
     integer p0
@@ -296,7 +337,7 @@ contains
   ! OUTPUT
   ! * character(3)
   !****************************************************************************
-  character(3) function realToChar (nr)
+  character(3) function realToChar(nr)
     real, intent(in) :: nr
 
     integer p0,p1,p2
@@ -319,7 +360,7 @@ contains
   ! OUTPUT
   ! * character(4)
   !****************************************************************************
-  character(4) function realToChar4 (nr)
+  character(4) function realToChar4(nr)
     real, intent(in) :: nr
 
     integer p3
@@ -337,6 +378,10 @@ contains
   ! Write a Message about starting/finishing "reading" something.
   ! If parameter "ios" is given, this is interpreted as the IOSTAT value
   ! of the reading of the namelist (here parameter "Code" is ignored).
+  !
+  ! For gfortran and nvfortran, it also gives the last line of the input,
+  ! if ios>0, i.e. in the case of an error.
+  !
   ! INPUTS
   ! * character(*)     :: Text -- Name of file/Jobcard/...
   ! * integer          :: Code -- 0: start reading, !=0 : reading finished
@@ -344,15 +389,26 @@ contains
   !****************************************************************************
   subroutine Write_ReadingInput(Text,Code,ios)
 
-    use CallStack, only: traceback
+    use CallStack, only: traceback, getCompiler
 
     character(*), intent(in) :: Text
     integer, intent(in)      :: Code
     integer, intent(in), optional :: ios
 
+    character(1000) :: buf
+
     if (present(ios)) then
        if (ios > 0) then
           write(*,1002) Text
+
+          select case (getCompiler())
+          case (2,3)
+             backspace(5)
+             read(5,fmt='(A)') buf
+             write(*,'(A)') &
+                  'Invalid line in namelist: '//trim(buf)
+          end select
+
           call traceback(user_exit_code=1)
        else if (ios < 0) then
           write(*,1003) Text
@@ -426,8 +482,8 @@ contains
     integer :: parents(1:3)
 
 !!$    write(iFile,FormatPart1) iEnsemble,iPart, &
-!!$         Part%number, Part%ID, Part%charge, Part%antiparticle, &
-!!$         Part%mass, Part%momentum, Part%position,  &
+!!$         Part%number, Part%ID, Part%charge, Part%anti, &
+!!$         Part%mass, Part%mom, Part%pos,  &
 !!$         Part%ScaleCS, Part%firstEvent, Part%event, &
 !!$         Part%perWeight
 
@@ -435,22 +491,22 @@ contains
        parents = history_getParents(Part%history)
        if (useProductionPos) then
           write(iFile,FormatPart2) iEnsemble,iPart, &
-               Part%number, Part%ID, Part%charge, Part%antiparticle, &
-               Part%mass, Part%momentum, Part%position,  &
+               Part%number, Part%ID, Part%charge, Part%anti, &
+               Part%mass, Part%mom, Part%pos,  &
                min(9.999,Part%ScaleCS), Part%firstEvent, Part%event, &
                Part%perWeight, &
-               max(-9.9E0,Part%formationTime), &
-               Part%productionTime, Part%lastCollisionTime, &
-               Part%in_Formation, parents, getProductionPos(Part)
+               max(-9.9E0,Part%formTime), &
+               Part%prodTime, Part%lastCollTime, &
+               Part%inF, parents, getProductionPos(Part)
        else
           write(iFile,FormatPart2) iEnsemble,iPart, &
-               Part%number, Part%ID, Part%charge, Part%antiparticle, &
-               Part%mass, Part%momentum, Part%position,  &
+               Part%number, Part%ID, Part%charge, Part%anti, &
+               Part%mass, Part%mom, Part%pos,  &
                min(9.999,Part%ScaleCS), Part%firstEvent, Part%event, &
                Part%perWeight, &
-               max(-9.9E0,Part%formationTime), &
-               Part%productionTime, Part%lastCollisionTime, &
-               Part%in_Formation, parents
+               max(-9.9E0,Part%formTime), &
+               Part%prodTime, Part%lastCollTime, &
+               Part%inF, parents
        end if
     else
        ! Just write the header
@@ -487,7 +543,7 @@ contains
        if (Part(i)%ID<=0) cycle
 
        hPart%charge  = hPart%charge  + Part(i)%charge
-       hPart%momentum= hPart%momentum+ Part(i)%momentum
+       hPart%mom= hPart%mom+ Part(i)%mom
 
        call WriteParticle1(iFile,iEnsemble,i,Part(i))
     end do
@@ -515,24 +571,30 @@ contains
   subroutine WriteParticle_debug(Part, med, densBar)
     use particleDefinition
     use mediumDefinition
-    use minkowski, only: abs4
+    use minkowski, only: abs4Sq
 
     type(particle),intent(in) :: Part
     type(medium), intent(in), optional :: med
     real,dimension(0:3), intent(in), optional :: densBar
-
+    real :: m
 
     write(*,'(79("-"))')
-    write(*,*) '#:', Part%number, 'ID:',Part%ID, 'Charge:',Part%charge, 'Antiparticle:',Part%antiparticle
-    write(*,*) 'Perturbative?', part%perturbative
+    write(*,*) '#:', Part%number, 'ID:',Part%ID, 'Charge:',Part%charge, 'Antiparticle:',Part%anti
+    write(*,*) 'Perturbative?', part%pert
     write(*,*) 'bare Mass=', Part%mass
-    write(*,*) 'eff. Mass=', abs4(Part%momentum)
+    m = abs4Sq(Part%mom)
+    if (m>0) then
+       m = sqrt(m)
+    else
+       m = -sqrt(-m)
+    end if
+    write(*,*) 'eff. Mass=', m
 
-    write(*,'(A,1P,4E17.9)') ' Momentum=', Part%momentum
-    write(*,'(A,1P,17(" "),3E17.9)') ' Position=', Part%position
-    write(*,'(A,1P,17(" "),3E17.9)') ' Velocity=', Part%velocity
+    write(*,'(A,1P,4E17.9)') ' Momentum=', Part%mom
+    write(*,'(A,1P,17(" "),3E17.9)') ' Position=', Part%pos
+    write(*,'(A,1P,17(" "),3E17.9)') ' Velocity=', Part%vel
 
-    write(*,*) 'Offshellparameter=', Part%offshellparameter
+    write(*,*) 'Offshellparameter=', Part%offshellPar
     write(*,*) 'History=',Part%history
     write(*,*) 'ScaleCS=',Part%ScaleCS, 'FirstEvent=',Part%firstEvent
     write(*,*) 'Event(1:2)=', Part%event,  'Perweight=',Part%perWeight
@@ -635,15 +697,15 @@ contains
       do i=1,size(pv,dim=1)
          do j=1,size(pv,dim=2)
             if (pv(i,j)%Id <= 0) cycle
-            write(96,'(4I10,3E14.5)')    pv(i,j)%number, i, pv(i,j)%ID,pv(i,j)%Charge,pv(i,j)%velocity
-            write(97,'(4I10,3E14.5)')    pv(i,j)%number, i, pv(i,j)%ID,pv(i,j)%Charge,pv(i,j)%position
-            write(98,'(4I10,4E14.5)')    pv(i,j)%number, i, pv(i,j)%ID,pv(i,j)%Charge,pv(i,j)%momentum
+            write(96,'(4I10,3E14.5)')    pv(i,j)%number, i, pv(i,j)%ID,pv(i,j)%Charge,pv(i,j)%vel
+            write(97,'(4I10,3E14.5)')    pv(i,j)%number, i, pv(i,j)%ID,pv(i,j)%Charge,pv(i,j)%pos
+            write(98,'(4I10,4E14.5)')    pv(i,j)%number, i, pv(i,j)%ID,pv(i,j)%Charge,pv(i,j)%mom
 
-            write(99,'(4I10,2L4,e14.3)')  pv(i,j)%number, i, pv(i,j)%event,pv(i,j)%perturbative,&
-                 & pv(i,j)%antiparticle,pv(i,j)%perweight
-            write(100,'(2I10,4F10.4,L4)') pv(i,j)%number, i, pv(i,j)%scaleCS,pv(i,j)%formationTime,pv(i,j)%productionTime,&
-                 & pv(i,j)%lastCollisionTime,pv(i,j)%in_Formation
-            write(101,'(2I10,3F10.4,I8)') pv(i,j)%number, i, pv(i,j)%mass,0.0,pv(i,j)%offShellParameter,&
+            write(99,'(4I10,2L4,e14.3)')  pv(i,j)%number, i, pv(i,j)%event,pv(i,j)%pert,&
+                 & pv(i,j)%anti,pv(i,j)%perweight
+            write(100,'(2I10,4F10.4,L4)') pv(i,j)%number, i, pv(i,j)%scaleCS,pv(i,j)%formTime,pv(i,j)%prodTime,&
+                 & pv(i,j)%lastCollTime,pv(i,j)%inF
+            write(101,'(2I10,3F10.4,I8)') pv(i,j)%number, i, pv(i,j)%mass,0.0,pv(i,j)%offshellPar,&
                  & pv(i,j)%firstEvent
 
             call WriteParticle(102,i,j,pv(i,j))
@@ -799,8 +861,8 @@ contains
     do i=1,size(Part)
        if (Part(i)%ID<=0) cycle
        write(iFile,FormatPart) iEns, Part(i)%number, &
-            Part(i)%ID, Part(i)%charge, Part(i)%antiparticle, &
-            Part(i)%mass, Part(i)%momentum, Part(i)%position, &
+            Part(i)%ID, Part(i)%charge, Part(i)%anti, &
+            Part(i)%mass, Part(i)%mom, Part(i)%pos, &
             Part(i)%perweight
     end do
 

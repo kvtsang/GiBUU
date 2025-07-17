@@ -115,11 +115,12 @@ contains
 !    use init_pn_medium
     !   use spline2d
     use constants, only: hbarc, mN
-    use baryonPotentialModule, only: BaryonPotential
+    use baryonPotentialMain, only: BaryonPotential
     use particleDefinition
     use mediumdefinition
+    use output, only: Write_InitStatus
 
-    real,intent(in),dimension(0:3) :: momLRF
+    real, intent(in),dimension(0:3) :: momLRF
     real, intent(in) :: pdens
     real, intent(in) :: ndens
     real, optional :: mu_extern
@@ -130,24 +131,26 @@ contains
 
 
     if (initflag) then
-       write(*,*) 'proton_width_medium initialized'
+       call Write_InitStatus("proton_width_medium",0)
+
        call readinput
 
        call setToDefault(teilchen_fermi)
        teilchen_fermi%mass=mN
        ! finalstate%charge =charge_out
-       ! teilchen_fermi%momentum=p_out
-       teilchen_fermi%position=(/0.,0.,0./)
-       teilchen_fermi%antiparticle=.false.
+       ! teilchen_fermi%mom=p_out
+       teilchen_fermi%pos=(/0.,0.,0./)
+       teilchen_fermi%anti=.false.
        teilchen_fermi%id=1
-       teilchen_fermi%perturbative=.false.
-       ! finalState%productionTime=0.
-       ! finalState%lastCollisionTime=0.
-       ! finalState%formationTime=0.
+       teilchen_fermi%pert=.false.
+       ! finalState%prodTime=0.
+       ! finalState%lastCollTime=0.
+       ! finalState%formTime=0.
        ! finalState%scaleCS=1.
-       ! finalState%in_Formation=.false.
+       ! finalState%inF=.false.
 
        initflag=.false.
+       call Write_InitStatus("proton_width_medium",1)
     end if
 
     if (present(mu_extern)) then
@@ -167,9 +170,9 @@ contains
        med%densityProton  = pdens
        med%densityNeutron = ndens
 
-       teilchen_fermi%momentum(0)=sqrt((teilchen_fermi%mass+&
+       teilchen_fermi%mom(0)=sqrt((teilchen_fermi%mass+&
             & BaryonPotential(teilchen_fermi,med,.true.))**2 +k_fermi**2)
-       omega_F=teilchen_fermi%momentum(0)
+       omega_F=teilchen_fermi%mom(0)
        proton_width_medium=proton_width_mdd(momLRF,pdens,ndens,omega_F)
     end if
 
@@ -193,28 +196,29 @@ contains
   !****************************************************************************
   real function proton_width_mdd(momLRF,pdens,ndens,mu_extern)
 
+    use output, only: Write_InitStatus, intToChar2
+
     real,intent(in),dimension(0:3) :: momLRF ! momentum of resonance in LRF
     real, intent(in) :: pdens
     real, intent(in) :: ndens
     real, optional :: mu_extern
-    integer, parameter :: Dateiende=-1
 
     !   real, dimension(1:200),save :: pLabField, sigmaField, derivativeField
 
-    logical, save :: initFlag=.true.
+    logical, save :: initFlag=.true. ! !!! this shadows the global flag !!!
     integer :: ios
     real,save :: maximalEnergy,maximalRho,maxMomentum!,maximalWidth
     real, save ::  minEnergy,minimalRho,minMomentum!,minWidth
     integer :: i,j,k,l,n_count,n_rho,n_momentum,n_energy
     integer, save :: i_max
-    REAL :: temp1, temp2, temp3, temp4, tmp!,temp5,temp6
-    REAL :: denstmp,omegatmp, momentumtmp,gammatmp
-    !REAL, save :: mass_baryon
-    REAl, save :: drho, domega, dp
-    REAL, ALLOCATABLE,  DIMENSION(:) :: proton_omega, proton_momentum, proton_gamma, proton_spectral
-    REAL, DIMENSION(32), save :: rho_field
-    REAL, DIMENSION(121), save ::momentum_field, omega_field
-    REAL, DIMENSION(32,121,121),save :: gamma_matrix  !,  gam_deriv_mat
+    real :: temp1, temp2, temp3, temp4, tmp!,temp5,temp6
+    real :: denstmp,omegatmp, momentumtmp,gammatmp
+    !real, save :: mass_baryon
+    real, save :: drho, domega, dp
+    real, allocatable,  dimension(:) :: proton_omega, proton_momentum, proton_gamma, proton_spectral
+    real, dimension(32), save :: rho_field
+    real, dimension(121), save ::momentum_field, omega_field
+    real, dimension(32,121,121),save :: gamma_matrix  !,  gam_deriv_mat
     logical, save :: allocat=.true.
     logical, save :: fill_field=.true.
     logical :: lexist
@@ -223,8 +227,8 @@ contains
 1002 format(4(e12.4,1x))
 
     init:  if (initFlag) then
+       call Write_InitStatus("proton_width_mdd",0)
 
-       write(*,*) 'density dependent width for protons and neutrons  is used'
        call readinput
        n_count=1
        if (debug) then
@@ -233,12 +237,12 @@ contains
        densityloop: do l=1,32
           ! write(*,*) 'n_count= ', n_count
           rho_field(n_count)=float(n_count)*0.01
-          open(100,file=trim(path_to_Input)//'/baryon/0'//nummern(n_count)//'.34',status='old')
+          open(100,file=trim(path_to_Input)//'/baryon/0'//intToChar2(n_count)//'.34',status='old')
           i=1
-          INQUIRE(FILE=trim(path_to_Input)//'/baryon/0'//nummern(n_count)//'.34',EXIST=lexist)
+          INQUIRE(FILE=trim(path_to_Input)//'/baryon/0'//intToChar2(n_count)//'.34',EXIST=lexist)
           if (.NOT. lexist) then
              write(*,*) 'Error in subroutine proton_width_medium_density_dependent, no file: ', &
-                  & trim(path_to_Input)//'/baryon/0'//nummern(n_count)//'.34', ' exists!!!'
+                  & trim(path_to_Input)//'/baryon/0'//intToChar2(n_count)//'.34', ' exists!!!'
              stop
           end if
           allo: if (allocat) then
@@ -344,7 +348,8 @@ contains
        write(*,*) 'min Momentum ', minMomentum, ' maxMomentum ' , maxMomentum, 'dp' , dp
        write(*,*) 'min Energy ', minEnergy, ' maxEnergy ' , maximalEnergy, 'domega' , domega
        write(*,*) 'min rho ', minimalRho, ' maxRho ' , maximalRho, 'drho' , drho
-       write(*,*) 'denstity dependent width initialization completed!'
+
+       call Write_InitStatus("proton_width_mdd",1)
 
     end if init
 
@@ -353,9 +358,6 @@ contains
     !p_fermi_extern= hbarc*(1.5*pi**2*denstmp)**(1./3.)
 
     momentumtmp=sqrt(Dot_product(momLRF(1:3),momLRF(1:3) ) )
-
-
-
 
 
     if (denstmp .lt.minimalRho) then
@@ -404,7 +406,6 @@ contains
        end if
     end if
 
-
     n_momentum=nint( (momentumtmp-minMomentum)/dp)+1
     !write(*,*) 'n_momentum=' ,n_momentum
     n_energy=nint((omegatmp-minEnergy)/domega)+1
@@ -413,36 +414,19 @@ contains
     !call splint2d(momentum_field,omega_field,gamma_matrix(n_rho,:,:),gam_deriv_mat(n_rho,:,:),momentumtmp,omegatmp,proton_width_medium_density_dependent)
     !write(*,*)  gamma_matrix(16,20,60)
 
-
-
-
   end function proton_width_mdd
-
- !*****************************************************************************
- ! generate strings from numbers (e.g. 2 -> "02"):
- !*****************************************************************************
- character (len=2) function nummern(iteration)
-
-    integer :: iteration,n1,n0
-
-    n1=int(iteration/10)
-    n0=mod(iteration,10)
-
-    nummern=achar(48+n1)//achar(48+n0)
-
-  end function nummern
 
   !****************************************************************************
   !****************************************************************************
   real function omega_f_width_field(dens)
-    use mean_field_baryon
+    use baryonic_mean_field
     use cl_splines
 
     real, intent(in) :: dens
     real, save :: za=0.5
     real, Dimension(64) ,save:: dens_field, omega_f_field
     integer :: i
-    logical, save :: initflag=.true.
+    logical, save :: initflag=.true. ! shadows the global flag !!!
     type(tspline),save :: spline
     logical :: successFlag
     integer :: error

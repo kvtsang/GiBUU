@@ -30,7 +30,6 @@
 ./code/init/neutrino/testRun
 ./code/init/photon/testRun
 ./code/init/ElectronGenerator/testRun
-./code/inMediumWidth/testRun
 ./code/inputOutput/testRun
 ./code/numerics/cernlib/testRun
 ./code/numerics/testRun
@@ -47,3 +46,4 @@
 ./code/width/testRun
 ./code/width/testRun_collWidth
 ./code/width/testRun_energyDet
+./code/width/tabulateInMediumWidth

@@ -70,7 +70,7 @@ module initPion
   !****************************************************************************
   !****g* pionNucleus/ekin_lab
   ! SOURCE
-  real,save      :: ekin_lab=0.
+  real,save      :: ekin_lab=0.  ! [GeV]
   !
   ! PURPOSE
   ! kinetic energies of pions in lab frame.
@@ -137,59 +137,62 @@ contains
     use CallStack, only: traceback
 
     integer, intent(in) :: firstevent
-    integer :: i,j, nEns
+    integer :: iPion,iEns, nEns
 
     if (initFlag) then
        call TRACEBACK("oops")
     end if
 
-    nEns=size(bArr,dim=1) ! ??????????????
-    i = mod(firstevent,nEns) ! firstevent=i+nEns*j
-    j = int(firstevent/nEns)
+    nEns = size(bArr,dim=1)
+    iPion = mod(firstevent,numberPions) ! firstevent=iPion+numberPions*(iEns-1)
+    iEns = int(firstevent/numberPions)+1
 
-    if (j<1.or.j>nEns) then
-       write(*,*) firstevent,nEns,numberPions,i,j
+    if (iEns<1.or.iEns>nEns) then
+       write(*,*) firstevent,nEns,numberPions,iPion,iEns
        call TRACEBACK("oops j")
     end if
-    if (i<1.or.i>numberPions) call TRACEBACK("oops i")
+    if (iPion<1.or.iPion>numberPions) call TRACEBACK("oops iPion")
 
-    getImpact = bArr(j,i)
+    getImpact = bArr(iEns,iPion)
 
   end function getImpact
 
   !****************************************************************************
   !****s* initPion/initPionInduced
   ! NAME
-  ! subroutine initPionInduced(teilchen,raiseEnergyFlag,targetNuc)
+  ! subroutine initPionInduced(pertParts,raiseEnergyFlag,targetNuc)
   ! PURPOSE
   ! This routine initializes pions in pion-nucleus scattering.
   ! INPUTS
-  ! * type(particle), intent(inout), dimension(:,:) :: teilchen
+  ! * type(particle), intent(inout), dimension(:,:) :: pertParts
   !   -- vector to store pions in
   ! * logical, intent(in) :: raiseEnergyFlag
   !   -- if .true. energy of initialized pions is raised by delta_ekin_lab
   ! * type(tNucleus),pointer,optional :: targetNuc -- Target nucleus
   !****************************************************************************
-  subroutine initPionInduced(teilchen,raiseEnergyFlag,targetNuc)
+  subroutine initPionInduced(pertParts,raiseEnergyFlag,targetNuc)
     use idTable
     use particleDefinition
     use nucleusDefinition
-    use collisionNumbering, only:pert_Numbering ! Numbering of %event of the perturbative particles
+    use collisionNumbering, only: pert_Numbering ! Numbering of %event of the perturbative particles
     use output
+    use residue, only: InitResidue
 
-    type(particle), intent(inout), dimension(:,:) :: teilchen
+    type(particle), intent(inout), dimension(:,:), TARGET :: pertParts
     logical, intent(in) :: raiseEnergyFlag
     type(tNucleus),pointer,optional :: targetNuc
 
-    integer :: index ! of pion in vector teilchen
-    integer :: i,j
+    integer :: iPart ! index of pion in vector pertParts
+    integer :: iPion,iEns
     logical,save  :: outside
     logical :: successFlag
-    integer :: numEnsembles
+    integer :: nEns, nPart
 
     real :: impact
+    type(particle), POINTER :: pPart
 
-    numEnsembles=size(teilchen,dim=1)
+    nEns=size(pertParts,dim=1)
+    nPart=size(pertParts,dim=2)
 
     write(*,*)
     write(*,subchapter) 'Initializing  pion induced events'
@@ -198,39 +201,40 @@ contains
        ! Read input and check if pion is initialized in- or outside nucleus
        call initInput(outside)
 
-       write(*,*) 'allocating bArr(',numEnsembles,',',numberPions,')'
-
-       allocate(bArr(numEnsembles,numberPions))
+!       write(*,*) 'allocating bArr(',nEns,',',numberPions,')'
+       allocate(bArr(nEns,numberPions))
        bArr = 0.0
 
        initFlag=.false.
     end if
 
     if (raiseEnergyFlag) ekin_lab=ekin_lab+delta_ekin_lab
-    write(*,*) ' Kinetic energy of pions in lab frame=', ekin_lab
-    write(*,*) ' Outside-Flag=', outside
+    write(*,*) 'Kinetic energy of pions in lab frame=', ekin_lab
+    write(*,*) 'Outside-Flag=', outside
     totalPerweight=0.
 
-    do j=1,numEnsembles ! Loop over all Ensembles
-       index=1
-       i=0
+    do iEns=1,nEns ! Loop over all Ensembles
+       iPart=1
+       iPion=0
        do
-          do while(teilchen(j,index)%Id > 0) !Find free place in particle vector
-             index=index+1
-             if (index.gt.size(teilchen,dim=2)) then
+          do while(pertParts(iEns,iPart)%Id > 0) ! Find free place in particle vector
+             iPart=iPart+1
+             if (iPart.gt.nPart) then
                 write(*,*) 'Particle vector too small in initPion'
-                write(*,*) 'Size=',size(teilchen,dim=2)
-                write(*,*) 'Ensemble: ',j
+                write(*,*) 'Size=',nPart
+                write(*,*) 'Ensemble: ',iEns
                 write(*,*) 'Number pions per ensemble=',numberPions
                 stop
              end if
           end do
 
-          call setToDefault(teilchen(j,index))
+          pPart => pertParts(iEns,iPart)
+
+          call setToDefault(pPart)
           call setKinematics
           call setPosition(impact)
           ! Give the particle its unique number
-          call setNumber(teilchen(j,index))
+          call setNumber(pPart)
 
           ! correct kinematics if pion is initialized outside the nucleus:
           if (outside.and.UseCoulomb) call CoulombCorrect
@@ -239,17 +243,20 @@ contains
           if (.not.outside) then
              call momentumCorrect(successFlag)
              if (.not.successFlag) then
-                teilchen(j,index)%ID=0
-                write(*,*) 'Generating event not succesful:',j,i
+                pPart%ID=0
+                write(*,*) 'Generating event not succesful:',iEns,iPart
                 cycle ! New Event!
              end if
           end if
-          i=i+1
-          teilchen(j,index)%firstevent=i+numEnsembles*j
-          bArr(j,i) = impact ! store impact parameter for later access
-          if (i.eq.numberpions) exit
+          iPion=iPion+1
+          ! please note: iPion may be different from iPart !!!!!
+          pPart%firstevent=iPion+numberPions*(iEns-1)
+          bArr(iEns,iPion) = impact ! store impact parameter for later access
+          if (iPion.eq.numberpions) exit
        end do
     end do
+
+    call InitResidue(nEns,numberPions,targetNuc%mass,targetNuc%charge)
 
     write(*,*) '**Finished Initializing pions for pion induced events'
     write(*,*) '**Total perweight=', totalPerweight
@@ -296,28 +303,29 @@ contains
       call Write_ReadingInput('pionNucleus',0)
       rewind(5)
       read(5,nml=pionNucleus)
-      write(*,*) '  Impact Parameter=',impact_parameter
-      write(*,*) '  Distance=',distance
-      write(*,*) '  Coulomb correction for trajectories=',UseCoulomb
-      write(*,*) '  Distance for the Coulomb correction=',CoulombDistance
-      write(*,*) '  Kinetic Energy of pions in lab frame=',ekin_lab
-      write(*,*) '  Delta(Energy) for energy scans =',delta_ekin_lab
-      write(*,*) '  Number of pions per ensemble=',numberPions
-      write(*,*) '  Charge of pions=',charge
+      write(*,*) 'Impact Parameter                    =',impact_parameter
+      write(*,*) 'Distance                            =',distance
+      write(*,*) 'Coulomb correction for trajectories =',UseCoulomb
+      write(*,*) 'Distance for the Coulomb correction =',CoulombDistance
+      write(*,*) 'Kinetic Energy of pions in lab frame=',ekin_lab
+      write(*,*) 'Delta(Energy) for energy scans      =',delta_ekin_lab
+      write(*,*) 'Number of pions per ensemble        =',numberPions
+      write(*,*) 'Charge of pions                     =',charge
       write(*,*)
+
       if (present(targetNuc)) then
-         if (distance**2+impact_parameter**2.lt.(targetNuc%radius+targetNuc%surface)**2) then
-            outside=.false.
-            write(*,*) 'Pions are initialized inside the nucleus'
-         else
-            outside=.true.
-            write(*,*) 'Pions are initialized outside the nucleus'
-         end if
-         write(*,*)
+         outside = (distance**2+impact_parameter**2.ge.(targetNuc%radius(0)+targetNuc%surface(0))**2)
       else
          outside=.false.
+      end if
+
+      if (outside) then
+         write(*,*) 'Pions are initialized outside the nucleus'
+      else
          write(*,*) 'Pions are initialized inside the nucleus'
       end if
+      write(*,*)
+
       call Write_ReadingInput('pionNucleus',1)
 
     end subroutine initInput
@@ -333,19 +341,19 @@ contains
 
       use constants, only: mPi
 
-      Teilchen(j,index)%ID=pion
-      Teilchen(j,index)%charge=charge
-      Teilchen(j,index)%antiparticle=.false.
-      Teilchen(j,index)%perturbative=.true.
-      Teilchen(j,index)%productionTime=0.
-      Teilchen(j,index)%mass=mPi
-      Teilchen(j,index)%momentum(0)=ekin_lab+Teilchen(j,index)%mass
+      pPart%ID=pion
+      pPart%charge=charge
+      pPart%anti=.false.
+      pPart%pert=.true.
+      pPart%prodTime=0.
+      pPart%mass=mPi
+      pPart%mom(0)=ekin_lab+pPart%mass
       ! pion is initialized moving in positive z-direction:
-      Teilchen(j,index)%momentum(1:3)=(/0.,0.,Sqrt(Teilchen(j,index)%momentum(0)**2-Teilchen(j,index)%mass**2)/)
+      pPart%mom(1:3)=(/0.,0.,Sqrt(pPart%mom(0)**2-pPart%mass**2)/)
       ! assume vacuum dispersion relation:
-      Teilchen(j,index)%velocity(1:3)=teilchen(j,index)%momentum(1:3)/teilchen(j,index)%momentum(0)
-      teilchen(j,index)%event(1:2)=pert_numbering()
-      if (debug) write(*,*) 'Masse=',teilchen(j,index)%mass
+      pPart%vel(1:3)=pPart%mom(1:3)/pPart%mom(0)
+      pPart%event(1:2)=pert_numbering()
+      if (debug) write(*,*) 'Masse=',pPart%mass
 
     end subroutine setKinematics
 
@@ -374,7 +382,7 @@ contains
     ! The perweight is given in units of mb for impact parameter integration.
     !
     ! OUTPUTS
-    ! * teilchen(j,index) is changed
+    ! * pPart is changed
     ! * real :: impact -- the actual impact parameter for this pion
     !**************************************************************************
     subroutine setPosition(impact)
@@ -398,32 +406,32 @@ contains
       real :: randomNumber
       logical, save :: flag = .true.
 
-      totalNumPions=numberPions*numEnsembles
+      totalNumPions=numberPions*nEns
 
       if (impact_parameter.ge.0.) then
          impact = impact_parameter
-         teilchen(j,index)%position=(/impact,0.,-distance/)
+         pPart%pos=(/impact,0.,-distance/)
 
          !         if(fullensemble) then
-         !            teilchen(j,index)%perweight=1./float(numberPions)
+         !            pPart%perweight=1./float(numberPions)
          !         else
-         teilchen(j,index)%perweight=1./float(totalNumPions)
+         pPart%perweight=1./float(totalNumPions)
          !         end if
       else  ! Monte Carlo decision to have impact parameter integration
          ! maximum impact parameter of outer ring:
          if (fullEnsemble) then       ! Full ensemble
-            minimalDistance=minimalDistance/sqrt(float(numEnsembles))
+            minimalDistance=minimalDistance/sqrt(float(nEns))
          end if
          if (present(targetNuc)) then
-            if (targetNuc%radius.gt.0.001) then  ! No elementary event
-               bmax_OuterRing=ratioRadius*targetNuc%radius+minimalDistance
-               bmax_InnerDisk=targetNuc%radius+minimaldistance
+            if (targetNuc%radius(0).gt.0.001) then  ! No elementary event
+               bmax_OuterRing=ratioRadius*targetNuc%radius(0)+minimalDistance
+               bmax_InnerDisk=targetNuc%radius(0)+minimaldistance
             else
                bmax_OuterRing=3.
                bmax_InnerDisk=2.
                if (fullEnsemble) then       ! Full ensemble
-                  bmax_InnerDisk=bmax_InnerDisk  /sqrt(float(numEnsembles))
-                  bmax_OuterRing=bmax_OuterRing  /sqrt(float(numEnsembles))
+                  bmax_InnerDisk=bmax_InnerDisk  /sqrt(float(nEns))
+                  bmax_OuterRing=bmax_OuterRing  /sqrt(float(nEns))
                end if
             end if
          else
@@ -444,25 +452,25 @@ contains
          phi=rn()*2*pi
          if (randomNumber.le.pInnerDisk) then
             impact=rn()
-            teilchen(j,index)%position(1)=sqrt(impact)*bmax_InnerDisk*cos(phi)
-            teilchen(j,index)%position(2)=sqrt(impact)*bmax_InnerDisk*sin(phi)
-            teilchen(j,index)%position(3)=-distance
-            teilchen(j,index)%perweight=(pi*bmax_InnerDisk**2)/pInnerDisk /float(totalNumPions)*10 ! in mB (factor 10 due to fm**2 to mb conversion)
+            pPart%pos(1)=sqrt(impact)*bmax_InnerDisk*cos(phi)
+            pPart%pos(2)=sqrt(impact)*bmax_InnerDisk*sin(phi)
+            pPart%pos(3)=-distance
+            pPart%perweight=(pi*bmax_InnerDisk**2)/pInnerDisk /float(totalNumPions)*10 ! in mB (factor 10 due to fm**2 to mb conversion)
 
          else
             impact=rn()
-            teilchen(j,index)%position(1)=sqrt(impact*(bmax_OuterRing**2-bmax_InnerDisk**2)&
+            pPart%pos(1)=sqrt(impact*(bmax_OuterRing**2-bmax_InnerDisk**2)&
                  &                                      +bmax_InnerDisk**2)*cos(phi)
-            teilchen(j,index)%position(2)=sqrt(impact*(bmax_OuterRing**2-bmax_InnerDisk**2)&
+            pPart%pos(2)=sqrt(impact*(bmax_OuterRing**2-bmax_InnerDisk**2)&
                  &                                      +bmax_InnerDisk**2)*sin(phi)
-            teilchen(j,index)%position(3)=-distance
+            pPart%pos(3)=-distance
 
-            teilchen(j,index)%perweight=pi*(bmax_OuterRing**2-bmax_InnerDisk**2)/(1.-pInnerDisk) &
+            pPart%perweight=pi*(bmax_OuterRing**2-bmax_InnerDisk**2)/(1.-pInnerDisk) &
                  &       /float(totalNumPions)*10  ! in mB (factor 10 due to fm**2 to mb conversion)
          end if
-         !        if(fullensemble) teilchen(j,index)%perweight=teilchen(j,index)%perweight*float(numEnsembles)
+         !        if(fullensemble) pPart%perweight=pPart%perweight*float(nEns)
       end if
-      totalPerweight=totalPerweight+teilchen(j,index)%perweight
+      totalPerweight=totalPerweight+pPart%perweight
     end subroutine setPosition
 
     !**************************************************************************
@@ -477,23 +485,23 @@ contains
 
       if (debug) then
          write(*,*) ' Before Coulomb correction of trajectory'
-         write(*,*) 'position=', teilchen(j,index)%position
-         write(*,*) '4-momentum=', teilchen(j,index)%momentum
+         write(*,*) 'position=', pPart%pos
+         write(*,*) '4-momentum=', pPart%mom
       end if
 
-      teilchen(j,index)%position(3)=-coulombdistance
+      pPart%pos(3)=-coulombdistance
 
-      call Coulpropa(teilchen(j,index)%position(1:3), teilchen(j,index)%momentum(1:3), &
-           teilchen(j,index)%charge, teilchen(j,index)%mass, &
+      call Coulpropa(pPart%pos(1:3), pPart%mom(1:3), &
+           pPart%charge, pPart%mass, &
            targetNuc%charge, distance)
 
       !Assume vacuum dispersion relation:
-      teilchen(j,index)%velocity(1:3)=teilchen(j,index)%momentum(1:3)/FreeEnergy(teilchen(j,index))
+      pPart%vel(1:3)=pPart%mom(1:3)/FreeEnergy(pPart)
 
       if (debug) then
          write(*,*) ' After Coulomb correction of trajectory'
-         write(*,*) 'position=', teilchen(j,index)%position
-         write(*,*) '4-momentum=', teilchen(j,index)%momentum
+         write(*,*) 'position=', pPart%pos
+         write(*,*) '4-momentum=', pPart%mom
          write(*,*)
       end if
     end subroutine coulombCorrect
@@ -515,28 +523,28 @@ contains
       ! Evaluate coulomb potential and correct for coulomb potential:
       cpot=0.
       if (UseCoulomb) then
-         cpot = emfoca(teilchen(j,index)%position,teilchen(j,index)%momentum(1:3),teilchen(j,index)%charge,teilchen(j,index)%ID)
+         cpot = emfoca(pPart%pos,pPart%mom(1:3),pPart%charge,pPart%ID)
 
-         if (kineticEnergy(teilchen(j,index))-cPot.lt.0) then
+         if (kineticEnergy(pPart)-cPot.lt.0) then
             write(*,*) "Error in Initpion"
-            write(*,*) "Energy too small:",teilchen(j,index)%momentum
-            write(*,*) "Cannot initiliaze pions at",teilchen(j,index)%position
+            write(*,*) "Energy too small:",pPart%mom
+            write(*,*) "Cannot initiliaze pions at",pPart%pos
             stop
          end if
 
          ! Correct momentum  p**2+m**2=(E-V_coulomb)**2 :
-         teilchen(j,index)%momentum(1:3)=(/0.,0.,SQRT((ekin_lab+teilchen(j,index)%mass&
-              &                         -cPot)**2-teilchen(j,index)%mass**2)/)
-         teilchen(j,index)%momentum(0)=ekin_lab+teilchen(j,index)%mass-cpot
+         pPart%mom(1:3)=(/0.,0.,SQRT((ekin_lab+pPart%mass&
+              &                         -cPot)**2-pPart%mass**2)/)
+         pPart%mom(0)=ekin_lab+pPart%mass-cpot
 
          if (debug) write(*,*) 'Coulomb potential:',cpot
       end if
 
       ! Correct for hadronic potential
-      call RechneImpuls(teilchen(j,index),ekin_Lab+teilchen(j,index)%mass-cpot, successFlag)
+      call RechneImpuls(pPart,ekin_Lab+pPart%mass-cpot, successFlag)
       if (debug) then
-         write(*,*) "In medium kinetic energy:",kineticEnergy(teilchen(j,index))
-         write(*,'(A,4F9.6)') "In medium momentum:",teilchen(j,index)%momentum
+         write(*,*) "In medium kinetic energy:",kineticEnergy(pPart)
+         write(*,'(A,4F9.6)') "In medium momentum:",pPart%mom
          write(*,*)
       end if
 
@@ -546,9 +554,9 @@ contains
 
     subroutine RechneImpuls(partIn,energy,success)
       ! Newton-Routine um Impuls des Pions zu bestimmen
-      ! Lse Gleichung Wurzel(m**2+p**2)+V(p_in_LRF)=energy
+      ! Loese Gleichung Wurzel(m**2+p**2)+V(p_in_LRF)=energy
       use particleDefinition
-      use potentialModule
+      use potentialMain
       use energyCalc
 
       real, intent(in) :: energy
@@ -556,28 +564,28 @@ contains
       logical, intent(out) :: success
       !local
       integer, parameter :: maxSteps=100
-      type(particle) :: teilchen
+      type(particle) :: part
       real, dimension(-1:1) ::f
       real, parameter :: dp=0.01
       real :: grad
       integer :: i,j
 
 
-      teilchen=partIn
+      part=partIn
 
       do j=0,maxSteps
-         ! Evaluate derivative d(Energy_of_TeilchenIn(p)-Energy)/dp
+         ! Evaluate derivative d(Energy_of_PartIn(p)-Energy)/dp
          do i=-1,1
-            teilchen%momentum(1:2)=0.
-            teilchen%momentum(3)=partIn%momentum(3)+i*dp
-            call energyDetermination(teilchen)
-            f(i)=teilchen%momentum(0)-energy
+            part%mom(1:2)=0.
+            part%mom(3)=partIn%mom(3)+i*dp
+            call energyDetermination(part)
+            f(i)=part%mom(0)-energy
          end do
          if (abs(f(0)).lt.0.003) then
             if (debug) then
                write(*,*) 'Kinetic Energy in medium:',kineticEnergy(partIn)
                write(*,*) 'Kinetic Energy in vacuum:',ekin_lab
-               write(*,*) 'Position=',partIn%position
+               write(*,*) 'Position=',partIn%pos
             end if
             success=.true.
             return
@@ -587,15 +595,15 @@ contains
          if (abs(grad).lt.0.0001) then
             write(*,*) "Gradient zero in RechneImpuls von initPion", grad
             write(*,*) "Energy", energy
-            write(*,*) "Momentum", teilchen%momentum
+            write(*,*) "Momentum", part%mom
             write(*,*) "Step ", j
             write(*,*) f(-1),f(0),f(1)
             success=.false.
             return
          end if
-         partIn%momentum(1:2)=0.
-         partIn%momentum(3)=partIn%momentum(3)-f(0)/grad
-         call energyDetermination(teilchen)
+         partIn%mom(1:2)=0.
+         partIn%mom(3)=partIn%mom(3)-f(0)/grad
+         call energyDetermination(part)
       end do
       write(*,*) "Fehler in initpion.f90,RechneImpuls",f(0)
       success=.false.

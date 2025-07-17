@@ -87,7 +87,7 @@ contains
   ! Initialize output
   partOut(:)%ID=0                    ! ID of produced particles
   partOut(:)%charge=0                ! Charge of produced particles
-  partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+  partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
   partOut(:)%mass=0.                 ! Mass of produced particles
 
   ! (1) Check  Input
@@ -97,15 +97,15 @@ contains
      stop
   end if
 
-  if (jpsi_particle%antiParticle) then   ! This must not happen!
-    write(*,*) 'JPsi is antiparticle in "JPsiNuc"!!!',partIn%ID,partIn%antiparticle
+  if (jpsi_particle%anti) then   ! This must not happen!
+    write(*,*) 'JPsi is antiparticle in "JPsiNuc"!!!',partIn%ID,partIn%anti
     stop
   end if
 
-  if (partNucl%antiParticle) then
+  if (partNucl%anti) then
     ! Invert an antinucleon in a nucleon:
     partNucl%Charge=-partNucl%Charge
-    partNucl%antiparticle=.false.
+    partNucl%anti=.false.
     antiParticleInput=.true.
   else
     antiParticleInput=.false.
@@ -165,7 +165,7 @@ contains
 
   subroutine evaluateXsections
 
-    use parametrizationsBarMes, only: JPsiN
+    use parametrizationBarMes, only: JPsiN
 
     call JPsiN(srts,sigma)
 

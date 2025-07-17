@@ -26,11 +26,12 @@ module mesonWidthMedium
   ! * 0: Only vacuum widths are used.
   ! * 1: The collisional width is assumed to be constant
   !   (only density-dependent).
-  ! * 2: The full tabulated in-medium width is used, as
-  !   calculated via the collision term. Isospin asymmetry of nuclear matter included.
+  ! * 2: The full tabulated in-medium width is used, as calculated via the
+  !   collision term. Isospin asymmetry of nuclear matter included.
   !   Zero temperature assumed. All mesons are in-medium broadened.
-  ! * 3: Same as 2 but for isospin symmetric nuclear matter at finite temperature.
-  !   Only rho-meson is in-medium broadened. Other mesons not modified. 
+  ! * 3: Same as 2 but for isospin symmetric nuclear matter at finite
+  !   temperature.
+  !   Only rho-meson is in-medium broadened. Other mesons not modified.
   !****************************************************************************
 
   !****************************************************************************
@@ -167,8 +168,9 @@ contains
     ! * verboseInit
     ! * allowMix
     !**************************************************************************
-    NAMELIST /width_Meson/ mediumSwitch, Gamma_coll_rho, Gamma_coll_omega, Gamma_coll_phi, &
-                           verboseInit, allowMix
+    NAMELIST /width_Meson/ mediumSwitch, &
+         Gamma_coll_rho, Gamma_coll_omega, Gamma_coll_phi, &
+         verboseInit, allowMix
 
     call Write_ReadingInput('width_Meson',0)
     rewind(5)
@@ -195,7 +197,7 @@ contains
 
     case (3)
        write(*,*) '    i.e. use full tabulated rho-meson width at finite temperature'
-       
+
     case default
        call TRACEBACK()
 
@@ -280,7 +282,7 @@ contains
   !****************************************************************************
   !****s* mesonWidthMedium/decayWidthMesonMedium
   ! NAME
-  ! real function decayWidthMesonMedium (ID, mass, ch, pauliFlag) result (decayWidth)
+  ! real function decayWidthMesonMedium(ID, mass, ch) result (decayWidth)
   ! PURPOSE
   ! This function returns the partial out widths with energy dependence.
   ! Also medium modifications of these out-width are included here. If the out-width has already
@@ -291,11 +293,9 @@ contains
   ! * integer              :: ch    -- charge of resonance
   ! OUTPUT
   ! * real, dimension(:)   :: decayWidth  --
-  !   array of ecay widths for all decay channels
-  ! * logical :: pauliFlag    -- .true. if pauli-Blocking is already
-  !   considered in the decay width description
+  !   array of decay widths for all decay channels
   !****************************************************************************
-  function decayWidthMesonMedium (ID, mass, ch, pauliFlag) result (decayWidth)
+  function decayWidthMesonMedium(ID, mass, ch) result (decayWidth)
     use mediumDefinition
     use particleProperties, only: nDecays
     use mesonWidth, only: decayWidthMeson
@@ -303,17 +303,11 @@ contains
     integer, intent(in)  :: ID
     real,    intent(in)  :: mass
     integer, intent(in)  :: ch
-    logical, intent(out) :: pauliFlag
     real, dimension(1:nDecays) :: decayWidth
-
-    ! Only Needed for InMediumModifications:
-!     type(medium),intent(in) ::  mediumAtPos
-!     real,intent(in),dimension(0:3) :: momLRF
 
     if (initFlag) call readInput
 
     ! No medium modification
-    pauliFlag = .false.
     decayWidth = decayWidthMeson (ID, mass, ch)
 
   end function decayWidthMesonMedium
@@ -330,7 +324,8 @@ contains
   ! * integer :: ID   -- id of resonance
   ! * real    :: mass -- sqrt(p_mu p^mu) = mass of the resonance (offshell, GeV)
   ! * real,dimension(0:3)  :: momLRF -- four-momentum in the local rest frame
-  ! * type(medium)         :: mediumAtPos -- medium information (see  code/typeDefinitions/mediumDefinition.f90
+  ! * type(medium)         :: mediumAtPos -- medium information
+  !   (see code/typeDefinitions/mediumDefinition.f90
   !****************************************************************************
   real function WidthMesonMedium(ID,mass,momLRF,mediumAtPos)
     use mediumDefinition
@@ -352,7 +347,7 @@ contains
   end function WidthMesonMedium
 
 
-  real function GammaColl (ID)
+  real function GammaColl(ID)
     use IDTable, only: rho, omegaMeson, phi
     integer, intent(in) :: ID
 
@@ -384,17 +379,18 @@ contains
   ! all meson resonances, density dependend.
   ! INPUTS
   ! * integer :: ID   -- id of resonance
-  ! * real    :: mass -- sqrt(p_mu p^mu) = mass of the resonance (offshell, in GeV)
+  ! * real    :: mass -- sqrt(p_mu p^mu) = mass of the resonance (offshell, GeV)
   ! * real,dimension(0:3)  :: momLRF -- four-momentum in LRF
-  ! * type(medium)         :: mediumAtPos -- medium information (see  code/typeDefinitions/mediumDefinition.f90)
+  ! * type(medium)         :: mediumAtPos -- medium information
+  !   (see code/typeDefinitions/mediumDefinition.f90)
   !****************************************************************************
-  real function WidthMesonMedium_GammaColl (ID, mass, momLRF, mediumAtPos)
+  real function WidthMesonMedium_GammaColl(ID, mass, momLRF, mediumAtPos)
     use mediumDefinition
     use mesonWidthMedium_tables, only: get_inMediumWidth
     use rhoWidthMedium_tables, only: get_GammaColl_rho
     use constants, only: rhoNull
     use minkowski, only : abs4Sq
-    
+
     integer,      intent(in) :: ID
     real,         intent(in) :: mass
     real,         intent(in) :: momLRF(0:3)
@@ -405,29 +401,30 @@ contains
     select case (mediumSwitch)
     case (0)
       WidthMesonMedium_GammaColl = 0.
-    case (1) ! constant collisional width
+
+   case (1) !--- constant collisional width
        ! Collisional Width: Gamma = Gamma_0 * rho/rho_0
        dens = mediumAtPos%density/rhoNull
        if (Get_UseMassAssInfo()) then
-         dens = min (dens, rho_max)   ! avoid problems in Heavy Ion Collisions
-         if (mediumAtPos%density/rhoNull>rho_max) &
-           write(*,*) "Warning in WidthMesonMedium_GammaColl: density too large!", mediumAtPos%density/rhoNull
+          dens = min (dens, rho_max)   ! avoid problems in Heavy Ion Collisions
+          if (mediumAtPos%density/rhoNull>rho_max) &
+               write(*,*) "Warning in WidthMesonMedium_GammaColl: density too large!", mediumAtPos%density/rhoNull
        end if
-       
+
        WidthMesonMedium_GammaColl = GammaColl(ID) * dens
 
-    case (2) ! full in-medium width in iso-asy nuclear matter at T=0 
+    case (2) !--- full in-medium width in iso-asy nuclear matter at T=0
        absP=sqrt(Dot_Product(momLRF(1:3),momLRF(1:3)))
        WidthMesonMedium_GammaColl = get_inMediumWidth(ID,absP,mass,mediumAtPos)
 
-    case(3) ! full in-medium width in iso-sym nuclear matter at finite T for rho-meson
+    case(3) !-- full in-medium width, iso-sym nuclear matter,finite T, rho-meson
        if(ID.eq.rho) then
           absP=sqrt(Dot_Product(momLRF(1:3),momLRF(1:3)))
           WidthMesonMedium_GammaColl = get_GammaColl_rho(mass,absP,mediumAtPos)
        else
           WidthMesonMedium_GammaColl = 0.
        end if
-   
+
     end select
 
   end function WidthMesonMedium_GammaColl
@@ -523,8 +520,11 @@ contains
   subroutine InitMassAssInfo_Meson
     use IDtable, only: pion,nMes
     use CALLSTACK, only: TRACEBACK
+    use MassAssInfoDefinition, only: Get_UseMassAssInfo
 
     integer :: ID
+
+    if (.not.Get_UseMassAssInfo()) return
 
     select case (mediumSwitch)
     case (0,1)

@@ -1,11 +1,11 @@
 !******************************************************************************
-!****m* /mean_field_baryon
+!****m* /baryonic_mean_field
 ! NAME
-! module mean_field_baryon
+! module baryonic_mean_field
 ! NOTES
 ! Calculates the energy for the width of the baryon.
 !******************************************************************************
-module mean_field_baryon
+module baryonic_mean_field
 
   implicit none
   private
@@ -126,7 +126,7 @@ contains
 
 !!$  real function proton_omega_onshell_width(p,rho1,za1)
 !!$
-!!$    !****f* mean_field_baryon/proton_omega_onshell
+!!$    !****f* baryonic_mean_field/proton_omega_onshell
 !!$    ! NAME
 !!$    ! function proton_omega_onshell_width(p,rho,za)
 !!$    ! INPUTS
@@ -184,4 +184,4 @@ contains
 !!$    k_f=(hbc/1000.)*kfp
 !!$  end function k_f
 
-end module mean_field_baryon
+end module baryonic_mean_field

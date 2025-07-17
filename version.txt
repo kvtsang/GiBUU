@@ -1,2 +1,1 @@
-Release 2021, patch 4 (March 23, 2023)
-
+Release 2025, patch 2 (June 15, 2025)

@@ -7,8 +7,8 @@
 
 program IntegrateHist2Dxy
 
-  use histf90
-  use hist2Df90
+  use hist
+  use hist2D
 
   IMPLICIT NONE
 

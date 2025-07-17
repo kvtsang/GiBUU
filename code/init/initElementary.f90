@@ -224,9 +224,9 @@ contains
       ! * delta_srts
       !************************************************************************
       NAMELIST /elementary/  impactParameter, &
-                             particleId, particleAnti, particleCharge, &
-                             srtsRaiseFlag, ekin_lab, delta_ekin_lab, &
-                             srts, delta_srts
+           particleId, particleAnti, particleCharge, particleMass, &
+           srtsRaiseFlag, ekin_lab, delta_ekin_lab, &
+           srts, delta_srts
 
       call Write_ReadingInput('Elementary',0)
       rewind(5)
@@ -295,7 +295,7 @@ contains
       call setToDefault(teilchen(j,1:2)) !set teilchen to its default values
 
       Teilchen(j,1:2)%ID=particleId(1:2)
-      Teilchen(j,1:2)%antiparticle=particleAnti(1:2)
+      Teilchen(j,1:2)%anti=particleAnti(1:2)
       Teilchen(j,1:2)%charge=particleCharge(1:2)
       Teilchen(j,1:2)%mass=particleMass(1:2)
 
@@ -305,25 +305,25 @@ contains
                 & / (2.*Teilchen(j,2)%mass)
       end if
 
-      Teilchen(j,1)%momentum(0)=ekin_lab+Teilchen(j,1)%mass
+      Teilchen(j,1)%mom(0)=ekin_lab+Teilchen(j,1)%mass
       !1-st particle is initialized moving in positive z-direction:
-      p_lab=Sqrt(Teilchen(j,1)%momentum(0)**2-Teilchen(j,1)%mass**2)
-      Teilchen(j,1)%momentum(1:3)=(/0.,0.,p_lab/)
-      Teilchen(j,2)%momentum(0)=Teilchen(j,2)%mass
+      p_lab=Sqrt(Teilchen(j,1)%mom(0)**2-Teilchen(j,1)%mass**2)
+      Teilchen(j,1)%mom(1:3)=(/0.,0.,p_lab/)
+      Teilchen(j,2)%mom(0)=Teilchen(j,2)%mass
       !2-nd particle is initialized at rest:
-      Teilchen(j,2)%momentum(1:3)=0.
+      Teilchen(j,2)%mom(1:3)=0.
 
       if (.not.srtsRaiseFlag) then
 
-          srts = Sqrt((Teilchen(j,1)%momentum(0)+Teilchen(j,2)%mass)**2 &
+          srts = Sqrt((Teilchen(j,1)%mom(0)+Teilchen(j,2)%mass)**2 &
              & - p_lab**2)
 
       end if
 
       !assume vacuum dispersion relation:
-      Teilchen(j,1)%velocity(1:3)=&
-           & teilchen(j,1)%momentum(1:3)/teilchen(j,1)%momentum(0)
-      Teilchen(j,2)%velocity(1:3)=0.
+      Teilchen(j,1)%vel(1:3)=&
+           & teilchen(j,1)%mom(1:3)/teilchen(j,1)%mom(0)
+      Teilchen(j,2)%vel(1:3)=0.
 
       teilchen(j,1)%event=1
       teilchen(j,2)%event=2
@@ -335,12 +335,12 @@ contains
       if (debug) then
          write(*,*) 'Ids:',teilchen(j,1:2)%Id
          write(*,*) 'Charges:',teilchen(j,1:2)%charge
-         write(*,*) 'Antiparticles ?:',teilchen(j,1:2)%antiparticle
+         write(*,*) 'Antiparticles ?:',teilchen(j,1:2)%anti
          write(*,*) 'Masses:',teilchen(j,1:2)%mass
-         write(*,*) '4-momentum of 1-st particle',teilchen(j,1)%momentum
-         write(*,*) 'Velocity of 1-st particle:',teilchen(j,1)%velocity
-         write(*,*) '4-momentum of 2-nd particle',teilchen(j,2)%momentum
-         write(*,*) 'Velocity of 2-nd particle:',teilchen(j,2)%velocity
+         write(*,*) '4-momentum of 1-st particle',teilchen(j,1)%mom
+         write(*,*) 'Velocity of 1-st particle:',teilchen(j,1)%vel
+         write(*,*) '4-momentum of 2-nd particle',teilchen(j,2)%mom
+         write(*,*) 'Velocity of 2-nd particle:',teilchen(j,2)%vel
        end if
 
     end subroutine setKinematics
@@ -363,23 +363,23 @@ contains
       use inputGeneral, only: delta_T
       use constants, only: pi
 
-      real :: b, z, ratio
+      real :: b, z
       logical, parameter :: AutoAdjustB = .true.
 
-      z = -teilchen(j,1)%velocity(3)*delta_T
+      z = -teilchen(j,1)%vel(3)*delta_T
 
       b = abs(impactParameter)
       if (impactParameter < 0. .and. AutoAdjustB) b =  AdjustImpact(teilchen(j,1:2))
 
       siggeo = 10.*pi * b**2
 
-      if (impactParameter < 0.) b = b * sqrt(ratio) * sqrt(rn())
+      if (impactParameter < 0.) b = b * sqrt(rn())
 
-      teilchen(j,1)%position=(/b,0.,z/)
+      teilchen(j,1)%pos=(/b,0.,z/)
 
       if (debug) then
-         write(*,*) 'Position of 1-st particle:',teilchen(j,1)%position
-         write(*,*) 'Position of 2-nd particle:',teilchen(j,2)%position
+         write(*,*) 'Position of 1-st particle:',teilchen(j,1)%pos
+         write(*,*) 'Position of 2-nd particle:',teilchen(j,2)%pos
       end if
 
     end subroutine setPosition
@@ -400,7 +400,7 @@ contains
       logical :: HiFlag
 
       srts=sqrts(pair(1),pair(2))
-      momLRF=pair(2)%momentum+pair(1)%momentum
+      momLRF=pair(2)%mom+pair(1)%mom
 
       call XsectionMaster(srts,pair,vacuum,momLRF,finalState,sigs,HiFlag)
 

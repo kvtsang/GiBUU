@@ -3,7 +3,8 @@
 ! NAME
 ! module Insertion
 ! PURPOSE
-! This module collects routines for inserting particles into the particle vectors.
+! This module collects routines for inserting particles into the particle
+! vectors.
 !******************************************************************************
 module Insertion
 
@@ -19,9 +20,6 @@ module Insertion
   ! Minimal kinetic energy in GeV for produced perturbative nucleons.
   ! If their energy is below this threshold, then they are not propagated,
   ! i.e. they are not inserted in the particle vector.
-  !
-  ! NOTES
-  ! This value was formerly given in the namelist "collisionterm".
   !****************************************************************************
 
 
@@ -31,13 +29,18 @@ module Insertion
   !
   logical, save :: propagateNoPhoton=.true.
   ! PURPOSE
-  ! If .true. then we eliminate all photons, such that they are not propagated and
-  ! do not show up in the particle vector.
+  ! If .true. then we eliminate all photons, such that they are not propagated
+  ! and do not show up in the particle vector.
   ! If .false. then photons are explicitly propagated.
   !****************************************************************************
 
 
-  public :: particlePropagated,GarbageCollection,FindLastUsed,setIntoVector
+  public :: particlePropagated
+  public :: GarbageCollection
+  public :: FindLastUsed
+  public :: setIntoVector
+  public :: DumpPartVec
+  public :: FetchPartVec
 
   logical, save :: initFlag=.true.
 
@@ -72,7 +75,7 @@ contains
     call Write_ReadingInput('insertion',0,ios)
 
     write(*,*) 'Minimal Energy for perturbative nucleons =', minimumEnergy
-    write(*,*) 'Propagate No Photons?                       =', propagateNoPhoton
+    write(*,*) 'Propagate No Photons?                    =', propagateNoPhoton
     call Write_ReadingInput('insertion',1)
 
     initFlag = .false.
@@ -83,7 +86,7 @@ contains
   !****************************************************************************
   !****s* Insertion/GarbageCollection
   ! NAME
-  ! subroutine GarbageCollection(partVec,DoCollHist)
+  ! subroutine GarbageCollection(partVec,DoCollHist,iiEns)
   !
   ! PURPOSE
   ! Rearrange particles in the vector (per ensemble) in such a way,
@@ -95,6 +98,7 @@ contains
   ! * type(particle), dimension(:,:) :: partVec
   ! * logical, OPTIONAL :: DoCollHist -- Flag whether to do additional
   !   rearrangements
+  ! * integer, OPTIONAL :: iiEns -- if given, do GC only for given ensemble
   !
   ! OUTPUT
   ! * partVec changed
@@ -160,11 +164,12 @@ contains
 
        end do Loop0
     end do EnsLoop
+
   end subroutine GarbageCollection
 
 
   !****************************************************************************
-  !****s* Insertion/FindLastUsed
+  !****f* Insertion/FindLastUsed
   ! NAME
   ! function FindLastUsed(particles)
   !
@@ -182,7 +187,7 @@ contains
   ! Uses a (fast) bisection method!
   ! Therefore it relies on that "GarbageCollection" has been called.
   !****************************************************************************
-  function FindLastUsed(particles)
+  pure function FindLastUsed(particles)
 
     use particleDefinition
 
@@ -214,7 +219,7 @@ contains
 
 
   !****************************************************************************
-  !****s*  Insertion/setIntoVector
+  !****s* Insertion/setIntoVector
   ! NAME
   ! subroutine setIntoVector(finalState, partVec, flagOK,numberIsSet,numbers,positions)
   !
@@ -231,9 +236,9 @@ contains
   !
   ! OUTPUT
   ! * logical                       :: flagOK --
-  !   true, if all Insertions were successful
+  !   true, if all insertions were successful
   ! * integer,dimension(:),optional :: numbers --
-  !   Vector with value of %number assigned to each final state entry
+  !   vector with value of %number assigned to each final state entry
   ! * integer,dimension(2,:),optional :: positions --
   !   vector with positions, where particles were inserted (iEns,iPart)
   ! * partVec changed
@@ -244,11 +249,17 @@ contains
   !
   ! Concerning the variables "lastEnsemble, lastIndex" :
   ! By saving the index of the last hole in the vector we try to save time
-  ! when searching for the next hole.
+  ! when searching for the next hole. Unfortunately, this introduces a strong
+  ! bias into the filling of the different ensembles: It tends to fill one
+  ! ensemble up to its limit, until it switches to the next ensemble.
+  ! Therefore we also allow for just using the "lastEnsemble" info, yielding
+  ! that immediately for every particle the next ensemble will be tried.
   !****************************************************************************
   subroutine setIntoVector(finalState, partVec, flagOK, numberIsSet, numbers, positions)
 
     use particleDefinition
+    use output, only: DoPr
+    use CallStack, only: TRACEBACK
 
     type(particle), dimension(:,:), intent(inOUT) ::  partVec
     type(particle), dimension(:),   intent(in)    ::  finalState
@@ -259,7 +270,10 @@ contains
 
     integer, save :: lastEnsemble=0
     integer, save :: lastIndex=0
-    integer :: i, j,k, iEns, nEns, nPart
+
+    logical, parameter :: useLast = .true.
+
+    integer :: i, j, k, iEns, nEns, nPart
 
     ! Initialize at first call
     if (initFlag) call ReadInput
@@ -270,7 +284,7 @@ contains
     if (present(positions)) positions = 0
 
     ! Loop over final state particles :
-    finalState_Loop :do k=lbound(finalState,dim=1),ubound(finalState,dim=1)
+    finalState_Loop : do k=lbound(finalState,dim=1),ubound(finalState,dim=1)
 
        flagOK=.false.
 
@@ -278,87 +292,75 @@ contains
        if (.not.particlePropagated(finalState(k))) then
 !          if (finalState(k)%ID > 0) write(*,*) 'skip',finalState(k)%ID
           flagOK=.true.
-          cycle
+          cycle finalState_Loop
        end if
 
-       ! (2) Find empty space in particle vector
+       ! (2) Find empty space in particle vector and insert
 
-       ensemble_Loop : do iEns=1,nEns
-          i=Mod(iEns+lastEnsemble-1,nEns)+1
+       ! (2a) First try: get the next from the last call
 
-          ! (2a) First try: get the next from the last call
+       if (useLast) then
 
+          i = lastEnsemble
           j = lastIndex+1
           if (j > 1 .and. j <= nPart) then
              if (partVec(i,j-1)%Id>=0.and.partVec(i,j)%Id<0) then ! all is fine
-                partVec(i,j)=finalState(k)
-                if (present(numberIsSet)) then
-                   if (.not.numberIsSet) call setNumber(partVec(i,j))
-                else
-                   call setNumber(partVec(i,j))
-                end if
-                lastEnsemble=i
-                lastIndex   =j
-                flagOK=.true.
-                if (present(numbers)) numbers(k)=partVec(i,j)%number
-                if (present(positions)) positions(1:2,k) = (/i,j/)
-                exit ensemble_Loop
+                call setIntoIJ
+                cycle finalState_Loop
              end if
           end if
 
-          ! (2b) Second Try: get the next from the Search
+       end if
+
+       ensemble_Loop : do iEns=1,nEns
+          i=Mod(iEns+lastEnsemble-1,nEns)+1 ! this increases ensemble by 1 !!!!
+
+          ! (2b) Second try: get the next from the Search
 
           j = FindLastUsed(partVec(i,:))+1
           if (j > 1 .and. j <= nPart) then
              if (partVec(i,j-1)%Id>=0.and.partVec(i,j)%Id<0) then ! all is fine
-                partVec(i,j)=finalState(k)
-                if (present(numberIsSet)) then
-                   if (.not.numberIsSet) call setNumber(partVec(i,j))
-                else
-                   call setNumber(partVec(i,j))
-                end if
-                lastEnsemble=i
-                lastIndex   =j
-                flagOK=.true.
-                if (present(numbers)) numbers(k)=partVec(i,j)%number
-                if (present(positions)) positions(1:2,k) = (/i,j/)
+                call setIntoIJ
                 exit ensemble_Loop
              end if
           end if
 
-
-          ! (2c) Third Try: Go through the vector step by step...
+          ! (2c) Third try: Go through the vector step by step...
 
 !          write(*,*) 'setIntoVector, step 2c reached! ',k
           do j=1,nPart
              if (partVec(i,j)%Id<=0) then
-!                write(*,*) '*** ID<=0, j=',j, partVec(i,j)%Id
-
-                partVec(i,j)=finalState(k)
-
-                if (present(numberIsSet)) then
-                   if (.not.numberIsSet) call setNumber(partVec(i,j))
-                else
-                   call setNumber(partVec(i,j))
-                end if
-                lastEnsemble=i
-                lastIndex   =j
-                flagOK=.true.
-                if (present(numbers)) numbers(k)=partVec(i,j)%number
-                if (present(positions)) positions(1:2,k) = (/i,j/)
+                call setIntoIJ
                 exit ensemble_Loop
-
              end if
           end do
 
-          ! (3) No Hole found!
+          ! (3) No Hole found! (in this ensemble)
 
-          write(*,*) 'setIntoVector, step 3 reached: no Hole found! ',k,iEns
+          if (doPR(2)) &
+               write(*,*) 'setIntoVector, step 3 reached: no Hole found! ',k,i
 
        end do ensemble_Loop
 
        if (.not.flagOK) exit finalState_Loop     ! no hole could be found
     end do finalState_Loop
+
+  contains
+    subroutine setIntoIJ()
+
+      partVec(i,j)=finalState(k)
+      if (present(numberIsSet)) then
+         if (.not.numberIsSet) call setNumber(partVec(i,j))
+      else
+         call setNumber(partVec(i,j))
+      end if
+      lastEnsemble=i
+      lastIndex   =j
+      flagOK=.true.
+      if (present(numbers)) numbers(k)=partVec(i,j)%number
+      if (present(positions)) positions(1:2,k) = (/i,j/)
+
+    end subroutine setIntoIJ
 
   end subroutine setIntoVector
 
@@ -366,7 +368,7 @@ contains
   !****************************************************************************
   !****f*  Insertion/particlePropagated
   ! NAME
-  ! logical function particlePropagated (Part)
+  ! logical function particlePropagated(Part)
   !
   ! PURPOSE
   ! Return .true. if "Part" is a particle which shall be propagated in
@@ -379,7 +381,7 @@ contains
   ! OUTPUT
   ! * function value
   !****************************************************************************
-  logical function particlePropagated (Part)
+  pure logical function particlePropagated(Part)
 
     use particleDefinition
     use IDTable, only: photon, nucleon, isLepton
@@ -394,11 +396,111 @@ contains
     if (isLepton(part%ID)) return
     if (Part%ID == photon .and. propagateNoPhoton) return
 
-    if (Part%ID == nucleon .and. Part%perturbative .and. ((freeEnergy(Part)-Part%mass) < minimumEnergy)) return
+    if (Part%ID == nucleon .and. Part%pert .and. ((freeEnergy(Part)-Part%mass) < minimumEnergy)) return
 
     particlePropagated=.true.
 
   end function particlePropagated
+
+  !****************************************************************************
+  !****s* Insertion/DumpPartVec
+  ! NAME
+  ! subroutine DumpPartVec(partVec, fileName)
+  !
+  ! PURPOSE
+  ! Dump the entries in the particle vector to the file in a binary format.
+  ! This keeps all information in machine precision and allows to reread
+  ! it for a new run.
+  !
+  ! INPUTS
+  ! * type(particle), dimension(:,:) :: partVec -- the particle vector
+  ! * character*(*) :: fileName -- name of the file
+  !
+  ! NOTES
+  ! * please ensure, that a "call GarbageCollection(partVec)" has been
+  !   performed before calling this routine!
+  !****************************************************************************
+  subroutine DumpPartVec(partVec, fileName)
+
+    use particleDefinition
+
+    type(particle), dimension(:,:), intent(in) :: partVec
+    character*(*), intent(in) :: fileName
+
+    integer :: iF, iEns,nEns,nPart
+
+    ! call GarbageCollection(partVec) ! not possible here!
+
+    iF = 121
+    open(iF,file=fileName,status='UNKNOWN',form='UNFORMATTED')
+    rewind(iF)
+
+    nEns = size(partVec,dim=1)
+    write(iF) nEns
+    do iEns = 1,nEns
+       nPart = FindLastUsed(partVec(iEns,:))
+       write(iF) nPart
+       write(iF) partVec(iEns,1:nPart)
+    end do
+
+    close(iF)
+
+  end subroutine DumpPartVec
+
+  !****************************************************************************
+  !****s* Insertion/FetchPartVec
+  ! NAME
+  ! subroutine FetchPartVec(partVec, fileName)
+  !
+  ! PURPOSE
+  ! Read the particle vector from a dump file
+  ! (all previous data will be deleted)
+  !
+  ! INPUTS
+  ! * character*(*) :: fileName -- name of the file
+  !
+  ! OUTPUT
+  ! * type(particle), dimension(:,:) :: partVec -- the particle vector
+  !****************************************************************************
+  subroutine FetchPartVec(partVec, fileName)
+
+    use IdTable, only: EOV
+    use particleDefinition
+    use CallStack, only: TRACEBACK
+
+    type(particle), dimension(:,:), intent(inOut) :: partVec
+    character*(*), intent(in) :: fileName
+
+    integer :: iF, iEns,nEns,nPart, ios
+
+    partVec%ID = EOV
+
+    iF = 121
+    open(iF,file=fileName,status='OLD',form='UNFORMATTED',iostat=ios)
+    if (ios/=0) &
+         call Traceback("file '"//trim(fileName)//"' not found.")
+
+    read(iF,iostat=ios) nEns
+    if (ios/=0) &
+         call Traceback("Error while reading the file: nEns")
+    if (nEns /= size(partVec,dim=1)) &
+         call Traceback("Error while reading the file: nEns does not fit")
+
+    do iEns = 1,nEns
+       read(iF,iostat=ios) nPart
+       if (ios/=0) &
+            call Traceback("Error while reading the file: nPart")
+       if (nPart > size(partVec,dim=2)) &
+            call Traceback("Error while reading the file: nPart too large")
+
+       read(iF,iostat=ios) partVec(iEns,1:nPart)
+       if (ios/=0) &
+            call Traceback("Error while reading the file: partVec")
+    end do
+
+    close(iF)
+
+  end subroutine FetchPartVec
 
 
 end module Insertion

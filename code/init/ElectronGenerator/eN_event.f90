@@ -17,16 +17,17 @@ module eN_event
 
   public :: eNev_SetProcess ! (idProcess,idFamily)  *** 1 ***
 
-  public :: eNev_init_sWQ   ! (sqrts,W,  Q2,flagOK) *** 2 ***
-  public :: eNev_init_sxQ   ! (sqrts,xBj,Q2,flagOK) *** 2 ***
-  public :: eNev_init_snQ   ! (sqrts,nu, Q2,flagOK) *** 2 ***
-  public :: eNev_init_exW   ! (eps,  xBj, W,flagOK) *** 2 ***
-  public :: eNev_init_eWQ   ! (eps,  W,  Q2,flagOK) *** 2 ***
-  public :: eNev_init_exQ   ! (eps,  xBj,Q2,flagOK) *** 2 ***
-  public :: eNev_init_enQ   ! (eps,  nu, Q2,flagOK) *** 2 ***
-  public :: eNev_init_BWQ   ! (Ebeam,W,  Q2,flagOK) *** 2 ***
-  public :: eNev_init_BWx   ! (Ebeam,W, xBj,flagOK) *** 2 ***
-  public :: eNev_init_BnQ   ! (Ebeam,nu, Q2,flagOK) *** 2 ***
+  public :: eNev_init_sWQ   ! (sqrts,W,   Q2,flagOK) *** 2 ***
+  public :: eNev_init_sxQ   ! (sqrts,xBj, Q2,flagOK) *** 2 ***
+  public :: eNev_init_snQ   ! (sqrts,nu,  Q2,flagOK) *** 2 ***
+  public :: eNev_init_exW   ! (eps,  xBj,  W,flagOK) *** 2 ***
+  public :: eNev_init_eWQ   ! (eps,  W,   Q2,flagOK) *** 2 ***
+  public :: eNev_init_exQ   ! (eps,  xBj, Q2,flagOK) *** 2 ***
+  public :: eNev_init_enQ   ! (eps,  nu,  Q2,flagOK) *** 2 ***
+  public :: eNev_init_BWQ   ! (Ebeam,W,   Q2,flagOK) *** 2 ***
+  public :: eNev_init_BWx   ! (Ebeam,W,  xBj,flagOK) *** 2 ***
+  public :: eNev_init_BWt   ! (Ebeam,W,theta,flagOK) *** 2 ***
+  public :: eNev_init_BnQ   ! (Ebeam,nu,  Q2,flagOK) *** 2 ***
 
   public :: eNev_init_Target! (e0,pTarget,flagOK)   *** 3 ***
 
@@ -37,6 +38,8 @@ module eN_event
   public :: eNev_init_nuStep3c ! (x,y)
 
   public :: init_electronNucleon_event ! see below
+  public :: eNev_readFixedKin
+
 
   public :: eNev_GetKinV ! (eps,nu,Q2,W)
   public :: eNeV_Get_LightX
@@ -198,7 +201,7 @@ contains
        else
           e%lepton_in%charge = 1
        end if
-       e%lepton_in%momentum = (/e%lepton_in%mass, 0.0, 0.0, 0.0/)
+       e%lepton_in%mom = (/e%lepton_in%mass, 0.0, 0.0, 0.0/)
 
        e%lepton_out = e%lepton_in
 
@@ -211,8 +214,8 @@ contains
        e%lepton_in%ID = arrID2(idFamily)
        e%lepton_in%mass = 0.0
        e%lepton_in%charge = 0
-       e%lepton_in%antiparticle = (idProcess.lt.0)
-       e%lepton_in%momentum = (/0.0, 0.0, 0.0, 0.0/)
+       e%lepton_in%anti = (idProcess.lt.0)
+       e%lepton_in%mom = (/0.0, 0.0, 0.0, 0.0/)
 
        call setToDefault(e%lepton_out)
        e%lepton_out%ID = arrID1(idFamily)
@@ -222,7 +225,7 @@ contains
        else
           e%lepton_out%charge = 1
        end if
-       e%lepton_out%momentum = (/e%lepton_out%mass, 0.0, 0.0, 0.0/)
+       e%lepton_out%mom = (/e%lepton_out%mass, 0.0, 0.0, 0.0/)
 
        call setToDefault(e%boson)
        e%boson%ID = Wboson
@@ -234,8 +237,8 @@ contains
        e%lepton_in%ID = arrID2(idFamily)
        e%lepton_in%mass = 0.0
        e%lepton_in%charge = 0
-       e%lepton_in%antiparticle = (idProcess.lt.0)
-       e%lepton_in%momentum = (/0.0, 0.0, 0.0, 0.0/)
+       e%lepton_in%anti = (idProcess.lt.0)
+       e%lepton_in%mom = (/0.0, 0.0, 0.0, 0.0/)
 
        e%lepton_out = e%lepton_in
 
@@ -253,10 +256,10 @@ contains
     e%nucleon%ID = 1
     e%nucleon%mass  = mN
     e%nucleon%charge = 1
-    e%nucleon%momentum  = (/e%nucleon%mass, 0.0, 0.0, 0.0/)
+    e%nucleon%mom  = (/e%nucleon%mass, 0.0, 0.0, 0.0/)
 
     e%nucleon_free = e%nucleon
-    e%nucleon_free%position=999999999. ! =Vacuum
+    e%nucleon_free%pos=999999999. ! =Vacuum
 
 
     ! set the additional variables:
@@ -361,24 +364,24 @@ contains
 
     ! set the incoming/outgoing lepton and the exchanged boson:
 
-    e%lepton_in%momentum  = (/Ebeam,    pX, 0E0, pZ/)
-    e%lepton_out%momentum = (/Ebeam-nu, pX, 0E0, pZ-sqrt(nu**2+Q2)/)
+    e%lepton_in%mom  = (/Ebeam,    pX, 0E0, pZ/)
+    e%lepton_out%mom = (/Ebeam-nu, pX, 0E0, pZ-sqrt(nu**2+Q2)/)
 
-    e%boson%momentum = e%lepton_in%momentum-e%lepton_out%momentum
+    e%boson%mom = e%lepton_in%mom-e%lepton_out%mom
 
 
     ! calculate W etc...
-    e%QSquared = -abs4Sq(e%boson%momentum)
-    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+    e%Q2 = -abs4Sq(e%boson%mom)
+    e%W = abs4(e%boson%mom+e%nucleon%mom)
 
     ! calculate W_free:  inv. mass for nucleon without potential
 
     e%nucleon_free      = e%nucleon
 
-    e%W_free = abs4(e%boson%momentum+e%nucleon_free%momentum)
+    e%W_free = abs4(e%boson%mom+e%nucleon_free%mom)
 
     ! calculate Wrec = inv. Mass for nucleon at rest
-    e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
+    e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
 
     flagOK = .true.
   end subroutine eNev_init_snQ
@@ -521,6 +524,36 @@ contains
 
 
   !****************************************************************************
+  !****s* eN_event/eNev_init_BWt
+  ! NAME
+  ! subroutine eNev_init_BWt(e, Ebeam,W,theta, flagOK)
+  !
+  ! PURPOSE
+  ! Initialize an instance of "type(electronNucleon_event)". Here via
+  ! given Ebeam,W,theta. (theta given in degrees)
+  ! The target particle is a free nucleon.
+  ! NOTES
+  ! This routine is used by initHiLepton.
+  !****************************************************************************
+  subroutine eNev_init_BWt(e, Ebeam,W,theta, flagOK)
+
+    use constants, only: mN,pi
+
+    type(electronNucleon_event), intent(inout) :: e
+    real, intent(in) :: Ebeam,W,theta
+    logical, intent(out) :: flagOK
+
+    real :: nu, s2, Q2
+
+    s2 = sin(theta/2 * pi/180.)**2
+    nu = (W**2-M2(2)+4*Ebeam**2*s2)/(2*(M(2)+2*Ebeam*s2))
+    Q2 = 4*Ebeam*(Ebeam-nu)*s2
+
+    call eNev_init_BnQ(e, Ebeam,nu,Q2, flagOK)
+
+  end subroutine eNev_init_BWt
+
+  !****************************************************************************
   !****s* eN_event/eNev_init_BnQ
   ! NAME
   ! subroutine eNev_init_BnQ(e, Ebeam,nu,Q2, flagOK)
@@ -588,8 +621,8 @@ contains
     if (present(pTarget)) e%nucleon  = pTarget
 
     ! calculate W etc...
-    e%QSquared = -abs4Sq(e%boson%momentum)
-    ptot = e%boson%momentum+e%nucleon%momentum
+    e%Q2 = -abs4Sq(e%boson%mom)
+    ptot = e%boson%mom+e%nucleon%mom
     e%betacm = ptot(1:3)/ptot(0)
     e%W = abs4Sq(ptot)
 
@@ -597,10 +630,10 @@ contains
        if (verbose) then
           write(*,*)
           write(*,*) 'PROBLEM: eNev_init_Target: W^2 < 0'
-          write(*,*) e%boson%momentum
-          write(*,*) e%nucleon%momentum
+          write(*,*) e%boson%mom
+          write(*,*) e%nucleon%mom
           write(*,*) e%betacm
-          write(*,*) e%W,e%QSquared
+          write(*,*) e%W,e%Q2
        end if
        return
     end if
@@ -610,23 +643,23 @@ contains
     if (gamma .le. 0.0) then
        if (verbose) then
           write(*,*) 'PROBLEM: eNev_init_Target: gamma < 0'
-          write(*,*) e%boson%momentum
-          write(*,*) e%nucleon%momentum
+          write(*,*) e%boson%mom
+          write(*,*) e%nucleon%mom
           write(*,*) e%betacm
-          write(*,*) e%W,e%QSquared
+          write(*,*) e%W,e%Q2
        end if
        return
     end if
 
 
-    e%pcm = e%nucleon%momentum
+    e%pcm = e%nucleon%mom
     call lorentz(e%betacm,e%pcm)
     e%pcm=-e%pcm !for COLL_GammaN_Py
 
     phi = atan2(e%pcm(2),e%pcm(1))
     theta = atan2(sqrt(e%pcm(1)**2+e%pcm(2)**2),e%pcm(3))
 
-    pB = e%lepton_in%momentum
+    pB = e%lepton_in%mom
 
     call lorentz(e%betacm,pB)
     pB(1:3) = rotateZY (theta, phi, pB(1:3))
@@ -715,7 +748,7 @@ contains
 
     real :: meff, EnuThres,finalstatemass2
 
-    e%lepton_in%momentum = (/Enu,    0.0, 0.0, Enu/)
+    e%lepton_in%mom = (/Enu,    0.0, 0.0, Enu/)
 
     if (present(flagOK)) then
        flagOK = .false.
@@ -727,7 +760,7 @@ contains
           finalstatemass2=(e%lepton_out%mass+mPi+meff)**2
        end if
 
-       EnuThres=(finalstatemass2-meff**2)/(2*(e%nucleon%momentum(0)-e%nucleon%momentum(3)))
+       EnuThres=(finalstatemass2-meff**2)/(2*(e%nucleon%mom(0)-e%nucleon%mom(3)))
        if (Enu.ge.EnuThres) then
           flagOK = .TRUE.
        end if
@@ -778,12 +811,12 @@ contains
     pPrime = sqrt(Eprime**2 - e%lepton_out%mass**2)
     sintheta = sqrt(max((1.-costheta**2),0.))
 
-    e%lepton_out%momentum(0)=Eprime
-    e%lepton_out%momentum(1)=pPrime*sintheta*cos(phi)
-    e%lepton_out%momentum(2)=pPrime*sintheta*sin(phi)
-    e%lepton_out%momentum(3)=pPrime*costheta
+    e%lepton_out%mom(0)=Eprime
+    e%lepton_out%mom(1)=pPrime*sintheta*cos(phi)
+    e%lepton_out%mom(2)=pPrime*sintheta*sin(phi)
+    e%lepton_out%mom(3)=pPrime*costheta
 
-    e%boson%momentum = e%lepton_in%momentum-e%lepton_out%momentum
+    e%boson%mom = e%lepton_in%mom-e%lepton_out%mom
 
     call eNev_init_Target(e,flagOK=flagOK)
 
@@ -817,7 +850,7 @@ contains
     flagOK = .FALSE.
 
     ml_out = e%lepton_out%mass
-    E_in = e%lepton_in%momentum(0)
+    E_in = e%lepton_in%mom(0)
 
     if (Eprime.lt.ml_out) return ! failure !!!
 
@@ -851,9 +884,9 @@ contains
   !
   ! NOTES
   ! we use the lorentz invariant definitions
-  ! x = -(qq)/2(pq),  y = (pq)/(pk)
+  !    x = -(qq)/2(pq),  y = (pq)/(pk)
   ! and not the assumptions for resting target nucleon,
-  ! x -> Q^2/2Mnu,  y = nu/E .
+  !    x -> Q^2/2Mnu,  y = nu/E .
   !****************************************************************************
   subroutine eNev_init_nuStep3c(e,x,y,flagOK)
     use random, only: rn
@@ -874,12 +907,12 @@ contains
     flagOK = .FALSE.
 
     ml_out = e%lepton_out%mass
-    E_in = e%lepton_in%momentum(0)
+    E_in = e%lepton_in%mom(0)
 
     phi=rn()*2.*pi ! random generation of azimutal angle
     !!    phi=0.0 !!!! FOR TEMPORAL USE ONLY !!!!
 
-    PK = SP(e%lepton_in%momentum,e%nucleon%momentum)
+    PK = SP(e%lepton_in%mom,e%nucleon%mom)
     PQ = y * PK
     QQ = -2*x*y * PK
 
@@ -890,8 +923,8 @@ contains
     end if
 
     a = (ml_out**2-QQ)/(2*E_in)
-    b = (e%nucleon%momentum(1)*cos(phi)+e%nucleon%momentum(2)*sin(phi))/(e%nucleon%momentum(0)-e%nucleon%momentum(3))
-    c = (PQ+e%nucleon%momentum(3)*a)/(e%nucleon%momentum(0)-e%nucleon%momentum(3))
+    b = (e%nucleon%mom(1)*cos(phi)+e%nucleon%mom(2)*sin(phi))/(e%nucleon%mom(0)-e%nucleon%mom(3))
+    c = (PQ+e%nucleon%mom(3)*a)/(e%nucleon%mom(0)-e%nucleon%mom(3))
 
     DD = (a*b)**2-a**2-2*a*c-QQ
 !    if (DD.lt.0.0) write(*,*) 'DD < 0'
@@ -903,13 +936,13 @@ contains
 
 !    if (-sqrt(DD) - a*b.gt.0.0) call TRACEBACK('strange: -...-... > 0 !',-1)
 
-    e%boson%momentum = (/b*qT+c,qT*cos(phi),qT*sin(phi),b*qT+c+a/)
-!    if (e%boson%momentum(0).lt.0.0) call TRACEBACK('nu < 0')
-    if (e%boson%momentum(0).lt.0.0) return
+    e%boson%mom = (/b*qT+c,qT*cos(phi),qT*sin(phi),b*qT+c+a/)
+!    if (e%boson%mom(0).lt.0.0) call TRACEBACK('nu < 0')
+    if (e%boson%mom(0).lt.0.0) return
 
-    e%lepton_out%momentum = e%lepton_in%momentum-e%boson%momentum
-!    if (e%lepton_out%momentum(0).lt.ml_out) call TRACEBACK('E_out < m')
-    if (e%lepton_out%momentum(0).lt.ml_out) return
+    e%lepton_out%mom = e%lepton_in%mom-e%boson%mom
+!    if (e%lepton_out%mom(0).lt.ml_out) call TRACEBACK('E_out < m')
+    if (e%lepton_out%mom(0).lt.ml_out) return
 
     call eNev_init_Target(e,flagOK=flagOK)
 
@@ -954,14 +987,211 @@ contains
 
     call eNev_SetProcess(e, 1,1) ! This routine is only valid for EM and e-
 
-    e%lepton_in%momentum  = k_in
-    e%lepton_out%momentum = k_out
-    e%boson%momentum      = k_in-k_out
+    e%lepton_in%mom  = k_in
+    e%lepton_out%mom = k_out
+    e%boson%mom      = k_in-k_out
 
     call eNev_init_Target(e,nuc,flag)
     if (present(flagOK)) flagOK=flag
 
   end subroutine init_electronNucleon_event
+
+  !****************************************************************************
+  !****s* eN_event/eNev_readFixedKin
+  ! NAME
+  ! subroutine eNev_readFixedKin(e, flagOK)
+  !
+  ! PURPOSE
+  ! Read values from the namelist 'HiPhotonKinematics' to set the fixed
+  ! kinematics for a electron induced event
+  !
+  !****************************************************************************
+  subroutine eNev_readFixedKin(e, flagOK)
+
+    use output, only: Write_ReadingInput
+    use CallStack, only: Traceback
+
+    type(electronNucleon_event), intent(inout) :: e
+    logical, intent(out) :: flagOK
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/nu
+    ! SOURCE
+    real :: nu = -99.9
+    ! PURPOSE
+    ! Photon energy [GeV]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/Q2
+    ! SOURCE
+    real :: Q2 = -99.9
+    ! PURPOSE
+    ! transfer four momentum squared [GeV^2]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/eps
+    ! SOURCE
+    real :: eps =-99.9
+    ! PURPOSE
+    ! Photon polarisation [1]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/srts
+    ! SOURCE
+    real :: srts = -99.9
+    ! PURPOSE
+    ! sqrt(s) of electron nucleon system [GeV]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/W
+    ! SOURCE
+    real :: W = -99.9
+    ! PURPOSE
+    ! sqrt(s) of photon nucleon system [GeV]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/xBj
+    ! SOURCE
+    real :: xBj = -99.9
+    ! PURPOSE
+    ! Bjorken x [1]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/Ebeam
+    ! SOURCE
+    real :: Ebeam = -99.9
+    ! PURPOSE
+    ! energy of electron beam [GeV]
+    !**************************************************************************
+
+    !**************************************************************************
+    !****g* eNev_readFixedKin/theta
+    ! SOURCE
+    real :: theta = -99.9
+    ! PURPOSE
+    ! scattering angle of electron beam (in lab frame) [°]
+    !**************************************************************************
+
+    integer :: ios
+
+    !**************************************************************************
+    !****n* eN_event/HiPhotonKinematics
+    ! NAME
+    ! NAMELIST /HiPhotonKinematics/
+    ! PURPOSE
+    ! Namelist for initHiLepton in the case of iExperiment=0 includes:
+    ! * nu
+    ! * Q2
+    ! * eps
+    ! * srts
+    ! * W
+    ! * xBj
+    ! * Ebeam
+    ! * theta
+    ! NOTES
+    ! you have to give a valid combination of three of them.
+    !**************************************************************************
+    NAMELIST /HiPhotonKinematics/ nu,Q2,eps,srts,W,xBj,Ebeam,theta
+
+    if (initFlag) call readInput
+
+    call Write_ReadingInput('HiPhotonKinematics',0)
+    rewind(5)
+    read(5,nml=HiPhotonKinematics,iostat=ios)
+    call Write_ReadingInput('HiPhotonKinematics',0,ios)
+
+    call eNev_SetProcess(e, 1,1)  ! set to EM and electron
+
+    flagOK = .false.
+    if (eps .gt. 0) then
+       if(W.gt.0 .and. xBj.gt.0) then
+          write(*,*) 'eNev_init_exW(eps,xBj,W)'
+          write(*,*) '       ',eps,xBj,W
+          call eNev_init_exW(e,eps,xBj,W,flagOK)
+
+       else if (W .gt. 0) then
+          write(*,*) 'eNev_init_eWQ(eps,W,Q2)'
+          write(*,*) '       ',eps,W,Q2
+          call eNev_init_eWQ(e, eps,W,Q2, flagOK)
+
+       else if (xBj .gt. 0) then
+          write(*,*) 'eNev_init_exQ(eps,xBj,Q2)'
+          write(*,*) '       ',eps,xBj,Q2
+          call eNev_init_exQ(e, eps,xBj,Q2, flagOK)
+
+       else if (nu .gt. 0) then
+          write(*,*) 'eNev_init_enQ(eps,nu,Q2)'
+          write(*,*) '       ',eps,nu,Q2
+          call eNev_init_enQ(e, eps,nu,Q2, flagOK)
+
+       else
+          call TRACEBACK('you must provide W or xBj or nu!')
+       end if
+    else if (srts .gt. 0) then
+       if (W .gt. 0) then
+          write(*,*) 'eNev_init_sWQ(srts,W,Q2)'
+          write(*,*) '       ',srts,W,Q2
+          call eNev_init_sWQ(e, srts,W,Q2, flagOK)
+
+       else if (xBj .gt. 0) then
+          write(*,*) 'eNev_init_sxQ(srts,xBj,Q2)'
+          write(*,*) '       ',srts,xBj,Q2
+          call eNev_init_sxQ(e, srts,xBj,Q2, flagOK)
+
+       else if (nu .gt. 0) then
+          write(*,*) 'eNev_init_snQ(srts,nu,Q2)'
+          write(*,*) '       ',srts,nu,Q2
+          call eNev_init_snQ(e, srts,nu,Q2, flagOK)
+
+       else
+           call TRACEBACK('you must provide W or xBj or nu!')
+       end if
+    else if (Ebeam .gt. 0) then
+
+       if (xBj .gt. 0) then
+          write(*,*) 'eNev_init_BWx(Ebeam,W,xBj)'
+          write(*,*) '       ',Ebeam,W,xBj
+          call eNev_init_BWx(e, Ebeam,W,xBj, flagOK)
+
+       else if (W .gt. 0) then
+
+          if (Q2 .gt. 0) then
+             write(*,*) 'eNev_init_BWQ(Ebeam,W,Q2)'
+             write(*,*) '       ',Ebeam,W,Q2
+             call eNev_init_BWQ(e, Ebeam,W,Q2, flagOK)
+
+          else if (theta .gt. 0) then
+             write(*,*) 'eNev_init_BWt(Ebeam,W,theta)'
+             write(*,*) '       ',Ebeam,W,theta
+             call eNev_init_BWt(e, Ebeam,W,theta, flagOK)
+
+          else
+             call TRACEBACK('you must provide Q2 or theta!')
+          end if
+
+       else if (nu .gt. 0) then
+          write(*,*) 'eNev_init_BnQ(Ebeam,nu,Q2)'
+          write(*,*) '       ',Ebeam,nu,Q2
+          call eNev_init_BnQ(e, Ebeam,nu,Q2, flagOK)
+
+       else
+          call TRACEBACK('you must provide W or xBj or nu!')
+       end if
+    else
+       call TRACEBACK('you must provide eps or srts or Ebeam!')
+    end if
+
+!    if (.not.flagOK) call TRACEBACK('kinematics not allowed!')
+!    call write_electronNucleon_event(e, .false., .true.)
+    call Write_ReadingInput('HiPhotonKinematics',1)
+
+  end subroutine eNev_readFixedKin
 
   !****************************************************************************
   !****is* eN_event/RemovePot_DoNOT
@@ -976,11 +1206,11 @@ contains
     use minkowski, only: abs4
     type(electronNucleon_event) :: e
     e%nucleon_free               = e%nucleon
-    e%nucleon_free%position      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
-    e%W_free=abs4(e%boson%momentum+e%nucleon%momentum)
+    e%nucleon_free%pos      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
+    e%W_free=abs4(e%boson%mom+e%nucleon%mom)
     ! calculate Wrec = inv. Mass for nucleon at rest
-    e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
-    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+    e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
+    e%W = abs4(e%boson%mom+e%nucleon%mom)
   end subroutine RemovePot_DoNOT
 
   !****************************************************************************
@@ -1003,38 +1233,38 @@ contains
     real :: pvec_old,  pvec
 
     e%nucleon_free               = e%nucleon
-    e%nucleon_free%position      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
-    e%W_free=abs4(e%boson%momentum+e%nucleon%momentum)-abs4(e%nucleon%momentum)+e%nucleon%mass
+    e%nucleon_free%pos      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
+    e%W_free=abs4(e%boson%mom+e%nucleon%mom)-abs4(e%nucleon%mom)+e%nucleon%mass
     ! calculate Wrec = inv. Mass for nucleon at rest
-    e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
-    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+    e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
+    e%W = abs4(e%boson%mom+e%nucleon%mom)
 
     ! nucleon momentum should be consistent with W_free !but this does not work in Pythia
 
-!!$   pvec=sqrt(Dot_Product(e%nucleon%momentum(1:3),e%nucleon%momentum(1:3)))
+!!$   pvec=sqrt(Dot_Product(e%nucleon%mom(1:3),e%nucleon%mom(1:3)))
 !!$   pvec_old=pvec
-!!$   qvec=sqrt(Dot_Product(e%boson%momentum(1:3),e%boson%momentum(1:3)))
-!!$   costheta=Dot_Product(e%boson%momentum(1:3),e%nucleon%momentum(1:3))/pvec/qvec
-!!$   q0=e%boson%momentum(0)
-!!$   Q2=-abs4Sq(e%boson%momentum)
+!!$   qvec=sqrt(Dot_Product(e%boson%mom(1:3),e%boson%mom(1:3)))
+!!$   costheta=Dot_Product(e%boson%mom(1:3),e%nucleon%mom(1:3))/pvec/qvec
+!!$   q0=e%boson%mom(0)
+!!$   Q2=-abs4Sq(e%boson%mom)
 !!$   a=4*(qvec**2*costheta**2-q0**2)
 !!$   c=e%W_free**2+Q2-e%nucleon%mass**2
 !!$   b=2*qvec*costheta*c
 !!$   c=c**2-4.*q0**2*e%nucleon%mass**2
 !!$   pvec=max(  ( -b/2.+sqrt(b**2/4.-a*c) )/a, ( -b/2.-sqrt(b**2/4.-a*c) )/a )
-!!$   e%nucleon_free%momentum(0) = sqrt(pvec**2+e%nucleon%mass**2)
-!!$   e%nucleon_free%momentum(1:3) = e%nucleon%momentum(1:3)/pvec_old*pvec
+!!$   e%nucleon_free%mom(0) = sqrt(pvec**2+e%nucleon%mass**2)
+!!$   e%nucleon_free%mom(1:3) = e%nucleon%mom(1:3)/pvec_old*pvec
 
     ! try another recipe:
 
-    call lorentz(e%betacm,e%boson%momentum) ! boost to CM
-    call lorentz(e%betacm,e%nucleon_free%momentum)
-    pvec_old=sqrt(Dot_Product(e%nucleon_free%momentum(1:3),e%nucleon_free%momentum(1:3))) ! old absolute value of momentum in the CM
-    e%nucleon_free%momentum(0)=max(e%W_free-e%boson%momentum(0),e%nucleon_free%mass) ! new nucleon energy in the CM
-    pvec=max(0.0,sqrt(e%nucleon_free%momentum(0)**2-e%nucleon_free%mass**2)) ! new absolute value of momentum in the CM
-    e%nucleon_free%momentum(1:3)=e%nucleon_free%momentum(1:3)/pvec_old*pvec ! recalculate 3-momemtum in CM
-    call lorentz(-e%betacm,e%boson%momentum) ! boost back
-    call lorentz(-e%betacm,e%nucleon_free%momentum)
+    call lorentz(e%betacm,e%boson%mom) ! boost to CM
+    call lorentz(e%betacm,e%nucleon_free%mom)
+    pvec_old=sqrt(Dot_Product(e%nucleon_free%mom(1:3),e%nucleon_free%mom(1:3))) ! old absolute value of momentum in the CM
+    e%nucleon_free%mom(0)=max(e%W_free-e%boson%mom(0),e%nucleon_free%mass) ! new nucleon energy in the CM
+    pvec=max(0.0,sqrt(e%nucleon_free%mom(0)**2-e%nucleon_free%mass**2)) ! new absolute value of momentum in the CM
+    e%nucleon_free%mom(1:3)=e%nucleon_free%mom(1:3)/pvec_old*pvec ! recalculate 3-momemtum in CM
+    call lorentz(-e%betacm,e%boson%mom) ! boost back
+    call lorentz(-e%betacm,e%nucleon_free%mom)
 
   end subroutine RemovePot_THRE
 
@@ -1060,13 +1290,13 @@ contains
     real :: pvec_old,  pvec, W2free
 
     e%nucleon_free               = e%nucleon
-    e%nucleon_free%position      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
-    W2free=abs4Sq(e%boson%momentum+e%nucleon%momentum)-abs4Sq(e%nucleon%momentum)+e%nucleon%mass**2
+    e%nucleon_free%pos      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
+    W2free=abs4Sq(e%boson%mom+e%nucleon%mom)-abs4Sq(e%nucleon%mom)+e%nucleon%mass**2
     if (W2free>0) then
                    e%W_free=sqrt(W2free)
                    ! calculate Wrec = inv. Mass for nucleon at rest
-                   e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
-                   e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+                   e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
+                   e%W = abs4(e%boson%mom+e%nucleon%mom)
     else
             write(*,*) 'problems in removing potential THRE2 W2free=',W2free, '   STOP'
             stop
@@ -1074,30 +1304,30 @@ contains
 
     ! nucleon momentum should be consistent with W_free !but this does not work in Pythia
 
-!!$   pvec=sqrt(Dot_Product(e%nucleon%momentum(1:3),e%nucleon%momentum(1:3)))
+!!$   pvec=sqrt(Dot_Product(e%nucleon%mom(1:3),e%nucleon%mom(1:3)))
 !!$   pvec_old=pvec
-!!$   qvec=sqrt(Dot_Product(e%boson%momentum(1:3),e%boson%momentum(1:3)))
-!!$   costheta=Dot_Product(e%boson%momentum(1:3),e%nucleon%momentum(1:3))/pvec/qvec
-!!$   q0=e%boson%momentum(0)
-!!$   Q2=-abs4Sq(e%boson%momentum)
+!!$   qvec=sqrt(Dot_Product(e%boson%mom(1:3),e%boson%mom(1:3)))
+!!$   costheta=Dot_Product(e%boson%mom(1:3),e%nucleon%mom(1:3))/pvec/qvec
+!!$   q0=e%boson%mom(0)
+!!$   Q2=-abs4Sq(e%boson%mom)
 !!$   a=4*(qvec**2*costheta**2-q0**2)
 !!$   c=e%W_free**2+Q2-e%nucleon%mass**2
 !!$   b=2*qvec*costheta*c
 !!$   c=c**2-4.*q0**2*e%nucleon%mass**2
 !!$   pvec=max(  ( -b/2.+sqrt(b**2/4.-a*c) )/a, ( -b/2.-sqrt(b**2/4.-a*c) )/a )
-!!$   e%nucleon_free%momentum(0) = sqrt(pvec**2+e%nucleon%mass**2)
-!!$   e%nucleon_free%momentum(1:3) = e%nucleon%momentum(1:3)/pvec_old*pvec
+!!$   e%nucleon_free%mom(0) = sqrt(pvec**2+e%nucleon%mass**2)
+!!$   e%nucleon_free%mom(1:3) = e%nucleon%mom(1:3)/pvec_old*pvec
 
     ! try another receipt:
 
-    call lorentz(e%betacm,e%boson%momentum) ! boost to CM
-    call lorentz(e%betacm,e%nucleon_free%momentum)
-    pvec_old=sqrt(Dot_Product(e%nucleon_free%momentum(1:3),e%nucleon_free%momentum(1:3))) ! old absolute value of momentum in the CM
-    e%nucleon_free%momentum(0)=max(e%W_free-e%boson%momentum(0),e%nucleon_free%mass) ! new nucleon energy in the CM
-    pvec=max(0.0,sqrt(e%nucleon_free%momentum(0)**2-e%nucleon_free%mass**2)) ! new absolute value of momentum in the CM
-    e%nucleon_free%momentum(1:3)=e%nucleon_free%momentum(1:3)/pvec_old*pvec ! recalculate 3-momemtum in CM
-    call lorentz(-e%betacm,e%boson%momentum) ! boost back
-    call lorentz(-e%betacm,e%nucleon_free%momentum)
+    call lorentz(e%betacm,e%boson%mom) ! boost to CM
+    call lorentz(e%betacm,e%nucleon_free%mom)
+    pvec_old=sqrt(Dot_Product(e%nucleon_free%mom(1:3),e%nucleon_free%mom(1:3))) ! old absolute value of momentum in the CM
+    e%nucleon_free%mom(0)=max(e%W_free-e%boson%mom(0),e%nucleon_free%mass) ! new nucleon energy in the CM
+    pvec=max(0.0,sqrt(e%nucleon_free%mom(0)**2-e%nucleon_free%mass**2)) ! new absolute value of momentum in the CM
+    e%nucleon_free%mom(1:3)=e%nucleon_free%mom(1:3)/pvec_old*pvec ! recalculate 3-momemtum in CM
+    call lorentz(-e%betacm,e%boson%mom) ! boost back
+    call lorentz(-e%betacm,e%nucleon_free%mom)
 
   end subroutine RemovePot_THRE2
 
@@ -1118,13 +1348,13 @@ contains
     logical :: flagOK
 
     e%nucleon_free               = e%nucleon
-    e%nucleon_free%momentum(1:3) = e%nucleon%momentum(1:3)
-    e%nucleon_free%momentum(0)   = FreeEnergy(e%nucleon)
-    e%nucleon_free%position      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
-    e%W_free=abs4(e%boson%momentum+e%nucleon_free%momentum, flagOK)
+    e%nucleon_free%mom(1:3) = e%nucleon%mom(1:3)
+    e%nucleon_free%mom(0)   = FreeEnergy(e%nucleon)
+    e%nucleon_free%pos      =999999999. ! =Vacuum if the nucleus rests at (0,0,0)
+    e%W_free=abs4(e%boson%mom+e%nucleon_free%mom, flagOK)
     ! calculate Wrec = inv. Mass for nucleon at rest
-    e%W_rec = sqrt(max(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared,0.0))
-    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+    e%W_rec = sqrt(max(mN**2+2.*mN*e%boson%mom(0)-e%Q2,0.0))
+    e%W = abs4(e%boson%mom+e%nucleon%mom)
 
   end subroutine RemovePot_CALC
 
@@ -1146,17 +1376,17 @@ contains
     type(electronNucleon_event) :: e
 
     e%nucleon_free               = e%nucleon
-    e%nucleon_free%position      =999999999
+    e%nucleon_free%pos      =999999999
 
-    e%nucleon_free%momentum = e%nucleon%momentum
-    call lorentz(e%betacm,e%nucleon_free%momentum)
-    e%nucleon_free%momentum(0)   = FreeEnergy(e%nucleon_free)
-    call lorentz(-e%betacm,e%nucleon_free%momentum)
+    e%nucleon_free%mom = e%nucleon%mom
+    call lorentz(e%betacm,e%nucleon_free%mom)
+    e%nucleon_free%mom(0)   = FreeEnergy(e%nucleon_free)
+    call lorentz(-e%betacm,e%nucleon_free%mom)
 
-    e%W_free=abs4(e%boson%momentum+e%nucleon_free%momentum)
+    e%W_free=abs4(e%boson%mom+e%nucleon_free%mom)
     ! calculate Wrec = inv. Mass for nucleon at rest
-    e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
-    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+    e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
+    e%W = abs4(e%boson%mom+e%nucleon%mom)
 
   end subroutine RemovePot_CM
 
@@ -1183,27 +1413,27 @@ contains
     real, dimension(0:3) :: boson_momentum    ! modified momentum of the boson
 
     e%nucleon_free               = e%nucleon
-    e%nucleon_free%position      =999999999
+    e%nucleon_free%pos      =999999999
 
     ! velocity of nucleon in lab frame:
-    beta(1:3)=e%nucleon%momentum(1:3)/e%nucleon%momentum(0)
+    beta(1:3)=e%nucleon%mom(1:3)/e%nucleon%mom(0)
 
     ! now define momentum of unbound nucleon in lab frame:
-    e%nucleon_free%momentum(1:3) = 0.
-    e%nucleon_free%momentum(0) = 0.938
+    e%nucleon_free%mom(1:3) = 0.
+    e%nucleon_free%mom(0) = 0.938
     ! now nucleon_free is an unbound nucleon with free mass at rest
 
     ! boson momentum in lab frame:
-    boson_momentum = e%boson%momentum
+    boson_momentum = e%boson%mom
     ! now boost boson momentum to  nucleon rest frame
     call lorentz(beta,boson_momentum)
 
     ! calculate Wrec = inv. Mass for free nucleon at rest
-    e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
+    e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
     ! calculate W = inv. Mass for bound, moving nucleon
-    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+    e%W = abs4(e%boson%mom+e%nucleon%mom)
     ! calculate W = inv. Mass for bound, moving nucleon
-    e%W_free=abs4(boson_momentum+e%nucleon_free%momentum)
+    e%W_free=abs4(boson_momentum+e%nucleon_free%mom)
 
   end subroutine RemovePot_NucleonRest
 
@@ -1229,31 +1459,31 @@ contains
 !    real                 :: qvectilde_abs, qvec_abs
 !
 !    e%nucleon_free               = e%nucleon
-!    e%nucleon_free%position      =999999999
+!    e%nucleon_free%pos      =999999999
 !
-!    beta(1:3)=e%nucleon%momentum(1:3)/e%nucleon%momentum(0) ! velocity of the nucleon
+!    beta(1:3)=e%nucleon%mom(1:3)/e%nucleon%mom(0) ! velocity of the nucleon
 !
-!    e%nucleon_free%momentum = e%nucleon%momentum
-!    call lorentz(beta,e%nucleon_free%momentum) ! boost to the nucleon rest frame
-!    e%nucleon_free%momentum(0)   = e%nucleon_free%mass ! prescription: replace bount mass with the free mass
+!    e%nucleon_free%mom = e%nucleon%mom
+!    call lorentz(beta,e%nucleon_free%mom) ! boost to the nucleon rest frame
+!    e%nucleon_free%mom(0)   = e%nucleon_free%mass ! prescription: replace bount mass with the free mass
 !
-!    qtilde(0)=SP(e%nucleon%momentum,e%boson%momentum)/e%nucleon_free%mass ! prescription: qtilde0 from pq=const
+!    qtilde(0)=SP(e%nucleon%mom,e%boson%mom)/e%nucleon_free%mass ! prescription: qtilde0 from pq=const
 !
-!    qvectilde_abs=sqrt(-abs4Sq(e%boson%momentum)+qtilde(0)**2) ! prescription: absolute 3-momentum from Q2=const
+!    qvectilde_abs=sqrt(-abs4Sq(e%boson%mom)+qtilde(0)**2) ! prescription: absolute 3-momentum from Q2=const
 !
-!    qvec_abs = abs3( e%boson%momentum )
-!    qtilde(1:3)=e%boson%momentum(1:3)/qvec_abs*qvectilde_abs ! keep the directio of the 3-momentum, adjust the value
+!    qvec_abs = abs3( e%boson%mom )
+!    qtilde(1:3)=e%boson%mom(1:3)/qvec_abs*qvectilde_abs ! keep the directio of the 3-momentum, adjust the value
 !
-!    e%W_free=abs4(qtilde+e%nucleon_free%momentum)
+!    e%W_free=abs4(qtilde+e%nucleon_free%mom)
 !    ! calculate Wrec = inv. Mass for nucleon at rest
-!    e%W_rec = sqrt(mN**2+2.*mN*e%boson%momentum(0)-e%QSquared)
-!    e%W = abs4(e%boson%momentum+e%nucleon%momentum)
+!    e%W_rec = sqrt(mN**2+2.*mN*e%boson%mom(0)-e%Q2)
+!    e%W = abs4(e%boson%mom+e%nucleon%mom)
 !
-!    e%boson%momentum=qtilde  ! new boson momentum equals qtilde
+!    e%boson%mom=qtilde  ! new boson momentum equals qtilde
 !
 !    ! boost nucleon and boson back to the calc frame
-!    call lorentz(-beta,e%nucleon_free%momentum)
-!    call lorentz(-beta,e%boson%momentum)
+!    call lorentz(-beta,e%nucleon_free%mom)
+!    call lorentz(-beta,e%boson%mom)
 !
 !  end subroutine RemovePot_NucleonRest
 !
@@ -1272,7 +1502,7 @@ contains
   !
   ! NOTES
   ! the flux calculation was taken from PyVP:
-  ! * the original formulae were implemented by Thomas Falter 
+  ! * the original formulae were implemented by Thomas Falter
   !   for Q2 << 4*E^2(PhD, eq.(3.15),(3.16)).
   !   Here they are extended to the general case
   !
@@ -1298,17 +1528,17 @@ contains
 
     real :: x,y,Ebeam,K,cL,cT, nu0
 
-    nu  = e%boson%momentum(0)
+    nu  = e%boson%mom(0)
     W   = e%W
-    Q2  = e%QSquared
+    Q2  = e%Q2
     if (present(Wfree)) Wfree = e%W_free
     if (present(eps).or.present(fT)) then
        if (restingNucleon) then
           nu0 = nu
-          Ebeam = e%lepton_in%momentum(0)
+          Ebeam = e%lepton_in%mom(0)
        else
-          nu0 =   SP(e%boson%momentum,e%nucleon%momentum)/M(2)
-          Ebeam = SP(e%lepton_in%momentum,e%nucleon%momentum)/M(2)
+          nu0 =   SP(e%boson%mom,e%nucleon%mom)/M(2)
+          Ebeam = SP(e%lepton_in%mom,e%nucleon%mom)/M(2)
        end if
        y=nu0/Ebeam
        x=Q2/(2*M(2)*nu0)
@@ -1345,7 +1575,7 @@ contains
     type(electronNucleon_event),intent(in) :: e
     real :: s
 
-    s  = abs4sq(e%lepton_in%momentum+e%nucleon_free%momentum)
+    s  = abs4sq(e%lepton_in%mom+e%nucleon_free%mom)
     eNeV_Get_LightX = (e%W_free**2-M2(2))/(s-M2(2)+M2(1))
   end function eNeV_Get_LightX
 
@@ -1365,10 +1595,10 @@ contains
     type(electronNucleon_event),intent(in) :: e
     real :: a,b
 
-    a = Dot_product(e%lepton_in%momentum(1:3), e%lepton_in%momentum(1:3))
-    b = Dot_product(e%lepton_out%momentum(1:3),e%lepton_out%momentum(1:3))
+    a = Dot_product(e%lepton_in%mom(1:3), e%lepton_in%mom(1:3))
+    b = Dot_product(e%lepton_out%mom(1:3),e%lepton_out%mom(1:3))
 
-    eNeV_Get_CostLepton = Dot_product(e%lepton_in%momentum(1:3), e%lepton_out%momentum(1:3))/sqrt(a*b)
+    eNeV_Get_CostLepton = Dot_product(e%lepton_in%mom(1:3), e%lepton_out%mom(1:3))/sqrt(a*b)
 
   end function eNeV_Get_CostLepton
 
@@ -1390,12 +1620,12 @@ contains
 
     real :: pT
 
-    pT = eNev%lepton_in%momentum(1)
-    eNev%lepton_in%momentum(1)=pT*cos(phi)
-    eNev%lepton_in%momentum(2)=pT*sin(phi)
-    pT = eNev%lepton_out%momentum(1)
-    eNev%lepton_out%momentum(1)=pT*cos(phi)
-    eNev%lepton_out%momentum(2)=pT*sin(phi)
+    pT = eNev%lepton_in%mom(1)
+    eNev%lepton_in%mom(1)=pT*cos(phi)
+    eNev%lepton_in%mom(2)=pT*sin(phi)
+    pT = eNev%lepton_out%mom(1)
+    eNev%lepton_out%mom(1)=pT*cos(phi)
+    eNev%lepton_out%mom(2)=pT*sin(phi)
 
   end subroutine eNeV_Set_PhiLepton
 
@@ -1422,20 +1652,20 @@ contains
 
     eNeV_CheckForDIS = .true.
 
-    s = abs4sq(e%lepton_in%momentum+e%nucleon_free%momentum)
+    s = abs4sq(e%lepton_in%mom+e%nucleon_free%mom)
     x = (e%W_free**2-M2(2))/(s-M2(2)+M2(1)) ! lightcone-x
 
     ! This cut is not in use anymore:
-!    if (e%QSquared .gt. (1-x)*(s-2*M2(2))-(2-x**2)*M2(1)/(1-x)) &
+!    if (e%Q2 .gt. (1-x)*(s-2*M2(2))-(2-x**2)*M2(1)/(1-x)) &
 !         & eNeV_CheckForDIS = .false.
 
     PCM1 = s-M2(2)+M2(1)
     PCM3 = s-M2(2)-M2(1)
 
-!    write(*,*) 'CheckForDIS:',s,x,PCM1,PCM3,(PCM1*x+e%QSquared)/PCM3
+!    write(*,*) 'CheckForDIS:',s,x,PCM1,PCM3,(PCM1*x+e%Q2)/PCM3
 
 
-    if (((PCM1*x+e%QSquared)/PCM3).gt.PythiaCKIN(74)) &
+    if (((PCM1*x+e%Q2)/PCM3).gt.PythiaCKIN(74)) &
          & eNeV_CheckForDIS = .false.
 
     return
@@ -1473,31 +1703,31 @@ contains
 
     logical:: verbose = .true.
 
-    ptot = e%lepton_in%momentum+e%nucleon%momentum
+    ptot = e%lepton_in%mom+e%nucleon%mom
     betacm = ptot(1:3)/ptot(0)
     gamma = 1.0 - Dot_Product(betacm,betacm)
     if (gamma .le. 0.0) then
        if (verbose) then
           write(*,*) 'PROBLEM: eNev_GetLeptonPCM: gamma < 0'
-          write(*,*) e%lepton_in%momentum
-          write(*,*) e%boson%momentum
-          write(*,*) e%nucleon%momentum
+          write(*,*) e%lepton_in%mom
+          write(*,*) e%boson%mom
+          write(*,*) e%nucleon%mom
           write(*,*) betacm
           write(*,*) e%betacm
-          write(*,*) e%W,e%QSquared
+          write(*,*) e%W,e%Q2
        end if
        call TRACEBACK('gamma < 0')
        return
     end if
 
-    pcm = e%nucleon%momentum
+    pcm = e%nucleon%mom
     call lorentz(betacm,pcm)
     pcm=-pcm !for COLL_GammaN_Py
 
     phi = atan2(pcm(2),pcm(1))
     theta = atan2(sqrt(pcm(1)**2+pcm(2)**2),pcm(3))
 
-    pB = e%lepton_out%momentum
+    pB = e%lepton_out%mom
 
     call lorentz(betacm,pB)
     pB(1:3) = rotateZY (theta, phi, pB(1:3))

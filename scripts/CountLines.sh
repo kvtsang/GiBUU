@@ -3,19 +3,22 @@
 # should be called in workingcode
 path=`pwd`
 
-cloc="$path/scripts/cloc-1.64.pl"
+cloc="$path/scripts/cloc-2.02.pl"
+OPT=" --exclude-lang=Text"
+
+rm -f exclude.files
 
 ##### Count all #####
 
-$cloc --report-file=ZERO.rep "$path/code/"
+$cloc --report-file=ZERO.rep --categorized=ZERO.cat --counted=ZERO.list "$path/code/"
 
 ##### Pythia 6.4 #####
 
 # careful: no '/' at end of path for exclude file !
 echo "$path/code/collisions/twoBodyReactions/Pythia64" > PYTHIA64.files
 
-$cloc --report-file=PYTHIA64.rep --list-file=PYTHIA64.files
-cat PYTHIA64.files > exclude.files
+$cloc $OPT --report-file=PYTHIA64.rep --categorized=PYTHIA64.cat --list-file=PYTHIA64.files
+cat PYTHIA64.files >> exclude.files
 
 ##### Fritiof, old Pythia etc. #####
 
@@ -25,7 +28,7 @@ echo "$path/code/collisions/twoBodyReactions/HiEnergy/jetset_73.f" >> FRITIOF.fi
 echo "$path/code/collisions/twoBodyReactions/HiEnergy/pythia_55.f" >> FRITIOF.files
 echo "$path/code/collisions/twoBodyReactions/HiEnergy/LUSTRF.orig.73.f" >> FRITIOF.files
 
-$cloc --report-file=FRITIOF.rep --list-file=FRITIOF.files
+$cloc $OPT --report-file=FRITIOF.rep --categorized=FRITIOF.cat --list-file=FRITIOF.files
 cat FRITIOF.files >> exclude.files
 
 ##### Formation times ######
@@ -39,13 +42,19 @@ echo "$path/code/collisions/twoBodyReactions/HiEnergy/MomPart.f" >> FORMATION.fi
 echo "$path/code/collisions/twoBodyReactions/HiEnergy/LUSTRF.switch.f" >> FORMATION.files
 echo "$path/code/collisions/twoBodyReactions/HiEnergy/PYSTRF.switch.f" >> FORMATION.files
 
-$cloc --report-file=FORMATION.rep --list-file=FORMATION.files
+$cloc $OPT --report-file=FORMATION.rep --categorized=FORMATION.cat --list-file=FORMATION.files
 cat FORMATION.files >> exclude.files
 
 ##### testruns #####
 
-$cloc --report-file=TESTRUN.rep --list-file=Makefile.testRun.List
-cat Makefile.testRun.List >> exclude.files
+rm -f TESTRUN.files
+for i in `grep -v "#" Makefile.testRun.List`;
+do
+    echo `realpath $i` >> TESTRUN.files
+done
+
+$cloc $OPT --report-file=TESTRUN.rep --categorized=TESTRUN.cat --list-file=TESTRUN.files
+cat TESTRUN.files >> exclude.files
 
 ##### Externals #####
 
@@ -57,25 +66,26 @@ echo "$path/code/collisions/twoBodyReactions/annihilation/um_tn.f" >> EXTERNALS.
 echo "$path/code/numerics/cernlib" >> EXTERNALS.files
 echo "$path/code/collisions/twoBodyReactions/annihilation/um2.f90" >> EXTERNALS.files
 
-$cloc --report-file=EXTERNALS.rep --exclude-list-file=exclude.files --list-file=EXTERNALS.files
+$cloc $OPT --report-file=EXTERNALS.rep --exclude-list-file=exclude.files --categorized=EXTERNALS.cat --list-file=EXTERNALS.files
 cat EXTERNALS.files >> exclude.files
 
 ##### Inits #####
 
 echo "$path/code/init" > INITS.files
-$cloc --report-file=INITS.rep --exclude-list-file=exclude.files --list-file=INITS.files
+$cloc $OPT --report-file=INITS.rep --exclude-list-file=exclude.files --categorized=INITS.cat --list-file=INITS.files
 cat INITS.files >> exclude.files
 
 ##### Analysis #####
 
 echo "$path/code/analysis" > ANALYSIS.files
-$cloc --report-file=ANALYSIS.rep --exclude-list-file=exclude.files --list-file=ANALYSIS.files
+$cloc $OPT --report-file=ANALYSIS.rep --exclude-list-file=exclude.files --categorized=ANALYSIS.cat --list-file=ANALYSIS.files
 cat ANALYSIS.files >> exclude.files
 
 ##### Everything left over #####
 
-#$cloc --report-file=OTHER.rep --exclude-list-file=exclude.files "$path/code/"
-$cloc --by-file-by-lang --report-file=OTHER.rep --exclude-list-file=exclude.files "$path/code/"
+$cloc -v $OPT --list-file=ZERO.list --report-file=OTHER.rep --exclude-list-file=exclude.files --categorized=OTHER.cat  --ignored=OTHER.ignored
+#$cloc $OPT --report-file=OTHER.rep --exclude-list-file=exclude.files --categorized=OTHER.cat "$path/code/"
+#$cloc $OPT --by-file-by-lang --report-file=OTHER.rep --exclude-list-file=exclude.files "$path/code/"
 
 ##### Combine single report files to one overall result #####
 

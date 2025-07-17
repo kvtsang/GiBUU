@@ -126,7 +126,6 @@ contains
 
       integer :: iSrts,iRes,j
       real :: srtsDummy
-      real, dimension(1:5) :: psDummy
       real, dimension(1:2) :: stableDummy
       logical :: DoW
 

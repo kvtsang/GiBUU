@@ -1,8 +1,8 @@
 program HiLeptonMix10Runs
 
-  use histf90
-  use hist2Df90
-  use histMPf90
+  use hist
+  use hist2D
+  use histMP
   use histMC
   use output
 

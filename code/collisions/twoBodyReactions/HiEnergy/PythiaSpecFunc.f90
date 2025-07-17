@@ -203,7 +203,7 @@ contains
     use IDTable, only: rho,omegaMeson,phi
     use random
     use mesonWidthMedium, only: WidthMesonMedium,get_MediumSwitchMesons
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
     use output
     use monteCarlo, only: MonteCarloChoose
     use CALLSTACK, only: TRACEBACK

@@ -21,9 +21,9 @@
 !******************************************************************************
 program HiLeptonMixRuns
 
-  use histf90
-  use hist2Df90
-  use histMPf90
+  use hist
+  use hist2D
+  use histMP
   use histMC
   use output
 
@@ -38,8 +38,8 @@ program HiLeptonMixRuns
   real, save :: nLeptons
   character(3), dimension(-1:1), parameter :: piName  = (/'pi-','pi0','pi+'/)
   character(2), dimension(0:1),  parameter :: nucName = (/'N0','N+'/)
-  integer :: i, iNu,iQ2,iZH
-  logical :: lDum, isFirst
+  integer :: i, iNu,iQ2,iZH, ii
+  logical :: lDum, isFirst, isOK
   character(500) :: Buf
 
   character(len=:), allocatable :: Dirs(:)
@@ -108,6 +108,40 @@ program HiLeptonMixRuns
 
   ! to be continued...
 
+  ! ===== DoClassifyFirst =====
+
+  if (TryFile("HiLep.zHclass.000.dat.bin")) then
+
+     do i=-1,10 ! loop maybe larger than necessary
+        ii = i
+        if (i==-1) ii=999
+
+        call FetchHistMP_multi(hMP,"HiLep.zHclass."//trim(intToChar(ii))//".dat",isOK)
+        if (isOK) then
+           call WriteHistMP(hMP,add=1e-20,mul=1./NLeptons,iColumn=1,&
+                file='HiLep.zHclass.'//trim(intToChar(ii))//'.dat')
+        end if
+
+        call FetchHistMP_multi(hMP,"HiLep.pT2class."//trim(intToChar(ii))//".dat",isOK)
+        if (isOK) then
+           call WriteHistMP(hMP,add=1e-20,DoAve=.true.,&
+                file='HiLep.pT2class.'//trim(intToChar(ii))//'.dat')
+        end if
+
+        call FetchHistMP_multi(hMP,"HiLep.zH_Generation."//trim(intToChar(ii))//".dat",isOK)
+        if (isOK) then
+           call WriteHistMP(hMP,add=1e-20,mul=1./NLeptons,iColumn=1,&
+                file='HiLep.zH_Generation.'//trim(intToChar(ii))//'.dat')
+        end if
+
+        call FetchHistMP_multi(hMP,"HiLep.pT2_Generation."//trim(intToChar(ii))//".dat",isOK)
+        if (isOK) then
+           call WriteHistMP(hMP,add=1e-20,mul=1./NLeptons,iColumn=1,&
+                file='HiLep.pT2_Generation.'//trim(intToChar(ii))//'.dat')
+        end if
+
+     end do
+  end if
 
   ! ===== zH-spectra =====
 
@@ -485,103 +519,123 @@ program HiLeptonMixRuns
 contains
 
   !****************************************************************************
-  subroutine FetchHist_multi(H,file)
+  subroutine FetchHist_multi(H,file,flagOK)
     use output
 
     implicit none
-    type(histogram),intent(inout)       :: H
-    character*(*),  intent(in)          :: file
+    type(histogram), intent(inout)      :: H
+    character*(*), intent(in)           :: file
+    logical, intent(out), OPTIONAL      :: flagOK
 
     type(histogram) :: H1
     integer :: i
-    logical :: flagOK
+    logical :: flag
+
+    if (present(flagOK)) flagOK = .false.
 
     if (.not.TryFile(trim(file)//".bin")) return
 
-    call FetchHist(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flagOK)
-    if (.not.flagOK) return
+    call FetchHist(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flag)
+    if (.not.flag) return
 
     do i=2,nDirs
-       call FetchHist(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flagOK)
-       if (.not.flagOK) cycle
+       call FetchHist(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flag)
+       if (.not.flag) cycle
        call sumHist(H,H1)
     end do
+
+    if (present(flagOK)) flagOK = .true.
 
   end subroutine FetchHist_multi
 
 
   !****************************************************************************
-  subroutine FetchHistMP_multi(H,file)
+  subroutine FetchHistMP_multi(H,file,flagOK)
     use output
 
     implicit none
-    type(histogramMP),intent(inout)       :: H
-    character*(*),    intent(in)          :: file
+    type(histogramMP), intent(inout)    :: H
+    character*(*), intent(in)           :: file
+    logical, intent(out), OPTIONAL      :: flagOK
 
     type(histogramMP) :: H1
     integer :: i
-    logical :: flagOK
+    logical :: flag
+
+    if (present(flagOK)) flagOK = .false.
 
     if (.not.TryFile(trim(file)//".bin")) return
 
-    call FetchHistMP(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flagOK)
-    if (.not.flagOK) return
+    call FetchHistMP(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flag)
+    if (.not.flag) return
 
     do i=2,nDirs
-       call FetchHistMP(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flagOK)
-       if (.not.flagOK) cycle
+       call FetchHistMP(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flag)
+       if (.not.flag) cycle
        call sumHistMP(H,H1)
     end do
+
+    if (present(flagOK)) flagOK = .true.
 
   end subroutine FetchHistMP_multi
 
   !****************************************************************************
-  subroutine FetchHistMC_multi(H,file)
+  subroutine FetchHistMC_multi(H,file,flagOK)
     use output
 
     implicit none
-    type(histogramMC),intent(inout)       :: H
-    character*(*),  intent(in)          :: file
+    type(histogramMC), intent(inout)    :: H
+    character*(*), intent(in)           :: file
+    logical, intent(out), OPTIONAL      :: flagOK
 
     type(histogramMC) :: H1
     integer :: i
-    logical :: flagOK
+    logical :: flag
+
+    if (present(flagOK)) flagOK = .false.
 
     if (.not.TryFile(trim(file)//".bin")) return
 
-    call FetchHistMC(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flagOK)
-    if (.not.flagOK) return
+    call FetchHistMC(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flag)
+    if (.not.flag) return
 
     do i=2,nDirs
-       call FetchHistMC(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flagOK)
-       if (.not.flagOK) cycle
+       call FetchHistMC(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flag)
+       if (.not.flag) cycle
        call sumHistMC(H,H1)
     end do
+
+    if (present(flagOK)) flagOK = .true.
 
   end subroutine FetchHistMC_multi
 
   !****************************************************************************
-  subroutine FetchHist2D_multi(H,file)
+  subroutine FetchHist2D_multi(H,file,flagOK)
     use output
 
     implicit none
-    type(histogram2D),intent(inout)       :: H
-    character*(*),  intent(in)          :: file
+    type(histogram2D), intent(inout)    :: H
+    character*(*), intent(in)           :: file
+    logical, intent(out), OPTIONAL      :: flagOK
 
     type(histogram2D) :: H1
     integer :: i
-    logical :: flagOK
+    logical :: flag
+
+    if (present(flagOK)) flagOK = .false.
 
     if (.not.TryFile(trim(file)//".bin")) return
 
-    call FetchHist2D(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flagOK)
-    if (.not.flagOK) return
+    call FetchHist2D(H,trim(Dirs(1))//"/"//trim(file)//".bin",flagOK=flag)
+    if (.not.flag) return
 
     do i=2,nDirs
-       call FetchHist2D(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flagOK)
-       if (.not.flagOK) cycle
+       call FetchHist2D(H1,trim(Dirs(i))//"/"//trim(file)//".bin",flagOK=flag)
+       if (.not.flag) cycle
        call sumHist2D(H,H1)
     end do
+
+    if (present(flagOK)) flagOK = .true.
 
   end subroutine FetchHist2D_multi
 

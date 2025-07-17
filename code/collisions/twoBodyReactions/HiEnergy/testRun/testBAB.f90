@@ -18,18 +18,18 @@ program test
   
   inPart%ID = (/34, 2 /)
   inPart%charge = (/1, -2 /)
-  inPart%antiparticle = (/.False., .TRUE. /)
+  inPart%anti = (/.False., .TRUE. /)
 !  inPart%charge = (/-1, 2 /)
-!  inPart%antiparticle = (/.TRUE.,.FALSE. /)
+!  inPart%anti = (/.TRUE.,.FALSE. /)
  
   
 !  inPart%ID = (/1, 2 /)
 !  inPart%charge = (/1, -2 /)
-!  inPart%antiparticle = (/.False., .TRUE. /)
+!  inPart%anti = (/.False., .TRUE. /)
 
 !  inPart%ID = (/34, 34 /)
 !  inPart%charge = (/2, -2 /)
-!  inPart%antiparticle = (/.False., .TRUE. /)
+!  inPart%anti = (/.False., .TRUE. /)
 
 
   beta = 0

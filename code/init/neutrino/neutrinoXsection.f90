@@ -14,13 +14,12 @@
 ! * muon, electron or tau flavor (according to the value of flavor_ID given
 !   as input to the corresponding subroutines)
 !******************************************************************************
-
 module neutrinoXsection
 
   use particleDefinition
   use eN_eventDefinition
   use callstack, only: traceback
-
+  use constants, only: hbarc,pi,twopi
   implicit none
   private
 
@@ -33,10 +32,11 @@ module neutrinoXsection
   ! to switch on/off debug information
   !****************************************************************************
 
+
   !****************************************************************************
   !****g* neutrinoXsection/nuclear_phasespace
   ! SOURCE
-  logical, save ::  nuclear_phasespace=.true.
+  logical, parameter :: nuclear_phasespace=.true.
   ! PURPOSE
   ! to change between different phasespace factors.
   ! (change only for debugging purposes):
@@ -52,107 +52,9 @@ module neutrinoXsection
   ! to change between different models for the pion nucleon cross section:
   ! * 0 = pi N according to Nieves et al (hep-ph/0701149)
   ! * 1 = MAID-like model
+  ! * 2 = Bosted-Christy
   !****************************************************************************
 
-
-  !****************************************************************************
-  !****g* neutrinoXsection/integralPrecision
-  ! SOURCE
-  integer, save ::  integralPrecision=3
-  ! PURPOSE
-  ! precision for the Gauss integration
-  ! (reduce it for nuXsectionMode.eq.0 (sigma) to e.g. 2)
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/integralPrecisionQE
-  ! SOURCE
-  integer, save ::  integralPrecisionQE=500
-  ! PURPOSE
-  ! precision for the Gauss integration over the QE peak
-  ! (reduce it for nuXsectionMode.eq.0 (sigma) to e.g. 300)
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/enu
-  ! SOURCE
-  real, save :: enu=-10.
-  ! PURPOSE
-  ! neutrino energy, read in by namelist
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/delta_enu
-  ! SOURCE
-  real, save :: delta_enu=-10.
-  ! PURPOSE
-  ! value by which the neutrino energy is increased
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/Qs
-  ! SOURCE
-  real, save :: Qs=-10.
-  ! PURPOSE
-  ! momentum transfer squared
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/delta_Qs
-  ! SOURCE
-  real, save :: delta_Qs=-10.
-  ! PURPOSE
-  ! value by which Qs is increased
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/W
-  ! SOURCE
-  real, save :: W=-10.
-  ! PURPOSE
-  ! invariant mass defined as (p+q)^2
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/delta_W
-  ! SOURCE
-  real, save :: delta_W=-10.
-  ! PURPOSE
-  ! value by which W is increased
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/costheta
-  ! SOURCE
-  real, save :: costheta=-10.
-  ! PURPOSE
-  ! cosine of the angle between the neutrino (z-direction) and the
-  ! outgoing lepton
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/delta_costheta
-  ! SOURCE
-  real, save :: delta_costheta=-10.
-  ! PURPOSE
-  ! value by which costheta is increased
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/elepton
-  ! SOURCE
-  real, save :: elepton=-10.
-  ! PURPOSE
-  ! energy of the outgoing lepton
-  !****************************************************************************
-
-  !****************************************************************************
-  !****g* neutrinoXsection/delta_elepton
-  ! SOURCE
-  real, save :: delta_elepton=-10.
-  ! PURPOSE
-  ! value by which elepton is increased
-  !****************************************************************************
 
   !****************************************************************************
   !****g* neutrinoXsection/invariantMassCut
@@ -176,7 +78,7 @@ module neutrinoXsection
   !****************************************************************************
   !****g* neutrinoXsection/DIScutW
   ! SOURCE
-  real, save :: DIScutW = 1.95
+  real, save :: DIScutW = 2.9
   ! PURPOSE
   ! W-cut for sigmoid onset of DIS
   !****************************************************************************
@@ -184,7 +86,7 @@ module neutrinoXsection
   !****************************************************************************
   !****g* neutrinoXsection/DIScutwidth
   ! SOURCE
-  real, save :: DIScutwidth = 0.1
+  real, save :: DIScutwidth = 0.05
   ! PURPOSE
   ! width for sigmoid onset of DIS
   !****************************************************************************
@@ -194,25 +96,17 @@ module neutrinoXsection
   ! SOURCE
   real, save :: REScutW = 2.0
   ! PURPOSE
-  ! W-cut for sigmoid turn-off of resonances
+  ! W-cut for end of 1pi,2pi BGs
   !****************************************************************************
-
+  
   !****************************************************************************
-  !****g* neutrinoXsection/REScutwidth
+  !****g* neutrinoXsection/Q2cutoff
   ! SOURCE
-  real, save :: REScutwidth = 0.1
+  logical, save :: Q2cutoff = .true.
   ! PURPOSE
-  ! width for sigmoid turn-off or resonances
+  ! cuts low Q^2 for W > 3 GeV
   !****************************************************************************
 
-
-  !****************************************************************************
-  !****g* neutrinoXsection/MC_xmax
-  ! SOURCE
-  real,save :: MC_xmax = 2.0
-  ! PURPOSE
-  !
-  !****************************************************************************
 
   !****************************************************************************
   !****g* neutrinoXsection/DISformfakEM
@@ -247,7 +141,7 @@ module neutrinoXsection
   !****************************************************************************
   !****g* neutrinoXsection/mcutDIS
   ! SOURCE
-  real, save :: mcutDIS = 0.6
+  real, save :: mcutDIS = 0.34
   ! PURPOSE
   ! parameter to control Q^2 dependence of DIS
   !****************************************************************************
@@ -292,56 +186,34 @@ module neutrinoXsection
   ! 3 : nonresonant BG fit from Christy-Bosted
   !****************************************************************************
 
-
-  real,save :: MC_x,MC_y
-  real,save :: xyJacob  ! Jacobian from dx dy -> dcos(theta) dE'
-
-
-  public :: MC_x,MC_y
-
   logical, save :: initflag=.true.
-  logical, save :: initflag2piDIS= .true.
 
+  real, parameter :: unit_factor=hbarc**2 * 10.**12 ! factor for sigma unit conversion to 10^(-38) cm^2, unit : GeV^2*fm^2 = GeV^2 * 10^(-26)cm^2
 
-  real, parameter :: corr_factor=1.9732696817**2*10.**10 ! hbarc**2 * 10**12
-
-  public :: Xsec_integratedSigma
-  public :: Xsec_dSigmadCosThetadElepton
-  public :: Xsec_dSigmadQsdElepton
-  public :: Xsec_dSigmadCosTheta
-  public :: Xsec_dSigmadElepton
-  public :: Xsec_SigmaMC, Xsec_SigmaMC_Qs, Xsec_SigmaMC_W
-  public :: SetXsecMC
-  public :: XsecdCosthetadElepton  ! required in the public list for calculation of structure function F2
-
-! for TEMPORARY use:
-
-  public :: getEleptonLimits
+  public :: XsecdCosthetadElepton
   public :: SetHadronCharge
-  public :: get_xsection_namelist
+!  public :: get_xsection_namelist
+  public :: readinput
 
 
 contains
+
   !****************************************************************************
   !****s* neutrinoXsection/readinput
   ! NAME
-  ! subroutine readinput(nuXsectionmode)
+  ! subroutine readinput
   ! PURPOSE
   ! This subroutine reads input out of jobcard.
-  ! Namelist 'nl_neutrinoxsection' is read in always.
-  ! All other namelist are read depending on the value of
-  ! nuXsectionmode.
-  ! If a nuXsectionmode for a particular experiment is chosen, with inherent
-  ! flux integration, the parameter enu must be set to some dummy, but
-  ! reasonable value > 0
   !****************************************************************************
-  subroutine readinput(nuXsectionmode, isExp)
-    use output
+  subroutine readinput
+    use output, only: Write_ReadingInput, Write_InitStatus
     use neutrino_IDTable
+    use neutrinoParms, only: readInput_neutrino, new_eN
 
     integer :: IOS
-    integer, intent(in) :: nuXsectionmode
-    logical, intent(in), optional :: isExp
+
+    ! dummies for reading:
+    integer :: integralPrecision=-99, integralPrecisionQE=-99
 
     !**************************************************************************
     !****n* neutrinoXsection/nl_neutrinoxsection
@@ -349,143 +221,57 @@ contains
     ! NAMELIST /nl_neutrinoxsection/
     ! PURPOSE
     ! This Namelist includes:
-    ! * integralPrecision
-    ! * integralPrecisionQE
     ! * singlePiModel
     ! * invariantMassCut
     ! * invariantMassCut_BG
     ! * DIScutW
     ! * DIScutwidth
     ! * REScutW
-    ! * REScutwidth
+    ! * Q2cutoff
     ! * DISformfakEM
     ! * DISformfakNCCC
     ! * mcutDIS
     ! * DISrespectHad
     ! * DISdoMSTP23
-	! * new2piBG
-	! * indBG
+    ! * new2piBG
+    ! * indBG
     !**************************************************************************
     NAMELIST /nl_neutrinoxsection/ integralPrecision,&
          & integralPrecisionQE,singlePiModel,&
          & invariantMasscut,invariantMasscut_BG, &
-         & DIScutW, DIScutwidth,REScutW, REScutwidth, &
-         & DISformfakEM, DISformfakNCCC,mcutDIS, &
+         & DIScutW, DIScutwidth, REScutW, &
+         & Q2cutoff, DISformfakEM, DISformfakNCCC,mcutDIS, &
          & DISrespectHad, DISdoMSTP23,new2piBG,indBG
 
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_integratedSigma
-    ! NAME
-    ! NAMELIST /nl_integratedSigma/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=integratedsigma and
-    ! includes:
-    ! * enu
-    ! * delta_enu
-    !**************************************************************************
-    NAMELIST /nl_integratedSigma/ enu, delta_enu
+    if (.not.initFlag) return
 
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_dSigmadCosThetadElepton
-    ! NAME
-    ! NAMELIST /nl_dSigmadCosThetadElepton/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmadCosThetadElepton
-    ! and includes:
-    ! * enu
-    ! * costheta
-    ! * elepton
-    ! * delta_elepton
-    !**************************************************************************
-    NAMELIST /nl_dSigmadCosThetadElepton/ enu, costheta, elepton, delta_elepton
+    call Write_InitStatus('neutrinoXsection',0)
 
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_dSigmadQsdElepton
-    ! NAME
-    ! NAMELIST /nl_dSigmadQsdElepton/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmadQsdElepton
-    ! and includes:
-    ! * enu
-    ! * Qs
-    ! * elepton
-    ! * delta_elepton
-    !**************************************************************************
-    NAMELIST /nl_dSigmadQsdElepton/ enu, Qs, elepton, delta_elepton
+    call readInput_neutrino()
 
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_dSigmadQs
-    ! NAME
-    ! NAMELIST /nl_dSigmadQs/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmadQs and includes:
-    ! * enu
-    ! * Qs
-    ! * delta_Qs
-    !**************************************************************************
-    NAMELIST /nl_dSigmadQs/ enu, Qs, delta_Qs
-
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_dSigmadW
-    ! NAME
-    ! NAMELIST /nl_dSigmadW/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmadW and includes:
-    ! * enu
-    ! * W
-    ! * delta_W
-    !**************************************************************************
-    NAMELIST /nl_dSigmadW/ enu, W, delta_W
-
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_dSigmadcostheta
-    ! NAME
-    ! NAMELIST /nl_dSigmadcostheta/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmadcostheta and
-    ! includes:
-    ! * enu
-    ! * costheta
-    ! * delta_costheta
-    !**************************************************************************
-    NAMELIST /nl_dSigmadCosTheta/ enu, costheta, delta_costheta
-
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_dSigmadElepton
-    ! NAME
-    ! NAMELIST /nl_dSigmadElepton/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmadElepton and includes:
-    ! * enu
-    ! * elepton
-    ! * delta_elepton
-    !**************************************************************************
-    NAMELIST /nl_dSigmadElepton/ enu, elepton, delta_elepton
-
-    !**************************************************************************
-    !****n* neutrinoXsection/nl_SigmaMC
-    ! NAME
-    ! NAMELIST /nl_SigmaMC/
-    ! PURPOSE
-    ! This Namelist is read in when nuXsectionmode=dSigmaMC and
-    ! includes:
-    ! * enu
-    ! * MC_xmax
-    !**************************************************************************
-    NAMELIST /nl_SigmaMC/ enu,MC_xmax
+    ! reset some default values before reading the jobcard:
+    if (new_en) then
+       singlePiModel = 2
+    end if
 
     call Write_ReadingInput('nl_neutrinoxsection',0)
     rewind(5)
     read(5,nml=nl_neutrinoxsection,IOSTAT=IOS)
     call Write_ReadingInput('nl_neutrinoxsection',0,IOS)
 
-    write(*,*) 'integral precicions: ', integralPrecision, integralPrecisionQE
+    if (integralPrecision > 0. .or. integralPrecisionQE>0) then
+       write(*,*) 'integralPrecision or integralPrecisionQE without function!'
+       write(*,*) 'use replacements in module neutrinoSigma.'
+       call Traceback()
+    end if
 
     select case (singlePiModel)
     case (0)
        write(*,*) 'pi N cross section (Delta + interfering background) according to Nieves et al'
     case (1)
        write(*,*) 'pi N background (resonances are subtracted) is taken MAID-like'
+    case (2)
+       write(*,*) 'pi N background from Bosted-Christy parametrization'
     case default
        write(*,*) 'no valid input for singlePiModel -> stop', singlePiModel
        call traceback()
@@ -496,8 +282,8 @@ contains
     write(*,'(a,F12.4)') ' cut MAID BG events with invariant masses above', &
          & invariantMassCut_BG
 
-    write(*,'(A,2F8.3)') ' RES W-cut = ',REScutW,REScutwidth
-    write(*,'(A,2F8.3)') ' DIS W-cut = ',DIScutW,DIScutwidth
+    write(*,'(A,3F8.3)') ' DIS W-cut = ',DIScutW,DIScutwidth
+    write(*,'(A,3F8.3)') ' RES W-cut = ',REScutW
     select case (DISformfakEM)
     case (0)
        write(*,'(A)') ' DIS form factor (EM)   : 0,  = 1'
@@ -522,1015 +308,22 @@ contains
        call traceback()
     end select
 
+    write(*,*) 'Q2cutoff=', Q2cutoff
     write(*,*) 'mcutDIS = ', mcutDIS
 
     write(*,*) 'DIS respect Hadronization: ',DISrespectHad
     write(*,*) 'DIS use MSTP(23)=1:        ',DISdoMSTP23
 
     write(*,*) 'new2piBG= ',new2piBG
-    write(*,*) 'indBG= ',indBG
+    write(*,*) 'indBG   = ',indBG
 
     call Write_ReadingInput('nl_neutrinoxsection',1)
 
+    call Write_InitStatus('neutrinoXsection',1)
 
-    select case (nuXsectionMode)
-
-    case (integratedSigma)
-
-       call Write_ReadingInput('nl_integratedSigma',0)
-       rewind(5)
-       read(5,nml=nl_integratedSigma,IOSTAT=IOS)
-       call Write_ReadingInput('nl_integratedSigma',0,IOS)
-       if (enu.lt.0..or.delta_enu.lt.0.) then
-          write(*,*) 'input error in neutrinoXsection, enu= ', enu
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_integratedSigma',1)
-
-    case (dSigmadCosThetadElepton)
-
-       call Write_ReadingInput('nl_dSigmadCosThetadElepton',0)
-       rewind(5)
-       read(5,nml=nl_dSigmadCosThetadElepton,IOSTAT=IOS)
-       call Write_ReadingInput('nl_dSigmadCosThetadElepton',0,IOS)
-       if (enu.lt.0..or.abs(costheta).gt.1..or.elepton.lt.0..or.delta_elepton.lt.0.) then
-          write(*,*) 'input error in neutrinoXsection'
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_dSigmadCosThetadElepton',1)
-
-    case (dSigmadQsdElepton)
-
-       call Write_ReadingInput('nl_dSigmadQsdElepton',0)
-       rewind(5)
-       read(5,nml=nl_dSigmadQsdElepton,IOSTAT=IOS)
-       call Write_ReadingInput('nl_dSigmadQsdElepton',0,IOS)
-       if (enu.lt.0..or.Qs.lt.0..or.elepton.lt.0..or.delta_elepton.lt.0.) then
-          write(*,*) 'input error in neutrinoXsection'
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_dSigmadQsdElepton',1)
-
-    case (dSigmadQs)
-
-       call Write_ReadingInput('nl_dSigmadQs',0)
-       rewind(5)
-       read(5,nml=nl_dSigmadQs,IOSTAT=IOS)
-       call Write_ReadingInput('nl_dSigmadQs',0,IOS)
-       if (enu.lt.0. .or. Qs.lt.0. .or. delta_Qs.lt.0.) then
-          write(*,*) 'input error in nl_dSigmadQs: enu or Qs or delta_Qs <0'
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_dSigmadQs',1)
-
-    case (dSigmadCosTheta)
-
-       call Write_ReadingInput('nl_dSigmadCosTheta',0)
-       rewind(5)
-       read(5,nml=nl_dSigmadCosTheta,IOSTAT=IOS)
-       call Write_ReadingInput('nl_dSigmadCosTheta',0,IOS)
-       if (enu.lt.0..or.abs(costheta).gt.1..or.delta_costheta.lt.0.) then
-          write(*,*) 'input error in neutrinoXsection'
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_dSigmadCosTheta',1)
-
-    case (dSigmadElepton)
-
-       call Write_ReadingInput('nl_dSigmadElepton',0)
-       rewind(5)
-       read(5,nml=nl_dSigmadElepton,IOSTAT=IOS)
-       call Write_ReadingInput('nl_dSigmadElepton',0,IOS)
-       if (enu.lt.0..or.elepton.lt.0..or.delta_elepton.lt.0.) then
-   !      write(*,*) 'enu=',enu,'elepton=',elepton,'delta_elepton=',delta_elepton
-          write(*,*) 'input error in neutrinoXsection'
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_dSigmadElepton',1)
-
-    case (dSigmaMC)
-
-       if (present(isExp)) then
-          if (isExp) then
-             enu = 99.9 ! dummy
-          end if
-       end if
-
-       call Write_ReadingInput('nl_SigmaMC',0)
-       rewind(5)
-       read(5,nml=nl_SigmaMC,IOSTAT=IOS)
-       call Write_ReadingInput('nl_SigmaMC',0,IOS)
-       if (enu.lt.0.) then
-          write(*,*) 'input error in neutrinoXsection, enu= ', enu
-          call traceback()
-       end if
-
-       write(*,'(" Enu      =",f12.3)') enu
-       write(*,'(" xmax     =",f12.3)') MC_xmax
-
-       call Write_ReadingInput('nl_SigmaMC',1)
-
-
-    case (dSigmadW)
-
-       call Write_ReadingInput('nl_dSigmadW',0)
-       rewind(5)
-       read(5,nml=nl_dSigmadW,IOSTAT=IOS)
-       call Write_ReadingInput('nl_dSigmadW',0,IOS)
-       if (enu.lt.0. .or. W.lt.0. .or. delta_W.lt.0.) then
-          write(*,*) 'input error in nl_dSigmadW: enu or W or delta_W <0'
-          call traceback()
-       end if
-       call Write_ReadingInput('nl_dSigmadW',1)
-
-
-
-    case default
-       write(*,*) 'error in case nuXsectionMode', nuXsectionMode
-       call traceback()
-    end select
-
-    write(*,*)
-    write(*,*) 'nuXsectionMode =',sXsectionMode(nuXsectionMode)
-    write(*,*)
+    initFlag=.false.
 
   end subroutine readinput
-
-  !****************************************************************************
-  !****s* neutrinoXsection/Xsec_SigmaMC
-  ! NAME
-  ! subroutine Xsec_SigmaMC(eNev,IP,raiseFlag,raiseVal,OutPart,sig,flux_enu)
-  !
-  ! PURPOSE
-  ! This subroutine calculates the integrated cross section depending
-  ! on the input variables. It applies a MC integration technique.
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event) :: eNev -- the Lepton-Nucleon Event
-  ! * integer             :: IP           -- ID of outgoing hadron/process
-  ! * logical             :: raiseFlag    -- shall energy etc. be increased?
-  ! * real, optional      :: flux_enu     -- if present, use this value as
-  !   neutrino energy (used for experiments)
-  !
-  ! OUTPUT
-  ! * type(electronNucleon_event)  :: eNev     -- the Lepton-Nucleon Event
-  ! * real                         :: raiseVal -- the actual value of the
-  !   running variable (i.e. elepton, enu, costheta, ...)
-  ! * type(particle), dimension(:) :: OutPart  -- FinalState particles
-  ! * real                         :: sig      -- calculated cross section
-  !****************************************************************************
-  subroutine Xsec_SigmaMC(eNev, IP, raiseFlag, raiseVal, &
-       & OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-
-    if (initFlag) then
-       call readInput(dSigmaMC, present(flux_enu))
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-
-    end if
-
-    raiseVal=eNev%lepton_in%momentum(0)
-
-    ! set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-
-    if (xyJacob .eq. 0.0) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    call XsecdCosthetadElepton(eNev,IP,OutPart, sig)
-    ! Monte-Carlo integration over x gives * MC_xmax; for the integration over y the  the factor is 1
-    ! xyJacob is Jacobian from x,y to cos(theta) dE'
-    sig = sig * xyJacob * MC_xmax
-
-  end subroutine Xsec_SigmaMC
-
-  !****************************************************************************
-  !****s* neutrinoXsection/SetXsecMC
-  ! NAME
-  ! subroutine SetXsecMC()
-  ! PURPOSE
-  ! set the values of the integration variables in the MC integration
-  ! called from subroutine initNeutrino in file initNeutrino.f90
-  !****************************************************************************
-  subroutine SetXsecMC(eNev, flux_enu, XsectionMode)
-    use random, only: rn
-    use eN_event, only: eNev_init_nuStep2,eNev_init_nuStep3c
-    use neutrino_IDTable
-    use minkowski, only: SP, abs4Sq
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    real, intent(in) :: flux_enu
-    integer, intent(in) :: XsectionMode
-
-    real :: Ein, Eprime
-    real :: PK, PP
-    logical :: flagOK
-
-    if (initFlag) then
-       select case (MOD(XsectionMode,10))
-       case (6)
-         call readInput(dSigmaMC, (XsectionMode>10))
-       case (3)
-         call readInput(dSigmadQs)
-       case (7)
-         call readInput(dSigmadW)
-       end select
-       initFlag = .false.
-
-       if (flux_enu.gt.0.0) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-    end if
-
-    Ein = enu
-    if (flux_enu.gt.0.0) Ein = flux_enu
-
-    call eNev_init_nuStep2(eNev,Ein) ! we ignore threshold checks
-    PK = SP(eNev%lepton_in%momentum,eNev%nucleon%momentum)
-    PP = abs4Sq(eNev%nucleon%momentum)
-
-    select case (MOD(XsectionMode,10))
-    case (6)
-      MC_x = rn()*MC_xmax
-      MC_y = rn()
-    case (3)
-      MC_y=rn()
-      MC_x=Qs/(2.*MC_y*PK)
-    case (7)
-      MC_y=rn()
-      MC_x=1.-(W**2-PP)/(2.*MC_y*PK)
-      !write(*,*) 'MC_y=',MC_y, '    MC_x=',MC_x
-    end select
-
-    call eNev_init_nuStep3c(eNev,MC_x,MC_y,flagOK)
-    if (.not.flagOK) then
-       xyJacob = 0.0
-       !write(*,*) 'after eNev_init_nuStep3c flakOK is false. xyJacob = 0.0'
-    else
-       Eprime=eNev%lepton_out%momentum(0)
-       ! Jacobian xyJacob from dsigma/dE1dcostheta to dsigma/dxdy:
-       xyJacob = (MC_y*PK**2)/(Ein *sqrt(Eprime**2-eNev%lepton_out%mass**2)*eNev%nucleon%momentum(0))
-       !write(*,*) 'xyJacob=',xyJacob
-    end if
-
-    ! MC integration is transferred to the subroutine  Xsec_SigmaMC
-
-  end subroutine SetXsecMC
-
-
-
-
-
-  subroutine Xsec_SigmaMC_Qs(eNev, IP, raiseFlag, raiseVal, OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-
-
-    if (initFlag) then
-       call readInput(dSigmadQs)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-    end if
-
-
-    if (raiseFlag) then
-       Qs=Qs+delta_Qs
-       write(*,'(3(A,g12.5))') 'Enu=', enu, &
-            & '      Qs is raised by ...', delta_Qs, '  to  Qs=', Qs
-    end if
-    raiseVal=Qs
-
-
-    ! set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-
-    if (xyJacob .eq. 0.0) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    call XsecdCosthetadElepton(eNev,IP,OutPart, sig)
-
-    !factor /Qs *MC_x is   from dsi/x to dsi/dQ2
-    sig = sig * xyJacob /Qs *MC_x
-
-  end subroutine Xsec_SigmaMC_Qs
-
-
-
-
-  subroutine Xsec_SigmaMC_W(eNev, IP, raiseFlag, raiseVal, OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-    use minkowski, only: SP
-
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-    real    :: PK
-
-    if (initFlag) then
-       call readInput(dSigmadW)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-    end if
-
-
-    if (raiseFlag) then
-       W=W+delta_W
-       write(*,'(3(A,g12.5))') 'Enu=', enu, &
-            & '      W is raised by ...', delta_W, '  to  W=', W
-    end if
-    raiseVal=W
-
-
-    ! set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-
-    if (xyJacob .eq. 0.0) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    call XsecdCosthetadElepton(eNev,IP,OutPart, sig)
-    !write(*,*) 'sig=',sig
-    !factor W /(PK *MC_y)  is   from dsi/x to dsi/dW
-    PK = SP(eNev%lepton_in%momentum,eNev%nucleon%momentum)
-    !write(*,*) 'PK=',PK, '   W=',W, '   MC_y=',MC_y, '    xyJacob=',xyJacob
-    sig = sig * xyJacob *W /(PK *MC_y)
-
-  end subroutine Xsec_SigmaMC_W
-
-
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/Xsec_integratedSigma
-  ! NAME
-  ! subroutine Xsec_integratedSigma(eNev,IP,raiseFlag,raiseVal,OutPart,sig,
-  ! flux_enu)
-  !
-  ! PURPOSE
-  ! This subroutine calculates the integrated cross section depending
-  ! on the input variables:
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event) :: eNev -- the Lepton-Nucleon Event
-  ! * integer             :: IP           -- ID of outgoing hadron/process
-  ! * logical             :: raiseFlag    -- shall energy etc. be increased?
-  ! * real, optional      :: flux_enu     -- if present, use this value as
-  !   neutrino energy (used for experiments)
-  !
-  ! OUTPUT
-  ! * type(electronNucleon_event)  :: eNev     -- the Lepton-Nucleon Event
-  ! * real                         :: raiseVal -- the actual value of the
-  !   running variable (i.e. elepton, enu, costheta, ...)
-  ! * type(particle), dimension(:) :: OutPart  -- FinalState particles
-  ! * real                         :: sig      -- calculated cross section
-  !****************************************************************************
-  subroutine Xsec_integratedSigma(eNev, IP, raiseFlag, raiseVal, &
-       & OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-    use idtable, only: nucleon
-    use random
-    use gauss_integration
-    use eN_event, only: eNev_init_nuStep2,eNev_init_nuStep3a
-    !!! use lepton_kinematics_free, only: minmaxE1_costheta
-
-
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-    real :: costheta_max, costheta_min
-    real :: elepton_max, elepton_min
-
-    integer :: intprec,intprec1,l,j,n2,n1
-    real :: eleptonint,costhetaint
-    real :: sigmaximum,sigrd
-    real, dimension(:),allocatable :: y,x,yy,xx
-    logical :: flagOK
-
-
-    if (initFlag) then
-       call readInput(integratedSigma)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-    end if
-
-
-    ! set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-    if (raiseFlag.and..not.present(flux_enu)) then
-       enu=enu+delta_enu
-       write(*,'(a,F12.4,a,F12.4)') 'Enu is raised by ...', &
-            & delta_enu, ' to ', enu
-    end if
-
-    if (present(flux_enu)) enu=flux_enu
-    raiseVal=enu
-
-    ! set neutrino 4-vector: incoming neutrino in z-direction
-    ! plus threshold check for enu
-
-    call eNev_init_nuStep2(eNev,enu,IP,flagOK)
-    if (.not.flagOK) return
-
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    !!! call getCosthetaLimits(costheta_min,costheta_max,enu)
-    call getCosthetaLimits(costheta_min,costheta_max)
-    call getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-
-    ! set integral precision
-    intprec=integralPrecision
-    intprec1=integralPrecision
-    if (IP.eq.nucleon) intprec=integralPrecisionQE  ! due to small Breit-Wigner
-
-    allocate (x(20*intprec1))
-    allocate (y(20*intprec1))
-    allocate (xx(20*intprec))
-    allocate (yy(20*intprec))
-
-    sigmaximum=0.
-
-    call sg20r(costheta_min,costheta_max,intprec1,x,n1)
-    call sg20r(elepton_min, elepton_max, intprec, xx, n2)
-
-       do j=1,n1
-       costhetaint=x(j)
-
-       ! in this version the elepton_min depends on the costheta
-       ! thus integration is performed only over kinematically allowed region
-       !!! call minmaxE1_costheta(IP,enu,eNev%nucleon%mass,eNev%lepton_out%mass,costhetaint,elepton_min,elepton_max,success=flagOK)
-       !!! if (.not.flagOK) cycle
-       !!! if (debugflag) write(*,'(3(A,f12.4))') ' costheta=', costhetaint, '      E1min=', elepton_min, '    E1max=', elepton_max
-       !!! call sg20r(elepton_min, elepton_max, intprec, xx, n2)
-
-       yy = 0.0
-       do l=1,n2
-          eleptonint=xx(l)
-          call eNev_init_nuStep3a(eNev,eleptonint,costhetaint,flagOK)
-          if (.not.flagOK) cycle
-          call XsecdCosthetadElepton(eNev,IP,OutPart,yy(l))
-          if (yy(l).gt.sigmaximum) sigmaximum=yy(l)
-       end do
-       call rg20r(elepton_min,elepton_max,intprec,yy,y(j))
-    end do
-    call rg20r(costheta_min,costheta_max,intprec1,y,sig)
-
-    ! set kinematics !!!! TODO: avoid infinite loop !!!!
-    sigrd=0.
-    if (sigmaximum.gt.0.) then
-       do
-          eleptonint=elepton_min+rn()*(elepton_max-elepton_min)
-          costhetaint=costheta_min+rn()*(costheta_max-costheta_min)
-
-          call eNev_init_nuStep3a(eNev,eleptonint,costhetaint,flagOK)
-          if (.not.flagOK) cycle
-          call XsecdCosthetadElepton(eNev,IP,OutPart, sigrd)
-          if (sigmaximum*rn().le.sigrd) exit
-       end do
-    end if
-
-    if (debugflag) write(*,*) 'sigmax', sigmaximum, 'sigrd', sigrd
-
-    deallocate(x,y,xx,yy)
-
-  end subroutine Xsec_integratedSigma
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/Xsec_dSigmadCosThetadElepton
-  ! NAME
-  ! subroutine Xsec_dSigmadCosThetadElepton(eNev,IP,raiseFlag,raiseVal,
-  ! OutPart,sig,flux_enu)
-  !
-  ! PURPOSE
-  ! This subroutine calculates dSigmadCosThetadElepton depending
-  ! on the input variables:
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event) :: eNev -- the Lepton-Nucleon Event
-  ! * integer             :: IP           -- ID of outgoing hadron/process
-  ! * logical             :: raiseFlag    -- shall energy etc. be increased?
-  ! * real, optional      :: flux_enu     -- if present, use this value as
-  !   neutrino energy (used for experiments)
-  ! OUTPUT
-  ! * type(electronNucleon_event)  :: eNev     -- the Lepton-Nucleon Event
-  ! * real                         :: raiseVal -- the actual value of the
-  !   running variable (i.e. elepton, enu, costheta, ...)
-  ! * type(particle), dimension(:) :: OutPart  -- FinalState particles
-  ! * real                         :: sig      -- calculated cross section
-  !****************************************************************************
-  subroutine Xsec_dSigmadCosThetadElepton(eNev, IP, raiseFlag, raiseVal, &
-       & OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-    use eN_event, only: eNev_init_nuStep2,eNev_init_nuStep3a
-
-
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-    real :: costheta_max, costheta_min
-    real :: elepton_max, elepton_min
-    logical :: flagOK
-
-    if (initFlag) then
-       call readInput(dSigmadCosThetadElepton)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-       write(*,'(a,F12.4)') 'costheta= ', costheta
-       write(*,'(a,F12.4)') 'elepton=  ', elepton
-    end if
-
-
-    !set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-    if (present(flux_enu)) enu=flux_enu
-
-    if (raiseFlag) then
-       elepton=elepton+delta_elepton
-       write(*,*) 'Elepton is raised by ...', delta_elepton, ' to ', elepton
-    end if
-    raiseVal=Elepton
-
-    ! set neutrino 4-vector: incoming neutrino in z-direction
-    ! plus threshold check for enu
-
-    call eNev_init_nuStep2(eNev,enu,IP,flagOK)
-    if (.not.flagOK) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    !check threshold for costheta and elepton
-    call getCosthetaLimits(costheta_min,costheta_max)
-    if (.not.checkLimits(costheta_min,costheta_max,costheta)) return
-
-    call getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-    if (.not.checkLimits(elepton_min,elepton_max,elepton)) return
-
-    call eNev_init_nuStep3a(eNev,elepton,costheta,flagOK)
-    if (.not.flagOK) return
-
-    call XsecdCosthetadElepton(eNev,IP,OutPart, sig)
-
-  end subroutine Xsec_dSigmadCosThetadElepton
-
-
-
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/Xsec_dSigmadQsdElepton
-  ! NAME
-  ! subroutine Xsec_dSigmadQsdElepton(eNev,IP,raiseFlag,raiseVal,OutPart,
-  ! sig,flux_enu)
-  !
-  ! PURPOSE
-  ! This subroutine calculates dSigmadQsdElepton depending
-  ! on the input variables:
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event) :: eNev -- the Lepton-Nucleon Event
-  ! * integer             :: IP           -- ID of outgoing hadron/process
-  ! * logical             :: raiseFlag    -- shall energy etc. be increased?
-  ! * real, optional      :: flux_enu     -- if present, use this value as
-  !   neutrino energy (used for experiments)
-  !
-  ! OUTPUT
-  ! * type(electronNucleon_event)  :: eNev     -- the Lepton-Nucleon Event
-  ! * real                         :: raiseVal -- the actual value of the
-  !   running variable (i.e. elepton, enu, costheta, ...)
-  ! * type(particle), dimension(:) :: OutPart  -- FinalState particles
-  ! * real                         :: sig      -- calculated cross section
-  !****************************************************************************
-  subroutine Xsec_dSigmadQsdElepton(eNev, IP, raiseFlag, raiseVal, &
-       & OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-    use eN_event, only: eNev_init_nuStep2,eNev_init_nuStep3b
-
-
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-    real :: elepton_max, elepton_min
-    real :: Qs_min, Qs_max
-    logical :: flagOK
-
-    if (initFlag) then
-       call readInput(dSigmadQsdElepton)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-       write(*,'(a,F12.4)') 'Qs=      ', Qs
-       write(*,'(a,F12.4)') 'elepton= ', elepton
-    end if
-
-
-    !set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-    if (present(flux_enu)) enu=flux_enu
-
-    if (raiseFlag) then
-       elepton=elepton+delta_elepton
-       write(*,*) 'Elepton is raised by ...', delta_elepton, ' to ', elepton
-    end if
-    raiseVal=Elepton
-
-    ! set neutrino 4-vector: incoming neutrino in z-direction
-    ! plus threshold check for enu
-
-    call eNev_init_nuStep2(eNev,enu,IP,flagOK)
-    if (.not.flagOK) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    !check threshold for Qs and elepton
-    call getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-    if (.not.checkLimits(elepton_min,elepton_max,elepton)) return
-
-    call getQsLimits(eNev,elepton,Qs_min,Qs_max)
-    if (.not.checkLimits(Qs_min,Qs_max,Qs)) return
-
-    call eNev_init_nuStep3b(eNev,elepton,Qs,flagOK)
-    if (.not.flagOK) return
-
-    call XsecdCosthetadElepton(eNev,IP,OutPart, sig)
-
-    ! correct cross section for Jacobian:
-    sig = sig/(2.*eNev%lepton_in%momentum(0)*sqrt(elepton**2-eNev%lepton_out%mass**2))
-
-  end subroutine Xsec_dSigmadQsdElepton
-
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/Xsec_dSigmadcostheta
-  ! NAME
-  ! subroutine Xsec_dSigmadcostheta(eNev,IP,raiseFlag,raiseVal,OutPart,sig,
-  ! flux_enu)
-  !
-  ! PURPOSE
-  ! This subroutine calculates dSigmadcostheta depending
-  ! on the input variables:
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event) :: eNev -- the Lepton-Nucleon Event
-  ! * integer             :: IP           -- ID of outgoing hadron/process
-  ! * logical             :: raiseFlag    -- shall energy etc. be increased?
-  ! * real, optional      :: flux_enu     -- if present, use this value as
-  !   neutrino energy (used for experiments)
-  ! OUTPUT
-  ! * type(electronNucleon_event)  :: eNev     -- the Lepton-Nucleon Event
-  ! * real                         :: raiseVal -- the actual value of the
-  !   running variable (i.e. elepton, enu, costheta, ...)
-  ! * type(particle), dimension(:) :: OutPart  -- FinalState particles
-  ! * real                         :: sig      -- calculated cross section
-  !****************************************************************************
-  subroutine Xsec_dSigmadcostheta(eNev, IP, raiseFlag, raiseVal, &
-       & OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-    use idtable, only: nucleon
-    use random
-    use gauss_integration
-    use eN_event, only: eNev_init_nuStep2,eNev_init_nuStep3a
-
-
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-    real :: costheta_max, costheta_min
-    real :: elepton_max, elepton_min
-
-    integer :: intprec,l,n2
-    real :: eleptonint
-    real :: sigmaximum,sigrd
-    real, dimension(:),allocatable :: yy,xx
-    logical :: flagOK
-
-    if (initFlag) then
-       call readInput(dSigmadcostheta)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-       write(*,'(a,F12.4)') 'costheta= ', costheta
-    end if
-
-
-    ! set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-    if (present(flux_enu)) enu=flux_enu
-
-
-    if (raiseFlag) then
-       costheta=costheta+delta_costheta
-       write(*,*) 'costheta is raised by ...', delta_costheta, ' to ', costheta
-    end if
-    raiseVal=costheta
-
-    ! set neutrino 4-vector: incoming neutrino in z-direction
-    ! plus threshold check for enu
-
-    call eNev_init_nuStep2(eNev,enu,IP,flagOK)
-    if (.not.flagOK) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-
-    call getCosthetaLimits(costheta_min,costheta_max)
-    if (.not.checkLimits(costheta_min,costheta_max,costheta)) return
-
-    call getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-
-    !set integral precision
-    intprec=integralPrecision
-    if (IP.eq.nucleon) intprec=integralPrecisionQE ! due to small Breit-Wigner
-
-    allocate (xx(20*intprec))
-    allocate (yy(20*intprec))
-
-    call sg20r(elepton_min,elepton_max,intprec,xx,n2)
-    sigmaximum=0.0
-    yy = 0.0
-
-    do l=1,n2
-       eleptonint=xx(l)
-
-       call eNev_init_nuStep3a(eNev,eleptonint,costheta,flagOK)
-       if (.not.flagOK) cycle
-
-       call XsecdCosthetadElepton(eNev,IP,OutPart, yy(l))
-       if (yy(l).gt.sigmaximum) sigmaximum=yy(l)
-    end do
-
-    call rg20r(elepton_min,elepton_max,intprec,yy,sig)
-
-    ! set kinematics
-    if (sigmaximum.gt.0.) then
-       do
-          eleptonint=elepton_min+rn()*(elepton_max-elepton_min)
-
-          call eNev_init_nuStep3a(eNev,eleptonint,costheta,flagOK)
-          if (.not.flagOK) cycle
-
-          call XsecdCosthetadElepton(eNev,IP,OutPart, sigrd)
-
-          if (sigmaximum*rn().le.sigrd) exit
-       end do
-    end if
-
-    deallocate(xx,yy)
-
-  end subroutine Xsec_dSigmadcostheta
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/Xsec_dSigmadElepton
-  ! NAME
-  ! subroutine Xsec_dSigmadElepton(eNev,IP,raiseFlag,raiseVal,OutPart,sig,
-  ! flux_enu)
-  !
-  ! PURPOSE
-  ! This subroutine calculates dSigmadElepton depending
-  ! on the input variables:
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event) :: eNev -- the Lepton-Nucleon Event
-  ! * integer             :: IP           -- ID of outgoing hadron/process
-  ! * logical             :: raiseFlag    -- shall energy etc. be increased?
-  ! * real, optional      :: flux_enu     -- if present, use this value as
-  !   neutrino energy (used for experiments)
-  !
-  ! OUTPUT
-  ! * type(electronNucleon_event)  :: eNev     -- the Lepton-Nucleon Event
-  ! * real                         :: raiseVal -- the actual value of the
-  !   running variable (i.e. elepton, enu, costheta, ...)
-  ! * type(particle), dimension(:) :: OutPart  -- FinalState particles
-  ! * real                         :: sig      -- calculated cross section
-  !****************************************************************************
-  subroutine Xsec_dSigmadElepton(eNev, IP, raiseFlag, raiseVal, &
-       & OutPart,sig,flux_enu)
-
-    use neutrino_IDTable
-    use idtable, only: nucleon
-    use random
-    use gauss_integration
-    use eN_event, only: eNev_init_nuStep2,eNev_init_nuStep3a
-
-
-
-    type(electronNucleon_event),  intent(inout) :: eNev
-    integer,                      intent(in)    :: IP
-    logical,                      intent(in)    :: raiseFlag
-    real,                         intent(out)   :: raiseVal
-    type(particle), dimension(:), intent(out)   :: OutPart
-    real,                         intent(out)   :: sig
-    real, optional,               intent(in)    :: flux_enu
-
-    integer :: charge_out, pion_charge_out
-    real :: costheta_max, costheta_min
-    real :: elepton_max, elepton_min
-
-    integer :: intprec,l,n2
-    real :: costhetaint
-    real :: sigmaximum,sigrd
-    real,dimension(:),allocatable :: yy,xx
-    logical :: flagOK
-
-
-    if (initFlag) then
-       call readInput(dSigmadElepton)
-       initFlag = .false.
-
-       if (present(flux_enu)) then
-          write(*,*) 'enu from experimental flux', flux_enu
-       else
-          write(*,'(a,F12.4)') 'enu= ', enu
-       end if
-       write(*,'(a,F12.4)') 'elepton= ', elepton
-    end if
-
-
-    ! set default output
-    call setToDefault(OutPart)
-    sig=0.
-
-    if (present(flux_enu)) enu=flux_enu
-
-    if (raiseFlag) then
-       elepton=elepton+delta_elepton
-       write(*,*) 'Elepton is raised by ...', delta_elepton, ' to ', elepton
-    end if
-    raiseVal=Elepton
-
-    ! set neutrino 4-vector: incoming neutrino in z-direction
-    ! plus threshold check for enu
-
-    call eNev_init_nuStep2(eNev,enu,IP,flagOK)
-    if (.not.flagOK) return
-
-    if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
-
-    call getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-    if (.not.checkLimits(elepton_min,elepton_max,elepton)) return
-
-    call getCosthetaLimits(costheta_min,costheta_max,enu)
-
-    ! set integral precision
-    intprec=integralPrecision
-    if (IP.eq.nucleon) intprec=integralPrecisionQE  ! due to small Breit-Wigner
-
-    allocate (xx(20*intprec))
-    allocate (yy(20*intprec))
-
-    call sg20r(costheta_min,costheta_max,intprec,xx,n2)
-    sigmaximum=0.0
-    yy = 0.0
-
-    do l=1,n2
-       costhetaint=xx(l)
-       call eNev_init_nuStep3a(eNev,elepton,costhetaint,flagOK)
-       if (.not.flagOK) cycle
-
-       call XsecdCosthetadElepton(eNev,IP,OutPart, yy(l))
-       if (yy(l).gt.sigmaximum) sigmaximum=yy(l)
-    end do
-
-    call rg20r(costheta_min,costheta_max,intprec,yy,sig)
-
-    ! set kinematics
-    if (sigmaximum.gt.0.) then
-       do
-          costhetaint=costheta_min+rn()*(costheta_max-costheta_min)
-
-          call eNev_init_nuStep3a(eNev,elepton,costhetaint,flagOK)
-          if (.not.flagOK) cycle
-
-          call XsecdCosthetadElepton(eNev,IP,OutPart, sigrd)
-
-          if (sigmaximum*rn().le.sigrd) exit
-       end do
-    end if
-
-    deallocate(xx,yy)
-
-  end subroutine Xsec_dSigmadElepton
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !****************************************************************************
   !****s* neutrinoXsection/XsecdCosthetadElepton
@@ -1558,9 +351,9 @@ contains
   ! be set afterwards:
   ! * OutPart%firstEvent
   ! * OutPart%event(1:2)
-  ! * OutPart%perturbative
-  ! * OutPart%velocity
-  ! * OutPart%offshellparameter
+  ! * OutPart%pert
+  ! * OutPart%vel
+  ! * OutPart%offshellPar
   ! * OutPart%perweight
   ! All the other values are set in this routine.
   !
@@ -1570,7 +363,7 @@ contains
   subroutine XsecdCosthetadElepton(eNev,IP,OutPart,sig)
 
     use constants, only: pi, mN, mPi, twopi,alphaQED
-    use minkowski, only: SP
+    use minkowski, only: SP, op_ang, abs4
     use NeutrinoMatrixElement
     use spectralFunc, only:specfunc
     use ParticleProperties, only: hadron
@@ -1581,11 +374,17 @@ contains
     use singlePionProductionNHVlike, only: Nieves1piN_elepton_ct
     use Coll_nuN
     use lepton2p2h, only: lepton2p2h_DoQE,lepton2p2h_DoDelta
-    use neutrino2piBack, only: DoNu2piBack,BGstruct,BGDualXS
+    use neutrino2piBack, only: DoNu2piBack,BGstruct,BGDualXS,BC2piBG
     use distributions, only: sigmoid
     use eN_event, only: nuclearFluxFactor_correction
     use eventGenerator_eN_lowEnergy, only: init_2Pi
-    use neutrinoParms
+    use ParamEP_BC, only: sigma_lNBC
+    use lorentzTRafo
+    use electronPionProduction_kine, only: getKinematics_eN
+    use degRad_conversion, only: degrees
+    use random, only: rn, rnCos
+    use neutrinoParms, only: new_eN, new_eNres,normRes, normpiBG, normBC, &
+        & twopiBG_on, ME_version
 
     integer,             intent(in)  :: IP
     real,                intent(out) :: sig
@@ -1601,45 +400,54 @@ contains
     real, dimension(1:3) :: position
     integer              :: charge_in
 
-    real :: kin_factor,invMassSQ,Wrec,Wfree,Q2,nu,MV
+    real :: kin_factor,invMassSQ,Wrec,Q2,nu,Wfree,W,QE_corrfactor,qvec2
+    real :: phi_pi,theta_pi
+    logical :: tworoots
+    real, dimension (1:8) :: BCIP = (/1,2,4,7,16,10,3,31/) ! resonances in Bosted-Christy analysis
+    real :: K, sigmagamma,d2sigma,eps,Gamma,theta,enusig
 
-    logical :: success,Q2cutoff = .FALSE.
-    real :: plep,sinthetahalfsq,costhetahalfsq,F1,F2
-    real :: sigCB, sigDIS
+    logical :: success
 
+    real :: plep
+    real :: sigBC, sigDIS,res_sigma,nr_sigma,SigSIS
+
+    if (initFlag) call Traceback('not yet initialized')
 
     !set default output
     call setToDefault(OutPart)
+    sig= 0.
 
     ! The charges are maybe already calculated earlier, but we do it here again
     if (.not.SetHadronCharge(eNev,IP,charge_out,pion_charge_out)) return
 
+
     ! set some abbreviations:
-    process_ID = eNev%idProcess           ! 1: electron, 2: CC neutrino, 3: NC neutrino
-    k_in  = eNev%lepton_in%momentum
-    k_out = eNev%lepton_out%momentum
+    process_ID = eNev%idProcess   ! 1: electron, 2: CC neutrino, 3: NC neutrino
+
+    k_in  = eNev%lepton_in%mom
+    k_out = eNev%lepton_out%mom
     nu = k_in(0) - k_out(0)
-    Q2 = eNev%Qsquared
-    p_in  = eNev%nucleon%momentum
+    Q2 = eNev%Q2
+    p_in  = eNev%nucleon%mom
     p_out = p_in+k_in-k_out               ! momentum of outgoing particle
 
-
-    position = eNev%nucleon%position
+    position = eNev%nucleon%pos
     charge_in = eNev%nucleon%charge
     ml_out = eNev%lepton_out%mass
-    plep = sqrt(max((eNev%lepton_out%momentum(0)**2-ml_out**2),0.))
-    ! ---------------
-
-    sig= 0.
+    plep = sqrt(max((eNev%lepton_out%mom(0)**2-ml_out**2),0.))
 
  !  Now invariant mass cut on reconstructed Wrec = sqrt(mN**2 + 2*mN*nu - Q2)
  !   = invariant mass in incoming channel for free nucleon  at rest
  !  used for all production mechanisms
     W = eNev%W
     Wrec = eNev%W_rec
+    Wfree = eNev%W_free
     if (Wrec .gt. invariantMasscut) return
 
-    select case (IP)                 ! IP = reaction type: QE, Delta, N*, .....
+    if (Wrec < 0.7) return
+
+    select case (IP)     ! IP = reaction type: QE, Delta, N*1,N*2, ......
+                         ! reaction types defined in initNeutrino, line ~ 500
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!! QE and RES production
@@ -1647,8 +455,7 @@ contains
     case (:31)
 
        ! cutting the resonances off at high W
-       if (Wrec .gt. 2.2) return
-
+       if (Wrec .gt. REScutW + 0.1) return
 
        invMassSQ=SP(p_out,p_out)
        if (invMassSQ.le.0.) return !reaction not possible
@@ -1672,42 +479,81 @@ contains
           return
        end if
 
-       sig=kin_factor*nuMaEl(process_ID,IP,charge_in,k_in,k_out,p_in,p_out,mass_out,position)
+       ! first only QE:
+       if (IP == 1 ) then   !QE done in the old (Leitner) way, for all versions
 
-       !multiply cross section by factor to obtain results in 10^(-38) cm^2
-       sig=corr_factor*sig
+          sig=kin_factor*nuMaEl(process_ID,IP,charge_in,k_in,k_out,p_in,p_out,mass_out,position)
+          !multiply cross section by unit_factor to obtain results in 10^(-38) cm^2
+          sig=unit_factor*sig
 
-	   if(IP .ge. 3 .and. abs(process_Id) > 1) sig = sig * normRES
+          if (new_eN .and. ME_version==6) then
+             ! multiply with qvec^2 QE quenching factor for electrons
+             qvec2 = Q2 + nu**2
+             QE_corrfactor = 1.0/(1. + 0.2445*qvec2)
+             sig = sig * QE_corrfactor
+          end if
 
-       ! smooth switching off the resonances
-       sig = sig * Sigmoid(Wrec,REScutW,-REScutwidth)
 
+       ! now also higher resonances:
+       else if (IP > 1) then
+          if (.not. new_eN ) then
 
-       ! Setting the outgoing particles:
+             sig=kin_factor*nuMaEl(process_ID,IP,charge_in,k_in,k_out,p_in,p_out,mass_out,position)
+             !multiply cross section by unit_factor to obtain results in 10^(-38) cm^2
+             sig=unit_factor*sig
 
-       OutPart%position(1)=position(1)
-       OutPart%position(2)=position(2)
-       OutPart%position(3)=position(3)
+          else if (new_eNres) then  ! new treatment of resonances only for electrons
 
-       OutPart%formationTime = -999
+             call sigma_lNBC(process_ID,IP,Q2,charge_in,k_in,k_out,p_in,p_out,res_sigma,nr_sigma,position)
+             ! lNBC gives lepton cross section, based on Bosted-Cristy parametrization
+             ! cross section parametrization for eN collisions in Lab frame
+             sig = unit_factor * res_sigma
+             mass_out = abs4(p_out)
+
+          else    ! use Leitner resonances for neutrinos, only for Christy-Bosted resoances
+
+             if (.not. ANY(BCIP==IP)) return
+             sig=kin_factor*nuMaEl(process_ID,IP,charge_in,k_in,k_out,p_in,p_out,mass_out,position)
+             !multiply cross section by unit_factor to obtain results in 10^(-38) cm^2
+             sig=unit_factor*sig
+
+          end if
+       end if
+
+       if (IP .ge. 3 .and. abs(process_ID) > 1) then
+          sig = sig * normRES
+       end if
+
+       ! smooth switching off the resonances,
+       sig = sig * Sigmoid(W,REScutW,-0.05)
+
+       ! Setting the outgoing resonance properties:
+
+       OutPart%pos(1)=position(1)
+       OutPart%pos(2)=position(2)
+       OutPart%pos(3)=position(3)
+
+       OutPart%formTime = -999
 
        OutPart(1)%mass = mass_out
        OutPart(1)%ID   = IP
        OutPart(1)%Charge = Charge_Out
-       OutPart(1)%antiparticle=.false.
-       OutPart(1)%Momentum = p_out
+       OutPart(1)%anti=.false.
+       OutPart(1)%mom = p_out
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!! 2p2h
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    case (QE2p2h)
+    case (chQE2p2h)
+
+       if (Wrec > 1.5) return
 
        call lepton2p2h_DoQE(eNev,outPart,sig)
-       ! returned XS is dsigma/dE'dOmega in mb/GeV/A
+       ! returned XS is dsigma/dE'dOmega in mb/GeV/sr/A
+
        sig = sig * twopi * 1.e11 ! cross section dsigma/dE'dcost in 10^-38 cm^2
 
-
-    case (Delta2p2h)
+    case (chDelta2p2h)
 
        call lepton2p2h_DoDelta(eNev,outPart,sig)
        ! returned XS is dsigma/dE'dOmega in mb/GeV/A
@@ -1715,12 +561,15 @@ contains
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!! single pi N
+!!!! single pi N background
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    case (onePionCH_n,onePionCH_p)
+! Single and Double pi N backgrounds are obtained only for the W region between 1.2 and REScutW GeV.
+! Their cross section sum is given by the background in the Bosted-Christy parametrization
 
-       ! cutting the background off at high W (default REScutW2=2.05 GeV)
-       if (Wrec .gt. 2.2) return
+    case (chOnePionN,chOnePionP)
+
+       ! cutting the background off at high and low W
+       if (W < 0.8 .or. W .gt. REScutW + 0.1) return
 
        ! invariant mass cut for pion BG contribution
        if (Wrec .gt. invariantMasscut_BG) return
@@ -1739,7 +588,6 @@ contains
                & p_in,position,charge_in, &
                & p_out,charge_out,pion_momentum_out,pion_charge_out,sig)
 
-          mass_out=mN
 
        case (1) !MAID like
 
@@ -1749,8 +597,48 @@ contains
 
           sig=MAIDlike_singlePi(eNev,charge_out,pion_charge_out, &
                & p_out, pion_momentum_out,nuclear_phasespace)
+          !multiply cross section by factor to obtain results in 10^(-38) cm^2
+          sig=unit_factor*sig
 
-          mass_out=mN
+
+       case (2) !Bosted-Christy background
+
+          call sigma_lNBC(process_ID,IP,Q2,charge_in,k_in,k_out,p_in,p_out,res_sigma,nr_sigma,position)
+          ! lNBC gives Bosted-Cristy cross section parametrization for eN collisions in Lab frame
+
+      !  if(nr_sigma > 200.0) write(*,*) '598 Process_ID=',Process_ID,'IP=',IP,'W=',Wrec,'Q2=',Q2,'nu=',nu,'nr_sigma=',nr_sigma
+
+          ! Now set kinematics of final pi-N state:
+          ! Assume here no pion potential.
+          ! If pion potential is desired, then use coding from electronPionProduction_medium_eN
+          theta_pi = degrees(rnCos())
+          phi_pi = degrees(rn()*2*pi)
+          call getkinematics_eN(eNev,pion_Charge_out,charge_out,phi_pi,theta_pi,&
+               & pion_momentum_out,p_out,twoRoots,success,pionNucleonSystem=2)
+
+          if (.not.success) then
+             return
+          end if
+
+          select case (process_ID)
+
+          case (1,-1)
+             sig = nr_sigma * 0.5  ! factor 0.5 because BC background contains both final states in 1pi decay
+          case (2)
+             if (charge_in == 1) sig = nr_sigma
+             if (charge_in == 0) sig = nr_sigma * 0.5
+
+          case (-2)
+             if (charge_in == 1) sig = nr_sigma * 0.5
+             if (charge_in == 0) sig = nr_sigma
+
+          case (3,-3)
+             if ( IP == chOnePionN ) sig = sig * 1.15
+             if ( IP == chOnePionP ) sig = sig * 0.85
+             sig = 0.5 * sig       ! reduction for NC because less dofs of outgoing lepton
+          end select
+
+          sig = unit_factor * sig      ! convert to proper units
 
        case default
 
@@ -1759,140 +647,198 @@ contains
 
        end select
 
-       !multiply cross section by factor to obtain results in 10^(-38) cm^2
-       sig=corr_factor*sig
+       mass_out = mN
 
-       ! smooth switching off the  1 pi background
-       sig = sig * Sigmoid(Wrec,REScutW,-REScutwidth)
+       ! smooth switching off the 1pi background to allow for 2pi contribution
+       ! 0.13 chosen such that 0.13/sqrt(W-1.25) = 1
+       if (new_en .and. W > 1.267) then
+          sig = sig * 1./3. *(1 + 0.13/Sqrt(W - 1.25)*2.)
+       end if
 
+       ! smooth switching off the pi background for transition to PYTHIA:
+       sig = sig * Sigmoid(W,REScutW,-0.05)
+
+       sig = sig * NormpiBG
+       if ( IP == chOnePionN ) sig = sig * 1.15
+       if ( IP == chOnePionP ) sig = sig * 0.85
 
        ! Setting the outgoing particles:
 
-       OutPart%position(1)=position(1)
-       OutPart%position(2)=position(2)
-       OutPart%position(3)=position(3)
+       OutPart%pos(1)=position(1)
+       OutPart%pos(2)=position(2)
+       OutPart%pos(3)=position(3)
 
-       OutPart%formationTime = -999
+       OutPart%formTime = -999
 
        OutPart(1:2)%ID = (/nucleon,pion/)
        OutPart(1:2)%Mass=(/mass_out,mPi/)
        OutPart(1:2)%Charge=(/charge_out,pion_charge_out/)
-       OutPart(1:2)%antiparticle=.false.
+       OutPart(1:2)%anti=.false.
 
-       OutPart(1)%Momentum = p_out
-       OutPart(2)%Momentum = pion_momentum_out
+       OutPart(1)%mom = p_out
+       OutPart(2)%mom = pion_momentum_out
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!! two pion background
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    case (twoPion)
+    case (chTwoPion)
+
        ! cutting the background off at high W
-       if (Wrec < 1.3 .or.  Wrec > 2.2) return
-       if (Q2 > 8.) return
+       if (W <= 1.267 .or.  W > REScutW + 0.1) return
+       if (Q2 > 10.) return
 
        invMassSQ=SP(p_out,p_out)
        if (invMassSQ.le.0.) return ! reaction not possible
 
-	   if (initFlag2piDIS) call neutrino_readInput
-	   initflag2piDIS = .false.
+       if (new_eN) then
 
-       select case (abs(process_ID))
-       case (1)                 ! Electrons
-          if(new2piBG) then
+          call BC2piBG(eNev,outPart,sig)
+          sig = unit_factor * sig
+          if (abs(process_iD) == 3) sig = 0.5 * sig    ! reduction for NC because less dofs of outgoing lepton
+          sig = sig * NormpiBG
+
+       else
+
+          select case (abs(process_ID))
+          case (1)                 ! Electrons
+             if (new2piBG) then
+                call DoNu2piBack(eNev,outPart,sig,new2piBG,indBG)
+                ! from DoNu2piBack X-section d2sigma/dE' dOmega in mb.
+                ! now converted to d2sigma/dE' dcost in 10^(-38) cm^2/GeV
+                sig = sig * twopi * 1.e11
+                ! The following check rejects events where in-medium correction
+                ! did not find a solution
+                if (abs(sig) < 1.e-16) return
+
+             else
+                call init_2Pi(eNev,OutPart,sig, .true.)
+                sig = sig * twopi * 1e11 ! cross section dsigma/dE'dcost in 10^(-38) cm^2/GeV
+             end if
+
+          case (2:3)                 ! Neutrinos
              call DoNu2piBack(eNev,outPart,sig,new2piBG,indBG)
-             ! from DoNu2piBack X-section d2sigma/dE' dOmega in mb.
+             ! from DoNu2piBack X-section d2sigma/dE' dOmega in mub/GeV.
              ! now converted to d2sigma/dE' dcost in 10^(-38) cm^2/GeV
-             sig = sig * twopi * 1.e11
-          else
-             call init_2Pi(eNev,OutPart,sig, .true.)
-             sig = sig * twopi * 1e11 ! cross section dsigma/dE'dcost in 10^(-38) cm^2/GeV
-          end if
 
-       case (2:3)                 ! Neutrinos
-          call DoNu2piBack(eNev,outPart,sig,new2piBG,indBG)
-          ! from DoNu2piBack X-section d2sigma/dE' dOmega in mcb/GeV.
-          ! now converted to d2sigma/dE' dcost in 10^(-38) cm^2/GeV
-          sig = sig * twopi * 1.e11
-		  sig = sig * Norm2pi
-       end select
+             ! The following check rejects events where the in-medium correction
+             ! did not find a solution
+             if (abs(sig) < 1.e-16) return
 
-       ! smooth switching on the background at threshold
-       sig = sig * Sigmoid(Wrec,1.35,0.02)
+             sig = unit_factor * sig * twopi
+             sig = sig * NormpiBG
+          end select
 
-       ! smooth switching off the background
-       sig = sig * Sigmoid(Wrec,REScutW,-REScutwidth)
+       end if
 
-       OutPart%position(1)=position(1)
-       OutPart%position(2)=position(2)
-       OutPart%position(3)=position(3)
+       OutPart%pos(1)=position(1)
+       OutPart%pos(2)=position(2)
+       OutPart%pos(3)=position(3)
+
+       if( new_eN .and. W > 1.267) then
+         sig = sig * (1. - 0.13/Sqrt(W - 1.25)) * 2./3.
+       end if
+
+
+       ! smooth switching off the 2pi background for transition to PYTHIA:
+       sig = sig * Sigmoid(W,REScutW,-0.05)
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!! DIS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    case (DIS_CH)
+    case (chDIS)
 
-	! Here the transition from RES to DIS is made such that first
-	! at DIScutW the transition takes place from RES to a Bloom-Gilman
-	! like parametrization of the cross section, then at Wtrans the
-	! from BG cross section to pQCD in PYTHIA takes place
+       ! Here the transition from RES to DIS is made such that first up to
+       ! DIScutW the total cross section is given by the background contribution
+       ! of the Bosted-Christy fit while the final state particles are determined
+       ! by Pythia. From DIScutW onwards also the cross section is obtained from PYTHIA
 
-       if (Wrec .lt. 1.6) return
+       if (W .lt. REScutW - 0.1) return
 
        !check on outgoing particles
        invMassSQ=SP(p_out,p_out)
        if (invMassSQ.le.0.) return !reaction not possible
 
-       OutPart%position(1)=position(1)
-       OutPart%position(2)=position(2)
-       OutPart%position(3)=position(3)
+       OutPart%pos(1)=position(1)
+       OutPart%pos(2)=position(2)
+       OutPart%pos(3)=position(3)
        sigDIS = 0.0
-       sigCB = 0.0
+       sigBC = 0.0
+       sig = 0.0
+       
+       ! First get BC cross section:
 
-	   if (initFlag2piDIS) call neutrino_readInput
-	   initflag2piDIS = .false.
-
-		   call DoColl_nuN_Py(eNev,OutPart,success,sigDIS,DISrespectHad,DISdoMSTP23)
-		   if (.not.success) sigDIS=0.0
-
-		   if (Q2cutoff) then
-			   select case (eNev%idProcess)
-			   case (-1,1) !=== EM
-				  select case (DISformfakEM)
-				  case (1)
-					 sigDIS = sigDIS * eNev%Qsquared/(eNev%Qsquared+mcutDIS**2)
-				  case (2)
-					 sigDIS = sigDIS * (eNev%Qsquared/(eNev%Qsquared+mcutDIS**2))**2
-				  end select
-			   case default !=== CC, NC
-				  select case (DISformfakNCCC)
-				  case (1)
-					 sigDIS = sigDIS * eNev%Qsquared/(eNev%Qsquared+mcutDIS**2)
-				  case (2)
-					 sigDIS = sigDIS * (eNev%Qsquared/(eNev%Qsquared+mcutDIS**2))**2
-				  end select
-			   end select
-		   end if
+       call sigma_lNBC(process_ID,34,Q2,charge_in,k_in,k_out,p_in,p_out,res_sigma,sigSIS,position)
+       sigSIS = unit_factor * sigSIS
 
 
-       sigDIS = sigDIS * 1e11 ! cross section in 10^-38 cm^2/GeV (from mb=10^{-27} to 10^{-38})
-       ! correction for the nuclear phase space
-       if (nuclear_phasespace) sig=sig*nuclearFluxFactor_correction(p_in,k_in)
+       ! now get final state particles from PYTHIA and X-section for W > DIScutW
 
-       if(Wrec < Wtrans + 0.4) then
-       !  for W < Wtrans GeV parametrization for BG from Christy-Bosted is used
-          call BGDualXS(eNev,sigCB,indBG)
-          ! cross section comes in millibarns
-          sigCB = sigCB * twopi *1.e11       ! X-section in 10^(-38) cm^2/GeV
-          ! correction for the nuclear phase space
-          if (nuclear_phasespace) sigCB=sigCB*nuclearFluxFactor_correction(p_in,k_in)
-          if(abs(process_Id) > 1) sigCB = sigCB * normCB		! tune for neutrinos
+       call DoColl_nuN_Py(eNev,OutPart,success,sigDIS,DISrespectHad,DISdoMSTP23)
+       if (.not.success) then
+          sigDIS=0.0
+          sig = 0.0
+        ! write(*,*) 'W =', W, 'PYTHIA not success'
+          return
        end if
+       sigDIS = sigDIS * 1e11 ! cross section in 10^-38 cm^2/GeV (from mb=10^{-27} to 10^{-38})
 
-       !smooth transition from BG to DIS
-       sig = SigCB * Sigmoid(Wrec,Wtrans,-0.1) + sigDIS* Sigmoid(Wrec,Wtrans,0.1)
 
-	   !smooth transition from RES to BG
-       sig = sig * Sigmoid(Wrec,DIScutW,DIScutwidth)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       ! cuts out low Q^2 values from PYTHIA X-section:
+
+       if (Q2cutoff) then    !cutoff only for PYTHIA X-sections sigDIS, i.e. for W > DIScutW
+                             !since for smaller values BC param is used
+          
+          select case (eNev%idProcess)
+          case (-1,1) !=== EM
+          
+       ! the following lines bring the low Q2 cross section close to photoabsorption 
+       ! photoabsorption X-section taken from Bloom et al, SLAC-PUB-653
+          K = (W**2 - mN**2)/(2*mN)
+          theta = op_ang(k_in,k_out)  * pi/180.
+          eps = (1. + 2.*(Q2 + nu**2)/Q2 * tan(theta/2.)**2)**(-1)
+          Gamma = alphaQED/twopi**2 * K/Q2 * k_out(0)/k_in(0) * 2./(1. - eps) 
+          sigmagamma = (108. + 68./sqrt(K))  !parametrization of sigma(Egamma) from SLAC-PUB-653
+          d2sigma = Gamma * sigmagamma * twopi * 1.e8  
+       !  d2sigma = d2dsigma/dE'dcostheta in 10^(-38) cm^2/GeV
+       
+             select case (DISformfakEM)
+             case (1)
+                 sigDIS = Q2/(Q2+mcutDIS**2) * sigDIS + mcutDIS**2/(Q2+mcutDIS**2) * d2sigma
+             case (2)
+                 sigDIS = (Q2/(Q2+mcutDIS**2))**2 * sigDIS + (mcutDIS**2/(Q2+mcutDIS**2))**2 * d2sigma
+             end select
+             
+          case (-2,2) !=== CC
+                if (eNev%idProcess > 0) then     ! nu
+                    enusig = 1.06
+                 else                            ! antinu
+                    enusig = 1.03
+                end if  
+                sigDIS = enusig * sigDIS  
+                
+          case (-3,3) !=== NC
+                sigDIS = 1.0 * sigDIS    
+                ! leave NC X-section from PYTHIA unchanged because no experimental value known
+                
+          case DEFAULT
+            write(*,*) 'wrong choice for Q2cutoff'
+            STOP
+          end select
+       end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!
+
+       ! correction for the nuclear phase space
+       if (nuclear_phasespace) sigDIS=sigDIS*nuclearFluxFactor_correction(p_in,k_in)
+       
+       !smooth transition from SIS to DIS:
+       sig = sigSIS * Sigmoid(W,DIScutW,-DIScutwidth) + sigDIS * Sigmoid(W,DIScutW,DIScutwidth)  
+       
+       ! smooth switching on the transition from RES to DIS:
+       sig = sig * Sigmoid(W,REScutW,0.05)
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! End of elementary reaction cases (IP)
 
     case default
        write(*,*) 'strange IP, STOP:',IP
@@ -1900,7 +846,9 @@ contains
 
     end select
 
-    if (process_ID.eq.EM) sig=1e-5*sig    !cross section in nanobarn for el-m reactions
+
+    if (process_ID.eq.EM .or. process_ID.eq.antiEM) sig=1e-5*sig    !cross section in nanobarn for el-m reactions
+
 
   end subroutine XsecdCosthetadElepton
 
@@ -1965,7 +913,7 @@ contains
 
        end select
 
-    case (onePionCH_n)
+    case (chOnePionN)
        !=======================================================================
        !===== pi + n production
        !=======================================================================
@@ -1986,7 +934,7 @@ contains
           Q_pi = eNev%nucleon%charge-1
        end select
 
-    case (onePionCH_p)
+    case (chOnePionP)
        !=======================================================================
        !===== pi + p production
        !=======================================================================
@@ -2007,13 +955,13 @@ contains
           if (Q_pi.eq.-2) SetHadronCharge=.false. ! reaction not possible
        end select
 
-    case (DIS_CH,QE2p2h,Delta2p2h)
+    case (chDIS,chQE2p2h,chDelta2p2h)
        !=======================================================================
        !===== DIS, 2p2h
        !=======================================================================
        !... everything as the defaults
 
-    case (twoPion)
+    case (chTwoPion)
        !=======================================================================
        !===== 2 pion backround
        !=======================================================================
@@ -2030,191 +978,82 @@ contains
 
   end function SetHadronCharge
 
-
-  !****************************************************************************
-  !****s* neutrinoXsection/getCosthetaLimits
-  ! NAME
-  ! subroutine getCosthetaLimits(costheta_min,costheta_max)
-  !
-  ! PURPOSE
-  ! This subroutine returns the limits in costheta.
-  !
-  ! OUTPUT
-  ! * real             :: costheta_min
-  ! * real             :: costheta_max
-  !****************************************************************************
-  subroutine getCosthetaLimits(costheta_min,costheta_max,Enu)
-
-    real, intent(out) :: costheta_min,costheta_max
-    real, intent(in), optional :: Enu
-    costheta_min=-1.
-    costheta_max=1.
-    if (present(Enu)) then
-        ! practical cut for high neutrino energies - the formula is pure "educated guess"
-        ! the reason for cut is physical --- above Q^2>4 everything dies,
-        ! so for high neutrino energies only forward scattering is possible
-        if (Enu.ge.2) costheta_min=1.-4./Enu/Enu
-    end if
-
-  end subroutine getCosthetaLimits
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/getEleptonLimits
-  ! NAME
-  ! subroutine getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-  !
-  ! PURPOSE
-  ! This subroutine returns the limits in elepton depending on the neutrino
-  ! energy.
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event)  :: eNev -- the Lepton-Nucleon Event
-  ! * integer                      :: IP   -- ID of outgoing hadron/process
-  !
-  ! OUTPUT
-  ! * real             :: elepton_min
-  ! * real             :: elepton_max
-  !****************************************************************************
-  subroutine getEleptonLimits(IP,eNev,elepton_min,elepton_max)
-    use idtable, only: nucleon,delta
-    use constants, only: mPi
-
-    integer, intent(in) :: IP
-    real, intent(out) :: elepton_min,elepton_max
-    type(electronNucleon_event), intent(in) :: eNev
-
-    real :: enu, ml_out
-
-    enu = eNev%lepton_in%momentum(0)
-    ml_out = eNev%lepton_out%mass
-
-    elepton_min=ml_out
-    if (IP.eq.nucleon) elepton_max=enu
-    if (IP.ge.delta) elepton_max=enu-mPi
-! IP=35 = 2p2h process
-    if (IP.eq.35) elepton_max=enu
-  end subroutine getEleptonLimits
-
-
-  !****************************************************************************
-  !****s* neutrinoXsection/getQsLimits
-  ! NAME
-  ! subroutine getQsLimits(eNev,elepton,Qs_min,Qs_max)
-  !
-  ! PURPOSE
-  ! This subroutine returns the limits in Qs depending on the neutrino energy
-  ! and the energy of the outgoing lepton.
-  !
-  ! INPUTS
-  ! * type(electronNucleon_event)  :: eNev -- the Lepton-Nucleon Event
-  ! * real                         :: elepton -- energy of outgoing lepton
-  !
-  ! OUTPUT
-  ! * real             :: Qs_min
-  ! * real             :: Qs_max
-  !****************************************************************************
-  subroutine getQsLimits(eNev,elepton,Qs_min,Qs_max)
-
-    type(electronNucleon_event), intent(in) :: eNev
-    real, intent(in) :: elepton
-    real, intent(out) :: Qs_min,Qs_max
-
-    real :: enu,ml_out
-
-    enu = eNev%lepton_in%momentum(0)
-    ml_out = eNev%lepton_out%mass
-
-    !! Attention! you should have checked before, that elepton>ml_out
-    !! is guaranteed. Therefore we could skip the "sqrt(max(" stuff !!
-
-    Qs_max=-ml_out**2+2.*enu*(elepton+sqrt(max((elepton**2-ml_out**2),0.)))
-    Qs_min=-ml_out**2+2.*enu*(elepton-sqrt(max((elepton**2-ml_out**2),0.)))
-  end subroutine getQsLimits
-
-  !****************************************************************************
-  !****f* neutrinoXsection/checkLimits
-  ! NAME
-  ! logical function checkLimits(X_min,X_max,X)
-  !
-  ! PURPOSE
-  ! This function checks whether X is out of bounds.
-  ! If not, checkLimits=.true., if yes checkQsLimits=.false.
-  !
-  ! INPUTS
-  ! * real  :: X_min,X_max,X
-  !****************************************************************************
-  logical function checkLimits(X_min,X_max,X)
-
-    real, intent(in) :: X_min,X_max,X
-
-    checkLimits = .false.
-    if (X.lt.X_min) return
-    if (X.gt.X_max) return
-    checkLimits = .true.
-
-  end function checkLimits
-
-
-
-  !****************************************************************************
-  !****************************************************************************
-  !****************************************************************************
-  !****************************************************************************
-  !****************************************************************************
-
-
-
-
   !****************************************************************************
   !****s* neutrinoXsection/get_xsection_namelist
   ! NAME
-  ! subroutine get_xsection_namelist
+  ! subroutine get_xsection_namelist(XsectionMode, ...)
   !
   ! PURPOSE
-  ! This subroutine returns variables that are set in the according xsection namlist.
+  ! This subroutine returns variables that are set in the according xsection
+  ! namelist.
   !
   ! INPUTS:
   ! * integer, optional :: XsectionMode
   !
   ! OUTPUT
-  ! * logical,optional :: Gdebugflag,Gnuclear_phasespace
-  ! * integer,optional :: GsinglePiModel,GintegralPrecision,GintegralPrecisionQE
-  ! * real,optional :: Genu, Gdelta_enu, GQs,Gdelta_Qs, Gcostheta,
-  !   Gdelta_costheta, Gdelta_elepton, GinvariantMasscut
+  ! * logical,optional :: Gdebugflag
+  ! * logical,optional :: Gnuclear_phasespace
+  ! * integer,optional :: GsinglePiModel
+  ! * integer,optional :: GintegralPrecision
+  ! * integer,optional :: GintegralPrecisionQE
+  ! * real,optional :: Genu
+  ! * real,optional :: Gdelta_enu
+  ! * real,optional :: GQs
+  ! * real,optional :: Gdelta_Qs
+  ! * real,optional :: Gcostheta,
+  ! * real,optional :: Gdelta_costheta
+  ! * real,optional :: Gelepton
+  ! * real,optional :: Gdelta_elepton
+  ! * real,optional :: GinvariantMasscut
   !
   !****************************************************************************
-
-  subroutine get_xsection_namelist(XsectionMode,Gdebugflag,Gnuclear_phasespace,GsinglePiModel,GintegralPrecision, &
-                            & GintegralPrecisionQE,Genu,Gdelta_enu,GQs,Gdelta_Qs,Gcostheta,Gdelta_costheta, &
-                            & Gelepton,Gdelta_elepton,GinvariantMasscut)
+  subroutine get_xsection_namelist(XsectionMode,Gdebugflag,Gnuclear_phasespace,&
+       GsinglePiModel,GintegralPrecision,GintegralPrecisionQE, &
+       Genu,Gdelta_enu,GQs,Gdelta_Qs,Gcostheta,Gdelta_costheta, &
+       Gelepton,Gdelta_elepton,GinvariantMasscut)
 
     integer,optional,intent(in) ::  XsectionMode
     logical,optional,intent(out) :: Gdebugflag,Gnuclear_phasespace
     integer,optional,intent(out) :: GsinglePiModel,GintegralPrecision,GintegralPrecisionQE
     real,optional,intent(out) :: Genu,Gdelta_enu,GQs,Gdelta_Qs,Gcostheta,Gdelta_costheta,Gelepton,Gdelta_elepton,GinvariantMasscut
 
-    if (present (XsectionMode)) then
-        if (initflag) then
-           call readInput(MOD(XsectionMode,10),(XsectionMode>10))
-           initflag = .false.
-        end if
+    if (present(XsectionMode)) then
+       if (initflag) then
+!!!!          call readInput(MOD(XsectionMode,10),(XsectionMode>10))
+          call Traceback("not yet implemented anymore.")
+          initflag = .false.
+       end if
     end if
 
     if (present(Gdebugflag)) Gdebugflag=debugflag
     if (present(Gnuclear_phasespace)) Gnuclear_phasespace=nuclear_phasespace
     if (present(GsinglePiModel)) GsinglePiModel=singlePiModel
-    if (present(GintegralPrecision))GintegralPrecision =integralPrecision
-    if (present(GintegralPrecisionQE))GintegralPrecisionQE =integralPrecisionQE
-    if (present(Genu)) Genu=enu
-    if (present(Gdelta_enu))Gdelta_enu= delta_enu
-    if (present(GQs)) GQs =Qs
-    if (present(Gdelta_Qs))Gdelta_Qs =delta_Qs
-    if (present(Gcostheta))Gcostheta =costheta
-    if (present(Gdelta_costheta))Gdelta_costheta =delta_costheta
-    if (present(Gelepton))Gelepton =elepton
-    if (present(Gdelta_elepton))Gdelta_elepton =delta_elepton
-    if (present(GinvariantMasscut))GinvariantMasscut =invariantMasscut
+    if (present(GinvariantMasscut)) GinvariantMasscut =invariantMasscut
+
+!    if (present(GintegralPrecision)) GintegralPrecision =integralPrecision
+!    if (present(GintegralPrecisionQE)) GintegralPrecisionQE =integralPrecisionQE
+!    if (present(Genu)) Genu=enu
+!    if (present(Gdelta_enu)) Gdelta_enu= delta_enu
+!    if (present(GQs)) GQs =Qs
+!    if (present(Gdelta_Qs)) Gdelta_Qs =delta_Qs
+!    if (present(Gcostheta)) Gcostheta =costheta
+!    if (present(Gdelta_costheta)) Gdelta_costheta =delta_costheta
+!    if (present(Gelepton)) Gelepton =elepton
+!    if (present(Gdelta_elepton)) Gdelta_elepton =delta_elepton
+
+    if ( present(GintegralPrecision).or. &
+         present(GintegralPrecisionQE).or. &
+         present(Genu).or. &
+         present(Gdelta_enu).or. &
+         present(GQs).or. &
+         present(Gdelta_Qs).or. &
+         present(Gcostheta).or. &
+         present(Gdelta_costheta).or. &
+         present(Gelepton).or. &
+         present(Gdelta_elepton)) then
+       call Traceback("not yet implemented anymore.")
+    end if
+
   end subroutine get_xsection_namelist
 
 

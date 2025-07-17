@@ -120,9 +120,9 @@ contains
     iiM = 3 - iiB ! iiB=1 -> iiM=2, iiB=2 -> iiM=1
 
     IDBar = inPart(iiB)%ID
-    if (inPart(iiB)%antiparticle) IDBar = -IDBar
+    if (inPart(iiB)%anti) IDBar = -IDBar
     IDMes = inPart(iiM)%ID
-    if (inPart(iiM)%antiparticle) IDMes = -IDMes
+    if (inPart(iiM)%anti) IDMes = -IDMes
 
 
     ! no charmed particles:
@@ -268,7 +268,7 @@ contains
     use random, only: rn
     use CollTools, only: SetSomeDefaults_PY, SetVectorFromPYJETS
     use hadronFormation, only: useJetSetVec
-    use CollGetLeading, only: GetLeading_PY
+    use GetLeading, only: GetLeading_PY
     use twoBodyTools, only: IsElastic
 
     type(particle),dimension(:),intent(in)   :: inPart   ! incoming particles
@@ -421,8 +421,8 @@ contains
 !!$    N=2
 !!$    do j=1,2
 !!$       do i=1,3
-!!$          P(j,i) = inPart(j)%momentum(i)
-!!$          P(j,4) = inPart(j)%momentum(0)
+!!$          P(j,i) = inPart(j)%mom(i)
+!!$          P(j,4) = inPart(j)%mom(0)
 !!$          P(j,5) = inPart(j)%mass
 !!$       end do
 !!$       K(j,1)=1

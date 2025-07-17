@@ -150,9 +150,9 @@ contains
 
     if (srts.lt.(mN+hadron(delta)%minmass)) return
 
-    if (.not.partIn(1)%antiParticle .and. .not.partIn(2)%antiParticle) then
+    if (.not.partIn(1)%anti .and. .not.partIn(2)%anti) then
       massDelta = massNN_NDelta(srts)
-    else if (partIn(1)%antiParticle .neqv. partIn(2)%antiParticle) then
+    else if (partIn(1)%anti .neqv. partIn(2)%anti) then
       massDelta = massNbarN_NbarDelta(srts)
     else
        call TRACEBACK('Anti-Anti not implemented')
@@ -167,10 +167,10 @@ contains
     pscatt = winkel (partIn, partOut, srts, betaToCM, mediumAtColl)
 
     p_cd = pCM(srts,mN,massDelta)
-    partOut(1)%momentum(1:3) =  pscatt*p_cd
-    partOut(2)%momentum(1:3) = -pscatt*p_cd
+    partOut(1)%mom(1:3) =  pscatt*p_cd
+    partOut(2)%mom(1:3) = -pscatt*p_cd
 
-    partOut(1:2)%momentum(0) = sqrt(partOut(1:2)%mass**2 + p_cd**2)
+    partOut(1:2)%mom(0) = sqrt(partOut(1:2)%mass**2 + p_cd**2)
 
     flagOK = .true.
 

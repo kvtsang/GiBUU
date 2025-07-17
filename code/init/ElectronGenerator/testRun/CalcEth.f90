@@ -91,8 +91,8 @@ program CalcEth
 !  TargetNuc%charge = 1
 !  TargetNuc%charge = 0
   TargetNuc%mass = 0.938
-  TargetNuc%momentum = (/0.938, 0.0, 0.0, 0.0 /)
-  TargetNuc%Position = 9999999d0
+  TargetNuc%mom = (/0.938, 0.0, 0.0, 0.0 /)
+  TargetNuc%pos = 9999999d0
 
   call event_INIT(tEv)
 
@@ -133,7 +133,7 @@ program CalcEth
   write(100,*) '1--Pion FinalStates:'
 
   finalstate%ID = 0
-  finalstate%antiparticle = .false.
+  finalstate%anti = .false.
   finalstate(1,(/1:2/))%ID=(/1,101/)
 
   iiC=0
@@ -157,7 +157,7 @@ program CalcEth
   write(100,*) '2--Pion FinalStates:'
 
   finalstate%ID = 0
-  finalstate%antiparticle = .false.
+  finalstate%anti = .false.
   finalstate(1,(/1:3/))%ID=(/1,101,101/)
 
   iiC=0
@@ -202,7 +202,7 @@ program CalcEth
 
         call write_electronNucleon_event(eNev,.FALSE.,.FALSE.) 
         call eNeV_GetKinV(eNev, nu,Q2,W,Wfree,eps,fT)
-        s=abs4(eNev%nucleon%momentum+eNev%electron_in)
+        s=abs4(eNev%nucleon%mom+eNev%electron_in)
         x=eNeV_Get_LightX(eNev)
         write(*,*) 'nu :',nu
         write(*,*) 'xB :',Q2/(2*0.938*nu)

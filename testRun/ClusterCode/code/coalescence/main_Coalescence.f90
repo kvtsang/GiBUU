@@ -165,13 +165,13 @@ module CoalescenceModule
                   ParticleVector(nvals)%ensemple    = ActualEvent
                   ParticleVector(nvals)%Charge      = iso
                   ParticleVector(nvals)%mass        = mass/0.19733 ![1/fm]
-                  ParticleVector(nvals)%position(1) = x ![fm]
-                  ParticleVector(nvals)%position(2) = y ![fm]
-                  ParticleVector(nvals)%position(3) = z ![fm]
-                  ParticleVector(nvals)%momentum(0) = p0 ![GeV]
-                  ParticleVector(nvals)%momentum(1) = px ![GeV]
-                  ParticleVector(nvals)%momentum(2) = py ![GeV]
-                  ParticleVector(nvals)%momentum(3) = pz ![GeV]
+                  ParticleVector(nvals)%pos(1) = x ![fm]
+                  ParticleVector(nvals)%pos(2) = y ![fm]
+                  ParticleVector(nvals)%pos(3) = z ![fm]
+                  ParticleVector(nvals)%mom(0) = p0 ![GeV]
+                  ParticleVector(nvals)%mom(1) = px ![GeV]
+                  ParticleVector(nvals)%mom(2) = py ![GeV]
+                  ParticleVector(nvals)%mom(3) = pz ![GeV]
                   
                   if (ALADIN_Flag) then
                      SpectatorPart = SpectatorPart + 1

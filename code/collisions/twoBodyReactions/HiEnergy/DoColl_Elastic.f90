@@ -114,7 +114,7 @@ contains
     else
 
        if ( inPart(1)%Id.eq.nucleon .and. inPart(2)%Id.eq.nucleon &
-            & .and. (inPart(1)%antiParticle.neqv.inPart(2)%antiParticle) ) then
+            & .and. (inPart(1)%anti.neqv.inPart(2)%anti) ) then
           h1 = tSlope_EL_pbarp(sqrts)
        else
           if (AngDist.eq.2) then
@@ -167,21 +167,21 @@ contains
 
 ! set outgoing particles:
 
-    flag = outPart(1)%perturbative ! remember this flag
+    flag = outPart(1)%pert ! remember this flag
 
     outPart%ID = 0 ! reset all particles
 
     outPart(1:2) = inPart(1:2) ! set all variables to the ingoing values
     outPart(1:2)%number = 0
-    outPart(1:2)%perturbative = flag
+    outPart(1:2)%pert = flag
 
     do i=1,2                   ! set momenta according scattering
        do j=1,3
-          outPart(i)%momentum(j) = real(MP_P(i,j))
+          outPart(i)%mom(j) = real(MP_P(i,j))
        end do
 
-       outPart(i)%momentum(0) = outPart(i)%mass
-       outPart(i)%momentum(0) = sqrt(DOT_PRODUCT(outPart(i)%momentum,outPart(i)%momentum))
+       outPart(i)%mom(0) = outPart(i)%mass
+       outPart(i)%mom(0) = sqrt(DOT_PRODUCT(outPart(i)%mom,outPart(i)%mom))
     end do
 
   end subroutine DoColl_Elast

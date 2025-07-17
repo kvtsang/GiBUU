@@ -83,6 +83,16 @@ module initHiPion
   ! Antiparticle flag of projectile particles.
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* initHiPion/ProjectileMass
+  ! SOURCE
+  !
+  real,save   :: ProjectileMass = -99.9
+  !
+  ! PURPOSE
+  ! Mass of projectile particles; if negative, pole mass is used.
+  !****************************************************************************
+
 
   !****************************************************************************
   !****g* initHiPion/nTestparticles
@@ -235,6 +245,64 @@ module initHiPion
   ! Useful e.g. for selecting only pn events in a pd collision.
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* initHiPion/flagOffShell
+  ! SOURCE
+  !
+  logical, save :: flagOffShell = .false.
+  ! PURPOSE
+  ! If this flag is set to .true., the struck nucleon in the deuteron will
+  ! be off vacuum mass shell to agree with total energy conservation. Relevant
+  ! for the deuteron target only.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initHiPion/flagFlux
+  ! SOURCE
+  !
+  logical, save :: flagFlux = .false.
+  ! PURPOSE
+  ! If this flag is set to .true., the Moeller flux factor will be included
+  ! in calculation of the cross section with nuclear target.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initHiPion/flagLC
+  ! SOURCE
+  !
+  logical, save :: flagLC = .false.
+  ! PURPOSE
+  ! If this flag is set to .true., the deuteron wave function will be treated
+  ! according to the light cone formalism.
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initHiPion/CoulombCorrection
+  ! SOURCE
+  logical, save :: CoulombCorrection = .false.
+  ! PURPOSE
+  ! if .true. then a Coulomb propagation from CoulombDistance to distance is
+  ! performed
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initHiPion/CoulombDistance
+  ! SOURCE
+  real, save :: CoulombDistance = 200. ! [fm]
+  ! PURPOSE
+  ! distance from where the Coulomb propagation starts
+  !****************************************************************************
+
+  !****************************************************************************
+  !****g* initHiPion/DoPlotSrts
+  ! SOURCE
+  !
+  logical, save :: DoPlotSrts = .false.
+  !
+  ! PURPOSE
+  ! flag to switch whether a histogram of the sqrt(s) of the first collision
+  ! is written or not
+  !****************************************************************************
 
   logical, save :: initFlag=.true.
   real, save, allocatable :: bArr(:) ! array to store impact
@@ -285,9 +353,9 @@ contains
     use hadronFormation, only: forceInitFormation
     use inputGeneral, only: fullEnsemble, localEnsemble, numEnsembles
     use energyCalc, only: energyDetermination
-    use output, only: DoPr, timeMeasurement
+    use output, only: DoPr, timeMeasurement, Write_InitStatus
     use CollHistory, only: CollHist_ClearArray
-    use baryonPotentialModule, only: getNoPertPot_baryon
+    use baryonPotentialMain, only: getNoPertPot_baryon
     use collisionTerm, only: readInputCollTerm => readInput
     use residue, only: InitResidue
     use callStack, only: traceback
@@ -301,16 +369,29 @@ contains
     integer :: nNucleon
     logical :: lDummy
 
-   if (DoPR(1)) then
-     write(*,*)
-     write(*,*) '**Initializing pions for HiPion induced events...'
-     call timeMeasurement(.true.) ! Reset stopWatch
-   end if
+    call Write_InitStatus("pions for HiPion induced events",0)
+    if (DoPR(1)) call timeMeasurement(.true.) ! Reset stopWatch
+
+    nNucleon = Size(realPart,dim=2)
 
     if (initFlag) then
       call initInput
       call forceInitFormation
       call readInputCollTerm ! initialize enrgyCheck
+
+      if (DoPerturbativeInit) then
+
+         if (DoOnlyOne) then
+            write(*,*) 'allocating bArr(',numEnsembles,'*',nTestparticles,')'
+            allocate(bArr(numEnsembles*nTestparticles))
+         else
+            write(*,*) 'allocating bArr(',numEnsembles,'*',nTestparticles,&
+                 '*',nNucleon,')'
+            allocate(bArr(numEnsembles*nTestparticles*nNucleon))
+         end if
+         bArr = 0.0
+      end if
+
       initFlag=.false.
     end if
 
@@ -319,7 +400,6 @@ contains
     call CollHist_ClearArray()
 
     totalPerweight=0.
-    nNucleon = Size(realPart,dim=2)
 
     do j=1,numEnsembles ! Loop over all Ensembles
        index=1
@@ -335,13 +415,22 @@ contains
           end do
 
           call setKinematics(pertPart(j,index))
-          call setPosition
+          call setPosition(pertPart(j,index))
           call setNumber(pertPart(j,index)) ! Give particle its unique number
+
+          if (CoulombCorrection) call doCoulombCorrect(pertPart(j,index))
+
 
        end do
     end do
 
+    write(*,*) 'Total perweight =',totalPerweight
+
     if (.not.getNoPertPot_baryon()) then
+
+       ! TODO: is this equivalent with
+       ! call updateEnergies(realPart)  ??????
+
        if (DoPr(2)) write(*,*) 'Updating energies of Particles'
        do iPart=1,size(realPart,dim=2)
           do iEns=1,numEnsembles
@@ -352,25 +441,13 @@ contains
        end do
     end if
 
-    if (DoPR(1)) then
-      write(*,*)
-      write(*,*) '**Initializing pions for HiPion induced events. finished!'
-      write(*,*)
-      call timeMeasurement()
-    end if
+    if (DoPR(1)) call timeMeasurement()
+    call Write_InitStatus("pions for HiPion induced events",1)
 
     call InitResidue(numEnsembles,nTestparticles,targetNuc%mass,targetNuc%charge)
 
     if (DoPerturbativeInit) then
 
-       if (DoOnlyOne) then
-          write(*,*) 'allocating bArr(',numEnsembles,'*',nTestparticles,')'
-          allocate(bArr(numEnsembles*nTestparticles))
-       else
-          write(*,*) 'allocating bArr(',numEnsembles,'*',nTestparticles,&
-               '*',nNucleon,')'
-          allocate(bArr(numEnsembles*nTestparticles*nNucleon))
-       end if
        bArr = 0.0
 
        if (FullEnsemble) then
@@ -379,7 +456,7 @@ contains
           call initHiPionInducedCollideFull(pertPart,realPart)
           localEnsemble = lDummy
        else
-          call initHiPionInducedCollide(pertPart,realPart)
+          call initHiPionInducedCollide(pertPart,realPart,targetNuc%mass,targetNuc%charge)
        end if
     end if
 
@@ -409,6 +486,7 @@ contains
       ! * ProjectileCharge
       ! * ProjectileID
       ! * ProjectileAnti
+      ! * ProjectileMass
       ! * nTestparticles
       ! * ekin_lab
       ! * p_lab
@@ -417,14 +495,23 @@ contains
       ! * minimumMomentum
       ! * useHermesPythiaPars
       ! * NucCharge
+      ! * flagOffShell
+      ! * flagFlux
+      ! * flagLC
+      ! * CoulombCorrection
+      ! * CoulombDistance
+      ! * DoPlotSrts
       !************************************************************************
       NAMELIST /HiPionNucleus/ distance, impact_parameter, nTestparticles, &
-           ProjectileCharge, ProjectileID, ProjectileAnti, &
+           ProjectileCharge, ProjectileID, ProjectileAnti, ProjectileMass, &
            ekin_lab, p_lab, &
            DoPerturbativeInit, DoOnlyOne, &
-           minimumMomentum, useHermesPythiaPars, NucCharge
+           CoulombCorrection, CoulombDistance, &
+           minimumMomentum, useHermesPythiaPars, NucCharge, flagOffShell, &
+           flagFlux, flagLC, DoPlotSrts
 
       real :: rdum
+      real, dimension(2) :: sigNucleon
 
       call Write_ReadingInput('HiPionNucleus',0)
       rewind(5)
@@ -436,19 +523,41 @@ contains
          call traceback("You either have to give ekin_lab or p_lab, not both")
       end if
 
-      write(*,*) '  Impact Parameter =',impact_parameter
-      write(*,*) '  Distance         =',distance
-      write(*,*) '  Kinetic Energy of projectile in lab frame =',ekin_lab
-      write(*,*) '  Momentum of projectile in lab frame       =',p_lab
-      write(*,*) '  Number of testparticles per ensemble: ',nTestparticles
-      write(*,*) '  Projectile:    ID      = ',ProjectileID
-      write(*,*) '                 charge  = ',ProjectileCharge
-      write(*,*) '                 anti    = ',ProjectileAnti
-      write(*,*) '  Do perturbative init            :',DoPerturbativeInit
-      write(*,*) '  Do perturbative init - only One :',DoOnlyOne
-      write(*,*) '  Minimum Momentum of init parts  :',minimumMomentum
-      write(*,*) '  useHermesPythiaPars             :',useHermesPythiaPars
-      write(*,*) '  NucCharge                       :',NucCharge
+      write(*,*) 'Impact Parameter =',impact_parameter
+      write(*,*) 'Distance         =',distance
+      write(*,*) 'Kinetic Energy of projectile in lab frame =',ekin_lab
+      write(*,*) 'Momentum of projectile in lab frame       =',p_lab
+      write(*,*) 'Number of testparticles per ensemble: ',nTestparticles
+      write(*,*) 'Projectile:    ID      = ',ProjectileID
+      write(*,*) '               charge  = ',ProjectileCharge
+      write(*,*) '               anti    = ',ProjectileAnti
+      write(*,*) '               mass    = ',ProjectileMass
+      write(*,*) 'Do perturbative init            :',DoPerturbativeInit
+      if (DoPerturbativeInit) then
+         write(*,*) 'Do perturbative init - only One :',DoOnlyOne
+      end if
+      write(*,*) 'Coulomb correction              :',CoulombCorrection
+      if (CoulombCorrection) then
+         write(*,*) 'Coulomb correction distance     :',CoulombDistance
+      end if
+      write(*,*) 'Minimum Momentum of init parts  :',minimumMomentum
+      write(*,*) 'useHermesPythiaPars             :',useHermesPythiaPars
+      write(*,*) 'NucCharge                       :',NucCharge
+      write(*,*) 'flagOffShell                    :',flagOffShell
+      write(*,*) 'flagFlux                        :',flagFlux
+      write(*,*) 'flagLC                          :',flagLC
+
+      if(flagLC .and. (flagOffShell .or. flagFlux)) then
+         write(*,*)' WARNING:'
+         write(*,*)' In the case of LC treatment of the deuteron wave function'
+         write(*,*)' the flux factor and the off-shellness of the struck nucleon'
+         write(*,*)' are already included.'
+         write(*,*)'--> Resetting:'
+         flagFlux=.false.
+         flagOffShell=.false.
+         write(*,*) 'flagFlux                        :',flagFlux
+         write(*,*) 'flagLC                          :',flagLC
+      end if
 
       call SetSwitchPythiaHermes(useHermesPythiaPars)
 
@@ -457,7 +566,7 @@ contains
       if (Distance.lt.0) then
          write(*,*) '... Distance<0 --> Distance=targetNuc%MaxDist-Distance'
          Distance=targetNuc%MaxDist-Distance
-         write(*,*) '  Distance        =',distance
+         write(*,*) 'Distance        =',distance
       end if
 
 
@@ -466,39 +575,46 @@ contains
       if (.not.doPerturbativeInit) then
          rdum = sqrt(distance**2+(max(0.0,impact_parameter))**2)
 
-         if (rdum.lt.max(targetNuc%radius+targetNuc%surface,targetNuc%MaxDist)) then
+         if (rdum.lt.max(targetNuc%radius(0)+targetNuc%surface(0),targetNuc%MaxDist)) then
             write(*,*)
             write(*,*) 'WARNING: Pions are initialized inside the nucleus! (1)'
-            distance = max(targetNuc%radius+targetNuc%surface,targetNuc%MaxDist)
+            distance = max(targetNuc%radius(0)+targetNuc%surface(0),targetNuc%MaxDist)
             write(*,*) 'distance reset to: ',distance
          end if
       end if
 
       !***Write Kinematics
 
-      write(*,*)
-      write(*,*) '--- Beam, Target: ---'
-
       call setKinematics(ConfigParticles(1))
 
       ConfigParticles(2)%ID = nucleon
       ConfigParticles(2)%charge = 1
       ConfigParticles(2)%mass = mN
-      ConfigParticles(2)%momentum(0) = ConfigParticles(2)%mass
+      ConfigParticles(2)%mom(0) = ConfigParticles(2)%mass
 
+      call calcNucleonXS(sigNucleon) ! we do it here to do all init before output
+
+      write(*,*)
+      write(*,*) '--- Beam, Target: ---'
       call WriteParticle(6)
       call WriteParticle(6,0,1,ConfigParticles(1))
       call WriteParticle(6,0,2,ConfigParticles(2))
-
       write(*,*)
-      write(*,*) '  Sqrt(S) = ',sqrtS(ConfigParticles)
+      write(*,*) 'sqrt(s) = ',sqrtS(ConfigParticles)
+      write(*,*)
+      write(*,*) "cross section projectile+proton : ",sigNucleon(1)," mb"
+      write(*,*) "cross section projectile+neutron: ",sigNucleon(2)," mb"
+      write(*,*)
+      write(*,*) "classical estimate     sigma_hA = ", &
+           targetNuc%classicalEstimate(sigNucleon)," mb"
+      write(*,*)
 
 !... generate a table ...
 !      ekin_lab = 0.0
 !      do
 !         ekin_lab = ekin_lab + 0.1
 !         call setKinematics
-!         write(*,'(3f12.3)') ekin_lab,pertPart(1,1)%momentum(3),sqrtS(pertPart(1,1),X)
+!         write(*,'(3f12.3)') ekin_lab,pertPart(1,1)%mom(3),sqrtS(pertPart(1,1),X)
 !         if (ekin_lab.gt.3.0) stop
 !      end do
 
@@ -508,7 +624,7 @@ contains
       call SetBetaFak
 
       call Dilep_Init(ekin_lab,nTestparticles,beta=betaCM2Lab)
-      call Dilep_UpdateProjectile(ekin_lab,ConfigParticles(1)%momentum)
+      call Dilep_UpdateProjectile(ekin_lab,ConfigParticles(1)%mom)
 
     end subroutine initInput
 
@@ -516,7 +632,7 @@ contains
     !**************************************************************************
     !****s* initHiPionInduced/setKinematics
     ! NAME
-    ! subroutine setKinematics
+    ! subroutine setKinematics(part)
     ! PURPOSE
     ! Sets basic kinematics of the pions.
     !**************************************************************************
@@ -529,26 +645,30 @@ contains
 
       part%ID = ProjectileID
       part%charge = ProjectileCharge
-      part%antiparticle = ProjectileAnti
-      part%mass = hadron(ProjectileID)%mass
+      part%anti = ProjectileAnti
+      if (ProjectileMass < 0) then
+         part%mass = hadron(ProjectileID)%mass
+      else
+         part%mass = ProjectileMass
+      end if
 
       if (.not.validCharge(part)) then
          call traceback("charge of projectile not valid!")
       end if
 
-      part%perturbative=.true.
-      part%productionTime=0.
+      part%pert=.true.
+      part%prodTime=0.
 
       if (ekin_lab > 0.0) then
-         part%momentum(0)=ekin_lab+part%mass
-         part%momentum(1:3)=(/0.,0.,sqrt(part%momentum(0)**2-part%mass**2)/)
-         p_lab = part%momentum(3)
+         part%mom(0)=ekin_lab+part%mass
+         part%mom(1:3)=(/0.,0.,sqrt(part%mom(0)**2-part%mass**2)/)
+         p_lab = part%mom(3)
       else
-         part%momentum(0)=sqrt(p_lab**2+part%mass**2)
-         part%momentum(1:3)=(/0.,0.,p_lab/)
-         ekin_lab=part%momentum(0)-part%mass
+         part%mom(0)=sqrt(p_lab**2+part%mass**2)
+         part%mom(1:3)=(/0.,0.,p_lab/)
+         ekin_lab=part%mom(0)-part%mass
       end if
-      part%velocity(1:3)=part%momentum(1:3)/part%momentum(0)
+      part%vel(1:3)=part%mom(1:3)/part%mom(0)
       part%event(1:2)=pert_Numbering()
 
     end subroutine setKinematics
@@ -556,7 +676,7 @@ contains
     !**************************************************************************
     !****s* initHiPionInduced/setPosition
     ! NAME
-    ! subroutine setPosition
+    ! subroutine setPosition(part)
     !
     ! PURPOSE
     ! Sets positions of the pions.
@@ -575,79 +695,109 @@ contains
     ! be initialized with high impact-parameter where only few reactions take
     ! place.
     !**************************************************************************
-    subroutine setPosition
+    subroutine setPosition(part)
 
       use random, only: rn
       use inputGeneral, only: fullEnsemble, numEnsembles
       use constants, only: pi
 
-      real :: bmax_OuterRing              ! maximal Radius of outer ring
-      real :: bmax_InnerDisk              ! Radius of inner ring
+      type(particle) :: part
+
+      real, save :: bmax_OuterRing        ! maximal Radius of outer ring
+      real, save :: bmax_InnerDisk        ! Radius of inner ring
       real, parameter :: pInnerDisk=0.7   ! probability for initialization on inner ring
-!      real :: minimalDistance=2.52        ! sqrt(maximal crossection of pion and nucleus/pi)
-      real :: minimalDistance=1.25        ! sqrt(maximal crossection of pion and nucleus/pi)
-      real :: phi
-      real, parameter :: ratioRadius=1.8  ! bmax_Outerring=ratioRadius*nuclearRadius+...
+      real, save :: minimalDistance=2.52  ! sqrt(maximal crossection of pion and nucleus/pi), =200 mb
+      real, parameter :: ratioRadius=1.8  ! bmax_OuterRing=ratioRadius*nuclearRadius+...
+
       integer :: nTestparticlesTot
-      real :: randomNumber, impact
+      real :: randomNumber, impact, phi
       logical, save :: flag = .true.
-      real :: radius, PerWeight1, PerWeight2
+      real, save :: radius, PerWeight1, PerWeight2
 
       nTestparticlesTot=nTestparticles*numEnsembles
 
       if (impact_parameter.ge.0.) then
-         pertPart(j,index)%position=(/impact_Parameter,0.,-distance/)
-         pertPart(j,index)%perweight=1./float(nTestparticlesTot)
-      else     ! Monte Carlo decision to have impact parameter integration in the end
-               ! maximum impact parameter of outer ring:
-!         if(fullEnsemble) then
-         if (fullEnsemble.and. (.not.localEnsemble)) then
-            minimalDistance=minimalDistance/sqrt(float(numEnsembles))
-         end if
 
-         radius = max(targetNuc%radius, 1.0)
+         part%pos=(/impact_Parameter,0.,-distance/)
+         part%perweight=1./float(nTestparticlesTot)
 
-         bmax_OuterRing=ratioRadius*radius + minimaldistance
-         bmax_InnerDisk=            radius + minimaldistance
-
-         PerWeight1 = pi*bmax_InnerDisk**2/pInnerDisk &
-                 &/float(nTestparticlesTot)*10  ! in mB (factor 10 due to fm**2 to mb conversion)
-         PerWeight2 = pi*(bmax_OuterRing**2-bmax_InnerDisk**2)/(1.-pInnerDisk) &
-                 &/float(nTestparticlesTot)*10  ! in mB (factor 10 due to fm**2 to mb conversion)
+      else
+         ! Monte Carlo decision to have impact parameter integration in the end
+         ! maximum impact parameter of outer ring:
 
          if (flag) then
-            write(*,*) '  Radius of outer ring  :',bmax_OuterRing
-!            write(*,*) '            -----> sigma_max=',(bmax_OuterRing**2*31.4),'mb'
-            write(*,*) '  Radius of inner circle:',bmax_InnerDisk
-            write(*,*) '  perweight for pion in inner circle :', PerWeight1
-            write(*,*) '  perweight for pion in outer ring   :', PerWeight2
+
+            if (fullEnsemble.and. (.not.localEnsemble)) then
+               minimalDistance=minimalDistance/sqrt(float(numEnsembles))
+            end if
+
+            radius = max(targetNuc%radius(0), 1.0)
+
+            bmax_OuterRing=ratioRadius*radius + minimaldistance
+            bmax_InnerDisk=            radius + minimaldistance
+
+            PerWeight1 = pi*bmax_InnerDisk**2/pInnerDisk &
+                 &/float(nTestparticlesTot)*10  ! in mB (factor 10 due to fm**2 to mb conversion)
+            PerWeight2 = pi*(bmax_OuterRing**2-bmax_InnerDisk**2)/(1.-pInnerDisk) &
+                 &/float(nTestparticlesTot)*10  ! in mB (factor 10 due to fm**2 to mb conversion)
+
+            write(*,*) 'Radius of outer ring  :',bmax_OuterRing
+            write(*,*) '       -----> sigma_max=',(bmax_OuterRing**2*31.4),'mb'
+            write(*,*) 'Radius of inner circle:',bmax_InnerDisk
+            write(*,*) 'perweight for particle in inner circle :', PerWeight1
+            write(*,*) 'perweight for particle in outer ring   :', PerWeight2
             flag=.false.
          end if
 
          randomNumber=rn()
          phi=rn()*2*pi
          impact=rn()
-         if (randomNumber.le.pInnerDisk) then ! impact parameter within nuclear radius
+         if (randomNumber.le.pInnerDisk) then
+            ! impact parameter within nuclear radius
 
             radius = sqrt(impact)*bmax_InnerDisk
-            pertPart(j,index)%position(1)=radius*cos(phi)
-            pertPart(j,index)%position(2)=radius*sin(phi)
-            pertPart(j,index)%position(3)=-distance
-            pertPart(j,index)%perweight=PerWeight1
+            part%pos(1)=radius*cos(phi)
+            part%pos(2)=radius*sin(phi)
+            part%pos(3)=-distance
+            part%perweight=PerWeight1
 
-         else                                ! impact parameter not within nuclear radius
+         else
+            ! impact parameter not within nuclear radius
 
             radius = sqrt(impact*(bmax_OuterRing**2-bmax_InnerDisk**2)+bmax_InnerDisk**2)
-            pertPart(j,index)%position(1)=radius*cos(phi)
-            pertPart(j,index)%position(2)=radius*sin(phi)
-            pertPart(j,index)%position(3)=-distance
-            pertPart(j,index)%perweight=PerWeight2
+            part%pos(1)=radius*cos(phi)
+            part%pos(2)=radius*sin(phi)
+            part%pos(3)=-distance
+            part%perweight=PerWeight2
          end if
       end if
 
-      totalPerweight=totalPerweight+pertPart(j,index)%perweight
+      totalPerweight=totalPerweight+part%perweight
 
     end subroutine setPosition
+
+    !**************************************************************************
+    !****s* initHiPionInduced/doCoulombCorrect
+    ! NAME
+    ! subroutine doCoulombCorrect(part)
+    ! PURPOSE
+    ! Corrects the trajectory according to Coulomb forces.
+    !**************************************************************************
+    subroutine doCoulombCorrect(part)
+
+      use CoulombKorrektur, only: Coulpropa
+
+      type(particle) :: part
+
+      part%pos(3) = -CoulombDistance
+
+      call Coulpropa(part%pos(1:3), part%mom(1:3), part%charge, part%mass, &
+           targetNuc%charge, distance)
+
+      !Assume vacuum dispersion relation:
+      part%vel(1:3) = part%mom(1:3)/FreeEnergy(part)
+
+    end subroutine doCoulombCorrect
 
 
     !**************************************************************************
@@ -662,8 +812,10 @@ contains
 
       use constants, only: mN
       use ParticleProperties, only: hadron
+!!$      use lorentzTrafo, only: lorentz
 
       real :: E1,E2,m1,beta
+!!$      real, dimension(0:3) :: mom
 
       m1 = hadron(ProjectileID)%mass
 
@@ -674,7 +826,52 @@ contains
       betaCM2Lab = beta * (/0.,0.,1./)
       betafak = log((1+beta)/(1-beta))
 
+
+!!$      ! for tests only:
+!!$      write(*,*) 'setbetafak:'
+!!$      mom = ConfigParticles(1)%mom
+!!$      write(*,*) mom
+!!$      call lorentz(-betaCM2Lab,mom)
+!!$      write(*,*) mom
+!!$      mom = ConfigParticles(2)%mom
+!!$      write(*,*) mom
+!!$      call lorentz(-betaCM2Lab,mom)
+!!$      write(*,*) mom
+
     end subroutine setBetaFak
+
+
+    !**************************************************************************
+    subroutine calcNucleonXS(sig)
+
+      use master_2Body, only: XsectionMaster
+      use preEventDefinition
+      use mediumDefinition, only: vacuum
+
+      real, dimension(2), intent(out) :: sig
+
+      integer, parameter :: maxout = 100
+      type(particle),dimension(1:2)      :: partIn   ! incoming particles
+      type(preEvent), dimension(maxout)  :: partOut
+      logical :: flagOK, HiEnergyFlag
+      integer :: HiEnergyType
+      real :: srts
+      real, dimension(0:3) :: momLRF = 0.
+      real, dimension(0:7) :: sigs
+
+      partIn = ConfigParticles
+      srts = sqrtS(partIn)
+      momLRF = partIn(1)%mom+partIn(2)%mom
+
+      partIn(2)%charge = 1
+      call XsectionMaster(srts,partIn,vacuum,momLRF,partOut,sigs,HiEnergyFlag)
+      sig(1) = sigs(0)
+
+      partIn(2)%charge = 0
+      call XsectionMaster(srts,partIn,vacuum,momLRF,partOut,sigs,HiEnergyFlag)
+      sig(2) = sigs(0)
+
+    end subroutine calcNucleonXS
 
 
   end subroutine initHiPionInduced
@@ -706,7 +903,7 @@ contains
   ! OUTPUT
   ! pertPart is modified
   !****************************************************************************
-  subroutine initHiPionInducedCollide(pertPart,realPart)
+  subroutine initHiPionInducedCollide(pertPart,realPart,A,Z)
 
     use inputGeneral, only: numEnsembles
     use master_2Body, only: collide_2body
@@ -722,10 +919,13 @@ contains
     use CollHistory, only: CollHist_UpdateHist
     use insertion, only: setIntoVector, GarbageCollection
     use residue, only: ResidueAddPH, ResidueSetWeight
+    use constants, only: mn
+    use IdTable, only: nucleon
     use callStack, only: traceback
 
     type(particle),dimension(:,:),intent(inout),TARGET :: pertPart
     type(particle),dimension(:,:),intent(inout)        :: realPart
+    integer, intent(in) :: A,Z
 
     integer :: iEnsemble,i,j,ii,HiEnergyType,number,nColl,nNucleon
     integer, parameter :: maxout = 100
@@ -733,7 +933,7 @@ contains
     type(particle),dimension(1:maxout) :: finalState ! final state of particles
     integer, dimension(2,maxout) :: posOut
     logical :: flagOK, HiEnergyFlag, setFlag,NumbersAlreadySet
-    real    :: time
+    real    :: time,k_3,kt2,k2,alpha,p1p2,p12,p22
     type(particle), POINTER :: pPart
     real,    dimension(size(realPart,dim=2)) :: zPos
     integer, dimension(size(realPart,dim=2)) :: zPosIndex
@@ -761,7 +961,7 @@ contains
     do iEnsemble=1,numEnsembles
 
        if (DoOnlyOne) then
-          zPos(:) = realPart(iEnsemble,:)%position(3)
+          zPos(:) = realPart(iEnsemble,:)%pos(3)
           call indexx(zPos,zPosIndex)
        end if
 
@@ -790,9 +990,52 @@ contains
 !!$             write(99,*) 'realPart:'
 !!$             call WriteParticle(99,iEnsemble,j,pair(1))
 
-             call binSrts(sqrtS(pair),pair(2)%perweight)
+             if (DoPlotSrts) call binSrts(sqrtS(pair),pair(2)%perweight)
 
-             pair(2)%position(3) = pair(1)%position(3) ! force a collision
+             pair(2)%pos(3) = pair(1)%pos(3) ! force a collision
+
+             ! TODO: Is it really okay in the following to modify
+             ! pair(2)%perweight??? What happens if collide_2body
+             ! yields flagOK=.false. and 'cycle rPartLoop' is called?
+             ! Then for the next nucleon, pair(2)%perweight is modified
+             ! again????
+
+             if(flagLC .and. A.eq.2 .and. Z.eq.1) then
+                ! Light cone treatment of the deuteron wave function:
+                k_3 = pair(1)%mom(3)
+                kt2 = pair(1)%mom(1)**2 + pair(1)%mom(2)**2
+                k2 = kt2 + k_3**2
+                alpha = 1. + k_3/sqrt(k2+mn**2)
+                pair(1)%mom(3) = ((mn*alpha)**2-mn**2-kt2)/(2.*mn*alpha)
+                pair(1)%mom(0)=max(0.,2.*mn-sqrt(mn**2+kt2+pair(1)%mom(3)**2))
+                pair(1)%vel=0.
+                p1p2 =   pair(1)%mom(0)*pair(2)%mom(0) &
+                     & -dot_product(pair(1)%mom(1:3),pair(2)%mom(1:3))
+                p12 = pair(1)%mom(0)**2 &
+                     & -dot_product(pair(1)%mom(1:3),pair(1)%mom(1:3))
+                p22 = pair(2)%mom(0)**2 &
+                     & -dot_product(pair(2)%mom(1:3),pair(2)%mom(1:3))
+                pair(2)%perweight = pair(2)%perweight &
+                     & *sqrt(p1p2**2-p12*p22)/mn/pair(2)%mom(3)/(2.-alpha)
+             end if
+
+             if(flagOffShell .and. A.eq.2 .and. Z.eq.1) then
+                ! Struck nucleon in the deuteron is off-shell:
+                pair(1)%mom(0)=max(0.,2.*mn-pair(1)%mom(0))
+                pair(1)%vel=0.
+             end if
+
+             if(flagFlux) then
+                ! Include flux factor:
+                p1p2 =   pair(1)%mom(0)*pair(2)%mom(0) &
+                     & -dot_product(pair(1)%mom(1:3),pair(2)%mom(1:3))
+                p12 = pair(1)%mom(0)**2 &
+                     & -dot_product(pair(1)%mom(1:3),pair(1)%mom(1:3))
+                p22 = pair(2)%mom(0)**2 &
+                     & -dot_product(pair(2)%mom(1:3),pair(2)%mom(1:3))
+                pair(2)%perweight = pair(2)%perweight &
+                      & *sqrt(p1p2**2-p12*p22)/pair(1)%mom(0)/pair(2)%mom(3)
+             end if
 
              call collide_2body(pair, finalState, time, flagOK, HiEnergyFlag, HiEnergyType)
              if (.not.flagOK) cycle rPartLoop
@@ -811,6 +1054,24 @@ contains
 
              nColl = nColl + 1
 
+             if(A.eq.2 .and. Z.eq.1) then
+                ! Add a spectator nucleon to the list of finalState particles:
+                ii=0
+                do
+                   ii=ii+1
+                   if (finalState(ii)%Id.eq.0) exit
+                   if (ii.eq.maxout) then
+                      call traceback('finalState: No free space for spectator')
+                   end if
+                end do
+                finalState(ii)%Id = nucleon
+                finalState(ii)%charge = 1 - pair(1)%charge
+                finalState(ii)%anti = .false.
+                finalState(ii)%mass = mn
+                finalState(ii)%mom(1:3) = -pair(1)%mom(1:3)
+                finalState(ii)%mom(0) = sqrt(mn**2+sum(finalState(ii)%mom(1:3)**2))
+             end if
+
 !             write(*,*) 'HiEnergyType=',HiEnergyType
 !             write(99,*) 'HiEnergyType=',HiEnergyType
 
@@ -820,10 +1081,10 @@ contains
              finalState%event(1)=number
              finalState%event(2)=number
 
-             finalState%lastCollisionTime=time ! = 0 !!! Attention!!!
+             finalState%lastCollTime=time ! = 0 !!! Attention!!!
              finalState%perweight = pair(2)%perweight
              finalState%firstEvent=pert_firstnumbering(pair(1),pair(2))
-             finalState%perturbative=.true.
+             finalState%pert=.true.
 
              posOut = 0
              call setIntoVector(finalState,pertPart(iEnsemble:iEnsemble,:),setFlag,NumbersAlreadySet,positions=posOut(:,:))
@@ -836,7 +1097,7 @@ contains
              call ResidueAddPH(finalState(1)%firstEvent,pair(1))
              call ResidueSetWeight(finalState(1)%firstEvent,finalstate(1)%perweight)
 
-             call storeImpact(finalState(1)%firstEvent,sqrt(pair(2)%position(1)**2+pair(2)%position(2)**2))
+             call storeImpact(finalState(1)%firstEvent,sqrt(pair(2)%pos(1)**2+pair(2)%pos(2)**2))
 
              !...Delete particles with small momenta
              do ii=1,maxout
@@ -871,17 +1132,17 @@ contains
              pertPart(iEnsemble,i)%ID = 0
           else
              ! Move Pion far out of the interaction zone:
-             pertPart(iEnsemble,i)%position(3) = 200.0
+!             pertPart(iEnsemble,i)%pos(3) = 200.0
 
              ! Erase Pion from pertPart-Vector:
-!             pertPart(iEnsemble,i)%ID = 0
-!             totalPerweight=totalPerweight-pertPart(iEnsemble,i)%perweight
+             pertPart(iEnsemble,i)%ID = 0
+             totalPerweight=totalPerweight-pertPart(iEnsemble,i)%perweight
 !             write(*,*) 'Erasing non interacted pion!'
           end if
 
 
           SumEW(nColl,1) = SumEW(nColl,1) + 1
-          SumEW(nColl,2) = SumEW(nColl,2) + pair(2)%perWeight
+          SumEW(nColl,2) = SumEW(nColl,2) + pertPart(iEnsemble,i)%perweight
 
 
        end do pPartLoop
@@ -889,7 +1150,7 @@ contains
 !       write(*,*) 'perturbative HiPion: iEnsemble = ',iEnsemble,' finished.'
     end do
 
-    call binSrts()
+    if (DoPlotSrts) call binSrts()
 
     SumEW = SumEW / numEnsembles ! normalize to "per Ensemble"
     sSumEW = SUM(SumEW,dim=1)
@@ -977,6 +1238,7 @@ contains
     use CollHistory, only: CollHist_UpdateHist
     use insertion, only: setIntoVector, GarbageCollection
     use residue, only: ResidueAddPH, ResidueSetWeight
+    use energyCalc, only: energyDetermination
 
     type(particle),dimension(:,:),intent(inout),TARGET :: pertPart
     type(particle),dimension(:,:),intent(inout)        :: realPart
@@ -996,6 +1258,7 @@ contains
     real, dimension(0:20,2) :: SumEW
     real, dimension(2)      :: sSumEW
     real                    :: ssSumEW
+    real :: srts
 
     write(*,*)
     write(*,*) '**HiPionInduced: Doing FULL Collisions, replacing pert particles!!!'
@@ -1015,7 +1278,7 @@ contains
     time = 0.
 
     if (DoOnlyOne) then
-       zPos(:) = RESHAPE(realPart(:,:)%position(3), (/size(realPart)/) )
+       zPos(:) = RESHAPE(realPart(:,:)%pos(3), (/size(realPart)/) )
        call indexx(zPos,zPosIndex)
     else
        zPosIndex = (/ (j, j=1,size(zPosIndex)) /)
@@ -1046,12 +1309,21 @@ contains
 !!$             write(99,*) 'realPart:'
 !!$             call WriteParticle(99,iEnsemble,j,pair(1))
 
-             call binSrts(sqrtS(pair),pair(2)%perweight)
 
-             pair(2)%position(3) = pair(1)%position(3) ! force a collision
+             srts = sqrtS(pair) ! just for output
+
+             pair(2)%pos(3) = pair(1)%pos(3) ! force a collision
+             call energyDetermination(pair(2))
+
+             if (DoPlotSrts) call binSrts(sqrtS(pair),pair(2)%perweight)
 
              call collide_2body(pair, finalState, time, flagOK, HiEnergyFlag, HiEnergyType)
              if (.not.flagOK) cycle rPartLoop
+
+
+!!$             write(21,*) srts, sqrtS(pair)
+!!$             write(*,*) 'sqrt(s) = ',srts, sqrtS(pair)
+
 
              flagOk = finalCheck(pair, finalState, HiEnergyFlag, 'initHiPion')
              if (.not. flagOk) cycle rPartLoop
@@ -1076,10 +1348,10 @@ contains
              finalState%event(1)=number
              finalState%event(2)=number
 
-             finalState%lastCollisionTime=time ! = 0 !!! Attention!!!
+             finalState%lastCollTime=time ! = 0 !!! Attention!!!
              finalState%perweight = pair(2)%perweight
              finalState%firstEvent=pert_firstnumbering(pair(1),pair(2))
-             finalState%perturbative=.true.
+             finalState%pert=.true.
 
              posOut = 0
              call setIntoVector(finalState,pertPart,setFlag,NumbersAlreadySet,positions=posOut(:,:))
@@ -1091,7 +1363,7 @@ contains
              call ResidueAddPH(finalState(1)%firstEvent,pair(1))
              call ResidueSetWeight(finalState(1)%firstEvent,finalstate(1)%perweight)
 
-             call storeImpact(finalState(1)%firstEvent,sqrt(pair(2)%position(1)**2+pair(2)%position(2)**2))
+             call storeImpact(finalState(1)%firstEvent,sqrt(pair(2)%pos(1)**2+pair(2)%pos(2)**2))
 
              !...Delete particles with small momenta
              do ii=1,maxout
@@ -1123,7 +1395,7 @@ contains
              pertPart(iEnsemble,i)%ID = 0
           else
              ! Move Pion far out of the interaction zone:
-             pertPart(iEnsemble,i)%position(3) = 200.0
+             pertPart(iEnsemble,i)%pos(3) = 200.0
 
              ! Erase Pion from pertPart-Vector:
 !             pertPart(iEnsemble,i)%ID = 0
@@ -1141,7 +1413,7 @@ contains
 !       write(*,*) 'perturbative HiPion: iEnsemble = ',iEnsemble,' finished.'
     end do
 
-    call binSrts()
+    if (DoPlotSrts) call binSrts()
 
     SumEW = SumEW / numEnsembles ! normalize to "per Ensemble"
     sSumEW = SUM(SumEW,dim=1)
@@ -1187,7 +1459,7 @@ contains
   !****************************************************************************
   !****s* initHiPion/binSrts
   ! NAME
-  ! subroutine binSrts (srts, weight)
+  ! subroutine binSrts(srts, weight)
   !
   ! PURPOSE
   ! Create a histogram of the sqrt(s) of the first collision.
@@ -1198,8 +1470,8 @@ contains
   ! * real, optional: srts   -- the value to add
   ! * real, optional: weight -- weight of the value
   !****************************************************************************
-  subroutine binSrts (srts, weight)
-    use histf90
+  subroutine binSrts(srts, weight)
+    use hist
 
     real, intent(in), optional :: srts, weight
 
@@ -1224,7 +1496,7 @@ contains
   end subroutine binSrts
 
   !****************************************************************************
-  !****f* initPion/getImpact
+  !****f* initHiPion/getImpact
   ! NAME
   ! real function getImpact(firstevent)
   ! PURPOSE

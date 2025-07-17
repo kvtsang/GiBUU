@@ -69,8 +69,8 @@ module selfenergy_baryons
   ! * 2=cernlib routine
   !****************************************************************************
 
-  integer, parameter :: quad=1
-  integer, parameter :: cernlib=2
+  integer, parameter :: iQuad=1
+  integer, parameter :: iCernlib=2
 
   !****************************************************************************
   !****g* selfenergy_baryons/makeTable
@@ -182,9 +182,9 @@ contains
     else
        write(*,*) 'Relative accuracy            ', rel_accuracy
        write(*,*) 'Which cauchy integral solver?', intSolver
-       if (intSolver.eq.quad) then
+       if (intSolver.eq.iQuad) then
           write(*,*) '  --> QUADPACK'
-       else if (intSolver.eq.cernlib) then
+       else if (intSolver.eq.iCernlib) then
           write(*,*) '  --> CERNLIB'
        else
           write(*,*) 'wrong input!'
@@ -276,7 +276,7 @@ contains
       real function getWidth()
         ! Assumptions: Resting nuclear matter, isotropic matter
         use baryonWidthMedium
-        use potentialModule, only: massDetermination
+        use potentialMain, only: massDetermination
 
         real,dimension(0:3) :: momLRF        ! momentum of resonance in LRF
         real :: baremass
@@ -591,7 +591,7 @@ contains
     use idTable, only: nres,delta
     use particleProperties, only: hadron
     use particleDefinition
-    use potentialModule
+    use potentialMain
     use baryonWidthMedium_tables, only: get_DeltaOset
     use constants, only: pi
     use mediumDefinition
@@ -659,7 +659,7 @@ contains
     use idTable, only: nres
     use particleProperties, only: hadron
     use particleDefinition
-    use baryonPotentialModule, only: baryonPotential
+    use baryonPotentialMain, only: baryonPotential
     use mediumDefinition
 
     integer, intent(in)            :: particleID
@@ -685,11 +685,11 @@ contains
 
     ! Define a particle at the pole:
     part%ID=particleID
-    part%momentum(1:3)= (/absP,0.,0./)
-    part%momentum(0)=-9999999999. ! Dummy, just to make somebody wonder if he wants to use momentum(0) in baryonPotential
+    part%mom(1:3)= (/absP,0.,0./)
+    part%mom(0)=-9999999999. ! Dummy, just to make somebody wonder if he wants to use momentum(0) in baryonPotential
     part%mass=hadron(particleID)%mass
-    part%perturbative=.false.
-    if (present(pos)) part%position = pos
+    part%pert=.false.
+    if (present(pos)) part%pos = pos
 
     ! Get the potential at the pole position
     if (present(EQS)) then
@@ -725,7 +725,7 @@ contains
   real function principalValue(particleID,absP,E,E_pole,med) result(princi)
     use quadPack
     use particleProperties, only: hadron
-    use cern_lib, only: dcauch
+    use cernlib, only: dcauch
     use mediumDefinition
 
     integer, intent(in)              :: particleID
@@ -755,7 +755,7 @@ contains
           write(*,*) 'E<E_pole', E,E_pole
        end if
        select case (IntSolver)
-       case (quad)
+       case (iQuad)
           a=lowerCutoff
           b=E+(E_pole-E)/2.
           if (a.gt.b) then
@@ -776,7 +776,7 @@ contains
           call init_integrand(absP,med,E,E_pole,particleID,3)
           call qawc ( integrand, a, b, E_pole,abs_acc, rel_acc, result_up, abserr, neval, ier )
           if (debugFlag.or.ier.ne.0)  call errorMessage_qawc(neval,ier,absErr,result_up,'up')
-       case (cernlib)
+       case (iCernlib)
           !          write(*,*) 'cernlib'
           call init_integrand(absP,med,E,E_pole,particleID,1)
           a=lowerCutOff
@@ -802,7 +802,7 @@ contains
     else
        ! Treat the pole at "E_pole"
        select case (IntSolver)
-       case (quad)
+       case (iQuad)
           a=lowerCutOff
           b=E_pole+(E-E_pole)/2.
           if (a.gt.b) then
@@ -828,7 +828,7 @@ contains
           call qawc ( integrand, a, b, E, abs_acc, rel_acc, result_up, abserr, neval, ier )
           if (debugFlag.or.ier.ne.0)  call errorMessage_qawc(neval,ier,absErr,result_up,'up 2')
 
-       case (cernlib)
+       case (iCernlib)
           call init_integrand(absP,med,E,E_pole,particleID,1)
           a=lowerCutOff
           b=E_pole+(E-E_pole)/2.

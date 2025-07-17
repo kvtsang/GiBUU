@@ -120,12 +120,12 @@ contains
     call searchInInput(partIn,phi,nucleon,partPhi,partNucl, failFlag)
     if (failFlag)  call traceBack('wrong input')
 
-    if (partPhi%antiParticle)  call traceBack('meson is anti')
+    if (partPhi%anti)  call traceBack('meson is anti')
 
-    if (partNucl%antiParticle) then
+    if (partNucl%anti) then
        ! Invert all particles in antiparticles
        partNucl%Charge        =  -partNucl%Charge
-       partNucl%antiparticle  = .false.
+       partNucl%anti  = .false.
        partPhi%Charge          =  -partPhi%Charge
        antiParticleInput=.true.
     else
@@ -192,8 +192,8 @@ contains
     !**************************************************************************
     subroutine evaluateXsections
 
-      use parametrizationsBarMes, only: golub_phi
-      use parBarMes_HighEnergy, only: paramBarMesHE
+      use parametrizationBarMes, only: golub_phi
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE
       use idTable, only: nucleon, phi
       use output, only: writeparticle
       use constants, only: mN, mPi

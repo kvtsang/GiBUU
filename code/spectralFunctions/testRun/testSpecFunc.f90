@@ -1,7 +1,7 @@
 program test
 
 use inputGeneral, only: readinputGeneral
-use IDTABLE,only : delta,nucleon
+use IDTABLE,only : delta,nucleon,D33_1700
 use output, only: intToChar, realToChar4
 use particleProperties, only: initParticleProperties, hadron, isNonExotic
 use spectralFunc, only : specFunc
@@ -31,7 +31,7 @@ write(12,*) '# id; p= 0.2,0.4.,0.6,...'
 
 position=0.
 
-do id=nucleon,delta
+do id=D33_1700,D33_1700
    if(.not.isNonExotic(id)) exit
    open(22,File='norm'//intToChar(id)//'.dat')
    write(22,'(A,F9.3,A)') '# Normalization of spectral function. Upper integration boundary=',m_max,'GeV'

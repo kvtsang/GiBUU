@@ -176,12 +176,12 @@ module barBar_BarHypKaon
    !***************************************************************************
    !****f* barBar_BarHypKaon/barBar_barBarMeson_strange
    ! NAME
-   ! function barBar_barBarMeson_strange (srts, teilchenIN) result (sigma_BYK)
+   ! function barBar_barBarMeson_strange(srts, partIN) result (sigma_BYK)
    ! PURPOSE
    ! XSections for strangeness production from BB->BYK collisions.
    ! INPUTS
    ! * real :: srts -- sqrt(s) of the incoming channel
-   ! * type(particle),dimension(1:2) :: teilchenIN -- the incoming particles
+   ! * type(particle),dimension(1:2) :: partIN -- the incoming particles
    ! OUTPUT
    ! * real, dimension(1:18) :: sigma_BYK -- cross section for each channel (mb)
    ! NOTES
@@ -193,14 +193,16 @@ module barBar_BarHypKaon
    !   incoming channel. See its definition in generateFinalState in
    !   master_2Body.f90-module variable "srtS_XS".
    !***************************************************************************
-   function barBar_barBarMeson_strange (srts, partIn) result (sigma_BYK)
+   function barBar_barBarMeson_strange(srts, partIn) result (sigma_BYK)
      use particleDefinition
      use IdTable, only: Kaon, P11_1440
-     ! Input-Output variables
+     use particleProperties, only: hadron
+
      real,                           intent(in) :: srts
      type(particle), dimension(1:2), intent(in) :: partIn
      real,           dimension(1:18)            :: sigma_BYK
-     ! Local variables
+
+
      real,    dimension(1:10) :: fac,fac0
      integer, dimension(1:10) :: iexit,isohf,isobf,iexit0,isohf0,isobf0
      integer :: iso1,iso2,nexit,nexit0,i,j
@@ -215,6 +217,9 @@ module barBar_BarHypKaon
      ChargesOut(:,:) = 9999  ! charges of 3-body final state
      if (first) call readInput
      if (.not. enable) return
+
+     if (.not.hadron(Kaon)%propagated) return
+
      !--------------------------------------------------------------------------
      ! (2) Only for Nucleons, Deltas, P11_1440's as incoming particles.
      !--------------------------------------------------------------------------
@@ -223,14 +228,14 @@ module barBar_BarHypKaon
      ! (3) Define charge states of incoming particles.
      !     Convert variables related to charge states from GiBUU to RBUU scheme.
      !--------------------------------------------------------------------------
-     iso1 = get_Charge (1, partIn(1)%ID, partIn(1)%charge)
-     iso2 = get_Charge (1, partIn(2)%ID, partIn(2)%charge)
+     iso1 = get_Charge(1, partIn(1)%ID, partIn(1)%charge)
+     iso2 = get_Charge(1, partIn(2)%ID, partIn(2)%charge)
      !--------------------------------------------------------------------------
      ! (4) get number of final states & their properties
      !--------------------------------------------------------------------------
-     call get_ChannelParameters (iso1, iso2, &
-                                 nexit, iexit, fac, isohf, isobf, &
-                                 nexit0, iexit0, fac0, isohf0, isobf0)
+     call get_ChannelParameters(iso1, iso2, &
+          nexit, iexit, fac, isohf, isobf, &
+          nexit0, iexit0, fac0, isohf0, isobf0)
      !--------------------------------------------------------------------------
      ! (5) Calculate the cross section (in mb) for each final state.
      !     There are 30 primary channels: 1-28 are the original ones of
@@ -255,6 +260,9 @@ module barBar_BarHypKaon
         ChargesOut(i,1) = get_Charge(2,IdsOut(i,1),isobf(i))
         ChargesOut(i,2) = get_Charge(2,IdsOut(i,2),isohf(i))
         ChargesOut(i,3) = get_Charge(2,IdsOut(i,3),1)
+
+        if (.not.hadron(IdsOut(i,1))%propagated) sigma_BYK(i) = 0.
+        if (.not.hadron(IdsOut(i,2))%propagated) sigma_BYK(i) = 0.
      end do
 
      ! BB-->BYK^{0}
@@ -264,14 +272,17 @@ module barBar_BarHypKaon
         sigma_BYK(nexit+i)    = fac0(i) * xs_param(srts2,j)  ! Isospin factor*parametrization (mb)
         IdsOut(nexit+i,1)     = get_ID(1,isobf0(i))
         if (j>28) then
-          IdsOut(nexit+i,2)   = get_ID(3,isohf0(i))
+           IdsOut(nexit+i,2)  = get_ID(3,isohf0(i))
         else
-        IdsOut(nexit+i,2)     = get_ID(2,isohf0(i))
+           IdsOut(nexit+i,2)  = get_ID(2,isohf0(i))
         end if
         IdsOut(nexit+i,3)     = Kaon
         ChargesOut(nexit+i,1) = get_Charge(2,IdsOut(nexit+i,1),isobf0(i))
         ChargesOut(nexit+i,2) = get_Charge(2,IdsOut(nexit+i,2),isohf0(i))
         ChargesOut(nexit+i,3) = get_Charge(2,IdsOut(nexit+i,3),0)
+
+        if (.not.hadron(IdsOut(nexit+i,1))%propagated) sigma_BYK(nexit+i) = 0.
+        if (.not.hadron(IdsOut(nexit+i,2))%propagated) sigma_BYK(nexit+i) = 0.
      end do
 
    end function barBar_barBarMeson_strange

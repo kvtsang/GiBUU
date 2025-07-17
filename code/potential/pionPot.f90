@@ -332,7 +332,7 @@ contains
   ! function pionPot_Oset (momentum, rhop, rhon, charge, Deltaflag, Decay) result (VOpt)
   ! PURPOSE
   ! Evaluates real part of the pion selfenergy and pion decay width
-  ! according to Oset, Salcedo et al, NPA 554 (pages 554 and following).
+  ! according to Nieves, Oset et al, NPA 554 (1993) (pages 554 and following).
   ! All calculations are done in MeV and then converted to GeV in the end!
   ! NOTES
   ! This routine calls two subroutines, which evaluate s-Wave and P-Wave of the
@@ -591,58 +591,62 @@ contains
       SigmaA3=CMPLX(0,-ca3(T)*x**alphaa3(T))
 
       alphaD=CMPLX(nD,0.)*(CMPLX(SQRT(s)                                         &
-           &          -mDelta,0.)-SigmaDelP+CMPLX(0.,GammaDelta(qcm,kF,s)/2.)         &
-           &          -SigmaQA3Rho)**(-1.)                                            &
-           &          +CMPLX(pD/3.,0.)                                                &
-           &          *(CMPLX(SQRT(s)-mDelta,0.)-2./3.*SigmaDelP                      &
-           &            -1./3.*SigmaDelN+CMPLX(0.,GammaDelta(qcm,kF,s)                &
+           &          -mDelta,0.)-SigmaDelP+CMPLX(0.,GammaDelta(qcm,kF,s)/2.)    &
+           &          -SigmaQA3Rho)**(-1.)                                       &
+           &          +CMPLX(pD/3.,0.)                                           &
+           &          *(CMPLX(SQRT(s)-mDelta,0.)-2./3.*SigmaDelP                 &
+           &            -1./3.*SigmaDelN+CMPLX(0.,GammaDelta(qcm,kF,s)           &
            &            /2.)-SigmaQA3Rho)**(-1.)
 
       ! Crossed Delta/Hole
       alphaC=pD*(-SQRT(s)+mNukleon-mRes+53.*2.*nD/rhoNull)**(-1.)                &
-           &     +nD/3.*(-SQRT(s)+mNukleon-mRes+2./3.*53.*2.*nD/rhoNull+1./3.         &
+           &     +nD/3.*(-SQRT(s)+mNukleon-mRes+2./3.*53.*2.*nD/rhoNull+1./3.    &
            &     *53.*2.*pD/rhoNull)**(-1.)
 
       ! Lot of second order stuff
       alphaT=CMPLX(ReCoNR*(pD+nD)**2.,ImCONR(T)*rhoNull                          &
-           &          /ImSigmaDeltaHat(T)/anor(T)                                     &
-           &          *(app(T)*pD*AIMAG(SigmaDelP)+anp(T)*nD*AIMAG(SigmaDelP)         &
+           &          /ImSigmaDeltaHat(T)/anor(T)                                &
+           &          *(app(T)*pD*AIMAG(SigmaDelP)+anp(T)*nD*AIMAG(SigmaDelP)    &
            &          +apn(T)*pD*AIMAG(SigmaDelN)))
 
       P1=(alphaD+CMPLX(alphaC,0))*                                               &
-           &         (-2./3./4./pi*fStarSquare/maPion**2)                             &
+           &         (-2./3./4./pi*fStarSquare/maPion**2)                        &
            &         +CMPLX(alphaN,0)+alphaT
 
-      alphaDAbs=CMPLX(nD,0.)*(abs(CMPLX(SQRT(s)                                &
-           &          -mDelta,0.)-SigmaDelP+CMPLX(0.,GammaDelta(qcm,kF,s)/2.)       &
-           &          -SigmaQA3Rho)**2)**(-1.)*                                     &
-           &          (-CMPLX(0.,GammaDelta(qcm,kF,s)                               &
-           &            /2.)+SigmaA3+SigmaDelP)                                     &
-           &          +CMPLX(pD/3.,0.)                                              &
-           &          *(abs(CMPLX(SQRT(s)-mDelta,0.)-2./3.*SigmaDelP                &
-           &            -1./3.*SigmaDelN+CMPLX(0.,GammaDelta(qcm,kF,s)              &
-           &            /2.)-SigmaQA3Rho)**2)**(-1.)*                               &
-           &          (-CMPLX(0.,GammaDelta(qcm,kF,s)                               &
-           &            /2.)+SigmaA3+2./3.*SigmaDelP                                &
+      alphaDAbs=CMPLX(nD,0.)*(abs(CMPLX(SQRT(s)                                  &
+           &          -mDelta,0.)-SigmaDelP+CMPLX(0.,GammaDelta(qcm,kF,s)/2.)    &
+           &          -SigmaQA3Rho)**2)**(-1.)*                                  &
+           &          (-CMPLX(0.,GammaDelta(qcm,kF,s)                            &
+           &            /2.)+SigmaA3+SigmaDelP)                                  &
+           &          +CMPLX(pD/3.,0.)                                           &
+           &          *(abs(CMPLX(SQRT(s)-mDelta,0.)-2./3.*SigmaDelP             &
+           &            -1./3.*SigmaDelN+CMPLX(0.,GammaDelta(qcm,kF,s)           &
+           &            /2.)-SigmaQA3Rho)**2)**(-1.)*                            &
+           &          (-CMPLX(0.,GammaDelta(qcm,kF,s)                            &
+           &            /2.)+SigmaA3+2./3.*SigmaDelP                             &
            &            +1./3.*SigmaDelN)
 
 
       Call PwaveRest(p2,p3)
 
       if (DeltaFlag) then
-         renormP=AIMAG(alphaT-2./3./4./pi*fStarSquare/maPion**2                &
-              &             *alphaDAbs)/(1+16*pi**2*gPrime**2*(abs(p1+p2+p3))**2    &
+         renormP=AIMAG(alphaT-2./3./4./pi*fStarSquare/maPion**2                  &
+              &           *alphaDAbs)/(1+16*pi**2*gPrime**2*(abs(p1+p2+p3))**2   &
               &           +4.*pi*gPrime*2.*Real(p1+p2+p3)) !Absorptive part
       else
-         renormP=AIMAG(alphaT)/(1+16*pi**2*gPrime**2                               &
-              &           *(abs(p1+p2+p3))**2                                           &
-              &           +4.*pi*gPrime*2.*Real(p1+p2+p3)) !nonresonant absorbtive part
+         renormP=AIMAG(alphaT)/(1+16*pi**2*gPrime**2                             &
+              &           *(abs(p1+p2+p3))**2                                    &
+              &           +4.*pi*gPrime*2.*Real(p1+p2+p3))                       & 
+              &           !nonresonant absorptive part
       end if
 
-      renormpFull=(P1+P2+P3)/(CMPLX(1.,0)+4.*pi*gPrime*(p1+p2+p3)) !full expression
+      renormpFull=(P1+P2+P3)/(CMPLX(1.,0)+4.*pi*gPrime*(p1+p2+p3))               &
+              &           !full expression
 
-      ImPwave=-4.*pi*mNukleon**2./s*(1.-epsilon/2.)*renormP*(E**2-mapion**2) !Absorptive part of Pwave
-      PWavePart=-4.*pi*mNukleon**2./s*(1.-epsilon/2.)*renormpFull*(E**2-mapion**2.) !Full P-Wave
+      ImPwave=-4.*pi*mNukleon**2./s*(1.-epsilon/2.)*renormP*(E**2-mapion**2)     &
+              &           !Absorptive part of Pwave
+      PWavePart=-4.*pi*mNukleon**2./s*(1.-epsilon/2.)*renormpFull                &
+              & *(E**2-mapion**2.)     !Full P-Wave
 
     end subroutine pwave
 
@@ -735,8 +739,8 @@ contains
       p2=CMPLX(0.,cNullQDummy*(pD+nD)+cOneQDummy*(nD-pD))
 
       !    *      p2=CMPLX(0.,cNullQ(i)*(pD+nD)+cOneQ(i)*(nD-pD))
-      p3=CMPLX((1.+epsilon)*(DeltaCNull*(pD+nD)+DeltaCOne*(nD-pD))     &
-           &   ,DeltaImCNull*rhoNull/IMSigmaDeltaHat(T)*(pD*ImSigmaDelN     &
+      p3=CMPLX((1.+epsilon)*(DeltaCNull*(pD+nD)+DeltaCOne*(nD-pD)),    &
+           &   DeltaImCNull*rhoNull/IMSigmaDeltaHat(T)*(pD*ImSigmaDelN &
            &    +nD*ImSigmaDelP))
 
 

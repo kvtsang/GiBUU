@@ -110,7 +110,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -119,15 +119,15 @@ contains
        write(*,*) 'Wrong input in KaonNuc', partIn%ID
     end if
 
-    if (partPion%antiParticle) then
+    if (partPion%anti) then
           ! This case is not considered yet
-          write(*,*) 'pion is antiparticle in "pionnuc"!!!',partIn%ID,partIn%antiparticle
+          write(*,*) 'pion is antiparticle in "pionnuc"!!!',partIn%ID,partIn%anti
           stop
     end if
 
-    if (delta_particle%antiParticle) then
+    if (delta_particle%anti) then
    ! Invert all particles in antiparticles
-       delta_particle%antiParticle=.false.
+       delta_particle%anti=.false.
        delta_particle%charge=-delta_particle%charge
        partPion%charge=-partPion%charge
        antiParticleInput=.true.
@@ -186,7 +186,7 @@ contains
       use particleDefinition
 !       use mediumDefinition, only: vacuum
       use particleProperties, only: hadron
-      use parametrizationsBarMes, only: huangd, huanglamd
+      use parametrizationBarMes, only: huangd, huanglamd
       use resonanceCrossSections, only: barMes_R_barMes, barMes2resonance
       use clebschGordan, only: clebschSquared
       use constants, only: mK
@@ -200,14 +200,14 @@ contains
       integer :: kaoncharge
       real :: isoZ_sigma
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
-      if (partIn(1)%perturbative.or.partIn(2)%perturbative) then
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
+      if (partIn(1)%pert.or.partIn(2)%pert) then
          perturbative=.true.
       else
          perturbative=.false.
       end if
 
-      !momentum_vacuum(1:3)=teilchenIn(1)%momentum(1:3)+teilchenIn(2)%momentum(1:3)
+      !momentum_vacuum(1:3)=teilchenIn(1)%mom(1:3)+teilchenIn(2)%mom(1:3)
       !momentum_vacuum(0)=FreeEnergy(teilchenIn(1))+FreeEnergy(teilchenIn(2))
 
 

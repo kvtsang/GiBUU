@@ -125,7 +125,7 @@ contains
   ! OUTPUT
   ! * complex, dimension(0:3,0:3) :: a_dagger
   !****************************************************************************
-  function dagger(a) result(a_dagger)
+  pure function dagger(a) result(a_dagger)
     complex, dimension(0:3,0:3),intent(in) :: a
     complex, dimension(0:3,0:3) :: a_dagger
     integer :: mu,nu
@@ -149,7 +149,7 @@ contains
   ! OUTPUT
   ! * complex
   !****************************************************************************
-  function trace(a) result(c)
+  pure function trace(a) result(c)
     complex :: c
     complex, intent(in),  dimension(0:3,0:3) :: a
     integer :: mu

@@ -64,7 +64,7 @@ contains
   !****************************************************************************
   subroutine DoColl_gammaN_Py(eNev,outPart,flagOK, rVMD, DoDifr, Cross,EventClass,MinW)
 
-    use CollGetLeading
+    use GetLeading
     use PIL_rhoDiff
     use output
     use eN_eventDefinition
@@ -374,7 +374,7 @@ contains
           recoil(1:3) = recoil(1:3) + P(i,1:3)
           recoil(0)   = recoil(0)   + P(i,4)
        end do
-       recoil = recoil  - outPart(iDiffrRho)%momentum(0:3)
+       recoil = recoil  - outPart(iDiffrRho)%mom(0:3)
 !!$       write(*,*) recoil
 !!$       write(*,*) PARI(113)
 
@@ -453,7 +453,7 @@ contains
   !****************************************************************************
   subroutine DoColl_gammaN_Fr(inPart,outPart,flagOK, W,Q2,eps, pcm,beta, iTyp)
 
-    use CollGetLeading
+    use GetLeading
 
     type(particle),             intent(in)   :: inPart   ! incoming nucleon
     type(particle),dimension(:),intent(inout):: outPart  ! outgoing particles
@@ -721,7 +721,7 @@ contains
 
     outPart%ID = 0 ! reset outgoing particles
     outPart%number = 0
-    outPart%antiparticle=.false.
+    outPart%anti=.false.
     outPart%perWeight = 1.0
 
     outPart(1)%ID = 101
@@ -785,15 +785,15 @@ contains
     ! set momenta into particle vector
 
     do i=1,3
-       outPart(1)%momentum(i) = real(MP_P(13,i))
-!       outPart(2)%momentum(i) = real(MP_P(14,i))
+       outPart(1)%mom(i) = real(MP_P(13,i))
+!       outPart(2)%mom(i) = real(MP_P(14,i))
     end do
 
-    outPart(1)%momentum(0) = outPart(1)%mass
-    outPart(1)%momentum(0) = sqrt(DOT_PRODUCT(outPart(1)%momentum,outPart(1)%momentum))
+    outPart(1)%mom(0) = outPart(1)%mass
+    outPart(1)%mom(0) = sqrt(DOT_PRODUCT(outPart(1)%mom,outPart(1)%mom))
 
-!    outPart(2)%momentum(0) = outPart(2)%mass
-!    outPart(2)%momentum(0) = sqrt(DOT_PRODUCT(outPart(2)%momentum,outPart(2)%momentum))
+!    outPart(2)%mom(0) = outPart(2)%mass
+!    outPart(2)%mom(0) = sqrt(DOT_PRODUCT(outPart(2)%mom,outPart(2)%mom))
 
 
     flagOK = .TRUE.

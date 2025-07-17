@@ -1,12 +1,12 @@
 !******************************************************************************
-!****m* /parametrizationsBarMes
+!****m* /parametrizationBarMes
 ! NAME
-! module parametrizationsBarMes
+! module parametrizationBarMes
 !
 ! PURPOSE
 ! Includes routines which are parametrizations of "baryon meson -> X" data.
 !******************************************************************************
-module parametrizationsBarMes
+module parametrizationBarMes
 
   use cl_splines
   implicit none
@@ -40,7 +40,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/piN_elastic
+  !****f* parametrizationBarMes/piN_elastic
   ! NAME
   ! real function piN_elastic(charge,srts,success)
   !
@@ -130,7 +130,7 @@ contains
       !      piPlus_2=a0+(a1-0.5)*x+(a2-0.5)*x**2+(a3-0.5)*x**3+(a4-0.5)*x**4 +(a5-0.5)*(x-0.5)**5
 
       ! since the fit function is a little bit strange (c.f. (x-0.5)**5)
-      ! the coefficients in the Horner scheme are a little bit compilcated
+      ! the coefficients in the Horner scheme are a little bit complicated
       real,parameter :: b0 = 0.015625 + a0 - 0.03125 * a5
       real,parameter :: b1 = -0.65625 + a1 + 0.3125 * a5
       real,parameter :: b2 = 0.125 + a2 - 1.25 * a5
@@ -191,7 +191,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/piN_chargeExchange
+  !****f* parametrizationBarMes/piN_chargeExchange
   ! NAME
   ! real function piN_chargeExchange(srts)
   !
@@ -232,10 +232,13 @@ contains
           do i=0,maxIndex
              srts_dummy=mPi+mN+float(i)*binsize
              x=p_lab(srts_dummy,mPi,mN)
-             table(i)= max(0.,0.17774869654285305 /(0.03299564550037992   + (-0.5206120292039138 + x)**2) &
-                            + 0.07425990408062914 /(0.005773792650686387  + (-0.3391240794763685 + x)**2) &
-                            +  0.11108734870135036/(0.0029855031054111065 + (-0.2712812392094471 + x)**2) &
-                            + 8.48700351456715*x - 4.084626239576959*x**2)
+             table(i)= max(0.,0.17774869654285305 /(0.03299564550037992   &
+                  + (-0.5206120292039138 + x)**2) &
+                  + 0.07425990408062914 /(0.005773792650686387  &
+                  + (-0.3391240794763685 + x)**2) &
+                  +  0.11108734870135036/(0.0029855031054111065 &
+                  + (-0.2712812392094471 + x)**2) &
+                  + 8.48700351456715*x - 4.084626239576959*x**2)
           end do
           initTable=.false.
        end if
@@ -248,25 +251,31 @@ contains
              piN_chargeExchange=table(i)
        else
           x=p_lab(srts,mPi,mN)
-          piN_chargeExchange= 0.17774869654285305 /(0.03299564550037992   + (-0.5206120292039138 + x)**2) &
-                            + 0.07425990408062914 /(0.005773792650686387  + (-0.3391240794763685 + x)**2) &
-                            +  0.11108734870135036/(0.0029855031054111065 + (-0.2712812392094471 + x)**2) &
-                            + 8.48700351456715*x - 4.084626239576959*x**2
+          piN_chargeExchange= 0.17774869654285305 /(0.03299564550037992   &
+               + (-0.5206120292039138 + x)**2) &
+               + 0.07425990408062914 /(0.005773792650686387  &
+               + (-0.3391240794763685 + x)**2) &
+               +  0.11108734870135036/(0.0029855031054111065 &
+               + (-0.2712812392094471 + x)**2) &
+               + 8.48700351456715*x - 4.084626239576959*x**2
           piN_chargeExchange=max(piN_chargeExchange,0.)
        end if
     else
        x=p_lab(srts,mPi,mN)
-       piN_chargeExchange= 0.17774869654285305 /(0.03299564550037992   + (-0.5206120292039138 + x)**2) &
-                         + 0.07425990408062914 /(0.005773792650686387  + (-0.3391240794763685 + x)**2) &
-                         +  0.11108734870135036/(0.0029855031054111065 + (-0.2712812392094471 + x)**2) &
-                         + 8.48700351456715*x - 4.084626239576959*x**2
+       piN_chargeExchange= 0.17774869654285305 /(0.03299564550037992   &
+            + (-0.5206120292039138 + x)**2) &
+            + 0.07425990408062914 /(0.005773792650686387  &
+            + (-0.3391240794763685 + x)**2) &
+            +  0.11108734870135036/(0.0029855031054111065 &
+            + (-0.2712812392094471 + x)**2) &
+            + 8.48700351456715*x - 4.084626239576959*x**2
        piN_chargeExchange=max(piN_chargeExchange,0.)
     end if
   end function piN_chargeExchange
 
 
   !****************************************************************************
-  !****s* parametrizationsBarMes/pionquasibg
+  !****s* parametrizationBarMes/pionquasibg
   ! NAME
   ! subroutine pionquasibg(nukcharge,pioncharge,sqrts,elastic,chargeEx)
   !
@@ -405,7 +414,7 @@ contains
 !   end subroutine pionquasibg
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/sigelkp
+  !****f* parametrizationBarMes/sigelkp
   ! NAME
   ! real function sigelkp(p,n)
   ! PURPOSE
@@ -447,7 +456,7 @@ contains
   end function sigelkp
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/sigCEXkp
+  !****f* parametrizationBarMes/sigCEXkp
   ! NAME
   ! real function sigCEXkp(srts)
   ! PURPOSE
@@ -473,7 +482,7 @@ contains
   end function sigCEXkp
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/sigCEXk0
+  !****f* parametrizationBarMes/sigCEXk0
   ! NAME
   ! real function sigCEXk0(srts)
   ! PURPOSE
@@ -505,7 +514,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/kppbg
+  !****f* parametrizationBarMes/kppbg
   ! NAME
   ! real function kppbg(plab2)
   ! PURPOSE
@@ -561,7 +570,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/kpnbg
+  !****f* parametrizationBarMes/kpnbg
   ! NAME
   ! real function kpnbg(plab2)
   ! PURPOSE
@@ -616,7 +625,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/kaonbg
+  !****f* parametrizationBarMes/kaonbg
   ! NAME
   ! real function kaonbg(srts,ichin,ichout,isospinc)
   ! PURPOSE
@@ -836,7 +845,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/kaonbgt
+  !****f* parametrizationBarMes/kaonbgt
   ! NAME
   ! real function kaonbgt(plab2)
   ! PURPOSE
@@ -894,7 +903,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/huang
+  !****f* parametrizationBarMes/huang
   ! NAME
   ! function huang(srts) result(sig)
   ! PURPOSE
@@ -933,7 +942,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/huanglam
+  !****f* parametrizationBarMes/huanglam
   ! NAME
   ! real function huanglam(srts)
   ! PURPOSE
@@ -953,7 +962,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/huanglamd
+  !****f* parametrizationBarMes/huanglamd
   ! NAME
   ! real function huanglamd(srts)
   ! PURPOSE
@@ -977,7 +986,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/huangd
+  !****f* parametrizationBarMes/huangd
   ! NAME
   ! real function huangd(srts)
   ! PURPOSE
@@ -1006,7 +1015,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/sibirtpi
+  !****f* parametrizationBarMes/sibirtpi
   ! NAME
   ! real function sibirtpi(srts)
   ! INPUTS
@@ -1033,14 +1042,16 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/golub_omega
+  !****f* parametrizationBarMes/golub_omega
   ! NAME
-  ! function golub_omega (srts) result(sigma)
+  ! function golub_omega(srts) result(sigma)
   ! INPUTS
   ! * real :: srts = sqrt(s) in GeV
-  ! * real :: m_V = mass of vector meson V in GeV, only used for sigma(3) and sigma(4)   (unused!)
+  ! * real :: m_V = mass of vector meson V in GeV,
+  !   only used for sigma(3) and sigma(4)   (unused!)
   ! NOTES
-  ! Calculates the cross sections (in mb) for interactions of omegas with nucleons.
+  ! Calculates the cross sections (in mb) for interactions of omegas with
+  ! nucleons:
   ! * sigma(1): pi- p -> V n
   ! * sigma(2): pi- p -> V pi N
   ! * sigma(3): V N -> V N         (unused!)
@@ -1048,14 +1059,17 @@ contains
   !
   ! Original parameterizations are taken from:
   ! * J. Cugnon et al., PRC 41, 1701 (1990) for sigma(pi^- p -> omega n);
-  ! * A. Sibirtsev et al., Z. Phys. A 358, 357 (1997) for sigma(pi^- p -> phi n), sigma(pi^+ p -> omega X)
+  ! * A. Sibirtsev et al., Z. Phys. A 358, 357 (1997) for
+  !   sigma(pi^- p -> phi n), sigma(pi^+ p -> omega X)
   !   and sigma(pi^+ p -> phi X).
-  ! * Some of these parameterizations are also used in Golubeva NPA625 (1997) 832.
+  ! * Some of these parameterizations are also used in
+  !   Golubeva NPA625 (1997) 832.
   ! * See also Effenberger Diss. (A.20)...(A.25)
   !
-  ! This routine needs a careful check yet (see subtractions between various cross sections below)!!!!
+  ! This routine needs a careful check yet
+  ! (see subtractions between various cross sections below)!!!!
   !****************************************************************************
-  function golub_omega (srts) result (sigma)
+  function golub_omega(srts) result (sigma)
     use particleProperties, only: hadron
     use idTable, only: omegaMeson
     use constants, only: mN, mPi
@@ -1100,28 +1114,33 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/golub_phi
+  !****f* parametrizationBarMes/golub_phi
   ! NAME
-  ! function golub_phi (srts, m_V) result(sigma)
+  ! function golub_phi(srts, m_V) result(sigma)
   ! INPUTS
   ! * real :: srts = sqrt(s) in GeV
-  ! * real :: m_V = mass of vector meson V in GeV, only used for sigma(3) and sigma(4)
+  ! * real :: m_V = mass of vector meson V in GeV,
+  !   only used for sigma(3) and sigma(4)
   ! NOTES
-  ! Calculates the cross sections (in mb) for interactions of phis with nucleons.
+  ! Calculates the cross sections (in mb) for interactions of phis with
+  ! nucleons:
   ! * sigma(1): pi- p -> V n
   ! * sigma(2): pi- p -> V pi N
   ! * sigma(3): V N -> V N
   ! * sigma(4): V N -> inelastic
   !
   ! Original parameterizations are taken from:
-  ! * A. Sibirtsev et al., Z. Phys. A 358, 357 (1997) for sigma(pi^- p -> phi n), sigma(pi^+ p -> omega X)
+  ! * A. Sibirtsev et al., Z. Phys. A 358, 357 (1997) for
+  !   sigma(pi^- p -> phi n), sigma(pi^+ p -> omega X)
   !   and sigma(pi^+ p -> phi X).
-  ! * Some of these parameterizations are also used in Golubeva NPA625 (1997) 832.
+  ! * Some of these parameterizations are also used in
+  !   Golubeva NPA625 (1997) 832.
   ! * See also Effenberger Diss. (A.26)...(A.31)
   !
-  ! This routine needs a careful check yet (see subtractions between various cross sections below)!!!!
+  ! This routine needs a careful check yet
+  ! (see subtractions between various cross sections below)!!!!
   !****************************************************************************
-  function golub_phi (srts, m_V) result(sigma)
+  function golub_phi(srts, m_V) result(sigma)
     use particleProperties, only: hadron
     use idTable, only: phi
     use constants, only: pi, mN, mPi
@@ -1167,7 +1186,7 @@ contains
 
 
   !****************************************************************************
-  !****f* parametrizationsBarMes/omegaN_lykasov
+  !****f* parametrizationBarMes/omegaN_lykasov
   ! NAME
   ! real function omegaN_lykasov(srts,m,ichannel)
   ! INPUTS
@@ -1180,7 +1199,8 @@ contains
   ! * ichannel=2 : inelastic
   !
   ! References:
-  ! * Lykasov,Cassing,Sibirtsev,Rzyanin, Eur. Phys. J. A6 (1999) 71, nucl-th/9811019.
+  ! * Lykasov,Cassing,Sibirtsev,Rzyanin, Eur. Phys. J. A6 (1999) 71,
+  !   nucl-th/9811019.
   ! * see also Muehlich Diss. (9.1),(9.2)
   !****************************************************************************
   real function omegaN_lykasov(srts,m,ichannel)
@@ -1205,7 +1225,7 @@ contains
 
 
   !****************************************************************************
-  !****s* parametrizationsBarMes/JPsiN
+  !****s* parametrizationBarMes/JPsiN
   ! NAME
   ! subroutine JPsiN(srts,sigma)
   ! INPUTS
@@ -1284,13 +1304,13 @@ contains
 
 
   !****************************************************************************
-  !****s* parametrizationsBarMes/weideta
+  !****s* parametrizationBarMes/weideta
   ! NAME
   ! subroutine weideta(srts,sig)
   ! INPUTS
   ! * real :: srts =sqrt(s)
   ! OUTPUT
-  ! * real sig :  parameterization of pi- p -> eta n from Weidmann diploma thesis
+  ! * real sig : parameterization of pi- p -> eta n from Weidmann diploma thesis
   !****************************************************************************
 !   subroutine weideta(srts,sig)
 !     use particleProperties, only: hadron
@@ -1386,7 +1406,7 @@ contains
 
 
   !****************************************************************************
-  !****s* parametrizationsBarMes/piN_to_strangeBaryon_kaon_pion
+  !****s* parametrizationBarMes/piN_to_strangeBaryon_kaon_pion
   ! NAME
   ! subroutine piN_to_strangeBaryon_kaon_pion(sqrtS,crossSections_piMinus_p,crossSections_piPlus_p)
   ! INPUTS
@@ -1472,35 +1492,39 @@ contains
   end subroutine piN_to_strangeBaryon_kaon_pion
 
   !****************************************************************************
-  !****s* parametrizationsBarMes/piN_to_strangeBaryon_kaon_pion_matrix
+  !****s* parametrizationBarMes/piN_to_strangeBaryon_kaon_pion_matrix
   ! NAME
   ! subroutine piN_to_strangeBaryon_kaon_pion_matrix(sqrtS,pionCharge,nukCharge,matrix_lambda,matrix_sigma)
   !
   ! INPUTS
   ! * real :: srts =sqrt(s)
-  ! * integer, intent(in) :: pionCharge     -- charge of incoming pion
-  ! * integer, intent(in) ::  nucCharge     -- charge of incoming nucleon
+  ! * integer, intent(in) :: pionCharge    -- charge of incoming pion
+  ! * integer, intent(in) :: nucCharge     -- charge of incoming nucleon
   !
   ! RESULT
   ! Cross section for kaon pion Lambda production :
-  ! * real, dimension(0:1,-1:1)  , intent(out) :: matrix_lambda ! 1st Index: kaon charge, 2nd: pion charge
+  ! * real, dimension(0:1,-1:1) :: matrix_lambda
+  !   -- 1st Index: kaon charge, 2nd: pion charge
   !
-  ! Cross section for kaon pion Sigma production (Charge of Sigma is fixed by total charge):
-  ! * real, dimension(0:1,-1:1)  , intent(out) :: matrix_sigma  ! 1st Index: kaon charge, 2nd: pion charge
+  ! Cross section for kaon pion Sigma production
+  ! (Charge of Sigma is fixed by total charge):
+  ! * real, dimension(0:1,-1:1) :: matrix_sigma
+  ! -- 1st Index: kaon charge, 2nd: pion charge
   !
   ! All cross sections in units of mb!
   !
   ! NOTES
-  ! * This parametrization is based on the subroutine piN_to_strangeBaryon_kaon_pion
+  ! * This parametrization is based on the subroutine
+  !   piN_to_strangeBaryon_kaon_pion
   ! * No Xsections for pi^0 induced reactions!!
   !****************************************************************************
   subroutine piN_to_strangeBaryon_kaon_pion_matrix(sqrtS,pionCharge,nucCharge,matrix_lambda,matrix_sigma)
 
-    real   , intent(in) :: sqrts
+    real, intent(in) :: sqrts
     integer, intent(in) :: pionCharge
     integer, intent(in) ::  nucCharge
-    real, dimension(0:1,-1:1)  , intent(out) :: matrix_lambda ! 1st Index: kaon charge, 2nd: pion charge
-    real, dimension(0:1,-1:1)  , intent(out) :: matrix_sigma  ! 1st Index: kaon charge, 2nd: pion charge
+    real, dimension(0:1,-1:1), intent(out) :: matrix_lambda
+    real, dimension(0:1,-1:1), intent(out) :: matrix_sigma
     integer, parameter :: proton  = 1
     integer, parameter :: neutron = 0
 
@@ -1543,7 +1567,7 @@ contains
     case (proton)
        select case (pionCharge)
        case (-1)
-          matrix_sigma(0, 0)  = sigma_piMinus_p(3)
+          matrix_sigma(0, 0) = sigma_piMinus_p(3)
           matrix_sigma(1,-1) = sigma_piMinus_p(4)
           matrix_sigma(1, 0) = sigma_piMinus_p(5)
           matrix_sigma(0, 1) = sigma_piMinus_p(6)
@@ -1583,7 +1607,7 @@ contains
 
 
   !****************************************************************************
-  !****s* parametrizationsBarMes/sigma_KbarToXi
+  !****s* parametrizationBarMes/sigma_KbarToXi
   ! NAME
   ! real function sigma_KbarToXi(srts,ichannel)
   ! INPUTS
@@ -1660,7 +1684,7 @@ contains
 
     case default
 
-       write(*,*) 'module parametrizationsBarMes/function sigma_KbarToXi: '
+       write(*,*) 'module parametrizationBarMes/function sigma_KbarToXi: '
        write(*,*) 'wrong channel! ichannel = ',ichannel
        write(*,*) 'STOP'
        STOP
@@ -1671,4 +1695,4 @@ contains
   end function sigma_KbarToXi
 
 
-end module parametrizationsBarMes
+end module parametrizationBarMes

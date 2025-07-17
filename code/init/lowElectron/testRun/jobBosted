@@ -1,8 +1,8 @@
 !************************************************************ -*- fortran -*-
 
 $epkin
-Ein = 1.884
-thetadeg = 47.94
+Ein = 5.766
+thetadeg = 50.0
 $end
 
 $datatable
@@ -13,7 +13,7 @@ $datatable
 $end
 
 $input
-      path_to_input="~/GiBUU/buuinput"
+      path_to_input="/afs/cern.ch/work/u/umosel/GiBUU/buuinput"
 $end
 
 $paramEP

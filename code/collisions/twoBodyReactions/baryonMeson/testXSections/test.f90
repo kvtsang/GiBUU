@@ -28,7 +28,7 @@ contains
   !****************************************************************************
 
   subroutine testPionNuk_elas
-    use parametrizationsBarMes
+    use parametrizationBarMes
 
     real :: srts, sigma
     integer :: i,charge
@@ -52,7 +52,7 @@ contains
 
   subroutine testpiTot
 
-    use parBarMes_HighEnergy, only: paramBarMesHE_pion
+    use parametrizationBarMes_HighEnergy, only: paramBarMesHE_pion
     use constants, only: mPi, mN
 
     integer :: i
@@ -79,7 +79,7 @@ contains
   !****************************************************************************
 
   subroutine testPionback
-    use parametrizationsBarMes
+    use parametrizationBarMes
     use constants, only: mPi, mN
 
     integer :: i
@@ -144,8 +144,8 @@ contains
     partIn(1:2)%charge = (/chargePion, chargeNuk /)
     partIn(1:2)%mass = (/mPi, mN/)
 
-    partIn(2)%momentum = (/partIn(2)%mass,0.,0.,0./)
-    partIn(2)%velocity = 0.
+    partIn(2)%mom = (/partIn(2)%mass,0.,0.,0./)
+    partIn(2)%vel = 0.
 
     open(301,file='PionNucleonXsections.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    pionCharge=', chargePion
@@ -153,8 +153,8 @@ contains
        plab=i*0.01
 !    do i=0,300
 !       plab = 0.5*exp( (log(500.)-log(0.5))*i/300. )
-       partIn(1)%momentum=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
-       partIn(1)%velocity=(/partIn(1)%momentum(1)/partIn(1)%momentum(0),0.,0./)
+       partIn(1)%mom=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
+       partIn(1)%vel=(/partIn(1)%mom(1)/partIn(1)%mom(0),0.,0./)
 
        srts=SQRT((SQRT(mPi**2+plab**2)+mN)**2-plab**2)
        momLRF=(/SQRT(mPi**2+plab**2)+mN ,plab,0.,0./)
@@ -183,8 +183,8 @@ contains
     plab=2.0
     srts=SQRT((SQRT(mPi**2+plab**2)+mN)**2-plab**2)
     momLRF=(/SQRT(mPi**2+plab**2)+mN ,plab,0.,0./)
-    partIn(1)%momentum=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
-    partIn(1)%velocity=(/partIn(1)%momentum(1)/partIn(1)%momentum(0),0.,0./)
+    partIn(1)%mom=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
+    partIn(1)%vel=(/partIn(1)%mom(1)/partIn(1)%mom(0),0.,0./)
 
     kaonPionSigma=0
     kaonPionLambda=0
@@ -252,7 +252,7 @@ contains
           write(*,*) 'flag',i
           stop
        end if
-       if (sum(izout).ne.iztot) stop'iztot.ne.sum(izout)'
+       if (sum(izout).ne.iztot) stop 'iztot.ne.sum(izout)'
        write(100,*)  izout
     end do
 
@@ -491,8 +491,8 @@ contains
     partIn(1:2)%charge = (/chargePion, chargeNuk /)
     partIn(1:2)%mass = (/mPi, mN/)
 
-    partIn(2)%momentum = (/partIn(2)%mass,0.,0.,0./)
-    partIn(2)%velocity = 0.
+    partIn(2)%mom = (/partIn(2)%mass,0.,0.,0./)
+    partIn(2)%vel = 0.
 
     open(301,file='PionNucleonXsections.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    pionCharge=', chargePion
@@ -500,8 +500,8 @@ contains
        plab=i*0.01
 !    do i=0,300
 !       plab = 0.5*exp( (log(500.)-log(0.5))*i/300. )
-       partIn(1)%momentum=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
-       partIn(1)%velocity=(/partIn(1)%momentum(1)/partIn(1)%momentum(0),0.,0./)
+       partIn(1)%mom=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
+       partIn(1)%vel=(/partIn(1)%mom(1)/partIn(1)%mom(0),0.,0./)
 
        srts=SQRT((SQRT(mPi**2+plab**2)+mN)**2-plab**2)
        momLRF=(/SQRT(mPi**2+plab**2)+mN ,plab,0.,0./)

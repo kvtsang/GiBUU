@@ -86,8 +86,9 @@ program testDileptonDelta
   print *, "Gamma(0)=", G0, " (matrix,charge 1)"
 
   ! write dGamma/dM to file
-  m_ee = dm
-  m_delta = (/1.23,1.43,1.63,1.83,2.03/)
+  m_ee = 2.*dm
+  !  m_delta = (/1.23,1.43,1.63,1.83,2.03/)
+  m_delta = (/1.132,1.232,1.332,1.432,1.83/)
   open (911,file="dGamma_dM_DeltaDalitz.dat")
   do i=1,1100
     fac = 2.*alphaQED/(3.*pi*m_ee) * (1.+2.*melec**2/m_ee**2) * sqrt(1.-4.*melec**2/m_ee**2)
@@ -157,11 +158,11 @@ contains
     do j = N,1,-1   ! Delta mass loop
       print *, "*** m = ",m_delta(j),NN," ***"
       D%mass = m_delta(j)
-      D%momentum = (/ D%mass, 0., 0., 0. /)
+      D%mom = (/ D%mass, 0., 0., 0. /)
       call TimeMeasurement (.true.)
       do i=1,NN  ! event loop
         gam = decayParticle_rhoN (D, fs)
-        rmom = fs(1)%momentum
+        rmom = fs(1)%mom
         rmass = abs4(rmom)
         gam = gam * dileptonWidth (fs(1)%ID,rmass) / WidthMesonMedium(fs(1)%ID,rmass,rmom,vacuum)
         call AddHistMC (hist, rmass, j, gam/float(NN))

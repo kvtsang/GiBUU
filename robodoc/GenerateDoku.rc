@@ -12,12 +12,12 @@
 # SOURCE
 
 options:
-  --src ./code 
+  --src ./code
   --doc ../Documentation/code
-  --multidoc 
-  --html 
-  --index 
-  --toc 
+  --multidoc
+  --html
+  --index
+  --toc
   --sections
   --nopre
 #  --nogeneratedwith
@@ -47,6 +47,14 @@ ignore files:
  *.NEW
  *.DEBUG
  *.ORIG
+ *.MODIF
+ *.try
+ *.new
+ *.debug
+ *.orig
+ *.modif
+ *.canonical
+ *.f90_2
 header markers:
  c****
  !****
@@ -59,7 +67,7 @@ source line comments:
 headertypes:
  m "Modules" robo_modules
  s "Subroutines" robo_subs
- g "Global module-variables" robo_globals 
+ g "Global module-variables" robo_globals
  p "Program" robo_prog
  n "Namelists" robo_namelist
  o "Output files" robo_output

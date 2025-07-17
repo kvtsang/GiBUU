@@ -85,7 +85,7 @@ contains
     ! Initialize output
     partOut(:)%ID=0                    ! ID of produced particles
     partOut(:)%charge=0                ! Charge of produced particles
-    partOut(:)%antiParticle=.false.    ! Whether produced particles are particles or antiparticles
+    partOut(:)%anti=.false.    ! Whether produced particles are particles or antiparticles
     partOut(:)%mass=0                  ! Mass of produced particles
 
     ! (1) Check  Input
@@ -94,16 +94,16 @@ contains
        write(*,*) 'Wrong input in EtaDelta', partIn%ID
     end if
 
-    if (eta_particle%antiParticle) then
+    if (eta_particle%anti) then
        ! This case is not considered yet
-       write(*,*) 'eta is antiparticle in "etaNuc"!!!',partIn%ID,partIn%antiparticle
+       write(*,*) 'eta is antiparticle in "etaNuc"!!!',partIn%ID,partIn%anti
        stop
     end if
 
-    if (delta_particle%antiParticle) then
+    if (delta_particle%anti) then
        ! Invert all particles in antiparticles
        delta_particle%Charge        =  -delta_particle%Charge
-       delta_particle%antiparticle  = .false.
+       delta_particle%anti  = .false.
        eta_particle%Charge          =  -eta_particle%Charge
        antiParticleInput=.true.
     else
@@ -164,11 +164,11 @@ contains
     !**************************************************************************
     subroutine evaluateXsections
       use pionNucleon, only: matrixDeltaEta  ! !Matrix Element for pi N <-> eta Delta
-      use clebschGordan, only: clebschSquared
+      use clebschGordan, only: CG
       use output, only: writeparticle
 
-      real :: pFinal, pInitial, isoz_nuk, piN_total
-      integer :: pionCharge
+      real :: pFinal, pInitial, piN_total
+      integer :: pionCharge, isoZ_nuk2
 
       !************************************************************************
       ! eta Delta -> pi N
@@ -193,9 +193,9 @@ contains
       piN=0.
       do pionCharge=-1,1
          ! Evaluate z-Component of nucleon isospin
-         isoZ_nuk=delta_particle%charge-pionCharge-0.5
-         if (abs(abs(isoZ_nuk)-0.5).lt.0.0001) then
-            piN(pionCharge)=piN_total*clebschSquared(1.,0.5,1.5,real(pionCharge),isoZ_nuk)
+         isoZ_nuk2 = 2*delta_particle%charge - 2*pionCharge - 1
+         if (abs(isoZ_nuk2) == 1) then
+            piN(pionCharge)=piN_total * CG(2,1,3, 2*pionCharge,isoZ_nuk2)**2
          end if
       end do
 

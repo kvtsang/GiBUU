@@ -9,10 +9,16 @@ module barBar_BarBar
   implicit none
   private
 
-  public :: sigmaBB, chooseCharge, NN_NRes, NN_ResRes, nukNuk_nukNuk, delta2Body_inMedium_treatment, get_icugnon
+  public :: sigmaBB
+  public :: chooseCharge
+  public :: NN_NRes
+  public :: NN_ResRes
+  public :: nukNuk_nukNuk
+  public :: delta2Body_inMedium_treatment
+  public :: get_icugnon
 
-  public :: iifac0, iifac1
-
+  public :: iifac0
+  public :: iifac1
 
   !****************************************************************************
   !****g* barBar_BarBar/mat_NR
@@ -62,36 +68,37 @@ module barBar_BarBar
   ! See http://arxiv.org/abs/1203.3557.
   ! SOURCE
   !
-  real, dimension(Delta:F37_1950), save :: mat_DR = (/210., & ! Delta   =02
-                                                       0., & ! P11_1440=03
-                                                       60., & ! S11_1535=04, eta/rho
-                                                       12., & ! S11_1650=05, rho
-                                                       0., & ! S11_2090=06
-                                                       12., & ! D13_1520=07, rho
-                                                       0., & ! D13_1700=08
-                                                       0., & ! D13_2080=09
-                                                       0., & ! D15_1675=10
-                                                       0., & ! G17_2190=11, omega/rho
-                                                       0., & ! P11_1710=12
-                                                       0., & ! P11_2100=13
-                                                       12., & ! P13_1720=14, rho
-                                                       0., & ! P13_1900=15, omega/rho
-                                                       12., & ! F15_1680=16, rho
-                                                       0., & ! F15_2000=17
-                                                       0., & ! F17_1990=18
-                                                       21., & ! S31_1620=19, rho
-                                                       0., & ! S31_1900=20
-                                                       21., & ! D33_1700=21, rho
-                                                       0., & ! D33_1940=22
-                                                       0., & ! D35_1930=23
-                                                       0., & ! D35_2350=24
-                                                       0., & ! P31_1750=25
-                                                       0., & ! P31_1910=26
-                                                       0., & ! P33_1600=27
-                                                       0., & ! P33_1920=28
-                                                       0., & ! F35_1750=29
-                                                       21., & ! F35_1905=30, rho
-                                                       0. /) ! F37_1950=31
+  real, dimension(Delta:F37_1950), save :: mat_DR = &
+       (/210., & ! Delta   =02
+           0., & ! P11_1440=03
+          60., & ! S11_1535=04, eta/rho
+          12., & ! S11_1650=05, rho
+           0., & ! S11_2090=06
+          12., & ! D13_1520=07, rho
+           0., & ! D13_1700=08
+           0., & ! D13_2080=09
+           0., & ! D15_1675=10
+           0., & ! G17_2190=11, omega/rho
+           0., & ! P11_1710=12
+           0., & ! P11_2100=13
+          12., & ! P13_1720=14, rho
+           0., & ! P13_1900=15, omega/rho
+          12., & ! F15_1680=16, rho
+           0., & ! F15_2000=17
+           0., & ! F17_1990=18
+          21., & ! S31_1620=19, rho
+           0., & ! S31_1900=20
+          21., & ! D33_1700=21, rho
+           0., & ! D33_1940=22
+           0., & ! D35_1930=23
+           0., & ! D35_2350=24
+           0., & ! P31_1750=25
+           0., & ! P31_1910=26
+           0., & ! P33_1600=27
+           0., & ! P33_1920=28
+           0., & ! F35_1750=29
+          21., & ! F35_1905=30, rho
+           0. /) ! F37_1950=31
   !****************************************************************************
 
 
@@ -125,7 +132,8 @@ module barBar_BarBar
   !
   logical, save :: new_NR_NR=.true.
   ! PURPOSE
-  ! * .false.= Switch off the NR-> NR improvement (improvement= better NN<->NN fit is being used)
+  ! * .false.= Switch off the NR-> NR improvement
+  !   (improvement= better NN<->NN fit is being used)
   ! * only for debugging or comparing
   !****************************************************************************
 
@@ -146,7 +154,8 @@ module barBar_BarBar
   !
   logical, save :: oldOset_treatment=.false.
   ! PURPOSE
-  ! * .true.= Use the old treatment for the Oset Delta width: Put everything into 3-body.
+  ! * .true.= Use the old treatment for the Oset Delta width:
+  !   Put everything into 3-body.
   ! * only for debugging or comparing
   !****************************************************************************
 
@@ -157,7 +166,8 @@ module barBar_BarBar
   !
   real, save :: etafac = 6.5
   ! PURPOSE
-  ! Parameter for enhancement of p n -> N*(1535) N, relative to  p p -> N*(1535) N,
+  ! Parameter for enhancement of p n -> N*(1535) N, relative to
+  ! p p -> N*(1535) N,
   ! in order to enhance eta production in pn collisions.
   ! See Calen et al., PRC 58 (1998) 2667.
   !****************************************************************************
@@ -169,7 +179,8 @@ module barBar_BarBar
   !
   real, save :: rhofac = 1.
   ! PURPOSE
-  ! Parameter for enhancement of p n -> N*(1520) N, relative to  p p -> N*(1520) N,
+  ! Parameter for enhancement of p n -> N*(1520) N, relative to
+  ! p p -> N*(1520) N,
   ! in order to enhance rho production in p n collisions.
   !****************************************************************************
 
@@ -180,7 +191,8 @@ module barBar_BarBar
   !
   real, save :: neufac = 1.
   ! PURPOSE
-  ! Parameter for enhancement of p n -> N R, relative to  p p -> N R, affecting all resonances.
+  ! Parameter for enhancement of p n -> N R, relative to  p p -> N R,
+  ! affecting all resonances.
   !****************************************************************************
 
 
@@ -190,7 +202,8 @@ module barBar_BarBar
   !
   real, save :: neufac_roper = 2.
   ! PURPOSE
-  ! Parameter for enhancement of p n -> N N*(1440), relative to p p -> N N*(1440).
+  ! Parameter for enhancement of p n -> N N*(1440), relative to
+  ! p p -> N N*(1440).
   ! See http://arxiv.org/abs/1203.3557.
   !****************************************************************************
 
@@ -230,8 +243,9 @@ contains
     ! * neufac
     ! * neufac_roper
     !**************************************************************************
-    NAMELIST /barBar_barBar/ mat_NR, mat_DR, icugnon, use_ND_ND_model, new_NR_NR, NR_NR_massSHIFT, oldOset_treatment, &
-                             etafac, rhofac, neufac, neufac_roper
+    NAMELIST /barBar_barBar/ mat_NR, mat_DR, icugnon, use_ND_ND_model, &
+         new_NR_NR, NR_NR_massSHIFT, oldOset_treatment, &
+         etafac, rhofac, neufac, neufac_roper
 
     call Write_ReadingInput('barBar_barBar',0)
     rewind(5)
@@ -249,9 +263,12 @@ contains
     write(*,*) 'neufac_roper: ',neufac_roper
     write(*,*) '  Switch for NN -> NN=',icugnon
     write(*,*) '  USE ND -> ND model ?',use_ND_ND_model
-    if (.not.new_NR_NR)    write(*,*) '  WARNING: Old NN -> NN fit is being used for NR ->NR!!'
-    if ( NR_NR_massSHIFT ) write(*,*) '  INFO   : We use the mass shift in NR-> NR collisions'
-    if ( oldOset_treatment) write(*,*) '  WARNING: We use the old treatment of Delta scattering          &
+    if (.not.new_NR_NR) &
+         write(*,*) '  WARNING: Old NN -> NN fit is being used for NR ->NR!!'
+    if ( NR_NR_massSHIFT ) &
+         write(*,*) '  INFO   : We use the mass shift in NR-> NR collisions'
+    if ( oldOset_treatment) &
+         write(*,*) '  WARNING: We use the old treatment of Delta scattering          &
          &      in case that the in medium Delta width is being used! Everything goes to 3-body!'
     call Write_ReadingInput('barBar_barBar',1)
 
@@ -269,34 +286,36 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/sigmaBB
   ! NAME
-  ! real function sigmaBB(teilchenIN,idOut,mediumAt,srtfree)
+  ! real function sigmaBB(partIN,idOut,mediumAt,srtfree_in, pauliIncluded)
   ! NOTES
-  ! * This function calculates all baryon-baryon -> baryon baryon cross sections.
+  ! * This function calculates all baryon-baryon -> baryon-baryon cross
+  !   sections.
   ! * The cross sections are given in mB. Note that we sum over
   !   the channels with different charges of the final state particles.
   ! INPUTS
-  ! * type(particle), dimension (1:2), intent(in):: teilchenIN  -- incoming particles
-  ! * integer, dimension (1:2), intent(in)       :: idOut       -- Id's of outgoing particles
-  ! * real, intent(in)                           :: srtfree     -- SQRT(s)
-  ! * type(medium),intent(in)                    :: mediumAt    -- mediuma at the collision point
+  ! * type(particle), dimension (1:2) :: partIN  -- incoming particles
+  ! * integer, dimension (1:2)        :: idOut   -- Id's of outgoing particles
+  ! * real                            :: srtfree_in     -- SQRT(s)
+  ! * type(medium)                    :: mediumAt -- medium at collision point
   ! OUTPUT
-  ! * logical, intent(out)                       :: pauliIncluded  -- true = cross section includes Pauli blocking
+  ! * logical  :: pauliIncluded  -- true = cross section includes Pauli blocking
   ! NOTES
   ! Included Xsections:
-  !   NN -> NN
-  !   NN <-> Delta Delta
-  !   NR <-> NR'
-  !   NN <-> NR
+  ! * NN -> NN
+  ! * NN <-> Delta Delta
+  ! * NR <-> NR'
+  ! * NN <-> NR
   ! where N is a nucleon, R and R' are  non-strange non-charmed baryons.
   !****************************************************************************
-  real function sigmaBB (partIn, idOut, mediumAt, srtfree, pauliIncluded)
+  real function sigmaBB(partIn, idOut, mediumAt, srtfree_in, pauliIncluded)
     use mediumDefinition
     use particleProperties, only: hadron
     use particleDefinition
     use IdTable, only: nucleon, delta, isBaryon
     use twoBodytools, only: pCM, get_PInitial
     use baryonWidthMedium, only: get_MediumSwitch_Delta
-    use RMF, only: getRMF_flag
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
     use barBar_to_barBar_model, only: ND_ND_model
     use deltaWidth, only:deltaOset_ND_ND, deltaOset_ND_NN
     use constants, only: mN, mPi
@@ -304,13 +323,16 @@ contains
     type(particle), dimension(1:2), intent(in)  :: partIn
     integer,        dimension(1:2), intent(in)  :: idOut
     type(medium),                   intent(in)  :: mediumAt
-    real,                           intent(in)  :: srtfree
+    real,                           intent(in)  :: srtfree_in
     logical,                        intent(out) :: pauliIncluded
 
     integer, dimension(1:2) :: isoIn, idIn, chargeIn  ! isospins, IDs and charges of incoming particles
-    real,    dimension(1:2) :: massIn                 ! masses of incoming particles
-    real    :: massDelta, pInitial, srtFree_withoutMass
-    integer :: resID, resIDOut
+    real,    dimension(1:2) :: massIn, mstarIn        ! masses and effective masses of incoming particles
+    real,    dimension(1:2) :: spotOut, minmassOut    ! scalar potentials and minimal masses of outgoing particles (RMF)
+
+    integer, dimension(1:3) :: ind
+    real    :: massDelta, pInitial, srtFree, srtFree_withoutMass, srtS
+    integer :: resID, resIDOut,i
 
     if (initFlag) call readInput
 
@@ -325,6 +347,8 @@ contains
     massIn(1:2)   = partIn(1:2)%mass
     isoIn(1:2)    = hadron(idIn(1:2))%isoSpinTimes2
 
+    srtfree = srtfree_in
+
     ! Check that all particles are baryons
     if (.not.(isBaryon(idIn(1)).and.isBaryon(idIn(2)).and.isBaryon(idOut(1)).and.isBaryon(idOut(2)))) then
        write(*,*) 'sigmaBB: invalid IDs', idIn, idOut
@@ -335,11 +359,33 @@ contains
     ! (2) Define initial momenta of incoming particles
     !##########################################################################
     if (.not. getRMF_flag()) then
-      pInitial = get_pInitial (partIn, 0)
+       pInitial = get_pInitial (partIn, 0)
     else
-      ! Here we take a vacuum expression, since srtfree has been already
-      ! corrected for the in-medium thresholds (see generateFinalState):
-      pInitial = pCM (srtfree, massIn(1), massIn(2))
+       if(flagCorThr)   then
+          srtS = sqrtS(partIn,"sigmaBB, srtS")
+          spotOut(1:2)=0.
+          if(getGridIndex(partIn(1)%pos,ind,0)) &
+               & spotOut(1) = SelfEnergy_scalar(ind(1),ind(2),ind(3),idOut(1),.false.)
+          if(getGridIndex(partIn(2)%pos,ind,0)) &
+               & spotOut(2) = SelfEnergy_scalar(ind(1),ind(2),ind(3),idOut(2),.false.)
+          srtfree = srtS - spotOut(1) - spotOut(2)
+          do i=1,2
+             if(hadron(idOut(i))%width.lt.1.e-03) then
+                minmassOut(i)=hadron(idOut(i))%mass
+             else
+                minmassOut(i)=hadron(idOut(i))%minmass
+             end if
+          end do
+          if(srtfree .le. sum(minmassOut)) return
+          mstarIn(1) = sqrtS(partIn(1),'sigmaBB, mstar(1)')
+          mstarIn(2) = sqrtS(partIn(2),'sigmaBB, mstar(2)')
+          pInitial = pCM(srtS, mstarIn(1), mstarIn(2))
+       else
+          ! Here we take a vacuum expression, since srtfree has been already
+          ! roughly corrected for the in-medium thresholds
+          ! (in generateFinalState):
+          pInitial = pCM(srtfree, massIn(1), massIn(2))
+       end if
     end if
 
     !##########################################################################
@@ -352,27 +398,29 @@ contains
        ! N N in incoming channel
        !***********************************************************************
        if ((idOut(1)==nucleon) .and. (IdOut(2)==nucleon)) then
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ! elastic scattering N N <-> N N
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          sigmabb = nukNuk_nukNuk (srtfree, massIn, sum(chargeIn))
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          sigmabb = nukNuk_nukNuk(srtfree, massIn, sum(chargeIn))
        else if (srtfree > 2*mN + mPi) then
-          ! Srts is greater than the treshold for resonance production and the final state is not NN
-          if (((idOut(1).eq.nucleon).and.(idOut(2).eq.delta)).or.((idOut(2).eq.nucleon).and.(idOut(1).eq.delta))) then
-             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          ! Srts is greater than the treshold for resonance production and the
+          ! final state is not NN
+          if (((idOut(1).eq.nucleon).and.(idOut(2).eq.delta)) &
+               .or.((idOut(2).eq.nucleon).and.(idOut(1).eq.delta))) then
+             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
              ! N N -> N Delta
-             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             sigmabb = NN_NDelta (srtFree,pInitial,idOut,isoIn,chargeIn)
+             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             sigmabb = NN_NDelta(srtFree,pInitial,idOut,isoIn,chargeIn)
           else if (idOut(1).eq.nucleon.or.idOut(2).eq.nucleon) then
-             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
              !  N N -> N Res
-             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             sigmabb = NN_NRes (srtFree,pInitial,idOut,isoIn,chargeIn)
+             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             sigmabb = NN_NRes(srtFree,pInitial,idOut,isoIn,chargeIn)
           else
-             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
              !  N N -> Res Res
-             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             sigmabb = NN_ResRes (srtFree,pInitial,idOut,isoIn,chargeIn)
+             !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             sigmabb = NN_ResRes(srtFree,pInitial,idOut,isoIn,chargeIn)
           end if
        end if
 
@@ -393,7 +441,8 @@ contains
                 pauliIncluded=.true.
              end if
           else
-             ! We consider all scattering processes of the delta as decays of the delta into a 3 body channel.
+             ! We consider all scattering processes of the delta as decays of
+             ! the delta into a 3 body channel.
              sigmabb=0.
           end if
       else
@@ -402,7 +451,7 @@ contains
           else
              massDelta=partIn(2)%mass
           end if
-          sigmabb = NDelta_NN (srtFree,pInitial,idOut,isoIn,chargeIn,massDelta)
+          sigmabb = NDelta_NN(srtFree,pInitial,idOut,isoIn,chargeIn,massDelta)
        end if
     else if (idIN(1).eq.nucleon.or.IdIN(2).eq.nucleon) then
        !***********************************************************************
@@ -417,32 +466,39 @@ contains
        end if
 
        if (IdOut(1)==nucleon .and. IdOut(2)==nucleon) then
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ! N Res -> N N
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          sigmabb = NRes_NN (srtFree,pInitial,idOut,isoIn,chargeIn,resID)
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          sigmabb = NRes_NN(srtFree,pInitial,idOut,isoIn,chargeIn,resID)
        else if (IdOUT(1).eq.nucleon.or.IdOut(2).eq.nucleon) then
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ! N Res -> N Res'
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           if (IdOut(1).eq.nucleon) then
              resIDOut=idOut(2)
           else
              resIDOut=idOut(1)
           end if
-          if (resId==Delta .and. resIDOut==Delta .and. get_MediumSwitch_Delta()) then
+          if (resId==Delta .and. resIDOut==Delta &
+               .and. get_MediumSwitch_Delta()) then
              ! ND -> ND where Delta has in medium changes
              if (delta2Body_inMedium_treatment()) then
                 sigmabb=deltaOset_ND_ND(partIn)
                 pauliIncluded=.true.
              else
-                ! We consider all scattering processes of the delta as decays of the delta into a 3 body channel.
+                ! We consider all scattering processes of the delta as decays
+                ! of the delta into a 3 body channel.
                 sigmabb=0.
              end if
-          else if (resId==Delta .and. resIDOut==Delta .and. use_ND_ND_model) then
-             sigmabb = ND_ND_model (srtFree,idIn,chargeIn,idOut,(/999,999/),massIn,.true.)
+          else if (resId==Delta .and. resIDOut==Delta &
+               .and. use_ND_ND_model) then
+             sigmabb = ND_ND_model(srtFree,idIn,chargeIn,idOut,(/999,999/),massIn,.true.)
           else
-             srtFree_withoutMass=srtFree-partIn(1)%mass-partIn(2)%mass
+             if(getRMF_flag() .and. flagCorThr) then
+                srtFree_withoutMass = srtS - mstarIn(1) - mstarIn(2)
+             else
+                srtFree_withoutMass=srtFree-partIn(1)%mass-partIn(2)%mass
+             end if
              sigmabb = NR_NR(resID,resIDout,srtFree,pinitial,idOut, isoIn, chargeIn, srtFree_withoutMass)
           end if
        else
@@ -459,10 +515,10 @@ contains
           resID=idIn(1)
        end if
        if (IdOut(1)==nucleon .and. IdOut(2)==nucleon) then
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
           ! Delta Res -> N N
-          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          sigmabb = DRes_NN (srtFree, pInitial, idOut, isoIn, chargeIn, resID)
+          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          sigmabb = DRes_NN(srtFree, pInitial, idOut, isoIn, chargeIn, resID)
        else
           write(*,*) 'Delta R -> N R or R R not yet implemented'
           stop
@@ -478,10 +534,11 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/m2d16pi
   ! NAME
-  ! real function m2d16pi (resID, totalCharge)
+  ! real function m2d16pi(resID, totalCharge)
   ! PURPOSE
   ! Matrix Elements for NN -> NR, see:
-  !  * Teis et al., Pion-production in heavy-ion collisions at SIS energies, Z. Phys. A 356 (1997) 421-435
+  !  * Teis et al., Pion-production in heavy-ion collisions at SIS energies,
+  !    Z. Phys. A 356 (1997) 421-435
   !  * Weil et al., http://arxiv.org/abs/1203.3557.
   ! INPUTS
   ! * integer, intent(in) :: resID         ---   resonance ID
@@ -489,24 +546,24 @@ contains
   ! OUTPUT
   ! * matrixelement**2 / 16 pi
   !****************************************************************************
-  real function m2d16pi (resID, totalCharge)
+  real function m2d16pi(resID, totalCharge)
     use IdTable, only: S11_1535, D13_1520, P11_1440
     integer, intent(in) :: resID, totalCharge
 
     m2d16pi = mat_NR(resID)
 
     if (totalCharge == 1) then
-      ! modification factors for pn collisions
-      select case (resID)
-      case (S11_1535)
-        m2d16pi = m2d16pi * max(etafac,neufac)        ! p n -> N*(1535) N
-      case (D13_1520)
-        m2d16pi = m2d16pi * max(rhofac,neufac)        ! p n -> N*(1520) N
-      case (P11_1440)
-        m2d16pi = m2d16pi * max(neufac_roper,neufac)  ! p n -> N*(1440) N
-      case default
-        m2d16pi = m2d16pi * neufac                    ! p n -> N R (other resonances)
-      end select
+       ! modification factors for pn collisions
+       select case (resID)
+       case (S11_1535)
+          m2d16pi = m2d16pi * max(etafac,neufac)        ! p n -> N*(1535) N
+       case (D13_1520)
+          m2d16pi = m2d16pi * max(rhofac,neufac)        ! p n -> N*(1520) N
+       case (P11_1440)
+          m2d16pi = m2d16pi * max(neufac_roper,neufac)  ! p n -> N*(1440) N
+       case default
+          m2d16pi = m2d16pi * neufac            ! p n -> N R (other resonances)
+       end select
     end if
 
   end function m2d16pi
@@ -517,21 +574,27 @@ contains
   ! NAME
   ! real function NR_NR(resIN,resOut,srtFree,pinitial,idOut, isoIn, chargeIn)
   ! PURPOSE
-  ! Evaluates NR -> NR scattering, where the resonances do not need to be identical.
+  ! Evaluates NR -> NR scattering, where the resonances do not need to be
+  ! identical.
   ! Assuming that it goes through a NN intermediate state.
   ! INPUTS
-  ! * real,intent(in) :: pInitial, srtfree ! Initial momentum and sqrt(s)
-  ! * integer , intent(in) :: resIn, resOut  ! Incoming and outgoing resonance ID
-  ! * integer, intent(in), dimension(1:2) :: idOut,isoIn, chargeIn     ! outgoing particles, incoming isospin, incoming charges
+  ! * integer :: resIn  -- Id of incoming resonance
+  ! * integer :: resOut -- Id of outgoing resonance
+  ! * real :: pInitial -- initial momentum
+  ! * real :: srtfree  -- initial sqrt(s)
+  ! * integer, dimension(1:2) :: idOut  -- Ids of outgoing particles
+  ! * integer, dimension(1:2) :: isoIn   -- isospin of incoming particles
+  ! * integer, dimension(1:2) :: chargeIn -- charges of incoming particles
+  ! * real, OPTIONAL :: srtFree_withoutMass --
   !****************************************************************************
-  real function NR_NR (resIn, resOut, srtfree, pinitial, idOut, isoIn, chargeIn, srtFree_withoutMass)
+  real function NR_NR(resIn, resOut, srtfree, pinitial, idOut, isoIn, chargeIn, srtFree_withoutMass)
 
     use twoBodyPhaseSpace, only: Integrate_2bodyPS_resonance
     use particleProperties, only: hadron
     use constants, only: mN
 
-    integer , intent(in) :: resIn, resOut
-    real,intent(in) :: srtfree, pinitial
+    integer, intent(in) :: resIn, resOut
+    real, intent(in) :: srtfree, pinitial
     integer, intent(in), dimension(1:2) :: idOut, isoIn, chargeIn
     real, optional, intent(in) :: srtFree_withoutMass
 
@@ -582,27 +645,30 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/nukNuk_nukNuk
   ! NAME
-  ! real function nukNuk_nukNuk (srtfree, massIn, totalcharge)
+  ! real function nukNuk_nukNuk(srtfree, massIn, totalcharge)
   ! PURPOSE
   ! Calculates NN -> N N scattering cross section
   ! INPUTS
-  ! * real, intent(in) :: srtfree
-  ! * real, dimension(1:2), intent(in) :: massIn            ! masses of incoming particles
-  ! * integer, dimension (1:2), intent(in):: totalcharge    ! total charge of incoming particles
+  ! * real :: srtfree -- sqrt(s)
+  ! * real, dimension(1:2) :: massIn --  masses of incoming particles
+  ! * integer :: totalcharge -- total charge of incoming particles
   ! NOTES
-  ! The parameter icugnon can be used to swith between two different modes of the cross section.
+  ! The global parameter icugnon can be used to swith between two different
+  ! modes of the cross section.
   ! References:
-  ! * Cugnon old: J. Cugnon, T. Mizutani and J. Vandermeulen, Nucl. Phys. A 352, 505 (1981).
-  ! * Cugnon new: J. Cugnon, J. Vandermeulen, D. L’hote, Nuclear Instrum. Methods B 111 (1996) 215–220.
+  ! * Cugnon old: J. Cugnon, T. Mizutani and J. Vandermeulen,
+  !   Nucl. Phys. A 352, 505 (1981).
+  ! * Cugnon new: J. Cugnon, J. Vandermeulen, D. L’hote,
+  !   Nuclear Instrum. Methods B 111 (1996) 215–220.
   ! * PDG: L. Montanet et al., Phys. Rev. D 50 (1994) 1173–1814
   !****************************************************************************
-  real function nukNuk_nukNuk (srtfree, massIn, totalcharge)
+  real function nukNuk_nukNuk(srtfree, massIn, totalcharge)
 
     use constants, only: mN
 
     real, intent(in) :: srtfree
-    real, dimension(1:2), intent(in) :: massIn  ! masses of incoming particles
-    integer, intent(in) :: totalcharge          ! total charge of incoming particles
+    real, dimension(1:2), intent(in) :: massIn
+    integer, intent(in) :: totalcharge
 
     real :: plab, srtf
 
@@ -660,28 +726,29 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/NN_NRes
   ! NAME
-  ! real function NN_NRes (srtFree,pInitial,idOut,isoIn,chargeIN,integerInput)
+  ! real function NN_NRes(srtFree,pInitial,idOut,isoIn,chargeIn,integerInput)
   ! PURPOSE
   ! Calculates NN -> N Res scattering cross section
   ! INPUTS
-  ! * real, intent(in) :: srtFree
-  ! * real, intent(in) :: pInitial                    ! CM impulse of incoming particles
-  ! * integer, intent(in), dimension(1:2) :: idOut    ! IDs of outgoing particles
-  ! * integer, intent(in), dimension(1:2) :: isoIN    ! isospin of incoming particles (times 2!!)
-  ! * integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
-  ! * integer, intent(in), optional :: integerInput
+  ! * real :: srtFree
+  ! * real :: pInitial -- CM impulse of incoming particles
+  ! * integer, dimension(1:2) :: idOut -- IDs of outgoing particles
+  ! * integer, dimension(1:2) :: isoIn -- isospin of incoming particles (x2!!)
+  ! * integer, dimension(1:2) :: chargeIn -- charges of incoming particles
+  ! * integer, optional :: integerInput
   ! NOTES
-  ! integerInput defines the choice of the regarded final state of the resonance:
-  ! * integerInput=1     ! All final states allowed
-  ! * integerInput=2     ! final state of Res is pion N
-  ! * integerInput=3     ! final state of Res is eta N
-  ! * integerInput=4     ! final state of Res is rho N
-  ! * integerInput=5     ! final state of Res is omega N
+  ! integerInput defines the choice of the regarded final state of the
+  ! resonance:
+  ! * integerInput=1   -- All final states allowed
+  ! * integerInput=2   -- final state of Res is pion N
+  ! * integerInput=3   -- final state of Res is eta N
+  ! * integerInput=4   -- final state of Res is rho N
+  ! * integerInput=5   -- final state of Res is omega N
   !
   ! Xsection is summed over all possible final state charge configurations.
   !
   !****************************************************************************
-  real function NN_NRes (srtFree, pInitial, idOut, isoIn, chargeIn, integerInput)
+  real function NN_NRes(srtFree, pInitial, idOut, isoIn, chargeIn, integerInput)
 
     use twoBodyPhaseSpace, only: Integrate_2bodyPS_resonance
     use IDTable
@@ -692,7 +759,7 @@ contains
     integer, intent(in), optional :: integerInput
 
     integer :: resonanceID, channel
-    real,dimension(1:5) ::  ps
+    real,dimension(1:5) :: ps
 
     if (initFlag) call readInput
 
@@ -713,9 +780,11 @@ contains
       channel=1
     end if
 
-    if (IdOut(1)==nucleon .and. idOut(2)<=F37_1950 .and. idOut(2)>=P11_1440) then
+    if (IdOut(1)==nucleon &
+         .and. idOut(2)<=F37_1950 .and. idOut(2)>=P11_1440) then
       resonanceID = idOut(2)
-    else if (IdOut(2)==nucleon .and. idOut(1)<=F37_1950 .and. idOut(1)>=P11_1440) then
+   else if (IdOut(2)==nucleon &
+        .and. idOut(1)<=F37_1950 .and. idOut(1)>=P11_1440) then
       resonanceId = idOut(1)
     else
       write(*,*) 'Error in NN_NRES. Idout is not conform with expected input:', idOut
@@ -733,20 +802,20 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/NRes_NN
   ! NAME
-  ! real function NRes_NN (srtFree,pInitial,idOut,isoIn,chargeIN,resonanceIN)
+  ! real function NRes_NN (srtFree,pInitial,idOut,isoIn,chargeIn,resonanceIn)
   ! PURPOSE
   ! Calculates NRes -> NN scattering cross section
   ! INPUTS
-  ! * real, intent(in) :: srtFree
-  ! * real, intent(in) :: pInitial                    ! CM impulse of incoming particles
-  ! * integer, intent(in), dimension(1:2) :: idOut    ! IDs of outgoing particles
-  ! * integer, intent(in), dimension(1:2) :: isoIN    ! isospin of incoming particles (times 2!!)
-  ! * integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
-  ! * integer, intent(in), optional :: resonanceIN    ! ID of incoming resonance
+  ! * real :: srtFree
+  ! * real :: pInitial                  -- CM impulse of incoming particles
+  ! * integer, dimension(1:2) :: idOut  -- IDs of outgoing particles
+  ! * integer, dimension(1:2) :: isoIn  -- isospin of incoming particles (x2!!)
+  ! * integer, dimension(1:2) :: chargeIn -- charges of incoming particles
+  ! * integer, optional :: resonanceIn    -- ID of incoming resonance
   ! NOTES
   ! Xsection is summed over all possible final state charge configurations.
   !****************************************************************************
-  real function NRes_NN (srtFree, pInitial, idOut, isoIn, chargeIn, resonanceIn)
+  real function NRes_NN(srtFree, pInitial, idOut, isoIn, chargeIn, resonanceIn)
 
     use particleProperties, only: hadron
     use IDTable
@@ -776,42 +845,41 @@ contains
     multipli = 2./(2*hadron(resonanceIn)%spin+1.)
     ! Divide out the multiplicities due to detailed balance
     if (srtfree>eps) then
-      NRes_NN = m2d16pi(resonanceIn,sum(chargeIn)) * pfinal/(pinitial*srtfree**2) * multipli * iifac0(idOut,isoIn,chargeIn)
+       NRes_NN = m2d16pi(resonanceIn,sum(chargeIn)) * pfinal/(pinitial*srtfree**2) * multipli * iifac0(idOut,isoIn,chargeIn)
     else
-      NRes_NN=0.
+       NRes_NN=0.
     end if
 
-   end function NRes_NN
+  end function NRes_NN
 
 
   !****************************************************************************
   !****f* barBar_BarBar/NN_NDelta
   ! NAME
-  ! real function NN_NDelta (srtFree, pInitial, idOut, isoIn, chargeIn)
+  ! real function NN_NDelta(srtFree, pInitial, idOut, isoIn, chargeIn)
   ! PURPOSE
   ! Calculates NN -> N Delta scattering cross section
   ! INPUTS
-  ! * real, intent(in) :: srtFree
-  ! * real, intent(in) :: pInitial ! CM impulse of incoming particles
-  ! * integer, intent(in), dimension(1:2) :: idOut
-  ! * integer, intent(in), dimension(1:2) :: isoIN ! isospin of incoming particles (times 2!!)
-  ! * integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
+  ! * real :: srtFree
+  ! * real :: pInitial -- CM impulse of incoming particles
+  ! * integer, dimension(1:2) :: idOut
+  ! * integer, dimension(1:2) :: isoIn -- isospin of incoming particles (x2!!)
+  ! * integer, dimension(1:2) :: chargeIn ! charges of incoming particles
   ! NOTES
   ! Xsection is summed over all possible final state charge configurations.
   !****************************************************************************
-  real function NN_NDelta (srtFree, pInitial, idOut, isoIn, chargeIn)
+  real function NN_NDelta(srtFree, pInitial, idOut, isoIn, chargeIn)
 
     use mediumDefinition
     use dimi, only: dimiIntegrated
-    use constants, only: rhoNull
 
     real, intent(in) :: srtFree
-    real, intent(in) :: pInitial ! CM impulse of incoming particles
+    real, intent(in) :: pInitial
     integer, intent(in), dimension(1:2) :: idOut
-    integer, intent(in), dimension(1:2) :: isoIN ! isospin of incoming particles (times 2!!)
-    integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
+    integer, intent(in), dimension(1:2) :: isoIn
+    integer, intent(in), dimension(1:2) :: chargeIn
 
-    ! factor 4/3 because dimixsec contains the xsection for p p->n d++
+    ! factor 4/3 because dimixsec contains the xsection for p p->n Delta++
     NN_NDelta = dimiIntegrated(srtfree) * iifac0(idOut,isoIn,ChargeIn) * 4./3./pinitial
 
   end function NN_NDelta
@@ -820,31 +888,30 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/NDelta_NN
   ! NAME
-  ! real function NDelta_NN (srtFree, pInitial, idOut, isoIn, chargeIn, massDelta)
+  ! real function NDelta_NN(srtFree, pInitial, idOut, isoIn, chargeIn, massDelta)
   ! PURPOSE
   ! Calculates N Delta -> N N scattering cross section
   ! INPUTS
-  ! * real, intent(in) :: srtFree
-  ! * real, intent(in) :: pInitial ! CM impulse of incoming particles
-  ! * integer, intent(in), dimension(1:2) :: idOut
-  ! * integer, intent(in), dimension(1:2) :: isoIN ! isospin of incoming particles (times 2!!)
-  ! * integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
-  ! * real, intent(in) :: massDelta ! mass of the Delta resonance
+  ! * real :: srtFree
+  ! * real :: pInitial -- CM impulse of incoming particles
+  ! * integer, dimension(1:2) :: idOut
+  ! * integer, dimension(1:2) :: isoIn -- isospin of incoming particles (x2!!)
+  ! * integer, dimension(1:2) :: chargeIn -- charges of incoming particles
+  ! * real :: massDelta -- mass of the Delta resonance
   ! NOTES
   ! Xsection is summed over all possible final state charge configurations.
   !****************************************************************************
-  real function NDelta_NN (srtFree, pInitial, idOut, isoIn, chargeIn, massDelta)
+  real function NDelta_NN(srtFree, pInitial, idOut, isoIn, chargeIn, massDelta)
 
     use mediumDefinition
     use dimi, only: dimiSigma
-    use constants, only: rhoNull
 
     real, intent(in) :: srtFree
-    real, intent(in) :: pInitial ! CM impulse of incoming particles
+    real, intent(in) :: pInitial
     integer, intent(in), dimension(1:2) :: idOut
-    integer, intent(in), dimension(1:2) :: isoIN ! isospin of incoming particles (times 2!!)
-    integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
-    real, intent(in)  :: massDelta ! mass of the Delta resonance
+    integer, intent(in), dimension(1:2) :: isoIn
+    integer, intent(in), dimension(1:2) :: chargeIn
+    real, intent(in)  :: massDelta
 
     ! factor 8./3. because dimiSigma contains n d++ -> p p
     NDelta_NN = dimiSigma(srtfree,massDelta) * iifac0(idOut,isoIn,ChargeIn) * 8./3./pinitial
@@ -855,33 +922,36 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/NN_ResRes
   ! NAME
-  ! real function NN_ResRes (srtFree,pInitial,idOut,isoIn,chargeIN)
+  ! real function NN_ResRes(srtFree,pInitial,idOut,isoIn,chargeIn)
   ! PURPOSE
-  ! Calculates NN -> Res Res scattering cross section, assuming constant matrix elements.
+  ! Calculates NN -> Res Res scattering cross section,
+  ! assuming constant matrix elements.
   ! INPUTS
-  ! * real, intent(in) :: srtFree
-  ! * real, intent(in) :: pInitial                    ! CM impulse of incoming particles
-  ! * integer, intent(in), dimension(1:2) :: idOut    ! IDs of outgoing particles
-  ! * integer, intent(in), dimension(1:2) :: isoIN    ! isospin of incoming particles (times 2!!)
-  ! * integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
+  ! * real :: srtFree
+  ! * real :: pInitial                  -- CM impulse of incoming particles
+  ! * integer, dimension(1:2) :: idOut  -- IDs of outgoing particles
+  ! * integer, dimension(1:2) :: isoIn  -- isospin of incoming particles (x2!!)
+  ! * integer, dimension(1:2) :: chargeIn -- charges of incoming particles
   ! NOTES
-  ! The cross section is summed over all possible final state charge configurations.
+  ! The cross section is summed over all possible final state charge
+  ! configurations.
   ! Currently two channels are implemented: Delta-Delta and Delta-N*(1535).
   ! For Delta-Delta see Effenberger, PhD, appendix A.1.2.
-  ! The Delta-N*(1535) channel was fitted to roughly match Pythia's pi-eta production XS
-  ! around sqrts ~ 3 GeV, in order to describe HADES dilepton data for p+p@3.5GeV.
+  ! The Delta-N*(1535) channel was fitted to roughly match Pythia's pi-eta
+  ! production XS around sqrts ~ 3 GeV, in order to describe HADES dilepton
+  ! data for p+p@3.5GeV.
   !****************************************************************************
-  real function NN_ResRes (srtFree, pInitial, idOut, isoIn, chargeIN)
+  real function NN_ResRes(srtFree, pInitial, idOut, isoIn, chargeIn)
 
     use twoBodyPhaseSpace, only: nnRR
     use IDTable, only: Delta
     use constants, only: mN, mPi
 
     real, intent(in) :: srtFree
-    real, intent(in) :: pInitial ! CM impulse of incoming particles
+    real, intent(in) :: pInitial
     integer, intent(in), dimension(1:2) :: idOut
-    integer, intent(in), dimension(1:2) :: isoIN ! isospin of incoming particles (times 2!!)
-    integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
+    integer, intent(in), dimension(1:2) :: isoIn
+    integer, intent(in), dimension(1:2) :: chargeIn
 
     real :: ME, integral
 
@@ -903,20 +973,20 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/DRes_NN
   ! NAME
-  ! real function DRes_NN (srtFree, pInitial, idOut, isoIn, chargeIN, resonanceIN)
+  ! real function DRes_NN(srtFree, pInitial, idOut, isoIn, chargeIn, resonanceIN)
   ! PURPOSE
   ! Calculates Delta Res -> N N scattering cross section.
   ! INPUTS
-  ! * real, intent(in) :: srtFree
-  ! * real, intent(in) :: pInitial                    ! CM impulse of incoming particles
-  ! * integer, intent(in), dimension(1:2) :: idOut    ! IDs of outgoing particles
-  ! * integer, intent(in), dimension(1:2) :: isoIN    ! isospin of incoming particles (times 2!!)
-  ! * integer, intent(in), dimension(1:2) :: chargeIN ! charges of incoming particles
-  ! * integer, intent(in), optional :: resonanceIN    ! ID of incoming resonance
+  ! * real :: srtFree
+  ! * real :: pInitial                  -- CM impulse of incoming particles
+  ! * integer, dimension(1:2) :: idOut  -- IDs of outgoing particles
+  ! * integer, dimension(1:2) :: isoIN  -- isospin of incoming particles (x2!!)
+  ! * integer, dimension(1:2) :: chargeIN -- charges of incoming particles
+  ! * integer, optional :: resonanceIN    -- ID of incoming resonance
   ! NOTES
   ! Xsection is summed over all possible final state charge configurations.
   !****************************************************************************
-  real function DRes_NN (srtFree, pInitial, idOut, isoIn, chargeIn, resonanceIn)
+  real function DRes_NN(srtFree, pInitial, idOut, isoIn, chargeIn, resonanceIn)
 
     use particleProperties, only: hadron
     use IDTable
@@ -957,18 +1027,18 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/iifac0
   ! NAME
-  ! real function iifac0 (IDout,is,iz)
+  ! real function iifac0(IDout,is,iz)
   ! NOTES
   ! This function calculates the isospin-factors given in table 3.4 of
-  ! my diploma thesis (M.E.) + factor for identical particles in the
+  ! M.E.'s diploma thesis  + factor for identical particles in the
   ! final state.
   ! Sum over final state charges!
   ! INPUTS
-  ! * IDout  : IDs of final state
-  ! * is     : isospins of initial state times 2
-  ! * iz     : charges of initial state particles
+  ! * integer, dimension(1:2) :: IDout  -- IDs of final state
+  ! * integer, dimension(1:2) :: is     -- isospins of initial state times 2
+  ! * integer, dimension(1:2) :: iz     -- charges of initial state particles
   !****************************************************************************
-  real function iifac0 (IDout,is,iz) result(iifac)
+  real function iifac0(IDout,is,iz) result(iifac)
 
     use IdTable, only: isBaryon
     use particleProperties, only: hadron
@@ -1071,10 +1141,10 @@ contains
   ! final state.
   ! No sum over final state charges!
   ! INPUTS
-  ! * IDout  : IDs of final state
-  ! * is     : isospins of initial state times 2
-  ! * iz     : charges of initial state particles
-  ! * iz3v,iz4v  : charges of final state particles
+  ! * integer, dimension(1:2) :: IDout  -- IDs of final state
+  ! * integer, dimension(1:2) :: is     -- isospins of initial state times 2
+  ! * integer, dimension(1:2) :: iz     -- charges of initial state particles
+  ! * integer :: iz3v,iz4v  -- charges of final state particles
   !****************************************************************************
   real function iifac1 (IDout,is,iz,iz3v,iz4v) result(iifac)
 
@@ -1082,7 +1152,7 @@ contains
     use particleProperties, only: hadron
 
     integer, intent(in) :: IDout(1:2),is(1:2),iz(1:2)
-    integer, intent(in) :: iz3v, iz4v  ! Charges of final state particles
+    integer, intent(in) :: iz3v, iz4v
 
     integer :: isOut(1:2), izT, isT, isOutT
 
@@ -1205,14 +1275,16 @@ contains
   !****************************************************************************
   !****f* barBar_BarBar/chooseCharge
   ! NAME
-  ! function chooseCharge (teilchenIN, idOut) result(chargeOut)
+  ! function chooseCharge (partIn, idOut) result(chargeOut)
   ! PURPOSE
-  ! Two baryons with defined charges and ID's are defined as incoming particles (teilchenIN),
-  ! and we also pass the outgoing particles to this routine (idOUT). This subroutine then
-  ! makes a Monte-Carlo decision for the charges of the outgoing particles, using
-  ! the isospin factors provided by iifac or the NDelta -> NDelta model.
+  ! Two baryons with defined charges and ID's are defined as incoming
+  ! particles (partIN),
+  ! and we also pass the outgoing particles to this routine (idOUT).
+  ! This subroutine then makes a Monte-Carlo decision for the charges of the
+  ! outgoing particles, using the isospin factors provided by iifac or the
+  ! NDelta -> NDelta model.
   !****************************************************************************
-  function chooseCharge (partIn, idOut) result(chargeOut)
+  function chooseCharge(partIn, idOut) result(chargeOut)
 
     use random, only: rn
     use barbar_to_barbar_model, only: ND_ND_chooseCharge
@@ -1225,9 +1297,9 @@ contains
     integer,        dimension(1:2)             :: chargeOut
 
     integer                  :: totalCharge
-    integer, dimension (1:2) :: idIn        !Id's of incoming particles
-    integer, dimension (1:2) :: chargeIn    !Charges of incoming particles
-    integer , dimension(1:2) :: isoIN ! IsoSpin of incoming paritcles
+    integer, dimension(1:2)  :: idIn        !Id's of incoming particles
+    integer, dimension(1:2)  :: chargeIn    !Charges of incoming particles
+    integer, dimension(1:2)  :: isoIN ! IsoSpin of incoming paritcles
     integer                  :: charge1, charge2
     integer                  :: charge1_Max, charge2_Max
     integer                  :: charge1_Min, charge2_Min
@@ -1324,11 +1396,12 @@ contains
   ! NAME
   ! logical function delta2Body_inMedium_treatment()
   ! PURPOSE
-  ! This function decides whether the condition is fulfilled such that the in-medium width of
-  ! the delta can be partially implemented via two body processes.
+  ! This function decides whether the condition is fulfilled such that the
+  ! in-medium width of the delta can be partially implemented via two body
+  ! processes.
   !****************************************************************************
   logical function delta2Body_inMedium_treatment()
-    use deltaWidth, only: osetDelta_used
+    use deltaWidth, only: deltaOset_used
     use baryonWidthMedium, only: get_mediumSwitch_coll,get_MediumSwitch_Delta
 
     if (initFlag) call readInput
@@ -1337,7 +1410,7 @@ contains
        ! No 2-body treatment for the Delta->Everything 3-body
        delta2Body_inMedium_treatment=.false.
     else
-       delta2Body_inMedium_treatment=(get_MediumSwitch_Delta().and.(osetDelta_used().or.get_mediumSwitch_coll()))
+       delta2Body_inMedium_treatment=(get_MediumSwitch_Delta().and.(deltaOset_used().or.get_mediumSwitch_coll()))
     end if
   end function delta2Body_inMedium_treatment
 

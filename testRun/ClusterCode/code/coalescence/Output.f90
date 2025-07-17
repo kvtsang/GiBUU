@@ -38,8 +38,8 @@ module Output
          Y      = FragmentVector(i)%HypNumber
          LS     = FragmentVector(i)%HypType
          Mass   = FragmentVector(i)%Mass*0.19733
-         xx(:)  = FragmentVector(i)%position(:)
-         pp(1:3)= FragmentVector(i)%momentum(1:3)
+         xx(:)  = FragmentVector(i)%pos(:)
+         pp(1:3)= FragmentVector(i)%mom(1:3)
          write(4,10) idp,Z,A,Y,LS,Mass,xx,pp,iev
       end do
 

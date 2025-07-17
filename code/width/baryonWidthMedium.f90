@@ -161,6 +161,7 @@ contains
     use baryonWidthMedium_tables, only: get_deltaOset
     use output, only: Write_ReadingInput
     use MassAssInfoDefinition, only: Set_UseMassAssInfo
+    use masterPiDelta, only: getMasterPiDelta
 
     integer :: ios ! checks file behavior
 
@@ -186,30 +187,31 @@ contains
     read(5,nml=width_Baryon,IOSTAT=IOS)
     call Write_ReadingInput('width_Baryon',0,IOS)
 
-    write(*,'(A,L8)') ' Use in medium width for the baryons         : ',mediumSwitch
+    write(*,'(A,L4)') ' Use in medium width for the baryons:          mediumSwitch        =',&
+         & mediumSwitch
     if (.not.mediumSwitch) then
-       mediumSwitch_coll=.false.
-       mediumSwitch_Delta=.false.
-       mediumSwitch_proton_neutron=.false.
+       mediumSwitch_coll = .false.
+       mediumSwitch_Delta = .false.
+       mediumSwitch_proton_neutron = .false.
        write(*,'(A)') '   -> No in medium collisional width for the baryons'
        write(*,'(A)') '   -> No special in medium width for the Delta'
        write(*,'(A)') '   -> No special in medium width for the nucleons'
-    end if
-
-    write(*,'(A,L8)') ' Use medium width according to collision term: ',&
-         & mediumSwitch_coll
-    if (mediumSwitch_coll) then
-       mediumSwitch_delta=get_deltaOset()
-       mediumSwitch_proton_neutron=.false.
-       write(*,'(A,L8)') ' Use special Delta width                     : ',&
-            & mediumSwitch_Delta
-       write(*,'(A,L8)') ' Use in medium width for the nucleons        : ',&
-            & mediumSwitch_proton_neutron
     else
-       write(*,'(A,L8)') ' Use in medium width for the Delta           : ',&
-            & mediumSwitch_Delta
-       write(*,'(A,L8)') ' Use in medium width for the nucleons        : ',&
-            & mediumSwitch_proton_neutron
+
+       write(*,'(A,L4)') ' Use medium width according to collision term: mediumSwitch_coll   =',&
+            & mediumSwitch_coll
+       if (mediumSwitch_coll) then
+          mediumSwitch_Delta = get_deltaOset()
+          mediumSwitch_proton_neutron = .false.
+!!$          write(*,'(A,L4)') ' ... additional special Delta width according Oset : ',&
+!!$               & mediumSwitch_Delta
+!!$          write(*,'(A)')    '     (see baryonWidthMedium_tables/deltaOset)'
+       else
+          write(*,'(A,L4)') ' Use in medium width for the Delta:    mediumSwitch_Delta          =',&
+               & mediumSwitch_Delta
+          write(*,'(A,L4)') ' Use in medium width for the nucleons: mediumSwitch_proton_neutron =',&
+               & mediumSwitch_proton_neutron
+       end if
     end if
 
     call Write_ReadingInput('width_Baryon',1)
@@ -229,6 +231,13 @@ contains
     call InitMassAssInfo_Baryon()
 
     initFlag=.false.
+
+    if (getMasterPiDelta()) then
+        mediumSwitch = .true.
+        mediumSwitch_Delta = .true.
+        write (*,*) 'getMasterPiDelta: mediumSwitch_Delta set to .true.'
+    end if
+
 
   end subroutine readInput
 
@@ -363,40 +372,68 @@ contains
   ! pauliFlag is set to .true. .
   !
   ! INPUTS
-  ! * integer            :: particleID        -- id of resonance
-  ! * real               :: mass              --
-  !   bare mass of the resonance (offshell), not including potentials!
-  ! * type(medium)       :: mediumATposition  -- Medium information
-  ! * real,dimension(0:3):: momentumLRF       --
-  !   Momentum im LRF of the resonance
+  ! * integer              :: particleID        -- id of resonance
+  ! * real                 :: mass              -- bare mass of the resonance (offshell), not including potentials!
+  ! * real, dimension(1:3) :: position          -- position vector of the resonance
   !
   ! OUTPUT
   ! * real, dimension(:)             :: decayWidth --
   !   array of decay widths for all decay channels
-  ! * logical, intent(out)           :: pauliFlag  --
-  !   If .true. then pauli-Blocking is already considered
-  !   in the decay width description
   !****************************************************************************
-  subroutine decayWidthBaryonMedium(particleID,mass,momLRF,mediumATposition, decayWidth, pauliFlag)
+  subroutine decayWidthBaryonMedium(particleID,mass,position,decayWidth)
 
     use mediumDefinition
-    use particleProperties, only: nDecays
-    use baryonWidth, only: decayWidthBaryon
+    use particleProperties, only: nDecays, hadron
+    use DecayChannels, only: Decay2bodyBaryon
+    use baryonWidth, only: decayWidthBaryon, getPartialWidthBaryon
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
 
     real,intent(in) :: mass
     integer,intent(in) :: particleID
     real, intent(out), dimension(1:nDecays)  :: decayWidth
-    logical, intent(out) :: pauliFlag
 
     ! ONLY Needed for InMediumModifications:
-    type(medium),intent(in) ::  mediumATposition
-    real,intent(in),dimension(0:3) :: momLRF
+    real, dimension(1:3), intent(in) :: position
+
+    integer, dimension(1:3) :: ind
+    integer :: i,dID,baryonID
+    real :: spotIn,spotOut,massCor
+    logical :: flagInsideGrid
 
     if (initFlag) call readInput
 
-    ! No medium modification
-    pauliFlag=.false.
-    decayWidth = decayWidthBaryon (particleID, mass)
+    decayWidth=0.
+
+    if(getRMF_flag() .and. flagCorThr) then  ! In-medium thresholds
+
+        flagInsideGrid=.false.
+        spotIn=0.
+
+        if(getGridIndex(position,ind,0))  then
+            flagInsideGrid=.true.
+            spotIn  = SelfEnergy_scalar(ind(1),ind(2),ind(3),particleID,.false.)
+        end if
+
+        do i=1,nDecays
+           dID = hadron(particleID)%decaysID(i)
+           if (dId<=0) cycle !  not 2Body
+
+           baryonID = Decay2BodyBaryon(dId)%ID(2)
+
+           spotOut=0.
+           if(flagInsideGrid) spotOut = SelfEnergy_scalar(ind(1),ind(2),ind(3),baryonID,.false.)
+           massCor = mass + spotIn - spotOut
+
+           decayWidth(i) = getPartialWidthBaryon(particleID,massCor,i)
+        end do
+
+    else  ! No medium modification
+
+        decayWidth = decayWidthBaryon (particleID, mass)
+
+    end if
+
 
   end subroutine decayWidthBaryonMedium
 
@@ -465,47 +502,45 @@ contains
     ! Set the default value (as for vacuum):
     WidthBaryonMedium= FullWidthBaryon(particleID,mass)
 
+
     ! Now do the medium modifications:
+    if (.not.mediumSwitch) return
 
-    if (mediumSwitch) then
+    if (mediumAtPosition%useMedium) then
+       rhoP = mediumAtPosition%densityProton
+       rhoN = mediumAtPosition%densityNeutron
 
-       if (mediumAtPosition%useMedium) then
-          rhoP = mediumAtPosition%densityProton
-          rhoN = mediumAtPosition%densityNeutron
-
-          if (mediumSwitch_coll.and.particleID.le.(nres+1)) then
-             !only implemented for non-strange resonances
-             WidthBaryonMedium=get_inMediumWidth(particleID,momLRF,mass,&
-                  & rhoN, rhoP, 3,outOfBounds=lBounds)
-             if (present(outOfBounds)) outOfBounds=lBounds
-          else
-             select case (particleID)
-             case (Delta)
-                if (mediumSwitch_Delta) then
-                   WidthBaryonMedium= delta_fullWidth(mass,momLRF(1:3),rhoP+rhoN)
-                end if
-
-             case (nucleon)
-                if (mediumSwitch_proton_neutron) then
-                   WidthBaryonMedium=proton_width_medium(momLRF,rhoP,rhoN)
-                end if
-             end select
-          end if
-
+       if (mediumSwitch_coll.and.particleID.le.(nres+1)) then
+          !only implemented for non-strange resonances
+          WidthBaryonMedium=get_inMediumWidth(particleID,momLRF,mass,&
+               & rhoN, rhoP, 3,outOfBounds=lBounds)
+          if (present(outOfBounds)) outOfBounds=lBounds
        else
+          select case (particleID)
+          case (Delta)
+             if (mediumSwitch_Delta) then
+                WidthBaryonMedium=delta_fullWidth(mass,momLRF(1:3),rhoP+rhoN)
+             end if
 
-          if (mediumSwitch_coll.and.particleID.le.(nres+1)) then
-             ! do nothing
-          else
-             select case (particleID)
-             case (Delta)
-                if (mediumSwitch_Delta) then
-                   WidthBaryonMedium= delta_fullWidth(mass,momLRF(1:3),0.)
-                end if
-             end select
-          end if
+          case (nucleon)
+             if (mediumSwitch_proton_neutron) then
+                WidthBaryonMedium=proton_width_medium(momLRF,rhoP,rhoN)
+             end if
+          end select
        end if
 
+    else
+
+       if (mediumSwitch_coll.and.particleID.le.(nres+1)) then
+          ! do nothing
+       else
+          select case (particleID)
+          case (Delta)
+             if (mediumSwitch_Delta) then
+                WidthBaryonMedium= delta_fullWidth(mass,momLRF(1:3),0.)
+             end if
+          end select
+       end if
     end if
 
   end function WidthBaryonMedium

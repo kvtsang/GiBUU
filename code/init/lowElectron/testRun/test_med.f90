@@ -81,22 +81,22 @@ subroutine testCross
   write(*,*)
   write(111,*) '# phi_k ,theta_k,dsigma/d(...)'
 
-  initNuc%position=(/1.,2.,3./)
+  initNuc%pos=(/1.,2.,3./)
   initNuc%mass=0.938
-  initNuc%momentum(1:3)=(/0.,0.,0./)
+  initNuc%mom(1:3)=(/0.,0.,0./)
   initNuc%ID=nucleon
   initNuc%charge=charge_nucOut+charge_pionOut
-  initNuc%perturbative=.false.
+  initNuc%pert=.false.
   call energyDetermination(initNuc)
   call updateVelocity     (initNuc)
   write(*,*)
   write(*,*)
-  write(*,*) 'pi(0)', initNuc%momentum(0)
+  write(*,*) 'pi(0)', initNuc%mom(0)
   write(*,*)
   write(*,*)
   write(*,*)
   write(*,*)
-  write(*,*) 'velocity', initNuc%velocity
+  write(*,*) 'velocity', initNuc%vel
   write(*,*)
   write(*,*)
 
@@ -104,7 +104,7 @@ subroutine testCross
   do phi_k=0,360,10
      dummy=dSigmadOmega_fdE_fdOmega_k_med(initNuc,charge_pionOut,&
           & energy_li,energy_lf,theta_lf,phi_k,theta_k,q,lf,k,pf)
-!     if(pauliBlocking(pf,initNuc%position,initNuc%charge-pionCharge) ) dummy=0.
+!     if(pauliBlocking(pf,initNuc%pos,initNuc%charge-pionCharge) ) dummy=0.
      write(*,'(5E16.5)')   phi_k,theta_k,dummy
      write(111,'(5E16.5)') phi_k ,theta_k,dummy
   end do
@@ -181,22 +181,22 @@ subroutine testKine
   call Write_ReadingInput("init_lowElectron",1)
 
 
-  initNuc%position=(/1.,2.,3./)
+  initNuc%pos=(/1.,2.,3./)
   initNuc%mass=0.938
-  initNuc%momentum(1:3)=(/0.2,0.1,0.05/)
+  initNuc%mom(1:3)=(/0.2,0.1,0.05/)
   initNuc%ID=nucleon
   initNuc%charge=1
-  initNuc%perturbative=.false.
+  initNuc%pert=.false.
   call energyDetermination(initNuc)
   call updateVelocity     (initNuc)
   write(*,*)
   write(*,*)
-  write(*,*) 'pi(0)', initNuc%momentum(0)
+  write(*,*) 'pi(0)', initNuc%mom(0)
   write(*,*)
   write(*,*)
   write(*,*)
   write(*,*)
-  write(*,*) 'velocity', initNuc%velocity
+  write(*,*) 'velocity', initNuc%vel
   write(*,*)
   write(*,*)
 
@@ -213,12 +213,12 @@ subroutine testKine
      write(*,*)
      write(*,'(4E12.4)') q
      write(*,'(4E12.4)') lf-li
-     write(*,'(4E12.4)') pf+k-initNuc%momentum
+     write(*,'(4E12.4)') pf+k-initNuc%mom
      write(*,*)
      write(*,'(4E12.4)') k
      write(*,'(4E12.4)') pf
      write(*,*)
-     write(*,'(4E12.4)') li+initNuc%momentum
+     write(*,'(4E12.4)') li+initNuc%mom
      write(*,'(4E12.4)') lf+k+pf
 
 
@@ -228,14 +228,14 @@ subroutine testKine
      write(*,*)
      write(*,*)
 
-     initNuc%position=(/1.,2.,3./)
+     initNuc%pos=(/1.,2.,3./)
      initNuc%mass=0.938
-     initNuc%momentum(0:3)=pf
+     initNuc%mom(0:3)=pf
      initNuc%ID=nucleon
      initNuc%charge=1
-     initNuc%perturbative=.false.
+     initNuc%pert=.false.
      call energyDetermination(initNuc)
-     write(*,*) 'pf(0)', initNuc%momentum(0)
+     write(*,*) 'pf(0)', initNuc%mom(0)
   else
      write(*,*) 'Failure in establishing kinematics'
   end if
@@ -249,12 +249,12 @@ subroutine testKine
      write(*,*)
      write(*,'(4E12.4)') q
      write(*,'(4E12.4)') lf-li
-     write(*,'(4E12.4)') pf+k-initNuc%momentum
+     write(*,'(4E12.4)') pf+k-initNuc%mom
      write(*,*)
      write(*,'(4E12.4)') k
      write(*,'(4E12.4)') pf
      write(*,*)
-     write(*,'(4E12.4)') li+initNuc%momentum
+     write(*,'(4E12.4)') li+initNuc%mom
      write(*,'(4E12.4)') lf+k+pf
 
 
@@ -264,14 +264,14 @@ subroutine testKine
      write(*,*)
      write(*,*)
 
-     initNuc%position=(/1.,2.,3./)
+     initNuc%pos=(/1.,2.,3./)
      initNuc%mass=0.938
-     initNuc%momentum(0:3)=pf
+     initNuc%mom(0:3)=pf
      initNuc%ID=nucleon
      initNuc%charge=1
-     initNuc%perturbative=.false.
+     initNuc%pert=.false.
      call energyDetermination(initNuc)
-     write(*,*) 'pf(0)', initNuc%momentum(0)
+     write(*,*) 'pf(0)', initNuc%mom(0)
   else
      write(*,*) 'Failure in establishing kinematics'
   end if
@@ -338,22 +338,22 @@ subroutine testKai
 !!$Theta of pion     : 11.64209
 
 
-  initNuc%position=(/1000.,1000.,1000./)
+  initNuc%pos=(/1000.,1000.,1000./)
   initNuc%mass=0.938
-  initNuc%momentum(1:3)=(/0.,0.,0./)
+  initNuc%mom(1:3)=(/0.,0.,0./)
   initNuc%ID=nucleon
   initNuc%charge=1
-  initNuc%perturbative=.false.
+  initNuc%pert=.false.
   call energyDetermination(initNuc)
   call updateVelocity     (initNuc)
   write(*,*)
   write(*,*)
-  write(*,*) 'pi(0)', initNuc%momentum(0)
+  write(*,*) 'pi(0)', initNuc%mom(0)
   write(*,*)
   write(*,*)
   write(*,*)
   write(*,*)
-  write(*,*) 'velocity', initNuc%velocity
+  write(*,*) 'velocity', initNuc%vel
   write(*,*)
   write(*,*)
   energy_lf=7.07383
@@ -368,7 +368,7 @@ subroutine testKai
   do phi_k=260,260,10
      dummy=dSigmadOmega_fdE_fdOmega_k_med(initNuc,charge_pionOut,&
           & energy_li,energy_lf,theta_lf,phi_k,theta_k,q,lf,k,pf)
-!     if(pauliBlocking(pf,initNuc%position,initNuc%charge-pionCharge) ) dummy=0.
+!     if(pauliBlocking(pf,initNuc%pos,initNuc%charge-pionCharge) ) dummy=0.
      write(*,'(5E16.5)')   phi_k,theta_k,dummy
      write(111,'(5E16.5)')   phi_k,theta_k,dummy
      !write(111,'(5E16.5)') phi_k,theta_k,phi_k_center,theta_k_center,dummy

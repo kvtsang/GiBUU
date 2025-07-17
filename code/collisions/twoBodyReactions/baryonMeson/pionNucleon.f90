@@ -14,8 +14,8 @@ module pionNucleon
   private
 
   ! Debug-flags:
-  logical,parameter :: debugFlag=.false.
-  logical,parameter :: debugFlagAnti=.false.
+  logical, parameter :: debugFlag=.false.
+  logical, parameter :: debugFlagAnti=.false.
 
   ! wether we use the flux correction for the incoming particle velocities:
   logical, parameter :: fluxCorrector_flag=.true.
@@ -137,9 +137,9 @@ contains
     nukCharge  = partNucl%charge
     nukMass    = partNucl%mass
 
-    if (partPion%antiParticle)  call traceBack('meson is anti')
+    if (partPion%anti)  call traceBack('meson is anti')
 
-    if (partNucl%antiParticle) then ! Invert all particles
+    if (partNucl%anti) then ! Invert all particles
        nukCharge = -nukcharge
        pionCharge= -pionCharge
        antiParticleInput=.true.
@@ -213,10 +213,10 @@ contains
     !**************************************************************************
     subroutine evaluateXsections
       use particleProperties, only: hadron
-      use parametrizationsBarMes, only: piN_elastic, piN_chargeExchange, &
+      use parametrizationBarMes, only: piN_elastic, piN_chargeExchange, &
            huangLam, sibirtpi, golub_omega, golub_phi, &
            huang, pin_to_strangebaryon_kaon_pion_matrix
-      use parBarMes_HighEnergy, only: paramBarMesHE_pion
+      use parametrizationBarMes_HighEnergy, only: paramBarMesHE_pion
       use resonanceCrossSections, only: barMes_R_barMes, barMes2resonance
       use clebschGordan, only: clebschSquared
       use constants, only: mN, mPi, mK
@@ -234,11 +234,11 @@ contains
       real, dimension(-1:1) :: sigma_total_param, sigma_elast_param
       real, dimension(1:5) :: ps
 
-      position=0.5*(partIn(1)%position+partIn(2)%position)
+      position=0.5*(partIn(1)%pos+partIn(2)%pos)
 
-      perturbative = (partIn(1)%perturbative.or.partIn(2)%perturbative)
+      perturbative = (partIn(1)%pert.or.partIn(2)%pert)
 
-      momentum_vacuum(1:3)=partIn(1)%momentum(1:3)+partIn(2)%momentum(1:3)
+      momentum_vacuum(1:3)=partIn(1)%mom(1:3)+partIn(2)%mom(1:3)
       momentum_vacuum(0)=FreeEnergy(partIn(1))+FreeEnergy(partIn(2))
 
       isoZ_nuk=nukCharge-0.5
@@ -315,7 +315,7 @@ contains
 
 
       ! Charge Exchange : Subtract resonance contribution from data
-      if (nukcharge==0 .and. pionCharge==0) then       ! pi n -> pi p
+      if (nukcharge==0 .and. pionCharge>=0) then       ! pi n -> pi p
          piN(pionCharge-1)= max(0.,piN_chargeExchange(srts)-barMes_R_barMes(pion,nucleon,&
               pion,nucleon, &
               pionCharge,nukcharge,pionCharge-1,nukcharge+1,.false.,.true., &
@@ -334,34 +334,44 @@ contains
       !************************************************************************
       ! -> omega N
       !************************************************************************
-      sigmaGolub(1:2) = golub_omega (srts)     ! Golub returns the cross section for pi- p -> omega n
-      ! There is always a I=1/2 resonance as intermediate state :
-      omegaN=clebschSquared(1.,0.5,0.5,real(pionCharge),isoZ_nuk) &
-           * 3./2.* (sigmaGolub(1)-barMes_R_barMes(pion,nucleon,&
-           omegaMeson,nucleon,-1,1,0,0,.false.,.true.,Vacuum, &
-           momentum_vacuum,pionMass,nukMass,position,perturbative,srts))
-      ! factor 3./2. to divide by the isospin clebsch for pi- p -> omega n
-      if (omegaN<0.) then
-         omegaN=0.
-         if (debugFlag) write(*,*) 'Problem in pionNuc : pion N -> Omega N &
-              &    resonance Contribution greater than elementary crossSection'
-      end if
+      omegaN = 0.
+      omegaPiN = 0.
+      if (hadron(omegaMeson)%propagated) then
 
+         sigmaGolub(1:2) = golub_omega (srts)     ! Golub returns the cross section for pi- p -> omega n
+         ! There is always a I=1/2 resonance as intermediate state :
+         omegaN=clebschSquared(1.,0.5,0.5,real(pionCharge),isoZ_nuk) &
+              * 3./2.* (sigmaGolub(1)-barMes_R_barMes(pion,nucleon,&
+              omegaMeson,nucleon,-1,1,0,0,.false.,.true.,Vacuum, &
+              momentum_vacuum,pionMass,nukMass,position,perturbative,srts))
+         ! factor 3./2. to divide by the isospin clebsch for pi- p -> omega n
+         if (omegaN<0.) then
+            omegaN=0.
+            if (debugFlag) write(*,*) 'Problem in pionNuc : pion N -> Omega N &
+                 &    resonance Contribution greater than elementary crossSection'
+         end if
+      !************************************************************************
       ! -> omega pi N
-      ! Assume same cross section for all channels
-      omegaPiN=sigmaGolub(2)
+      !************************************************************************
+         ! Assume same cross section for all channels
+         omegaPiN=sigmaGolub(2)
+      end if
 
       !************************************************************************
       ! -> phi N
       !************************************************************************
-      sigmaGolub = golub_phi (srts, 0.)   ! Golub returns the cross section for pi- p -> phi n
-      phiN = clebschSquared(1.,0.5,0.5,real(pionCharge),isoZ_nuk) * 3./2. * sigmaGolub(1)
+      phiN = 0.
+      if (hadron(phi)%propagated) then
+         sigmaGolub = golub_phi (srts, 0.)   ! Golub returns the cross section for pi- p -> phi n
+         phiN = clebschSquared(1.,0.5,0.5,real(pionCharge),isoZ_nuk) * 3./2. * sigmaGolub(1)
+
 
       !************************************************************************
-      ! -> phi  pi N
+      ! -> phi pi N
       !************************************************************************
-      ! Assume same cross section for all channels
-      phiPiN=sigmaGolub(2)
+         ! Assume same cross section for all channels
+         phiPiN=sigmaGolub(2)
+      end if
 
       !************************************************************************
       ! -> Kaon KaonBar N
@@ -423,9 +433,9 @@ contains
       ! -> Lambda Kaon
       !************************************************************************
       lambdaKaon=0.
-      if (srts>(hadron(Lambda)%mass+mK)) then
-         ! hunaglam gives : pi^{-} p -> Lambda Kaon^{0}
-         sigmaHuangLam = huangLam (srts)
+      if (srts>(hadron(Lambda)%mass+mK) &
+           .and. hadron(Lambda)%propagated) then
+         sigmaHuangLam = huangLam(srts) ! = pi^- p -> Lambda K^0
          select case (pionCharge)
          case (-1)
             if (nukCharge==1) then
@@ -459,12 +469,13 @@ contains
       ! -> Sigma Kaon
       !************************************************************************
       ! sigmaKaon(0:1) : Index is charge of final state kaon
-      ! sigmaHuang(1) = pi^{+}  p  ->   K^{+}  Sigma+      !
-      ! sigmaHuang(2) = pi^{0}  p  ->   K^{+}  Sigma0       !
-      ! sigmaHuang(3) = pi^{-}  p  ->   K^{0}  Sigma0      !
-      ! sigmaHuang(4) = pi^{-}  p  ->   K^{+}   Sigma-     !
+      ! sigmaHuang(1) = pi^+  p  ->   K^+  Sigma^+
+      ! sigmaHuang(2) = pi^0  p  ->   K^+  Sigma^0
+      ! sigmaHuang(3) = pi^-  p  ->   K^0  Sigma^0
+      ! sigmaHuang(4) = pi^-  p  ->   K^+  Sigma^-
       sigmaKaon(:)=0.
-      if (srts>(hadron(SigmaResonance)%mass+mK)) then
+      if (srts>(hadron(SigmaResonance)%mass+mK) &
+           .and. hadron(SigmaResonance)%propagated) then
          sigmaHuang = huang(srts)
          if (nukCharge==1) then
             select case (pionCharge)
@@ -497,7 +508,8 @@ contains
       ! -> eta Delta
       !************************************************************************
       etaDelta=0.
-      if (srts>(hadron(Delta)%minmass+hadron(eta)%mass)) then
+      if (srts>(hadron(Delta)%minmass+hadron(eta)%mass) &
+           .and. hadron(eta)%propagated) then
         ps = Integrate_2bodyPS_resonance (Delta, srts, hadron(eta)%mass, 0.)
         etaDelta = matrixDeltaEta * ps(1) / (pCM(srts,mN,mPi)*srts**2) &
                       * clebschSquared(1.,0.5,1.5,real(pionCharge),isoZ_nuk)
@@ -524,7 +536,8 @@ contains
       ! -> rho N
       !************************************************************************
       rhoN=0.
-      if (srts>(hadron(rho)%minmass+mN)) then
+      if (srts>(hadron(rho)%minmass+mN) &
+           .and. hadron(rho)%propagated) then
          do new_Nukcharge=0,1
             rhoCharge=pionCharge+nukCharge-new_NukCharge
             if ((rhoCharge>=-1).and.(rhoCharge<=1)) then
@@ -538,12 +551,13 @@ contains
       end if
 
       !************************************************************************
-      !  -> rhoDelta
+      !  -> rho Delta
       !************************************************************************
       ! Evaluate backGrounds by subtracting Resonance cross section
       ! of propagated resonances off the cross section for all resonances:
       rhoDelta=0.
-      if (srts>(hadron(delta)%minmass+hadron(rho)%minmass)) then
+      if (srts>(hadron(delta)%minmass+hadron(rho)%minmass) &
+           .and. hadron(rho)%propagated) then
          do new_DeltaCharge=-1,2
             rhoCharge=pionCharge+nukCharge-new_DeltaCharge
             if ((rhoCharge>=-1).and.(rhoCharge<=1)) then
@@ -560,7 +574,8 @@ contains
       ! -> pion P11_1440
       !************************************************************************
       piP11_1440=0.
-      if (srts>(hadron(P11_1440)%minmass+mPi)) then
+      if (srts>(hadron(P11_1440)%minmass+mPi) &
+           .and. hadron(P11_1440)%propagated) then
          do new_p11Charge=0,1
             new_pionCharge=pionCharge+nukCharge-new_p11Charge
             if ((new_pionCharge>=-1).and.(new_pionCharge<=1)) then
@@ -578,7 +593,8 @@ contains
       !************************************************************************
       sigmaN=0.
       if ((nukCharge+pionCharge==0).or.(nukCharge+pionCharge==1)) then
-         if (srts>(hadron(sigmaMeson)%minmass+mN)) then
+         if (srts>(hadron(sigmaMeson)%minmass+mN) &
+              .and. hadron(sigmaMeson)%propagated) then
             sigmaN=barMes_R_barMes(pion,nucleon,&
                  sigmaMeson,nucleon,pionCharge,nukCharge, &
                  0,nukCharge+pionCharge,background,propagated, &
@@ -592,7 +608,8 @@ contains
       !************************************************************************
       etaN=0.
       if ((nukCharge+pionCharge==0).or.(nukCharge+pionCharge==1)) then
-         if (srts>(hadron(eta)%mass+mN)) then
+         if (srts>(hadron(eta)%mass+mN) &
+              .and. hadron(eta)%propagated) then
             etaN=barMes_R_barMes(pion,nucleon, &
                  eta,nucleon,pionCharge,nukCharge, &
                  0,nukCharge+pionCharge,background,propagated, &
@@ -604,7 +621,7 @@ contains
       !************************************************************************
       ! pi N -> R
       !************************************************************************
-      sigmaRes = barMes2resonance (pion,nucleon, &
+      sigmaRes = barMes2resonance(pion,nucleon, &
            pionCharge,nukCharge,.true.,mediumAtColl, &
            momLRF,massRes,pionMass,nukMass,position,perturbative,srts)
 
@@ -614,6 +631,8 @@ contains
       !************************************************************************
       call piN_to_strangeBaryon_kaon_pion_matrix(srtS,pionCharge,nukCharge, &
            LambdaKaonPion, SigmaKaonPion)
+      if (.not.hadron(Lambda)%propagated) LambdaKaonPion = 0.
+      if (.not.hadron(SigmaResonance)%propagated) SigmaKaonPion = 0.
 
       !************************************************************************
       ! -> pi pi N, pi pi pi N

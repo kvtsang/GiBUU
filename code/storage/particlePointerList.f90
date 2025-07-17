@@ -5,7 +5,7 @@
 !
 ! PURPOSE
 ! This module defines all necesary types for storing pointers to particles.
-! This includes lists of particles and lists to lists and ... ;)
+! This includes lists of particles and lists to lists and ...
 !
 ! INPUTS
 ! (none)
@@ -19,19 +19,21 @@ module particlePointerList
 
   private
 
-  public :: ParticleList_Print
-  public :: ParticleList_getParticle
-  public :: ParticleList_INIT, ParticleList_CLEAR
-  public :: ParticleList_APPEND
-  public :: ParticleList_PREPEND
-!   public :: ParticleList_REMOVE
+  public :: PartList_Print
+  public :: PartList_getPart
+  public :: PartList_countPart
+  public :: PartList_INIT
+  public :: PartList_CLEAR
+  public :: PartList_APPEND
+  public :: PartList_PREPEND
+!   public :: PartList_REMOVE
 
 contains
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_Print
+  !****s* particlePointerList/PartList_Print
   ! NAME
-  ! subroutine ParticleList_Print(L)
+  ! subroutine PartList_Print(L)
   !
   ! PURPOSE
   ! Loop over the List and print every particle
@@ -42,13 +44,13 @@ contains
   ! OUTPUT
   ! written on stdout
   !****************************************************************************
-  subroutine ParticleList_Print(L)
+  subroutine PartList_Print(L)
     use output, only: WriteParticle
 
     type(tParticleList) :: L
     type(tParticleListNode), POINTER :: pNode
 
-    write(*,*) "ParticleList_Print: ", L%nEntries
+    write(*,*) "PartList_Print: ", L%nEntries
 
     pNode => L%first
     do
@@ -60,38 +62,42 @@ contains
        pNode=>pNode%next
     end do
 
-  end subroutine ParticleList_Print
+  end subroutine PartList_Print
 
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_getParticle
+  !****s* particlePointerList/PartList_getPart
   ! NAME
-  ! logical function ParticleList_getParticle(L, ID, n, P, antiparticle)
+  ! logical function PartList_getPart(L, n, P, ID, charge, anti, weightNonZero)
   !
   ! PURPOSE
   ! Loop over the List "L" and find the "n"-th particle in the list with
-  ! %ID="ID", "%antiparticle=antiparticle" and
+  ! %ID="ID", "%anti=antiparticle" and
   ! %charge="charge".  This particle "P" is then returned.
   !
   ! INPUTS
   ! * type(tParticleList) :: L -- The List of particles
-  ! * integer :: ID     -- ID of particle which shall be returned
-  ! * integer :: charge -- charge of particle which shall be returned
+  ! * integer, OPTIONAL :: ID     -- ID of particle which shall be returned
+  ! * integer, OPTIONAL :: charge -- charge of particle which shall be returned
+  ! * logical, OPTIONAL :: anti -- .false. if we search for a particle,
+  !   .true. for an antiparticle
   ! * integer :: n      -- We return the n-th particle in the list with %ID=ID
-  ! * logical :: antiparticle -- .false. if we search for a particle, .true. for an antiparticle
-  ! * logical, OPTIONAL :: weightNonZero -- if .true. only count particles with perweight > 0
+  ! * logical, OPTIONAL :: weightNonZero -- if .true. only count particles with
+  !   perweight > 0
   !
   ! OUTPUT
   ! * type(particle) :: P -- n-th particle with wished ID
   ! * logical        :: success -- True if it was possible to find n-Particles
-  !   with the wished ID, False otherwise
+  !   with the wished ID,charge,anti; False otherwise
   !****************************************************************************
-  function ParticleList_getParticle(L, ID, charge, n, P, antiparticle, weightNonZero) result (success)
+  function PartList_getPart(L, n, P, ID, charge, anti, weightNonZero) result (success)
 
-    type(tParticleList),intent(in) :: L
-    integer,intent(in) :: ID, charge, n
+    type(tParticleList), intent(in) :: L
+    integer, intent(in) :: n
     type(particle), intent(out) ::  P
-    logical, intent(in) :: antiparticle
+    integer, intent(in), optional :: ID
+    integer, intent(in), optional :: charge
+    logical, intent(in), optional :: anti
     logical, intent(in), optional :: weightNonZero
     logical :: success
 
@@ -112,41 +118,85 @@ contains
     do
        if (.not. associated(pNode)) exit
 
-       if (pNode%V%ID == ID) then
-          if (pNode%V%charge == charge) then
-             if (pNode%V%antiparticle.eqv.antiparticle) then
-                if (checkWeight) then
-                   if (pNode%V%perWeight > 1e-20) then
-                      foundIDs = foundIDs + 1
-                   end if
-                else
-                   foundIDs = foundIDs + 1
-                end if
-                if (foundIDs == n) then
-                   ! n particles with the wanted ID are found, and the n-th particle is returned.
-                   p = pNode%V
-                   success = .true.
-                   return
-                end if
+       if (compare(pNode%V, ID, charge, anti)) then
+          if (checkWeight) then
+             if (pNode%V%perWeight > 1e-20) then
+                foundIDs = foundIDs + 1
              end if
+          else
+             foundIDs = foundIDs + 1
+          end if
+          if (foundIDs == n) then
+             ! n particles with the wanted ID are found, and the n-th particle is returned.
+             p = pNode%V
+             success = .true.
+             return
           end if
        end if
        pNode => pNode%next
     end do
 
-  end function ParticleList_getParticle
+  end function PartList_getPart
 
+  !****************************************************************************
+  !****s* particlePointerList/PartList_countParticle
+  ! NAME
+  ! integer function PartList_countPart(L, ID, charge, anti, weightNonZero)
+  !
+  ! PURPOSE
+  ! count the number of particles with given ID and/or charge and/or anti-flag
+  !
+  ! INPUTS
+  ! * type(tParticleList) :: L -- The List of particles
+  ! * integer :: ID     -- ID of particle which shall be returned
+  ! * integer, OPTIONAL :: charge -- charge of particle which shall be returned
+  ! * logical, OPTIONAL :: anti -- .false. if we search for a particle,
+  !   .true. for an antiparticle
+  ! * logical, OPTIONAL :: weightNonZero -- if .true. only count particles
+  !   with perweight > 0
+  !
+  ! OUTPUT
+  ! * integer
+  !****************************************************************************
+  function PartList_countPart(L, ID, charge, anti, weightNonZero) result(n)
 
+    type(tParticleList), intent(in) :: L
+    integer, intent(in), optional :: ID
+    integer, intent(in), optional :: charge
+    logical, intent(in), optional :: anti
+    logical, intent(in), optional :: weightNonZero
+
+    type(tParticleListNode), POINTER :: pNode
+    integer :: n
+    logical :: checkWeight
+
+    checkWeight =.true.
+    if (present(weightNonZero)) checkWeight = weightNonZero
+
+    ! Default return values
+    n = 0
+
+    ! Search particle:
+    pNode => L%first
+    do
+       if (.not. associated(pNode)) exit
+
+       if (compare(pNode%V, ID, charge, anti)) n = n+1
+
+       pNode => pNode%next
+    end do
+
+  end function PartList_countPart
 
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_INIT
+  !****s* particlePointerList/PartList_INIT
   ! NAME
-  ! subroutine ParticleList_INIT(L)
+  ! subroutine PartList_INIT(L)
   !
   ! PURPOSE
   ! Initialize the List
-  ! (call only at start; to reset the list please call ParticleList_CLEAR)
+  ! (call only at start; to reset the list please call PartList_CLEAR)
   !
   ! INPUTS
   ! * type(tParticleList) :: L -- The List
@@ -154,21 +204,21 @@ contains
   ! OUTPUT
   ! (none)
   !****************************************************************************
-  subroutine ParticleList_INIT (L)
+  subroutine PartList_INIT(L)
 
     type(tParticleList) :: L
 
     NULLIFY(L%first,L%last)
     L%nEntries=0
 
-  end subroutine ParticleList_INIT
+  end subroutine PartList_INIT
 
 
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_CLEAR
+  !****s* particlePointerList/PartList_CLEAR
   ! NAME
-  ! subroutine ParticleList_CLEAR(L,all)
+  ! subroutine PartList_CLEAR(L,all)
   !
   ! PURPOSE
   ! Reset the List: Delete all Nodes and re-init the pointers
@@ -181,7 +231,7 @@ contains
   ! OUTPUT
   ! (none)
   !****************************************************************************
-  subroutine ParticleList_CLEAR(L,all)
+  subroutine PartList_CLEAR(L,all)
 
     type(tParticleList) :: L
     logical,optional :: all
@@ -200,16 +250,16 @@ contains
           pNodeP=>pNode
        end do
     end if
-    call ParticleList_INIT(L)
+    call PartList_INIT(L)
 
-  end subroutine ParticleList_CLEAR
+  end subroutine PartList_CLEAR
 
 
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_APPEND
+  !****s* particlePointerList/PartList_APPEND
   ! NAME
-  ! subroutine ParticleList_APPEND(L,V)
+  ! subroutine PartList_APPEND(L,V)
   !
   ! PURPOSE
   ! Append the particle (which V points at) at the end of the list.
@@ -222,7 +272,7 @@ contains
   ! OUTPUT
   ! (none)
   !****************************************************************************
-  subroutine ParticleList_APPEND(L, V)
+  subroutine PartList_APPEND(L, V)
 
     type(tParticleList)              :: L
     type(particle)         , POINTER :: V
@@ -242,13 +292,13 @@ contains
 
     L%nEntries = L%nEntries+1
 
-  end subroutine ParticleList_APPEND
+  end subroutine PartList_APPEND
 
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_PREPEND
+  !****s* particlePointerList/PartList_PREPEND
   ! NAME
-  ! subroutine ParticleList_PREPEND(L,V)
+  ! subroutine PartList_PREPEND(L,V)
   !
   ! PURPOSE
   ! Prepend the particle (which V points at) at the beginning of the list.
@@ -261,7 +311,7 @@ contains
   ! OUTPUT
   ! (none)
   !****************************************************************************
-  subroutine ParticleList_PREPEND(L, V)
+  subroutine PartList_PREPEND(L, V)
 
     type(tParticleList)              :: L
     type(particle)         , POINTER :: V
@@ -281,12 +331,12 @@ contains
 
     L%nEntries = L%nEntries+1
 
-  end subroutine ParticleList_PREPEND
+  end subroutine PartList_PREPEND
 
   !****************************************************************************
-  !****s* particlePointerList/ParticleList_RANDOMIZE
+  !****s* particlePointerList/PartList_RANDOMIZE
   ! NAME
-  ! subroutine ParticleList_RANDOMIZE(L)
+  ! subroutine PartList_RANDOMIZE(L)
   !
   ! PURPOSE
   ! Reorder the linked list by reshuffling the entries randomly.
@@ -297,7 +347,7 @@ contains
   ! OUTPUT
   ! (none)
   !****************************************************************************
-  subroutine ParticleList_RANDOMIZE(L)
+  subroutine PartList_RANDOMIZE(L)
 
     use random, only: rn_truefalse
 
@@ -333,35 +383,35 @@ contains
 
     end do
 
-  end subroutine ParticleList_RANDOMIZE
+  end subroutine PartList_RANDOMIZE
 
 
-  !****************************************************************************
-  !****f* particlePointerList/ParticleList_REMOVE
-  ! NAME
-  ! logical function ParticleList_REMOVE(L,iEntry,V)
-  !
-  ! PURPOSE
-  ! Remove the iEntry-th particle from the List.
-  ! The pointer to this particle is returned, the memory of the node is
-  ! freed.
-  !
-  ! NOTES
-  ! This routine is fastest if one removes the first particle. For all
-  ! higher indices, the routine has to loop over the entries of the list
-  ! until it has found the right number.
-  !
-  ! INPUTS
-  ! * type(tParticleList)     :: L -- The List
-  ! * integer                 :: iEntry -- The number of the particle to
-  !   remove
-  ! * type(particle), POINTER :: V -- The particle to add
-  !
-  ! OUTPUT
-  ! * type(particle), POINTER :: V -- The particle removed
-  ! * return value -- TRUE at success (index was in allowed range)
-  !****************************************************************************
-!   logical function ParticleList_REMOVE(L,iEntry, V)
+!  !****************************************************************************
+!  !****f* particlePointerList/PartList_REMOVE
+!  ! NAME
+!  ! logical function PartList_REMOVE(L,iEntry,V)
+!  !
+!  ! PURPOSE
+!  ! Remove the iEntry-th particle from the List.
+!  ! The pointer to this particle is returned, the memory of the node is
+!  ! freed.
+!  !
+!  ! NOTES
+!  ! This routine is fastest if one removes the first particle. For all
+!  ! higher indices, the routine has to loop over the entries of the list
+!  ! until it has found the right number.
+!  !
+!  ! INPUTS
+!  ! * type(tParticleList)     :: L -- The List
+!  ! * integer                 :: iEntry -- The number of the particle to
+!  !   remove
+!  ! * type(particle), POINTER :: V -- The particle to add
+!  !
+!  ! OUTPUT
+!  ! * type(particle), POINTER :: V -- The particle removed
+!  ! * return value -- TRUE at success (index was in allowed range)
+!  !****************************************************************************
+!   logical function PartList_REMOVE(L,iEntry, V)
 !
 !     type(tParticleList)              :: L
 !     type(particle)         , POINTER :: V
@@ -371,7 +421,7 @@ contains
 !     integer :: i
 !
 !     NULLIFY(V)
-!     ParticleList_REMOVE = .FALSE.
+!     PartList_REMOVE = .FALSE.
 !
 !     if (iEntry < 1) return
 !     if (iEntry > L%nEntries) return
@@ -384,7 +434,7 @@ contains
 !        DEALLOCATE(pNode)
 !        NULLIFY(L%first,L%last)
 !        L%nEntries = 0
-!        ParticleList_REMOVE = .TRUE.
+!        PartList_REMOVE = .TRUE.
 !        return
 !     end if
 !
@@ -393,7 +443,7 @@ contains
 !        L%first => pNode%next
 !        DEALLOCATE(pNode)
 !        L%nEntries = L%nEntries-1
-!        ParticleList_REMOVE = .TRUE.
+!        PartList_REMOVE = .TRUE.
 !        return
 !     end if
 !
@@ -412,9 +462,44 @@ contains
 !     DEALLOCATE(pNode)
 !     if (iEntry == L%nEntries) L%last => pNodeP
 !     L%nEntries = L%nEntries-1
-!     ParticleList_REMOVE = .TRUE.
+!     PartList_REMOVE = .TRUE.
 !     return
 !
-!   end function ParticleList_REMOVE
+!   end function PartList_REMOVE
+
+  !****************************************************************************
+  !****if* particlePointerList/compare
+  ! NAME
+  ! logical function compare(P, ID,charge,anti)
+  !
+  ! INPUTS
+  ! * type(particle) :: P
+  ! * integer, OPTIONAL :: ID
+  ! * integer, OPTIONAL :: charge
+  ! * logical, OPTIONAL :: anti
+  !
+  ! PURPOSE
+  ! check whether the given particle has ID and/or charge and/or antiparticle
+  ! flag.
+  !****************************************************************************
+  pure logical function compare(P, ID,charge,anti)
+    type(particle), intent(in) :: P
+    integer, intent(in), OPTIONAL :: ID
+    integer, intent(in), OPTIONAL :: charge
+    logical, intent(in), OPTIONAL :: anti
+
+    compare = .false.
+    if (present(ID)) then
+       if (P%ID /= ID) return
+    end if
+    if (present(charge)) then
+       if (P%charge /= charge) return
+    end if
+    if (present(anti)) then
+       if (P%anti .neqv. anti) return
+    end if
+    compare = .true.
+
+  end function compare
 
 end module particlePointerList

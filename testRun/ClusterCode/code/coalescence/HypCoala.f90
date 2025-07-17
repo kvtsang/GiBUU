@@ -82,13 +82,13 @@ contains
        if (ParticleVector(l1)%id.gt.200) cycle !only Baryons!!!!
        if (ifrm(l1)==1) cycle !Baryons bounded to Clusters
        global = global + 1
-       FragmentVector(global)%position(1) = ParticleVector(l1)%position(1)
-       FragmentVector(global)%position(2) = ParticleVector(l1)%position(2)
-       FragmentVector(global)%position(3) = ParticleVector(l1)%position(3)
-       FragmentVector(global)%momentum(0) = ParticleVector(l1)%momentum(0)
-       FragmentVector(global)%momentum(1) = ParticleVector(l1)%momentum(1)
-       FragmentVector(global)%momentum(2) = ParticleVector(l1)%momentum(2)
-       FragmentVector(global)%momentum(3) = ParticleVector(l1)%momentum(3)
+       FragmentVector(global)%pos(1) = ParticleVector(l1)%pos(1)
+       FragmentVector(global)%pos(2) = ParticleVector(l1)%pos(2)
+       FragmentVector(global)%pos(3) = ParticleVector(l1)%pos(3)
+       FragmentVector(global)%mom(0) = ParticleVector(l1)%mom(0)
+       FragmentVector(global)%mom(1) = ParticleVector(l1)%mom(1)
+       FragmentVector(global)%mom(2) = ParticleVector(l1)%mom(2)
+       FragmentVector(global)%mom(3) = ParticleVector(l1)%mom(3)
        FragmentVector(global)%Mass        = ParticleVector(l1)%Mass
        FragmentVector(global)%ID          = ParticleVector(l1)%ID
        FragmentVector(global)%ChargeNumber= ParticleVector(l1)%Charge
@@ -164,9 +164,9 @@ contains
     !choose the closest fragment
     if (Clusters.gt.1) then
        do l1=1,Clusters
-          r1 = ParticleVector(i1)%position(1)-FragmentVector(l1)%position(1)
-          r2 = ParticleVector(i1)%position(2)-FragmentVector(l1)%position(2)
-          r3 = ParticleVector(i1)%position(3)-FragmentVector(l1)%position(3)
+          r1 = ParticleVector(i1)%pos(1)-FragmentVector(l1)%pos(1)
+          r2 = ParticleVector(i1)%pos(2)-FragmentVector(l1)%pos(2)
+          r3 = ParticleVector(i1)%pos(3)-FragmentVector(l1)%pos(3)
           rabs = sqrt(r1**2+r2**2+r3**2)
           if (rabs.lt.rinit) then
              rinit = rabs
@@ -187,21 +187,21 @@ contains
     !------------------------------------------------------------------*
     if (m1.eq.0) return
     !****************************************************
-    k1h = FragmentVector(m1)%momentum(1)/float(FragmentVector(m1)%MassNumber)
-    k2h = FragmentVector(m1)%momentum(2)/float(FragmentVector(m1)%MassNumber)
-    k3h = FragmentVector(m1)%momentum(3)/float(FragmentVector(m1)%MassNumber)
+    k1h = FragmentVector(m1)%mom(1)/float(FragmentVector(m1)%MassNumber)
+    k2h = FragmentVector(m1)%mom(2)/float(FragmentVector(m1)%MassNumber)
+    k3h = FragmentVector(m1)%mom(3)/float(FragmentVector(m1)%MassNumber)
 
     emh = FragmentVector(m1)%Mass
     chh = FragmentVector(m1)%ChargeNumber
 
-    r1 = ParticleVector(i1)%position(1)-FragmentVector(m1)%position(1)
-    r2 = ParticleVector(i1)%position(2)-FragmentVector(m1)%position(2)
-    r3 = ParticleVector(i1)%position(3)-FragmentVector(m1)%position(3)
+    r1 = ParticleVector(i1)%pos(1)-FragmentVector(m1)%pos(1)
+    r2 = ParticleVector(i1)%pos(2)-FragmentVector(m1)%pos(2)
+    r3 = ParticleVector(i1)%pos(3)-FragmentVector(m1)%pos(3)
     rabs = sqrt(r1**2+r2**2+r3**2)
 
-    rp1 = ParticleVector(i1)%momentum(1)-k1h
-    rp2 = ParticleVector(i1)%momentum(2)-k2h
-    rp3 = ParticleVector(i1)%momentum(3)-k3h
+    rp1 = ParticleVector(i1)%mom(1)-k1h
+    rp2 = ParticleVector(i1)%mom(2)-k2h
+    rp3 = ParticleVector(i1)%mom(3)-k3h
     pabs = sqrt(rp1**2+rp2**2+rp3**2)
 
     an = float( FragmentVector(m1)%MassNumber ) + 1.0
@@ -235,22 +235,22 @@ contains
     ll      = FragmentVector(m1)%MassNumber + 1 !Mass Number
     ipf(ll) = i1
 
-    xnew  = ( ParticleVector(i1)%mass*ParticleVector(i1)%position(1) &
-         + emh*FragmentVector(m1)%position(1) )/ &
+    xnew  = ( ParticleVector(i1)%mass*ParticleVector(i1)%pos(1) &
+         + emh*FragmentVector(m1)%pos(1) )/ &
          ( ParticleVector(i1)%mass + emh )
-    ynew  = ( ParticleVector(i1)%mass*ParticleVector(i1)%position(2) &
-         + emh*FragmentVector(m1)%position(2) )/ &
+    ynew  = ( ParticleVector(i1)%mass*ParticleVector(i1)%pos(2) &
+         + emh*FragmentVector(m1)%pos(2) )/ &
          ( ParticleVector(i1)%mass + emh )
-    znew  = ( ParticleVector(i1)%mass*ParticleVector(i1)%position(3) &
-         + emh*FragmentVector(m1)%position(3) )/ &
+    znew  = ( ParticleVector(i1)%mass*ParticleVector(i1)%pos(3) &
+         + emh*FragmentVector(m1)%pos(3) )/ &
          ( ParticleVector(i1)%mass + emh )
 
-    pp0   = ParticleVector(i1)%momentum(0) + FragmentVector(m1)%momentum(0)
-    ppx   = ( ParticleVector(i1)%momentum(1) + &
+    pp0   = ParticleVector(i1)%mom(0) + FragmentVector(m1)%mom(0)
+    ppx   = ( ParticleVector(i1)%mom(1) + &
          k1h*float(FragmentVector(m1)%MassNumber) ) / float(ll)
-    ppy   = ( ParticleVector(i1)%momentum(2) + &
+    ppy   = ( ParticleVector(i1)%mom(2) + &
          k2h*float(FragmentVector(m1)%MassNumber) ) / float(ll)
-    ppz   = ( ParticleVector(i1)%momentum(3) + &
+    ppz   = ( ParticleVector(i1)%mom(3) + &
          k3h*float(FragmentVector(m1)%MassNumber) ) / float(ll)
 
     emnew = ParticleVector(i1)%mass + emh     !new fragment mass
@@ -262,14 +262,14 @@ contains
 
     npar(m1,FragmentVector(m1)%MassNumber) = ipf(FragmentVector(m1)%MassNumber)
 
-    FragmentVector(m1)%position(1) = xnew
-    FragmentVector(m1)%position(2) = ynew
-    FragmentVector(m1)%position(3) = znew
+    FragmentVector(m1)%pos(1) = xnew
+    FragmentVector(m1)%pos(2) = ynew
+    FragmentVector(m1)%pos(3) = znew
 
-    FragmentVector(m1)%momentum(0) = pp0
-    FragmentVector(m1)%momentum(1) = ppx*float(FragmentVector(m1)%MassNumber)
-    FragmentVector(m1)%momentum(2) = ppy*float(FragmentVector(m1)%MassNumber)
-    FragmentVector(m1)%momentum(3) = ppz*float(FragmentVector(m1)%MassNumber)
+    FragmentVector(m1)%mom(0) = pp0
+    FragmentVector(m1)%mom(1) = ppx*float(FragmentVector(m1)%MassNumber)
+    FragmentVector(m1)%mom(2) = ppy*float(FragmentVector(m1)%MassNumber)
+    FragmentVector(m1)%mom(3) = ppz*float(FragmentVector(m1)%MassNumber)
     FragmentVector(m1)%Mass        = emnew
 
     FragmentVector(m1)%HypNumber   = lhyp

@@ -15,7 +15,7 @@ $baryonWidth
 $end
 
 $initDatabase
-!  rho_dilep = T
+  rho_dilep = T
 $end
 
 $spectralFunction

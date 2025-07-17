@@ -200,7 +200,7 @@ contains
     do k=tVE%iRange(3,1),tVE%iRange(3,2)
        do j=tVE%iRange(2,1),tVE%iRange(2,2)
           do i=tVE%iRange(1,1),tVE%iRange(1,2)
-             call ParticleList_INIT(tVE%VE_real(i,j,k))
+             call PartList_INIT(tVE%VE_real(i,j,k))
           end do
        end do
     end do
@@ -216,7 +216,7 @@ contains
     do k=tVE%iRange(3,1),tVE%iRange(3,2)
        do j=tVE%iRange(2,1),tVE%iRange(2,2)
           do i=tVE%iRange(1,1),tVE%iRange(1,2)
-             call ParticleList_INIT(tVE%VE_pert(i,j,k))
+             call PartList_INIT(tVE%VE_pert(i,j,k))
           end do
        end do
     end do
@@ -245,7 +245,7 @@ contains
        if (.not.tVE%zCoordFilled_pert(k)) CYCLE
        do j=tVE%iRange(2,1),tVE%iRange(2,2)
           do i=tVE%iRange(1,1),tVE%iRange(1,2)
-             call ParticleList_CLEAR(tVE%VE_pert(i,j,k))
+             call PartList_CLEAR(tVE%VE_pert(i,j,k))
           end do
        end do
     end do
@@ -271,7 +271,7 @@ contains
        if (.not.tVE%zCoordFilled_real(k)) CYCLE
        do j=tVE%iRange(2,1),tVE%iRange(2,2)
           do i=tVE%iRange(1,1),tVE%iRange(1,2)
-             call ParticleList_CLEAR(tVE%VE_real(i,j,k))
+             call PartList_CLEAR(tVE%VE_real(i,j,k))
           end do
        end do
     end do
@@ -319,11 +319,11 @@ contains
           if (PartVec(i,j)%ID == 0) cycle index_loop
 
           do k=1,3
-             ii(k) = nint(PartVec(i,j)%position(k)/tVE%Delta(k)+boxshift)
+             ii(k) = nint(PartVec(i,j)%pos(k)/tVE%Delta(k)+boxshift)
 
              if ((ii(k)<=tVE%iRange(k,1)).or.(ii(k)>=tVE%iRange(k,2))) then
 !                write(*,*) '#### Particle not in volume:',&
-!                     & k,PartVec(i,j)%position(k)
+!                     & k,PartVec(i,j)%pos(k)
                 cycle index_loop
              end if
           end do
@@ -331,9 +331,9 @@ contains
 
           ! introduce some randomness:
           if (rn_truefalse()) then
-             call ParticleList_APPEND(tVE%VE_Pert(ii(1),ii(2),ii(3)), pPart)
+             call PartList_APPEND(tVE%VE_Pert(ii(1),ii(2),ii(3)), pPart)
           else
-             call ParticleList_PREPEND(tVE%VE_Pert(ii(1),ii(2),ii(3)), pPart)
+             call PartList_PREPEND(tVE%VE_Pert(ii(1),ii(2),ii(3)), pPart)
           end if
           nPart = nPart + 1
 
@@ -375,11 +375,12 @@ contains
   ! In order to introduce some randomness, particles are prepended/appended
   ! to the list according the outcome of a random generator.
   !****************************************************************************
-  subroutine VolumeElements_SETUP_Real(PartVec)
+  subroutine VolumeElements_SETUP_Real(PartVec,time)
     use output
     use random, only: rn_truefalse
 
     type(particle), TARGET:: PartVec(:,:)
+    real, intent(in), optional :: time
 
     integer :: i,j,k, ii(3)
     type(particle), POINTER :: pPart
@@ -401,12 +402,16 @@ contains
           if (PartVec(i,j)%ID < 0) exit index_loop
           if (PartVec(i,j)%ID == 0) cycle index_loop
 
+          if (present(time)) then ! noRecollision
+             if (PartVec(i,j)%lastCollTime>time-1e-6) cycle
+          end if
+
           do k=1,3
-             ii(k) = nint(PartVec(i,j)%position(k)/tVE%Delta(k)+boxshift)
+             ii(k) = nint(PartVec(i,j)%pos(k)/tVE%Delta(k)+boxshift)
 
              if ((ii(k)<=tVE%iRange(k,1)).or.(ii(k)>=tVE%iRange(k,2))) then
 !                write(*,*) '#### Particle not in volume:',&
-!                     & k,PartVec(i,j)%position(k)
+!                     & k,PartVec(i,j)%pos(k)
                 cycle index_loop
              end if
           end do
@@ -414,9 +419,9 @@ contains
 
           ! introduce some randomness:
           if (rn_truefalse()) then
-             call ParticleList_APPEND(tVE%VE_Real(ii(1),ii(2),ii(3)), pPart)
+             call PartList_APPEND(tVE%VE_Real(ii(1),ii(2),ii(3)), pPart)
           else
-             call ParticleList_PREPEND(tVE%VE_Real(ii(1),ii(2),ii(3)), pPart)
+             call PartList_PREPEND(tVE%VE_Real(ii(1),ii(2),ii(3)), pPart)
           end if
           nPart = nPart + 1
 
@@ -786,8 +791,6 @@ contains
     type(particle), pointer :: Part1, Part2
     integer, intent(out)    :: nRealPart, iEns1,iInd1, iEns2,iInd2
 
-    integer :: j2
-
     if (.not.associated(pPert)) then
        if (.not.FindNextVE_RealPert()) then
          VolumeElements_GetPart_RealPert = .false.
@@ -974,7 +977,7 @@ contains
     integer :: iRadius, iiRadius, nRadiusMax
     integer, save :: nRadius
 
-    integer :: ii0(3), ii(3), k
+    integer :: ii0(3), ii(3)
 
     real, dimension(1:3) :: position,DeltaPos
 
@@ -992,7 +995,7 @@ contains
        DoInit_GridOrdering = .false.
     end if
 
-    position = partIn%position
+    position = partIn%pos
     dens = densityAt(position)
 
     if (dens%baryon(0).lt.5e-03) then  !If density too small, then no absorption
@@ -1008,15 +1011,12 @@ contains
 
 !    write(*,*) 'radiusMax...:',radiusMax,minval(tVE%Delta(1:3)),nRadiusMax,nRadius
 
-    do k=1,3
-       ii0(k) = nint(position(k)/tVE%Delta(k))
-
-       if ((ii0(k)<=tVE%iRange(k,1)).or.(ii0(k)>=tVE%iRange(k,2))) then
-          write(*,*) '#### VolumeElements_NukSearch: Particle not in volume:', &
-               & k,partIn%position(:)
-          return
-       end if
-    end do
+    ii0(:) = nint(position(:)/tVE%Delta(:))
+    if (any(ii0(:)<=tVE%iRange(:,1)).or.any(ii0(:)>=tVE%iRange(:,2))) then
+       write(*,*) '#### VolumeElements_NukSearch: Particle not in volume:', &
+            & partIn%pos(:)
+       return
+    end if
 
     do iRadius=0,min(nRadius,nRadiusMax) ! = 0,1,2,3 ,...
        if (nDistance(iRadius,2) < 0) cycle ! for this radius no cells...
@@ -1030,6 +1030,8 @@ contains
        do iiRadius=nDistance(iRadius,1),nDistance(iRadius,2)
 
           ii(1:3) = ii0(1:3) + DeltaV(iDeltaV(iiRadius),1:3)
+          if (any(ii(:)<=tVE%iRange(:,1)).or.any(ii(:)>=tVE%iRange(:,2))) cycle
+
           pNode => tVE%VE_Real(ii(1),ii(2),ii(3))%first
 
           do
@@ -1038,12 +1040,12 @@ contains
              pNode => pNode%next
 
              if (pPart%ID.ne.nucleon) cycle
-             if (pPart%antiparticle) cycle
+             if (pPart%anti) cycle
              if (check_justCollided(PartIn,pPart)) cycle
              if ((pPart%Charge < 0).or.(pPart%Charge>1)) cycle
              if (nFound(pPart%Charge) >= 2) cycle
 
-             DeltaPos = position-pPart%position
+             DeltaPos = position-pPart%pos
              if (DOT_PRODUCT(DeltaPos,DeltaPos) > radiusMax**2) cycle
 
              select case (pPart%Charge)
@@ -1207,9 +1209,9 @@ contains
 
       scaleFak_ = 0.0 ! set default return value
 
-      call ParticleList_CLEAR(L1)
-      call ParticleList_CLEAR(L2)
-      call ParticleList_CLEAR(L3)
+      call PartList_CLEAR(L1)
+      call PartList_CLEAR(L2)
+      call PartList_CLEAR(L3)
 
       ! iterate over all particles in the cell, build up L1,L2,L3:
 
@@ -1219,29 +1221,29 @@ contains
          pP => pNode%V
          if ((pP%ID == Decay3Body%ID(1))&
               .and.(pP%Charge == Decay3Body%Charge(1))&
-              .and.(pP%antiparticle.eqv.Decay3Body%isAnti(1))) then
+              .and.(pP%anti.eqv.Decay3Body%isAnti(1))) then
             if (rn_truefalse()) then
-               call ParticleList_APPEND(L1,pP)
+               call PartList_APPEND(L1,pP)
             else
-               call ParticleList_PREPEND(L1,pP)
+               call PartList_PREPEND(L1,pP)
             end if
          end if
          if ((pP%ID == Decay3Body%ID(2))&
               .and.(pP%Charge == Decay3Body%Charge(2))&
-              .and.(pP%antiparticle.eqv.Decay3Body%isAnti(2))) then
+              .and.(pP%anti.eqv.Decay3Body%isAnti(2))) then
             if (rn_truefalse()) then
-               call ParticleList_APPEND(L2,pP)
+               call PartList_APPEND(L2,pP)
             else
-               call ParticleList_PREPEND(L2,pP)
+               call PartList_PREPEND(L2,pP)
             end if
          end if
          if ((pP%ID == Decay3Body%ID(3))&
               .and.(pP%Charge == Decay3Body%Charge(3))&
-              .and.(pP%antiparticle.eqv.Decay3Body%isAnti(3))) then
+              .and.(pP%anti.eqv.Decay3Body%isAnti(3))) then
             if (rn_truefalse()) then
-               call ParticleList_APPEND(L3,pP)
+               call PartList_APPEND(L3,pP)
             else
-               call ParticleList_PREPEND(L3,pP)
+               call PartList_PREPEND(L3,pP)
             end if
          end if
          pNode => pNode%next
@@ -1394,9 +1396,9 @@ contains
       if (Part2%Charge /= Decay3Body%Charge(2)) return
       if (Part3%Charge /= Decay3Body%Charge(3)) return
 
-      if (Part1%antiParticle .neqv. Decay3Body%isAnti(1)) return
-      if (Part2%antiParticle .neqv. Decay3Body%isAnti(2)) return
-      if (Part3%antiParticle .neqv. Decay3Body%isAnti(3)) return
+      if (Part1%anti .neqv. Decay3Body%isAnti(1)) return
+      if (Part2%anti .neqv. Decay3Body%isAnti(2)) return
+      if (Part3%anti .neqv. Decay3Body%isAnti(3)) return
 
       CheckFound3 = .true.
     end function CheckFound3

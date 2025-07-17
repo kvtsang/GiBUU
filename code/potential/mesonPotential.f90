@@ -1,16 +1,16 @@
 !******************************************************************************
-!****m* /mesonPotentialModule
+!****m* /mesonPotentialMain
 ! NAME
-! module mesonPotentialModule
+! module mesonPotentialMain
 ! PURPOSE
 ! Includes all information about the mesonic potentials.
 !******************************************************************************
-module mesonPotentialModule
+module mesonPotentialMain
   implicit none
   private
 
   !****************************************************************************
-  !****g* mesonPotentialModule/vectorMesonPot
+  !****g* mesonPotentialMain/vectorMesonPot
   ! SOURCE
   !
   integer, save :: vectorMesonPot = 0
@@ -27,7 +27,7 @@ module mesonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* mesonPotentialModule/brownRho
+  !****g* mesonPotentialMain/brownRho
   ! SOURCE
   !
   real, save :: brownRho = 0.16
@@ -37,7 +37,7 @@ module mesonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* mesonPotentialModule/noPerturbativePotential
+  !****g* mesonPotentialMain/noPerturbativePotential
   ! SOURCE
   !
   logical,save :: noPerturbativePotential=.false.
@@ -50,11 +50,11 @@ module mesonPotentialModule
   !****************************************************************************
 
   !****************************************************************************
-  !****g* mesonPotentialModule/pionPot_Switch
+  !****g* mesonPotentialMain/pionPot_Switch
   ! PURPOSE
   ! Switch for pion potential:
   ! * 0 = no potential
-  ! * 1 = Oset potential (NPA 554), which is valid up to 50 MeV kinetic energy
+  ! * 1 = Oset potential (NPA 554), which is valid up to 70 MeV kinetic energy
   ! * 2 = Kapusta suggestion for pion potential (rather unusual)
   ! * 3 = Delta-Hole potential, which is valid up to 130 MeV kinetic energy
   ! * 4 = Smooth spline transition between switch 1 and 3.
@@ -72,7 +72,7 @@ module mesonPotentialModule
 contains
 
   !****************************************************************************
-  !****f* mesonPotentialModule/getNoPertPot_meson
+  !****f* mesonPotentialMain/getNoPertPot_meson
   ! NAME
   ! logical function getNoPertPot_meson()
   ! PURPOSE
@@ -85,7 +85,7 @@ contains
 
 
   !****************************************************************************
-  !****s* mesonPotentialModule/init
+  !****s* mesonPotentialMain/init
   ! NAME
   ! subroutine init
   ! PURPOSE
@@ -94,11 +94,12 @@ contains
   subroutine init
 
     use output, only: Write_ReadingInput
+    use masterPiDelta, only: getMasterPiDelta
 
     integer :: ios
 
     !**************************************************************************
-    !****n* mesonPotentialModule/mesonPotential
+    !****n* mesonPotentialMain/mesonPotential
     ! NAME
     ! NAMELIST /mesonPotential/
     ! PURPOSE
@@ -108,7 +109,8 @@ contains
     ! * vectorMesonPot
     ! * brownRho
     !**************************************************************************
-    NAMELIST /mesonPotential/ pionPot_Switch, noPerturbativePotential, vectormesonPot, brownRho
+    NAMELIST /mesonPotential/ pionPot_Switch, noPerturbativePotential, &
+         vectormesonPot, brownRho
 
     call Write_ReadingInput('mesonPotential',0)
     rewind(5)
@@ -120,22 +122,27 @@ contains
     write(*,*) 'noPerturbativePotential =', noPerturbativePotential
     call Write_ReadingInput('mesonPotential',1)
 
+    if (getMasterPiDelta()) then
+        pionPot_Switch = 4
+        write(*,*) 'getMasterPiDelta: pionpot_Switch set to 4 in mesonPotential'
+    end if
+
     initFlag=.false.
 
   end subroutine init
 
 
   !****************************************************************************
-  !****f* mesonPotentialModule/vecMes_massShift
+  !****f* mesonPotentialMain/vecMes_massShift
   ! NAME
-  ! real function vecMes_massShift (ID, rho)
+  ! real function vecMes_massShift(ID, rho)
   ! PURPOSE
   ! Return the density-dependent mass shift of the vector mesons.
   ! INPUTS
   ! * integer :: ID -- the particle ID
   ! * real :: rho -- the density
   !****************************************************************************
-  real function vecMes_massShift (ID, rho) result (pot)
+  real function vecMes_massShift(ID, rho) result (pot)
     use constants, only: rhoNull
     use particleProperties, only: hadron
     use CallStack, only: TRACEBACK
@@ -167,7 +174,7 @@ contains
 
     case default
        write(*,*) "Error: Value of vectorMesonPot is invalid: ", vectorMesonPot
-       stop
+       call TRACEBACK()
 
     end select
 
@@ -175,14 +182,14 @@ contains
 
 
   !****************************************************************************
-  !****f* mesonPotentialModule/MesonPotential
+  !****f* mesonPotentialMain/MesonPotential
   ! NAME
-  ! real function MesonPotential (teilchen, med)
+  ! real function MesonPotential(Part, med)
   ! PURPOSE
   ! Meson potential is defined as 0th component of a vector potential in
   ! the local rest frame (LRF).
   ! INPUTS
-  ! * type(particle) :: teilchen  -- particle boosted to LRF
+  ! * type(particle) :: Part  -- particle boosted to LRF
   ! * type(medium)   :: med       -- medium info in LRF
   ! OUTPUT
   ! * real :: Meson_Potential  -- in GeV
@@ -190,7 +197,7 @@ contains
   ! In contrast to the old BUU code, there is no kBar-potential implemented.
   ! This potential is described in Effenberger's thesis on pages 207-216.
   !****************************************************************************
-  real function MesonPotential (teilchen, med)
+  real function MesonPotential(Part, med)
 
     use IDTable, only: pion, rho, omegaMeson, phi
     use ParticleDefinition
@@ -198,7 +205,7 @@ contains
     use pionPot, only: pionPot_Main
     use constants, only: mPi
 
-    type(particle), intent(in) :: teilchen
+    type(particle), intent(in) :: Part
     type(medium),   intent(in) :: med
 
     real :: pAbs, scapot
@@ -206,18 +213,18 @@ contains
     if (initFlag) call init
     MesonPotential = 0.
 
-    if (noPerturbativePotential.and.teilchen%perturbative) return
+    if (noPerturbativePotential.and.Part%pert) return
 
-    select case (Teilchen%ID)
+    select case (Part%ID)
 
     case (rho,omegaMeson,phi) ! === nonstrange vector mesons ===
-       pAbs=absMom(Teilchen) ! absolute momentum
-       scapot=vecMes_massShift(Teilchen%ID,med%density)
-       MesonPotential=sqrt((Teilchen%mass+scapot)**2+pAbs**2)-sqrt(Teilchen%mass**2+pAbs**2)
+       pAbs=absMom(Part) ! absolute momentum
+       scapot=vecMes_massShift(Part%ID,med%density)
+       MesonPotential=sqrt((Part%mass+scapot)**2+pAbs**2)-sqrt(Part%mass**2+pAbs**2)
 
     case (Pion)
-       pAbs=absMom(Teilchen) ! absolute momentum
-       MesonPotential=pionPot_Main(mPi,teilchen%momentum(1:3),med%densityProton,med%densityNeutron,teilchen%charge,pionPot_Switch)
+       pAbs=absMom(Part) ! absolute momentum
+       MesonPotential=pionPot_Main(mPi,Part%mom(1:3),med%densityProton,med%densityNeutron,Part%charge,pionPot_Switch)
 
     case default  ! particle with no potential
        return
@@ -225,12 +232,12 @@ contains
     end select
 
     ! Check for consistency:
-    if (MesonPotential < (-1.)*SQRT(Teilchen%mass**2+pAbs**2)) then
+    if (MesonPotential < (-1.)*SQRT(Part%mass**2+pAbs**2)) then
        write(*,*) 'Error in Meson_Potential!!!'
        write(*,*) 'Total energy for meson less than 0 in LRF!'
-       write(*,*) 'ID:',teilchen%ID
-       write(*,*) '4-Momentum:',teilchen%momentum
-       write(*,*) 'Mass:',teilchen%mass
+       write(*,*) 'ID:',Part%ID
+       write(*,*) '4-Momentum:',Part%mom
+       write(*,*) 'Mass:',Part%mass
        write(*,*) 'MesonPotential =',MesonPotential
        write(*,*) 'scapot =',scapot
        stop
@@ -239,4 +246,4 @@ contains
   end function MesonPotential
 
 
-end module mesonPotentialModule
+end module mesonPotentialMain

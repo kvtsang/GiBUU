@@ -29,8 +29,8 @@ program testNuc
      mom=index_mom*3.0/float(momPoints-1)
      teilchen%Id=id
      teilchen%mass=hadron(id)%mass
-     teilchen%momentum(1:3)=(/mom,0.,0./)
-     teilchen%momentum(0)=FreeEnergy(teilchen)
+     teilchen%mom(1:3)=(/mom,0.,0./)
+     teilchen%mom(0)=FreeEnergy(teilchen)
      write(400,'(5E20.8)') mom, potential_LRF(teilchen,0.16,.false.)  &
           &                   , potential_LRF(teilchen,0.08,.false.)  &
           &                   , potential_LRF(teilchen,0.04,.false.)  &

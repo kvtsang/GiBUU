@@ -39,7 +39,7 @@ module eN_eventDefinition
 
      type(particle)        :: nucleon2      ! second target nucleon (2p2h processes)
 
-     real                  :: QSquared = 0. ! Q^2=-q^2
+     real                  :: Q2 = 0.       ! Q^2=-q^2
      real                  :: W = 0.        ! W at the hadronic vertex
      real                  :: W_free = 0.   ! Free W   (potentials removed, momentum kept)
      real                  :: W_rec = 0.    ! Free W for nucleon at rest
@@ -143,9 +143,9 @@ contains
 
     write(*,'(A)') line
     if (DoDebug) then
-       write(*,format4) '* Electron incoming     ', e%lepton_in%momentum
-       write(*,format4) '* Electron outgoing     ', e%lepton_out%momentum
-       write(*,format4) '* Photon momentum       ', e%boson%momentum
+       write(*,format4) '* Electron incoming     ', e%lepton_in%mom
+       write(*,format4) '* Electron outgoing     ', e%lepton_out%mom
+       write(*,format4) '* Photon momentum       ', e%boson%mom
     else
        write(*,'(A,A)') '* Incoming Lepton: ',PartName(e%Lepton_in)
        call WriteParticle(6,1,1,e%lepton_in)
@@ -155,7 +155,7 @@ contains
        call WriteParticle(6,1,1,e%boson)
     end if
     write(*,*)
-    write(*,'(A,F15.5)') '* Nucleon:           m_eff =',abs4(e%nucleon%momentum)
+    write(*,'(A,F15.5)') '* Nucleon:           m_eff =',abs4(e%nucleon%mom)
     if (DoDebug) then
        call writeParticle_Debug(e%nucleon)
     else
@@ -164,7 +164,7 @@ contains
 
     if (.not.DoShort) then
        write(*,*)
-       write(*,'(A,F15.5)') '* Nucleon free:      m_eff =',abs4(e%nucleon_free%momentum)
+       write(*,'(A,F15.5)') '* Nucleon free:      m_eff =',abs4(e%nucleon_free%mom)
        if (DoDebug) then
           call writeParticle_Debug(e%nucleon_free)
        else
@@ -174,7 +174,7 @@ contains
 
     if (e%nucleon2%ID.gt.0) then
        write(*,*)
-       write(*,'(A,F15.5)') '* Nucleon 2:         m_eff =',abs4(e%nucleon2%momentum)
+       write(*,'(A,F15.5)') '* Nucleon 2:         m_eff =',abs4(e%nucleon2%mom)
        if (DoDebug) then
           call writeParticle_Debug(e%nucleon2)
        else
@@ -183,13 +183,13 @@ contains
     end if
 
     write(*,*)
-    write(*,format1) '* QSquared    =', e%QSquared
+    write(*,format1) '* Q2          =', e%Q2
     write(*,format1) '* W           =' ,e%W
-	write(*,format1) '* Wrec        =' ,e%W_rec
+    write(*,format1) '* Wrec        =' ,e%W_rec
 
     if (.not.DoShort) then
        write(*,format1) '* W_free      =' , e%W_free
-       write(*,format1) '* sqrt(s)     =' , abs4(e%lepton_in%momentum+e%nucleon%momentum)
+       write(*,format1) '* sqrt(s)     =' , abs4(e%lepton_in%mom+e%nucleon%mom)
        write(*,*)
        write(*,format4) '* Boost: pcm            ',e%pcm
        write(*,format4) '* Boost: betacm         ',e%betacm

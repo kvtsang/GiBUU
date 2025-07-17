@@ -42,8 +42,8 @@ do id=pion, dSStar_minus
          mom=float(index_mom)*0.5/float(momPoints-1)
          teilchen%Id=id
          teilchen%mass=hadron(id)%mass
-         teilchen%momentum(1:3)=(/mom,0.,0./)
-         teilchen%momentum(0)=FreeEnergy(teilchen)
+         teilchen%mom(1:3)=(/mom,0.,0./)
+         teilchen%mom(0)=FreeEnergy(teilchen)
          write(id,*) dens, mom, potential_LRF(teilchen,dens)
       end do
       write(id,*)
@@ -61,8 +61,8 @@ do id=nucleon, Omega_c
          mom=index_mom*1.0/float(momPoints-1)
          teilchen%Id=id
          teilchen%mass=hadron(id)%mass
-         teilchen%momentum(1:3)=(/mom,0.,0./)
-         teilchen%momentum(0)=FreeEnergy(teilchen)
+         teilchen%mom(1:3)=(/mom,0.,0./)
+         teilchen%mom(0)=FreeEnergy(teilchen)
          write(400+id,*) dens, mom, potential_LRF(teilchen,dens)
       end do
       write(400+id,*)

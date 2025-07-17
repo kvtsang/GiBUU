@@ -158,7 +158,7 @@ contains
     use distributions, only: bw
     use spectralFunc, only: specFunc
     use eN_eventDefinition, only: electronNucleon_event
-    use potentialModule, only: potential_LRF, scapot
+    use potentialMain, only: potential_LRF, scapot
 
     type(electronNucleon_event) , intent(in) :: eN
     real, dimension(0:3),intent(out)         :: pf
@@ -182,10 +182,10 @@ contains
     end if
 
     ! Initial lepton: Assume lepton in z-direction
-    lin=eN%lepton_in%momentum
+    lin=eN%lepton_in%mom
 
     ! Initial nucleon
-    pin=eN%nucleon%momentum
+    pin=eN%nucleon%mom
     targetNuc=en%nucleon
 
     if (benharMethod.or.benharMethod_sim) then
@@ -195,10 +195,10 @@ contains
     pi_vec_abs= abs3(pin)
 
 !    write(*,*) 'mi = ',mi,pi_vec_abs
-!    write(*,*) '.. = ',mi-scalarPotential_nucleon(pi_vec_abs,targetNuc%charge,targetNuc%position),targetNuc%charge
+!    write(*,*) '.. = ',mi-scalarPotential_nucleon(pi_vec_abs,targetNuc%charge,targetNuc%pos),targetNuc%charge
 
     ! Final lepton
-    lf=en%lepton_out%momentum
+    lf=en%lepton_out%mom
 
     ! Final Nucleon: Momentum conservation
     pf=pin+lin-lf
@@ -214,13 +214,13 @@ contains
     end if
 
     ! Evaluate the bare mass of the nucleon:
-    dummy=scapot(1,targetNuc%charge,pf,targetNuc%position,nuc_bareMass)
+    dummy=scapot(1,targetNuc%charge,pf,targetNuc%pos,nuc_bareMass)
 
     if (benharMethod.or.benharMethod_sim) then
        nuc_bareMass=mf
-       pf(0)=pin(0)+lin(0)-lf(0)+potential_LRF(1,targetNuc%charge,pin,targetNuc%position)
+       pf(0)=pin(0)+lin(0)-lf(0)+potential_LRF(1,targetNuc%charge,pin,targetNuc%pos)
        if (benharMethod_sim) &
-            & pf(0)=pf(0)-potential_LRF(1,targetNuc%charge,pf,targetNuc%position)
+            & pf(0)=pf(0)-potential_LRF(1,targetNuc%charge,pf,targetNuc%pos)
     end if
 
 
@@ -242,10 +242,10 @@ contains
     else
        sigma=kinematics &
             & * matrixElement(pin,pf,lin,lf,targetNuc%charge) &
-            & * 2*mf*specFunc(nucleon,targetNuc%charge,pf,targetNuc%position,nuc_bareMass)
+            & * 2*mf*specFunc(nucleon,targetNuc%charge,pf,targetNuc%pos,nuc_bareMass)
        if (present(sigmaPS)) &
             sigmaPS = kinematics&
-            & *2*mf*specFunc(nucleon,targetNuc%charge,pf,targetNuc%position,nuc_bareMass) &
+            & *2*mf*specFunc(nucleon,targetNuc%charge,pf,targetNuc%pos,nuc_bareMass) &
             & *hbarc**2*10.
     end if
 

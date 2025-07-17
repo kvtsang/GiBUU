@@ -6,6 +6,8 @@
 ! Implements all decays (a -> X).
 !******************************************************************************
 module master_1Body
+  use Callstack, only: Traceback
+
   implicit none
   private
 
@@ -70,16 +72,22 @@ module master_1Body
   !
   integer, save :: omegaDecay_restriction = 0
   ! PURPOSE
-  ! This switch, like omegaDecayMediumInfo, helps to analyze omega -> pi0 gamma decays.
+  ! This switch, like omegaDecayMediumInfo, helps to analyze
+  ! omega -> pi0 gamma decays.
   ! It will only have an effect for omegaDecayMediumInfo = .true.
+  !
   ! Possible values:
   ! * 0 = none (default)
   ! * 1 = vacuum ( rho < 0.1 rho0)
   ! * 2 = medium ( rho > 0.1 rho0)
+  !
   ! With the default value (0), all omega decays are carried out as usual.
-  ! For the value 1, the decay products are only kept, if the decay happens in the vacuum (i.e. at rho < 0.1 * rho0).
-  ! For the value 2, the decay products are only kept, if the decay happens in the medium (i.e. at rho > 0.1 * rho0).
-  ! If the density does not meet these conditions, the decay products are simply removed and will not be put in the particle vector
+  ! For the value 1, the decay products are only kept, if the decay happens in
+  ! the vacuum (i.e. at rho < 0.1 * rho0).
+  ! For the value 2, the decay products are only kept, if the decay happens in
+  ! the medium (i.e. at rho > 0.1 * rho0).
+  ! If the density does not meet these conditions, the decay products are
+  ! simply removed and will not be put in the particle vector
   ! (and thus they will not appear in the analysis).
   !****************************************************************************
 
@@ -87,7 +95,9 @@ module master_1Body
   logical, save :: initFlag=.true.
 
 
-  public :: decayParticle, decayParticle_rhoN, assignCharge
+  public :: decayParticle
+  public :: decayParticle_rhoN
+  public :: assignCharge
 
 
 contains
@@ -114,7 +124,8 @@ contains
     ! * omegaDecayMediumInfo
     ! * omegaDecay_restriction
     !**************************************************************************
-    NAMELIST /master_1Body/ correctEnergy, StableInFormation, omegaDecayMediumInfo, omegaDecay_restriction
+    NAMELIST /master_1Body/ correctEnergy, StableInFormation, &
+         omegaDecayMediumInfo, omegaDecay_restriction
 
     integer :: ios
 
@@ -135,7 +146,7 @@ contains
   !****************************************************************************
   !****s* master_1Body/decayParticle
   ! NAME
-  ! subroutine decayParticle(resonanceIN, finalState, collisionFlag, pauliFlag, finalFlag, time, gammaOut)
+  ! subroutine decayParticle(resonanceIN, finalState, collisionFlag, finalFlag, time, gammaOut)
   ! PURPOSE
   ! Evaluates for a given particle the final states of a decay process.
   ! First it checks wether the decay takes place in this time step,
@@ -145,7 +156,7 @@ contains
   ! If the incoming resonance is an anti-particle, then we charge conjugate the
   ! incoming resonance and promote it to a particle. In the end we will
   ! do the charge conjugation again and promote all particle to antiparticles.
-  ! If the particle is still in its formation period (%in_formation=.true.)
+  ! If the particle is still in its formation period (%inF=.true.)
   ! then we do not allow it to decay!
   !
   ! INPUTS
@@ -156,12 +167,11 @@ contains
   ! OUTPUT
   ! * type(particle),dimension(:)   :: finalState    -- produced final state
   ! * logical                       :: collisionFlag -- true if decay took place
-  ! * logical                       :: pauliFlag     -- Set to .true. if Pauli blocking
   !   is already considered in decay decision
   ! * real, optional                :: gammaOut      -- full width [GeV]
   !
   !****************************************************************************
-  subroutine decayParticle(resonanceIN, finalState, collisionFlag, pauliFlag, finalFlag, time, gammaOut)
+  subroutine decayParticle(resonanceIN, finalState, collisionFlag, finalFlag, time, gammaOut)
 
     use IDTable, only: photon, rho, omegaMeson, isMeson, isBaryon, getAntiMeson
     use particleDefinition
@@ -175,14 +185,14 @@ contains
     use constants, only: hbarc, rhoNull, mPi
     use random, only: rn
     use RMF, only: getRMF_flag
-    use offShellPotential, only: getOffShellParameter
+    use offShellPotential, only: setOffShellParameter
     use energyCalc, only: energyDetermination
     use history, only: setHistory
     use output, only: DoPR
 
     type(particle), intent(in)   :: resonanceIN
     type(particle), dimension(:) :: finalState
-    logical, intent(out)         :: collisionFlag, pauliFlag
+    logical, intent(out)         :: collisionFlag
     logical, intent(in)          :: finalFlag
     real, intent(in)             :: time
     real, optional,intent(out)   :: gammaOut
@@ -198,11 +208,10 @@ contains
     integer, save :: countspacelike=0
 
     collisionFlag=.false.
-    pauliFlag=.false.
 
     resonance=resonanceIN ! Copy the input to temporary variable
 
-    if (StableInFormation .and. resonance%in_Formation .and. .not.finalFlag) then
+    if (StableInFormation .and. resonance%inF .and. .not.finalFlag) then
        ! Resonance is still in its formation period, therefore it can not decay
        return
     end if
@@ -223,10 +232,10 @@ contains
     ! (2) Evaluate medium informations
     call getMomentum_and_Medium(resonance,momLRF, betaToLRF, mediumAtPosition)
 
-    if (resonance%antiParticle) then
+    if (resonance%anti) then
        antiParticleFlag=.true.
        ! Convert antiParticle to particle:
-       resonance%antiparticle=.false.
+       resonance%anti=.false.
        resonance%charge=-resonance%charge
     else
        antiParticleFlag=.false.
@@ -234,14 +243,12 @@ contains
 
     ! (3) Evaluate the decay width of the particle
     if (isMeson(resonance%ID)) then
-      width = decayWidthMesonMedium (resonance%ID, resonance%mass, resonance%charge, pauliFlag)
+       width = decayWidthMesonMedium (resonance%ID, resonance%mass, resonance%charge)
     else if (isBaryon(resonance%ID)) then
-      call decayWidthBaryonMedium (resonance%ID,resonance%mass,momLRF,mediumATposition,width,pauliFlag)
+       call decayWidthBaryonMedium (resonance%ID,resonance%mass,resonance%pos,width)
     else
-       write(*,*) 'Error in master_1Body/decayParticle'
-       write(*,*) 'Resonance is no meson and no baryon:', resonance%ID
-       write(*,*) 'Nonsense!!! Stop!!!'
-       stop
+       write(*,*) 'Error: Resonance is no meson and no baryon:', resonance%ID
+       call traceback('Nonsense!!! Stop!!!')
     end if
 
     gammaDecay = Sum(width)
@@ -253,18 +260,18 @@ contains
     end if
 
     ! (4) Apply time criteria to decide on the decay of the particle
-    if (dot_product(resonance%velocity(1:3),resonance%velocity(1:3)) > 1.) then
+    if (dot_product(resonance%vel(1:3),resonance%vel(1:3)) > 1.) then
        countspacelike=countspacelike +1
        write(*,*) 'velocity greater than c in decayParticle! happened', countspacelike, ' times!'
        collisionFlag=.false.
        return
     end if
-    !gamma=resonance%momentum(0)/resonance%mass   ! <-- not good with mean field
-    gamma = 1./sqrt( 1. - dot_product(resonance%velocity(1:3),resonance%velocity(1:3)) )
+    !gamma=resonance%mom(0)/resonance%mass   ! <-- not good with mean field
+    gamma = 1./sqrt( 1. - dot_product(resonance%vel(1:3),resonance%vel(1:3)) )
 
     wahrscheinlichkeit=delta_T/gamma * gammaDecay/hbarc ! decay probability
     if (wahrscheinlichkeit > 1.0) then
-       write(*,*) 'Problem: Prob > 1.0: ',wahrscheinlichkeit
+       if (.not.finalFlag) write(*,*) 'Problem: Prob > 1.0: ',wahrscheinlichkeit
     end if
 
     ! normally, for long timesteps, the decay prob is given by an exponential,
@@ -289,20 +296,24 @@ contains
        ! If "Finalflag" is set then we force the decay to happen,
        ! if there is some decay width available.
        if (gammaDecay > 0.) then
-         zufall = 0.
+          zufall = 0.
        else if (resonance%ID==rho .and. resonance%charge==0 .and. get_rho_dilep() .and. resonance%mass<=2*mPi) then
-         ! force rho0 to decay into dileptons (which we do not put in the particle vector)
-         finalState(:)%ID = 0
-         finalState(:)%charge = 0
-         finalState(1)%momentum = resonance%momentum  ! trick to satisfy mom. cons. in finalCheck
-         finalState(2)%momentum = 0.
-         finalState(3)%momentum = 0.
-         collisionFlag = .true.
-         return
+          ! force rho0 to decay into dileptons
+          ! (which we do not put in the particle vector)
+          finalState(:)%ID = 0
+          finalState(:)%charge = 0
+          finalState(1)%mom = resonance%mom  ! trick to satisfy mom. cons. in finalCheck
+          finalState(2)%mom = 0.
+          finalState(3)%mom = 0.
+          collisionFlag = .true.
+          return
        else
-         if (DoPR(3)) write(*,'(A,2I4,2ES13.5)') 'warning in DecayParticle: forced decay not possible', &
-                                                 resonance%ID, resonance%charge, resonance%mass, gammaDecay   !, width
-         !stop
+          if (DoPR(3)) &
+               write(*,'(A,2I4,2ES13.5)') &
+               & 'warning in DecayParticle: forced decay not possible', &
+               & resonance%ID, resonance%charge, resonance%mass, gammaDecay
+          !, width
+          !stop
        end if
     end if
 
@@ -322,7 +333,7 @@ contains
        if (zufall>0.) exit
     end do
     ! Particles inherit perturbative switch: Important for the kinematics:
-    finalState%perturbative=resonance%perturbative
+    finalState%pert=resonance%pert
 
     width=width/gammaDecay
     wahrscheinlichkeit=0.
@@ -339,36 +350,36 @@ contains
 
     select case (dId)
     case (0)    ! no decay
-       write(*,*) "error in decayParticle: no decay", resonance%ID, resonance%mass, gammaDecay, width
-       stop
+       write(*,*) "Error: no decay", &
+            resonance%ID, resonance%mass, gammaDecay, width
+       call traceback()
     case (1:)   ! 2Body Decay
        ! Set the position
        do i=1,2
-          finalState(i)%position=resonance%position
+          finalState(i)%pos=resonance%pos
        end do
 
        finalState(3:)%ID=0
        if (isBaryon(resonance%ID)) then
-         finalState(1:2)%ID = Decay2BodyBaryon(dId)%ID(1:2)
-         L = Decay2BodyBaryon(dId)%angularMomentum
+          finalState(1:2)%ID = Decay2BodyBaryon(dId)%ID(1:2)
+          L = Decay2BodyBaryon(dId)%angularMomentum
        else
-         finalState(1:2)%ID = Decay2BodyMeson(dId)%ID(1:2)
-         L = Decay2BodyMeson(dId)%angularMomentum
+          finalState(1:2)%ID = Decay2BodyMeson(dId)%ID(1:2)
+          L = Decay2BodyMeson(dId)%angularMomentum
        end if
        call assignCharge(finalState(1:2),resonance%ID,resonance%charge)
        anzahl = 2
     case (:-1)  ! 3Body Decay
        ! Set the position
        do i=1,3
-          finalState(i)%position=resonance%position
+          finalState(i)%pos=resonance%pos
        end do
 
        finalState(4:)%ID=0
        if (isBaryon(resonance%ID)) then
-          write(*,*) 'Error in master_1Body : No three body decays for baryons implemented'
+          write(*,*) 'Error: No three body decays for baryons implemented'
           write(*,*) dId, zufall, wahrscheinlichkeit
-          write(*,*) 'critical error. Stop'
-          stop
+          call traceback('critical error. Stop')
        else
           finalState(1:3)%ID=Decay3BodyMeson(-dId)%ID(1:3)
           finalState(1:3)%Charge=Decay3BodyMeson(-dId)%Charge(1:3)
@@ -382,70 +393,75 @@ contains
        do i=1,anzahl
           if (isBaryon(finalState(i)%ID)) then
              finalState(i)%charge=-finalState(i)%charge
-             finalState(i)%antiParticle=.true.
+             finalState(i)%anti=.true.
           else if (isMeson(finalState(i)%ID)) then
              call getAntiMeson(finalState(i)%ID,finalState(i)%charge,antiID,antiCharge)
              finalState(i)%ID=antiID
              finalState(i)%charge=antiCharge
           else
-             write(*,*) 'Error in master_1Body. Final StateParticle is no Meson and no Baryon:', finalState%ID
-             write(*,*) resonance%ID,resonanceIN%ID
-             write(*,*) 'Stop'
-             stop
+             write(*,*) 'Error: Final State is no Meson and no Baryon:', &
+                  finalState%ID, resonance%ID, resonanceIN%ID
+             call traceback('Stop')
           end if
        end do
     end if
 
     ! Set the kinematics of the final state
-    ! * Must be done after AntiParticle conversion, since particles and antiparticles have different potentials!
-    collisionFlag = setKinematics (resonance, finalState(1:anzahl), mediumAtPosition, betaToLRF, L)
+    ! * Must be done after AntiParticle conversion, since particles and
+    !   antiparticles have different potentials!
+    collisionFlag = setKinematics(resonance, finalState(1:anzahl), mediumAtPosition, betaToLRF, L)
     if (.not.collisionFlag) return
 
     ! Update velocities
     do i = 1,anzahl
-        if (finalstate(i)%id == 0) cycle
-        if (.not. getRMF_flag()) call energyDetermination(finalstate(i),check=.true.)
-        finalstate(i)%offshellparameter=getOffShellParameter(finalstate(i)%ID,  &
-               finalstate(i)%Mass,finalstate(i)%momentum,finalstate(i)%position,success)
-        if (.not. success) then
-            collisionFlag = .false.
-            return
-        end if
-        if (finalState(i)%ID /= photon) then
-            if (.not. getRMF_flag()) then
-                call updateVelocity(finalState(i),success)
-            else
-                finalstate(i)%velocity = finalState(i)%momentum(1:3)/finalState(i)%momentum(0)
-                success=checkVelo(finalState(i))
-            end if
-            if (.not. success) then
-                write(*,*) 'Master_1Body(1): velocity ge 1: collisionFlag -> FALSE'
-                collisionFlag = .false.
-                return
-            end if
-        end if
+       if (finalstate(i)%id == 0) cycle
+       if (.not. getRMF_flag()) &
+            call energyDetermination(finalstate(i),check=.true.)
+
+       call setOffShellParameter(finalstate(i),success)
+       if (.not. success) then
+          collisionFlag = .false.
+          return
+       end if
+       if (finalState(i)%ID /= photon) then
+          if (.not. getRMF_flag()) then
+             call updateVelocity(finalState(i),success)
+          else
+             finalstate(i)%vel = finalState(i)%mom(1:3)/finalState(i)%mom(0)
+             success=checkVelo(finalState(i))
+          end if
+          if (.not. success) then
+             write(*,*) 'Master_1Body(1): velocity ge 1: collisionFlag -> FALSE'
+             collisionFlag = .false.
+             return
+          end if
+       end if
     end do
 
     ! Label event by eventNumber
     finalState%event(1) = resonance%event(1)
     finalState%event(2) = resonance%event(2)
 
-    finalState%perturbative = resonance%perturbative
+    finalState%pert = resonance%pert
     finalState%perweight    = resonance%perweight
     finalState%firstEvent   = resonance%firstEvent
-    call setHistory (resonance, finalState)
+    call setHistory(resonance, finalState)
 
-    finalState%lastCollisionTime = time
-    finalState%productionTime    = time
-    finalState%formationTime     = time
+    finalState%lastCollTime = time
+    finalState%prodTime    = time
+    finalState%formTime     = time
 
     if (useProductionPos) call setProductionPos(finalState)
 
     ! omega -> pi0 gamma
     if (omegaDecayMediumInfo .and. (resonance%ID == omegaMeson) .and. (dId == 6)) then
-      call omegaMediumInfo (resonance, mediumAtPosition%density, time)
-      if (omegaDecay_restriction==1 .and. (mediumATposition%density/rhoNull>0.1)) finalState%ID = 0
-      if (omegaDecay_restriction==2 .and. (mediumATposition%density/rhoNull<=0.1)) finalState%ID = 0
+       call omegaMediumInfo(resonance, mediumAtPosition%density, time)
+       select case(omegaDecay_restriction)
+       case (1)
+          if (mediumATposition%density/rhoNull>0.1) finalState%ID = 0
+       case (2)
+          if (mediumATposition%density/rhoNull<=0.1) finalState%ID = 0
+       end select
     end if
 
 !!$    write(*,*) '==='
@@ -459,7 +475,7 @@ contains
 !!$       if (finalstate(i)%ID==101 .and. finalstate(i)%charge==0) then
 !!$          if (abs(rapidity(finalstate(i))-3.5).lt.0.75) &
 !!$               & write(*,*) 'MidRap:',rapidity(finalstate(i)),&
-!!$               & sqrt(finalstate(i)%momentum(1)**2+finalstate(i)%momentum(2)**2)
+!!$               & sqrt(finalstate(i)%mom(1)**2+finalstate(i)%mom(2)**2)
 !!$       end if
 !!$    end do
 
@@ -490,10 +506,9 @@ contains
     use decayChannels, only: Decay2BodyBaryon
     use baryonWidthMedium, only: decayWidthBaryonMedium
     use random, only: rn
-    use RMF, only: getRMF_flag
     use clebschGordan, only: CG
-    use callstack, only: traceback
     use minkowski, only: abs4
+    use ieee_arithmetic, only: ieee_is_nan
 
     type(particle), intent(in) :: resonanceIN
     type(particle)             :: finalState(1:2)
@@ -507,75 +522,86 @@ contains
     real, dimension(1:nDecays) :: width  ! field to hold the partial widths for the different decay channels
 
     resonance = resonanceIN   ! Copy the input to temporary variable
+    width = 0.
 
     ! (1) Initialize switches at first call
     if (initFlag) then
-      call ReadInput
-      initFlag=.false.
+       call ReadInput
+       initFlag=.false.
     end if
 
     ! (2) Evaluate medium informations
     call getMomentum_and_Medium (resonance, momLRF, betaToLRF, mediumAtPosition)
 
-    if (resonance%antiParticle) then
-      antiParticleFlag=.true.
-      ! Convert antiParticle to particle:
-      resonance%antiparticle=.false.
-      resonance%charge=-resonance%charge
+    if (resonance%anti) then
+       antiParticleFlag=.true.
+       ! Convert antiParticle to particle:
+       resonance%anti=.false.
+       resonance%charge=-resonance%charge
     else
-      antiParticleFlag=.false.
+       antiParticleFlag=.false.
     end if
 
     ! (3) Evaluate the decay width of the particle
-    call decayWidthBaryonMedium (resonance%ID, resonance%mass, momLRF, mediumAtPosition, width, success)
+    call decayWidthBaryonMedium(resonance%ID, resonance%mass, resonance%pos, width)
 
     ! only keep rho0-N width
     do i=1,nDecays
-      dId = hadron(resonance%ID)%decaysID(i)
-      if (dId<9 .or. dId>12) then
-        width(i) = 0.
-      else
-        ! apply isospin factor for rho0 decay
-        width(i) = width(i) * CG(hadron(rho)%isospinTimes2,hadron(nucleon)%isospinTimes2, &
-                                 hadron(resonance%Id)%isospinTimes2,0,resonance%charge*2-1)**2
-      end if
+       dId = hadron(resonance%ID)%decaysID(i)
+       if (dId<9 .or. dId>12) then
+          width(i) = 0.
+       else
+          ! apply isospin factor for rho0 decay
+          width(i) = width(i) * CG(hadron(rho)%isospinTimes2, &
+               hadron(nucleon)%isospinTimes2, &
+               hadron(resonance%Id)%isospinTimes2,0,resonance%charge*2-1)**2
+       end if
     end do
 
     gammaDecay = Sum(width)
 
+    if (ieee_is_nan(gammaDecay)) then
+       write(*,*) 'There is a Nan:'
+       write(*,*) resonance%ID, resonance%charge, antiParticleFlag
+       write(*,*) resonance%mass, abs4(resonance%mom)
+       call Traceback()
+    end if
+
     ! Initialize output
     call setToDefault(finalstate)
 
+    !    if(abs(gammaDecay).lt.1.e-06) return
+
     ! (5) Decay takes place: Determine the decay channel
     do
-      zufall = rn()
-      if (zufall>0.) exit
+       zufall = rn()
+       if (zufall>0.) exit
     end do
 
     ! Particles inherit perturbative switch (important for the kinematics)
-    finalState%perturbative = resonance%perturbative
+    finalState%pert = resonance%pert
 
     width = width / gammaDecay
     wahrscheinlichkeit = 0.
     dId = 0
     do i=1,nDecays
-      wahrscheinlichkeit = wahrscheinlichkeit + width(i)
-      if (wahrscheinlichkeit >= zufall) then
-        dId = hadron(resonance%ID)%decaysID(i)
-        exit
-      end if
+       wahrscheinlichkeit = wahrscheinlichkeit + width(i)
+       if (wahrscheinlichkeit >= zufall) then
+          dId = hadron(resonance%ID)%decaysID(i)
+          exit
+       end if
     end do
 
     if (dID==0) then
-      write(*,*) "problems in decayParticle_rhoN!"
-      write(*,*) width(:)
-      write(*,*) resonance%ID, resonance%charge, antiParticleFlag
-      write(*,*) resonance%mass, abs4(resonance%momentum)
-      call traceback()
+       write(*,*) "problems in decayParticle_rhoN!"
+       write(*,*) width(:)
+       write(*,*) resonance%ID, resonance%charge, antiParticleFlag
+       write(*,*) resonance%mass, abs4(resonance%mom)
+       call traceback()
     end if
 
     do i=1,2
-      finalState(i)%position = resonance%position
+       finalState(i)%pos = resonance%pos
     end do
     finalState(1:2)%ID     = Decay2BodyBaryon(dId)%ID(1:2)
     finalState(1:2)%charge = (/ 0, resonance%charge /)
@@ -583,26 +609,26 @@ contains
     ! Convert particles in final state to AntiParticles,
     ! if there was an antiparticle in the incoming channel:
     if (antiParticleFlag) then
-      do i=1,2
-        if (isBaryon(finalState(i)%ID)) then
-          finalState(i)%charge=-finalState(i)%charge
-          finalState(i)%antiParticle=.true.
-        else if (isMeson(finalState(i)%ID)) then
-          call getAntiMeson(finalState(i)%ID,finalState(i)%charge,antiID,antiCharge)
-          finalState(i)%ID=antiID
-          finalState(i)%charge=antiCharge
-        else
-          write(*,*) 'Error in master_1Body. Final StateParticle is no Meson and no Baryon:', finalState%ID
-          write(*,*) resonance%ID,resonanceIN%ID
-          write(*,*) 'Stop'
-          stop
-        end if
-      end do
+       do i=1,2
+          if (isBaryon(finalState(i)%ID)) then
+             finalState(i)%charge=-finalState(i)%charge
+             finalState(i)%anti=.true.
+          else if (isMeson(finalState(i)%ID)) then
+             call getAntiMeson(finalState(i)%ID,finalState(i)%charge,antiID,antiCharge)
+             finalState(i)%ID=antiID
+             finalState(i)%charge=antiCharge
+          else
+             write(*,*) 'Error: Final State is no Meson and no Baryon:', &
+                  finalState%ID, resonance%ID, resonanceIN%ID
+             call traceback('Stop')
+          end if
+       end do
     end if
 
     ! Set the kinematics of the final state
-    ! * Must be done after AntiParticle conversion, since particles and antiparticles have different potentials!
-    success = setKinematics (resonance, finalState(1:2), mediumAtPosition, betaToLRF, Decay2BodyBaryon(dId)%angularMomentum)
+    ! * Must be done after AntiParticle conversion, since particles and
+    !   antiparticles have different potentials!
+    success = setKinematics(resonance, finalState(1:2), mediumAtPosition, betaToLRF, Decay2BodyBaryon(dId)%angularMomentum)
 
 !     if (.not. success) then
 !       print *, "error in decayParticle_rhoN: setKinematics failed!"
@@ -615,12 +641,12 @@ contains
 
 
 
-  subroutine omegaMediumInfo (part, dens, time)
+  subroutine omegaMediumInfo(part, dens, time)
     use particleDefinition
     use constants, only: rhoNull
     use inputGeneral, only: current_run_number, num_Runs_sameEnergy, num_Energies
     use minkowski, only: abs4
-    use histf90
+    use hist
     use PIL_omegaDec, only: PIL_omegaDec_Put
 
     type(particle), intent(in) :: part
@@ -637,41 +663,43 @@ contains
     ! file omegaMediumInfo.dat
     ! PURPOSE
     ! This file contains informations about omega mesons at decay time
-    ! (event number, perweight, 4-momentum, position, bare mass, density at decy point, time, etc).
+    ! (event number, perweight, 4-momentum, position, bare mass, density at
+    ! decy point, time, etc).
     !**************************************************************************
     open(66, file = "omegaMediumInfo.dat", position = 'append')
 
     if (init) then
-      call CreateHist (dsigma_dm, 'dsigma/dm (pi0 gamma) in microbarn/GeV/A', 0., 1., 0.001)
-      call CreateHist (decDensity,'density at decay point [rho/rho0]',0.,1.,0.01)
+       call CreateHist (dsigma_dm, 'dsigma/dm (pi0 gamma) in microbarn/GeV/A', 0., 1., 0.001)
+       call CreateHist (decDensity,'density at decay point [rho/rho0]',0.,1.,0.01)
 
-      rewind(66)
-      write(66,'(A)')   "### This file contains the medium information for all omega -> pi0 gamma decays:"
-      write(66,'(A,A)') "### run, event, perweight, 4-momentum [GeV], coordinates (x,y,z) [fm], ", &
-                        "vacuum mass [GeV], density at decay vertex (rho/rho_0), time [fm]"
-      write(66,*)
-      init = .false.
+       rewind(66)
+       write(66,'(A)')   "### This file contains the medium information for all omega -> pi0 gamma decays:"
+       write(66,'(A,A)') "### run, event, perweight, 4-momentum [GeV], coordinates (x,y,z) [fm], ", &
+            "vacuum mass [GeV], density at decay vertex (rho/rho_0), time [fm]"
+       write(66,*)
+       init = .false.
     end if
 
-    write(66,'(2I7,11ES15.7)') current_run_number, part%firstEvent, part%perweight, part%momentum, part%position, part%mass, &
-                               dens/rhoNull, time
+    write(66,'(2I7,11ES15.7)') current_run_number, part%firstEvent, &
+         part%perweight, part%mom, part%pos, part%mass, &
+         dens/rhoNull, time
     close(66)
 
-    call PIL_omegaDec_Put (part%firstEvent, dens)
+    call PIL_omegaDec_Put(part%firstEvent, dens)
 
     if (dens/rhoNull<0.1) then
-      ! "vacuum" contribution
-      call addHist (dsigma_dm, abs4(part%momentum), y = part%perweight/float(num_Runs_sameEnergy*num_Energies), y2 = 0.)
+       ! "vacuum" contribution
+       call addHist(dsigma_dm, abs4(part%mom), y = part%perweight/float(num_Runs_sameEnergy*num_Energies), y2 = 0.)
     else
-      ! "in-medium" contribution
-      call addHist (dsigma_dm, abs4(part%momentum), y = 0., y2 = part%perweight/float(num_Runs_sameEnergy*num_Energies))
+       ! "in-medium" contribution
+       call addHist(dsigma_dm, abs4(part%mom), y = 0., y2 = part%perweight/float(num_Runs_sameEnergy*num_Energies))
     end if
-    call addHist (decDensity, dens/rhoNull, part%perweight/float(num_Runs_sameEnergy*num_Energies))
+    call addHist(decDensity, dens/rhoNull, part%perweight/float(num_Runs_sameEnergy*num_Energies))
 
-    call WriteHist       (dsigma_dm, file="omegaMediumInfo_dsigma_dm.dat")
-    call WriteHist_Gauss (dsigma_dm, "omegaMediumInfo_dsigma_dm_gauss.dat", massres_sigma)
-    !call WriteHist_Novo  (dsigma_dm, "omegaMediumInfo_dsigma_dm_novo.dat",  massres_sigma, massres_tau)
-    call WriteHist (decDensity, file='omegaDecayDensity.dat')
+    call WriteHist(dsigma_dm, file="omegaMediumInfo_dsigma_dm.dat")
+    call WriteHist_Gauss(dsigma_dm, "omegaMediumInfo_dsigma_dm_gauss.dat", massres_sigma)
+    !call WriteHist_Novo(dsigma_dm, "omegaMediumInfo_dsigma_dm_novo.dat",  massres_sigma, massres_tau)
+    call WriteHist(decDensity, file='omegaDecayDensity.dat')
 
   end subroutine omegaMediumInfo
 
@@ -701,20 +729,18 @@ contains
     use particleProperties, only: hadron
     use random, only: rn
     use particleDefinition
-    use clebschGordan, only: clebschSquared
+    use clebschGordan, only: CG
     use IdTable, only: photon, dsStar_plus, dsStar_minus, DMeson, dBar, dStar, dStarBar, isMeson, isBaryon
-    use callstack, only: traceBack
 
     type(particle), dimension(1:2),intent(inOUT) :: outPart
     integer, intent(in) :: inID
     integer, intent(in) :: inCharge
 
-    integer :: inIsospin_times2,inStrange, inCharm
-    integer :: inIsospin_z_times2,outIsospin_zMax_times2, outIsospin_zMin_times2
-    integer,dimension(1:2) :: outIsospin_times2
+    integer :: inIsospin_x2,inStrange, inCharm
+    integer :: inIsospin_z_x2,outIsospin_zMax_x2, outIsospin_zMin_x2
+    integer,dimension(1:2) :: outIsospin_x2
     integer,dimension(1:2) :: outStrange,outCharm, iz
     real :: xrn, prob
-    real :: iso1,iso2,iso3,iso_z1,iso_z2  ! real Isospin (not multiplied by 2!!)
     integer :: j
 
     !**************************************************************************
@@ -776,41 +802,39 @@ contains
 
 
     ! Define isoSpin, strangeness and charm of the resonance
-    inIsospin_times2=hadron(inID)%isospinTimes2
+    inIsospin_x2=hadron(inID)%isospinTimes2
     inStrange=hadron(inID)%strangeness
     inCharm=hadron(inID)%charm
 
     ! Define isoSpin, strangeness and charm of the final state particles
-    do j=1,2
-       outIsospin_times2(j)=hadron(outPart(j)%ID)%isospinTimes2
-       outStrange(j)=hadron(outPart(j)%ID)%strangeness
-       outCharm(j)=hadron(outPart(j)%ID)%charm
-    end do
+    outIsospin_x2(1:2)=hadron(outPart(1:2)%ID)%isospinTimes2
+    outStrange(1:2)=hadron(outPart(1:2)%ID)%strangeness
+    outCharm(1:2)=hadron(outPart(1:2)%ID)%charm
 
     ! Checks
     if ((Sum(outStrange).ne.inStrange).or. (Sum(outCharm).ne.inCharm)) then
        write(*,*) 'assignCharge:',inID,outPart(1)%ID,outPart(2)%ID
        write(*,*) 'problems with strangeness or charm in master_1Body'
-       write(*,*) inIsospin_times2,outIsospin_times2
+       write(*,*) inIsospin_x2,outIsospin_x2
        write(*,*) inStrange,outStrange
        write(*,*) inCharm,outCharm
        call traceBack()
     end if
 
     if (IsBaryon(inID)) then
-       inIsospin_z_times2=2*inCharge-inStrange-inCharm-1
+       inIsospin_z_x2=2*inCharge-inStrange-inCharm-1
     else
-       inIsospin_z_times2=2*inCharge-inStrange-inCharm
+       inIsospin_z_x2=2*inCharge-inStrange-inCharm
     end if
 
     ! Define bounds for z-component of isospin for the first decay product :
-    outIsospin_zMax_times2=min(inIsospin_z_times2+outIsospin_times2(2),outIsospin_times2(1))
-    outIsospin_zMin_times2=max(inIsospin_z_times2-outIsospin_times2(2),-outIsospin_times2(1))
+    outIsospin_zMax_x2=min(inIsospin_z_x2+outIsospin_x2(2),outIsospin_x2(1))
+    outIsospin_zMin_x2=max(inIsospin_z_x2-outIsospin_x2(2),-outIsospin_x2(1))
 
-    if ( outIsospin_zMax_times2.lt.outIsospin_zMin_times2) then
+    if (outIsospin_zMax_x2.lt.outIsospin_zMin_x2) then
        write(*,*) 'assignCharge:',inID,outPart(1)%ID,outPart(2)%ID
        write(*,*) 'problems on master_1Body,   isospin _Out _zMax.lt.isospin _Out _zMin',  &
-            & outIsospin_zMax_times2, outIsospin_zMin_times2
+            & outIsospin_zMax_x2, outIsospin_zMin_x2
        write(*,*) 'outPart%ID: ',outPart%ID
        write(*,*) 'ID,IZ: ',inID, inCharge
 
@@ -818,28 +842,22 @@ contains
     end if
 
     xrn=rn()
-    iz(1)=outIsospin_zMin_times2
+    iz(1)=outIsospin_zMin_x2
     prob=0.
-    ! Convert to real isospin : divide by 2
-    iso1=float(outIsospin_times2(1))/2.
-    iso2=float(outIsospin_times2(2))/2.
-    iso3=float(inIsospin_times2)/2.
     isospinLoop : do
-       if (iz(1).gt.outIsospin_zmax_times2) then
+       if (iz(1).gt.outIsospin_zmax_x2) then
           write(*,*) 'assignCharge:',inID,outPart(1)%ID,outPart(2)%ID
           write(*,*) 'master_1Body: problems in charge assignment'
           write(*,*) outPart%ID
           write(*,*) inID,inCharge,inStrange,inCharm
-          write(*,*) iz,outIsospin_zmax_times2
+          write(*,*) iz,outIsospin_zmax_x2
           call traceBack()
        end if
-       iz(2)=inIsospin_z_times2-iz(1)
+       iz(2)=inIsospin_z_x2-iz(1)
 
        !Evaluate Clebsch-Gordon's :
-       ! Convert to real isospin : divide by 2
-       iso_z1=float(iz(1))/2.
-       iso_z2=float(iz(2))/2.
-       prob=prob+clebschSquared(iso1,iso2,iso3,iso_z1,iso_z2)
+       prob=prob+CG(outIsospin_x2(1),outIsospin_x2(2),inIsospin_x2, &
+            iz(1),iz(2))**2
 
        if (prob.ge.xrn) then
           exit isoSpinLoop
@@ -884,23 +902,24 @@ contains
     use RMF, only: getRMF_flag
 
     type(particle), intent(in) :: resonance
-    type(medium),intent(out)            :: mediumAtDecay
-    real,dimension(0:3) ,intent(out)  :: momLRF
-    real, dimension(1:3),intent(out)   :: betaToLRF
+    type(medium), intent(out) :: mediumAtDecay
+    real, dimension(0:3), intent(out) :: momLRF
+    real, dimension(1:3), intent(out) :: betaToLRF
 
     type(dichte) :: density
-    real,dimension(1:3)  :: position
+    real, dimension(1:3)  :: position
 
     ! (1) Read out medium at collision point in LRF
-    position=resonance%position
+    position=resonance%pos
     density=densityAt(position)
     mediumAtDecay=mediumAt(density,position)
 
-    ! (2) Define total momentum in LRF. If density not negligible then boost is needed.
-    momLRF= resonance%momentum(0:3)
+    ! (2) Define total momentum in LRF.
+    ! If density not negligible then boost is needed.
+    momLRF= resonance%mom(0:3)
     if (density%baryon(0).gt.getMediumCutOff()/100.) then
        if(.not.getRMF_flag()) then
-          betaToLRF = lorentzCalcBeta(density%baryon,'master_1Body(1)')
+          betaToLRF = lorentzCalcBeta(density%baryon)
        else
           if(abs4Sq(density%baryon).gt.0.) then
              betaToLRF(1:3) = density%baryon(1:3)/density%baryon(0)
@@ -908,7 +927,7 @@ contains
              betaToLRF = 0.
           end if
        end if
-       call lorentz(betaToLRF, momLRF, 'master_1Body(2)')
+       call lorentz(betaToLRF, momLRF)
     else
        betaToLRF=0.
     end if
@@ -919,7 +938,7 @@ contains
   !****************************************************************************
   !****f* master_1Body/setKinematics
   ! NAME
-  ! function setKinematics (resonance, finalState, mediumAtCollision, betaToLRF, L) result(collisionFlag)
+  ! function setKinematics(resonance, finalState, mediumAtCollision, betaToLRF, L) result(collisionFlag)
   ! PURPOSE
   ! Evaluates the kinematics for the "finalState" particles.
   ! INPUTS
@@ -937,17 +956,18 @@ contains
   !
   ! Only kinematics including masses of this finalState will be set.
   !****************************************************************************
-  function setKinematics (resonance, finalState, mediumAtColl, betaToLRF, L) result(collisionFlag)
+  function setKinematics(resonance, finalState, mediumAtColl, betaToLRF, L) result(collisionFlag)
 
     use mediumDefinition
     use particleDefinition
     use finalStateModule, only: assMass, massAss
     use energyCalc, only: energyCorrection
     use lorentzTrafo, only: lorentz, lorentzCalcBeta
-    use IdTable, only: isMeson
+    use IdTable, only: isMeson,isBaryon
     use offShellPotential, only: treatParticleOffShell
     use minkowski, only: abs4
-    use callstack, only: traceback
+    use RMF, only: getRMF_flag, flagCorThr
+    use densitymodule, only: getGridIndex, SelfEnergy_scalar
 
     type(particle), intent(in)       :: resonance
     type(medium), intent(in)         :: mediumAtColl
@@ -956,11 +976,11 @@ contains
     type(particle), dimension(:)     :: finalState
     logical                          :: collisionFlag
 
-    integer :: i,j
+    integer :: i,j,ind(1:3)
     real, parameter, dimension (1:3) :: spotOut3 = 0.
     logical :: flag, successFlag
     integer, parameter :: maxCorrectLoop=10     ! maximal number of iterations for energy correction
-    real :: srts, srts_vacuum, betaToCM(1:3)
+    real :: srts, srts_vacuum, betaToCM(1:3), spotOut
     type(particle), dimension(1:2) :: pair ! Incoming particles
 
     ! Usually massass and assmass expect a pair of initial state particles, here there is a single initial state particle. Therefore:
@@ -971,22 +991,33 @@ contains
 
     ! CHECK INPUT
     do i=lbound(finalState,dim=1),ubound(finalState,dim=1)
-      if (finalState(i)%Id <= 0) then
-        write(*,*) 'SetKinematics[1]: Particle ID == 0!!!'
-        write(*,*) resonance%ID, finalState(:)%ID
-        call traceback()
-      end if
+       if (finalState(i)%Id <= 0) then
+          write(*,*) 'SetKinematics[1]: Particle ID == 0!!!'
+          write(*,*) resonance%ID, finalState(:)%ID
+          call traceback()
+       end if
     end do
-
-    ! Set boost velocities:
 
     flag=.true.
 
     ! Set Energy and momenta
-    srts=abs4(resonance%momentum)
-    srts_Vacuum=resonance%mass
+    srts=abs4(resonance%mom)
 
-    betaToCM = lorentzCalcBeta (resonance%momentum, 'master_1Body/setKinematics')
+    if(isBaryon(resonance%Id) .and. getRMF_flag() .and. flagCorThr)  then
+       if(.not.isBaryon(finalState(2)%id)) then
+          write(*,*)' strange finalState(2)%id :', finalState(2)%id
+          call traceback()
+       end if
+       spotOut=0.
+       if(getGridIndex(finalState(2)%pos,ind,0)) &
+            & spotOut = SelfEnergy_scalar(ind(1),ind(2),ind(3),finalState(2)%id,.false.)
+       srts_Vacuum = srts - spotOut
+    else
+       srts_Vacuum = resonance%mass
+    end if
+
+    ! Set boost velocities:
+    betaToCM = lorentzCalcBeta(resonance%mom)
 
     select case (size(finalState,dim=1))
     case (2)
@@ -996,7 +1027,7 @@ contains
           call massass(srts_vacuum,mediumAtColl,pair,finalState,betaToLRF,betaToCM,L,flag)
           if (.not. flag) then
              write(*,*) 'SetKinematics[1]: Impossible to find final state [2]'
-             write(*,*) resonance%Id, finalState%ID, srts_vacuum,srts
+             write(*,*) resonance%Id, finalState%ID, resonance%mass,srts_vacuum,srts
              successFlag=.false.
              cycle
           end if
@@ -1004,22 +1035,23 @@ contains
              if (debug) write(*,*) '****Correcting Energy*********************'
              if (debug) write(*,*) 'wished srts=', srts
              if (debug) write(*,*) 'initial srts=', sqrts(Pair(1),Pair(2))
-             call energyCorrection(srts,betaToLRF,betaToCM, mediumAtColl, finalState, successFlag)
+             call energyCorrection(srts,betaToCM,finalState,successFlag)
              if (debug) write(*,*) 'final srts=', sqrts(finalState(1),finalState(2))
              if (successFlag) exit energyCorrectLoop
           else
              ! just boost to Calculation frame
              successFlag=.true.
              do j=1,2
-                call lorentz(-betaToCM,finalState(j)%momentum(0:3), 'master_1Body(3)')
+                call lorentz(-betaToCM,finalState(j)%mom(0:3))
              end do
              exit energyCorrectLoop
           end if
        end do energyCorrectLoop
 
        if (.not.successFlag) then
-          write(*,'(A,I4,A,2I4,A,2ES12.4)') 'SetKinematics[1]: Energy correction failed. [2]', &
-                                            resonance%ID,' ->',finalState(1:2)%Id,' @',resonance%mass,srts
+          write(*,'(A,I4,A,2I4,A,2ES12.4)') &
+               'SetKinematics[1]: Energy correction failed. [2]', &
+               resonance%ID,' ->',finalState(1:2)%Id,' @',resonance%mass,srts
           ! Kill Event
           collisionFlag=.false.
           finalState(1:2)%ID=0
@@ -1033,30 +1065,31 @@ contains
           if (.not. flag) then
              write(*,*) 'SetKinematics[1]: Impossible to find final state [3]'
              write(*,*) resonance%Id, finalState%ID, srts
-             if (isMeson(resonance%ID) .and. treatParticleOffShell(resonance%ID,resonance%offShellParameter)) then
-               ! Kill Event
-               collisionFlag=.false.
-               finalState(1:3)%ID = 0
-               return
+             if (isMeson(resonance%ID) .and. treatParticleOffShell(resonance%ID,resonance%offshellPar)) then
+                ! Kill Event
+                collisionFlag=.false.
+                finalState(1:3)%ID = 0
+                return
              else
-               stop
+                stop
              end if
           end if
           if (correctEnergy) then
-             call energyCorrection(srts,betaToLRF,betaToCM, mediumAtColl, finalState, successFlag)
+             call energyCorrection(srts,betaToCM,finalState, successFlag)
              if (successFlag) exit
           else
              ! just boost to Calculation frame
              successFlag=.true.
              do j=1,3
-                call lorentz(-betaToCM,finalState(j)%momentum(0:3), 'master_1Body(4)')
+                call lorentz(-betaToCM,finalState(j)%mom(0:3))
              end do
           end if
        end do
 
        if (.not.successFlag) then
-          write(*,'(A,I4,A,3I4,A,2ES12.4)') 'SetKinematics[1]: Energy correction failed. [3]', &
-                                            resonance%ID,' ->',finalState(1:3)%Id,' @',resonance%mass,srts
+          write(*,'(A,I4,A,3I4,A,2ES12.4)') &
+               'SetKinematics[1]: Energy correction failed. [3]', &
+               resonance%ID,' ->',finalState(1:3)%Id,' @',resonance%mass,srts
           collisionFlag=.false.
           ! Kill Event
           finalState(1:3)%ID = 0
@@ -1072,10 +1105,10 @@ contains
     ! set velocities in vacuum approximation
 
 !    Do i=lBound(finalState,dim=1), uBound(finalState, dim=1)
-!       finalstate(i)%velocity=finalState(i)%momentum(1:3)/finalState(i)%momentum(0)
+!       finalstate(i)%vel=finalState(i)%mom(1:3)/finalState(i)%mom(0)
 !    End do
     finalState%scaleCS=1.
-    finalState%in_formation=.false.
+    finalState%inF=.false.
 
   end function setKinematics
 

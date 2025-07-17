@@ -10,7 +10,7 @@ program testMaxwell
 contains
 
   subroutine check1
-    use histf90
+    use hist
 
     integer :: ir, nr=1000000
     real :: r
@@ -33,7 +33,7 @@ contains
   ! plots the sqrt(s) distribution of two particles
   subroutine check2
 
-    use histf90
+    use hist
     use random
     use fgsl, only: kn => fgsl_sf_bessel_kcn
 

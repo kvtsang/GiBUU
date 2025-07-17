@@ -1,7 +1,7 @@
 !******************************************************************************
-!****m* /hist2Df90
+!****m* /hist2D
 ! NAME
-! module hist2Df90
+! module hist2D
 ! PURPOSE
 ! Encapsulate all routines and datas for 2D Histograms.
 !
@@ -19,15 +19,15 @@
 ! INPUTS
 ! ...(This module needs no input)
 !******************************************************************************
-module hist2Df90
+module hist2D
 
-  use histf90
+  use hist
 
   implicit none
   private
 
   !****************************************************************************
-  !****t* hist2Df90/histogram2D
+  !****t* hist2D/histogram2D
   ! NAME
   ! type histogram2D
   ! PURPOSE
@@ -48,6 +48,7 @@ module hist2Df90
 
   public :: histogram2D
   public :: CreateHist2D
+  public :: ClearHist2D
   public :: RemoveHist2D
   public :: CopyHist2D
   public :: AddHist2D
@@ -62,7 +63,7 @@ module hist2Df90
   public :: AverageHist2D
 
   !****************************************************************************
-  !****s* hist2Df90/AddHist2D
+  !****s* hist2D/AddHist2D
   ! NAME
   ! subroutine AddHist2D(H, x,y,y2)
   !
@@ -90,7 +91,7 @@ module hist2Df90
 contains
 
   !****************************************************************************
-  !****s* hist2Df90/CreateHist2D
+  !****s* hist2D/CreateHist2D
   ! NAME
   ! subroutine CreateHist2D(H, HName,x1,x2,bin,verbose)
   ! PURPOSE
@@ -150,9 +151,30 @@ contains
 
   end subroutine CreateHist2D
 
+  !****************************************************************************
+  !****s* hist2D/ClearHist2D
+  ! NAME
+  ! subroutine ClearHist2D(H)
+  ! PURPOSE
+  ! Sets the histogram to zero again
+  ! INPUTS
+  ! * type(histogram2D) :: H         -- Histogram to be cleared
+  ! OUTPUT
+  ! H is changed
+  !****************************************************************************
+  subroutine ClearHist2D(H)
+
+    type(histogram2D),intent(inout) :: H
+
+    H%xExtreme(1:2,1) =  99e9
+    H%xExtreme(1:2,2) = -99e9
+
+    H%yVal = 0.
+
+  end subroutine ClearHist2D
 
   !****************************************************************************
-  !****s* hist2Df90/WriteHist2D_SYSTEM
+  !****s* hist2D/WriteHist2D_SYSTEM
   ! NAME
   ! subroutine WriteHist2D_SYSTEM(H, iFile)
   ! PURPOSE
@@ -177,7 +199,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/RemoveHist2D
+  !****s* hist2D/RemoveHist2D
   ! NAME
   ! subroutine RemoveHist2D(H)
   ! PURPOSE
@@ -186,8 +208,11 @@ contains
   ! * type(histogram2D) :: H  -- Histogram to be used
   ! OUTPUT
   ! H is changed
+  ! NOTES
+  ! This function is declared elemental, so you can call it also with
+  ! 1D or 2D arrays of histograms as argument
   !****************************************************************************
-  subroutine RemoveHist2D(H)
+  elemental subroutine RemoveHist2D(H)
     type(histogram2D),intent(inout) :: H
 
     if (allocated(H%yVal)) deallocate(H%yVal)
@@ -196,7 +221,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/CopyHist2D
+  !****s* hist2D/CopyHist2D
   ! NAME
   ! subroutine CopyHist2D(H1,H2)
   ! PURPOSE
@@ -292,7 +317,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/WriteHist2D_Gnuplot
+  !****s* hist2D/WriteHist2D_Gnuplot
   ! NAME
   ! subroutine WriteHist2D_Gnuplot(H,iFile,add,mul, iColumn,DoAve,MaxVal,H2,file,dump,SwapXY)
   ! PURPOSE
@@ -507,7 +532,7 @@ contains
   end subroutine WriteHist2D_Gnuplot
 
   !****************************************************************************
-  !****s* hist2Df90/WriteHist2D_Gnuplot_Bspline
+  !****s* hist2D/WriteHist2D_Gnuplot_Bspline
   ! NAME
   ! subroutine WriteHist2D_Gnuplot_Bspline(H,iFile,add,mul, iColumn,nPoints,DoAve,MaxVal)
   ! PURPOSE
@@ -669,7 +694,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/DivideHist2D
+  !****s* hist2D/DivideHist2D
   ! NAME
   ! subroutine DivideHist2D(H1,H2, maxVal, MulWithBin)
   ! PURPOSE
@@ -750,7 +775,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/ReadHist2D_Gnuplot
+  !****s* hist2D/ReadHist2D_Gnuplot
   ! NAME
   ! subroutine ReadHist2D_Gnuplot(H,iFile,add,mul, iColumn, DoAve)
   ! PURPOSE
@@ -816,7 +841,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/DumpHist2D
+  !****s* hist2D/DumpHist2D
   ! NAME
   ! subroutine DumpHist2D(H,file,iFile)
   ! PURPOSE
@@ -874,7 +899,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/FetchHist2D
+  !****s* hist2D/FetchHist2D
   ! NAME
   ! subroutine FetchHist2D(H,file,iFile, add,mul, flagOK)
   ! PURPOSE
@@ -911,7 +936,7 @@ contains
     iF=121
     if (present(iFile)) iF = iFile
 
-    open(iF,file=file,status='UNKNOWN',form='UNFORMATTED',iostat=ios)
+    open(iF,file=file,status='OLD',form='UNFORMATTED',iostat=ios)
     if (ios.ne.0) then
        close(iF)
        if (present(flagOK)) flagOK=.false.
@@ -944,6 +969,8 @@ contains
           write(*,*) 'FetchHist: old file version, no add/mul info!'
           addFak = 0.0
           mulFak = 1.0
+       else
+          mulFak = mulFak*(H%xBin(1)*H%xBin(2))
        end if
        if (present(add)) add=addFak
        if (present(mul)) mul=mulFak
@@ -955,7 +982,7 @@ contains
   end subroutine FetchHist2D
 
   !****************************************************************************
-  !****s* hist2Df90/sumHist2D
+  !****s* hist2D/sumHist2D
   ! NAME
   ! subroutine sumHist2D(A, B, w, doCheck)
   ! PURPOSE
@@ -994,7 +1021,7 @@ contains
   end subroutine sumHist2D
 
   !****************************************************************************
-  !****s* hist2Df90/IntegrateHist2D
+  !****s* hist2D/IntegrateHist2D
   ! NAME
   ! subroutine IntegrateHist2D(H2D,H,axis)
   ! PURPOSE
@@ -1031,7 +1058,7 @@ contains
 
 
   !****************************************************************************
-  !****s* hist2Df90/AverageHist2D
+  !****s* hist2D/AverageHist2D
   ! NAME
   ! subroutine AverageHist2D(H2D,H,axis)
   ! PURPOSE
@@ -1100,4 +1127,4 @@ contains
   end subroutine AverageHist2D
 
 
-end module hist2Df90
+end module hist2D

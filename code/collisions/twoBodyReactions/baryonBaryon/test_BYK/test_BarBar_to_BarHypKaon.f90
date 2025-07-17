@@ -25,14 +25,14 @@ program testbarBar_barHypKaon
   teilchenIn(1)%ID=ID1
   teilchenIN(1)%charge=charge1
   teilchenIn(1)%mass=hadron(ID1)%mass
-  teilchenIn(1)%momentum(1:3)=0.
-  teilchenIn(1)%momentum(0)=Sqrt(teilchenIn(1)%mass**2+sum(teilchenIn(1)%momentum(1:3)**2))
+  teilchenIn(1)%mom(1:3)=0.
+  teilchenIn(1)%mom(0)=Sqrt(teilchenIn(1)%mass**2+sum(teilchenIn(1)%mom(1:3)**2))
 
   teilchenIn(2)%ID=ID2
   teilchenIN(2)%charge=charge2
   teilchenIn(2)%mass=hadron(ID2)%mass
-  teilchenIn(2)%momentum(1:3)=0.
-  teilchenIn(2)%momentum(0)=Sqrt(teilchenIn(2)%mass**2+sum(teilchenIn(2)%momentum(1:3)**2))
+  teilchenIn(2)%mom(1:3)=0.
+  teilchenIn(2)%mom(0)=Sqrt(teilchenIn(2)%mass**2+sum(teilchenIn(2)%mom(1:3)**2))
 
   call write_XS
   call check_charge
@@ -58,12 +58,12 @@ program testbarBar_barHypKaon
 
     !write the xsections (mb) for all final isospin channels
     Do i=1,600
-      teilchenIn(2)%momentum(1) = i*0.025
-      teilchenIn(2)%momentum(0) = sqrt(teilchenIn(2)%mass**2 + sum(teilchenIn(2)%momentum(1:3)**2))
+      teilchenIn(2)%mom(1) = i*0.025
+      teilchenIn(2)%mom(0) = sqrt(teilchenIn(2)%mass**2 + sum(teilchenIn(2)%mom(1:3)**2))
       srts=sqrtS(teilchenIn(1),teilchenIn(2))
       sigma_BYK = barBar_barBarMeson_strange (srts, teilchenIN)
-      write(100,'(18E13.4)') srts, teilchenIn(2)%momentum(1), sum(sigma_BYK), sigma_BYK(1:15)
-  !     write(*,'(18E13.4)') srts, teilchenIn(2)%momentum(1), sum(sigma_BYK), sigma_BYK(1:15)
+      write(100,'(18E13.4)') srts, teilchenIn(2)%mom(1), sum(sigma_BYK), sigma_BYK(1:15)
+  !     write(*,'(18E13.4)') srts, teilchenIn(2)%mom(1), sum(sigma_BYK), sigma_BYK(1:15)
     end Do
     close(100)
   end subroutine write_XS
@@ -96,14 +96,14 @@ program testbarBar_barHypKaon
          write(*,  '(A,i3,A)') 'Channel',i,':  ---'
       else
          write(101,'(A,i3,5A,i3)') 'Channel',i,':  ', &
-              PartName (PartOut(1)%ID, PartOut(1)%charge, PartOut(1)%antiParticle), &
-              PartName (PartOut(2)%ID, PartOut(2)%charge, PartOut(2)%antiParticle), &
-              PartName (PartOut(3)%ID, PartOut(3)%charge, PartOut(3)%antiParticle), &
+              PartName (PartOut(1)%ID, PartOut(1)%charge, PartOut(1)%anti), &
+              PartName (PartOut(2)%ID, PartOut(2)%charge, PartOut(2)%anti), &
+              PartName (PartOut(3)%ID, PartOut(3)%charge, PartOut(3)%anti), &
               'Charge conservation: ',CheckCharge
          write(*,'(A,i3,5A,i3)') 'Channel',i,':  ', &
-              PartName (PartOut(1)%ID, PartOut(1)%charge, PartOut(1)%antiParticle), &
-              PartName (PartOut(2)%ID, PartOut(2)%charge, PartOut(2)%antiParticle), &
-              PartName (PartOut(3)%ID, PartOut(3)%charge, PartOut(3)%antiParticle), &
+              PartName (PartOut(1)%ID, PartOut(1)%charge, PartOut(1)%anti), &
+              PartName (PartOut(2)%ID, PartOut(2)%charge, PartOut(2)%anti), &
+              PartName (PartOut(3)%ID, PartOut(3)%charge, PartOut(3)%anti), &
               'Charge conservation: ',CheckCharge
       endif
     end do

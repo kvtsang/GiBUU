@@ -49,4 +49,53 @@ module eventtypes
   integer, parameter :: transportGivenParticle = 200
   integer, parameter :: hadron                 = 300
 
+contains
+
+  character(22) function cEventType(iEventType)
+    integer, intent(in) :: iEventType
+
+    character(22), dimension(0:16), parameter :: cName = (/ &
+         'elementary            ', & ! 0
+         'HeavyIon              ', & ! 1
+         'LoPion                ', & ! 2
+         'RealPhoton            ', & ! 3
+         'LoLepton              ', & ! 4
+         'Neutrino              ', & ! 5
+         'HiPion                ', & ! 12   6
+         'HiLepton              ', & ! 14   7
+         'ExternalSource        ', & ! 22   8
+         'InABox                ', & ! 31   9
+         'InABox_pion           ', & ! 32  10
+         'InABox_delta          ', & ! 33  11
+         'Box                   ', & ! 41  12
+         'groundState           ', & ! 100 13
+         'transportGivenParticle', & ! 200 14
+         'hadron                ', & ! 300 15
+         '*** unknown ***       ' /) ! xxx 16
+
+    select case(iEventType)
+    case (0:5)
+       cEventType = cName(iEventType)
+    case (12)
+       cEventType = cName(6)
+    case (14)
+       cEventType = cName(7)
+    case (22)
+       cEventType = cName(8)
+    case (31:33)
+       cEventType = cName(iEventType-22)
+    case (41)
+       cEventType = cName(12)
+    case (100)
+       cEventType = cName(13)
+    case (200)
+       cEventType = cName(14)
+    case (300)
+       cEventType = cName(15)
+    case default
+       cEventType = cName(16)
+    end select
+
+  end function cEventType
+
 end module eventtypes

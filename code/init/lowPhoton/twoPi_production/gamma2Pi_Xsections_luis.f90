@@ -65,8 +65,8 @@ contains
   !****************************************************************************
   function minva(photonEnergy,channel,betaToLRF,mediumAtPosition,position) Result(totalXsection)
     use constants, only: pi
-    use amplitudes_2Pi, only: dos, ampli
-    use paramamp  ! masses, coupling constants, etc
+    use gamma2pi_Amplitudes, only: dos, ampli
+    use gamma2pi_Params  ! masses, coupling constants, etc
     use mediumDefinition
     use gauss_integration, only: sg20r, rg20r
 

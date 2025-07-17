@@ -1,7 +1,7 @@
 program TryFluxMC
 
   use random
-  use histf90
+  use hist
 
   implicit none
 

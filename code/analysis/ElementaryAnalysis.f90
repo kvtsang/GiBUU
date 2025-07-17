@@ -176,10 +176,10 @@ contains
     use AnaEvent, only: event_add, event_CLEAR
     use preEventDefinition
     use lorentzTrafo, only: lorentz
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use particlePointerListDefinition
-    use particlePointerList, only: ParticleList_INIT
+    use particlePointerList, only: PartList_INIT
     use PreEvListDefinition
     use PreEvList, only: CreateSortedPreEvent, PreEvList_CLEAR, PreEvList_INIT, PreEvList_INSERT, PreEvList_Print
     use constants, only: pi, mN, mPi
@@ -250,6 +250,7 @@ contains
     type(histogram), save   :: dNpiondPhi    ! Pion azimuthal angle distribution
     type(histogram), save   :: dNrhodM    ! Rho-meson mass distribution
     type(histogram), save   :: dNomegadM    ! Omega-meson mass distribution
+    type(histogram), save   :: dNDeltadM    ! Delta-baryon mass distribution
     type(histogram), save   :: dNNbardEkin(1:5)  ! Antinucleon kin. energy distribution
 
     character(3), dimension(-1:1), parameter :: piName  = (/'pi-','pi0','pi+'/)
@@ -267,7 +268,7 @@ contains
     end if
 
     if (DoOutChannels .and. ncall==1) then !===== Global Init =====
-       call ParticleList_INIT(event%particleList)
+       call PartList_INIT(event%Parts)
        call PreEvList_INIT(ListPreEv)
     end if
 
@@ -395,6 +396,7 @@ contains
        call CreateHist(dNpiondPhi,'dNpion/dPhi vs. Phi for annihilation',-pi,pi,2.*pi/100.)
        call CreateHist(dNrhodM,'dNrho/dM vs. M',0.2,1.5,0.01)
        call CreateHist(dNomegadM,'dNomega/dM vs. M',0.2,1.5,0.01)
+       call CreateHist(dNDeltadM,'dNDelta/dM vs. M',1.0,3.0,0.002)
 
        if (DodNNbar) then
           do i=1,5
@@ -457,7 +459,7 @@ contains
 
           if (DoOutChannels) call event_add(event,pPart)
 
-          ptot=ptot+pPart%momentum
+          ptot=ptot+pPart%mom
           Q2=MomentumTransfer2(pPart,projectile)
 
           totCharge=totCharge+pPart%charge
@@ -466,14 +468,14 @@ contains
 
           select case (pPart%ID)
           case (nucleon)
-             if (.not.pPart%antiParticle) then
+             if (.not.pPart%anti) then
                numN(pPart%charge)=numN(pPart%charge)+1
              else
                numNbar(pPart%charge)=numNbar(pPart%charge)+1
                call AddHist(dsigdt_NucleonBar,Q2,1.)
              end if
           case (delta)
-             if (.not.pPart%antiParticle) then
+             if (.not.pPart%anti) then
                call AddHist(dsigdt_Delta,Q2,1.)
                call AddHist(dsigdm_Delta,pPart%mass,1.)
              else
@@ -481,25 +483,25 @@ contains
                call AddHist(dsigdm_DeltaBar,pPart%mass,1.)
              end if
           case (Lambda)
-             if (.not.pPart%antiParticle) then
+             if (.not.pPart%anti) then
                numLambda=numLambda+1
              else
                numLambdaBar=numLambdaBar+1
              end if
           case (SigmaResonance)
-             if (.not.pPart%antiParticle) then
+             if (.not.pPart%anti) then
                numSigma(pPart%charge)=numSigma(pPart%charge)+1
              else
                numSigmaBar(pPart%charge)=numSigmaBar(pPart%charge)+1
              end if
           case (Xi)
-             if (.not.pPart%antiParticle) then
+             if (.not.pPart%anti) then
                numXi(pPart%charge)=numXi(pPart%charge)+1
              else
                numXiBar(pPart%charge)=numXiBar(pPart%charge)+1
              end if
           case (omegaResonance)
-             if (.not.pPart%antiParticle) then
+             if (.not.pPart%anti) then
                numOmega=numOmega+1
              else
                numOmegaBar=numOmegaBar+1
@@ -509,14 +511,14 @@ contains
              numPions=numPions+1
              numPi(pPart%charge)=numPi(pPart%charge)+1
 
-             pL = pPart%momentum(3)
-             pT2= pPart%momentum(1)**2+pPart%momentum(2)**2
+             pL = pPart%mom(3)
+             pT2= pPart%mom(1)**2+pPart%mom(2)**2
 
              if (DoH2d) then
                 call AddHist2D(h2dMomentPion(pPart%charge), (/pL,pT2/), 1.0)
-                call AddHist2D(h2dEnergyPion(pPart%charge), (/pPart%momentum(0),pT2/), 1.0)
+                call AddHist2D(h2dEnergyPion(pPart%charge), (/pPart%mom(0),pT2/), 1.0)
              end if
-             call AddHist(hEnergyPion(pPart%charge), pPart%momentum(0), 1.0, pT2)
+             call AddHist(hEnergyPion(pPart%charge), pPart%mom(0), 1.0, pT2)
           case (eta)
              numEtas=numEtas+1
           case (kaon)
@@ -531,7 +533,7 @@ contains
 
           if (pPart%ID.ne.pion) flag_not_only_pions=.true.
 
-          if (isBaryon(pPart%ID) .and. .not.pPart%antiParticle) numBaryons=numBaryons+1
+          if (isBaryon(pPart%ID) .and. .not.pPart%anti) numBaryons=numBaryons+1
 
        end do Particle_loop1
 
@@ -568,7 +570,7 @@ contains
          if (IsChargeExchange(projectile,target,first,second)) then
               sigma_CEX=sigma_CEX+1.
               flag_inel=.false.
-              if (first%Id.eq.projectile%Id .and. (first%antiParticle.eqv.projectile%antiParticle)) then
+              if (first%Id.eq.projectile%Id .and. (first%anti.eqv.projectile%anti)) then
                   Q2=MomentumTransfer2(first,projectile)
               else
                   Q2=MomentumTransfer2(second,projectile)
@@ -577,7 +579,7 @@ contains
          end if
 
          if (first%Id.eq.Lambda .and. second%Id.eq.Lambda) then
-             if (first%antiParticle.eqv.projectile%antiParticle) then
+             if (first%anti.eqv.projectile%anti) then
                  Q2=MomentumTransfer2(first,projectile)
              else
                  Q2=MomentumTransfer2(second,projectile)
@@ -588,7 +590,7 @@ contains
 
          if (first%Id.eq.SigmaResonance .and. second%Id.eq.Lambda .or. &
            &first%Id.eq.Lambda .and. second%Id.eq.SigmaResonance  ) then
-             if (first%antiParticle.eqv.projectile%antiParticle) then
+             if (first%anti.eqv.projectile%anti) then
                  Q2=MomentumTransfer2(first,projectile)
              else
                  Q2=MomentumTransfer2(second,projectile)
@@ -763,7 +765,7 @@ contains
        end if
 
        sigma_Eta=sigma_Eta+numEtas
-       
+
        !*** KKbar production in Nbar N annihilation: ************************************
 
        if ( sum(numKaon(:))==1 .and. sum(numKaonBar(:))==1 ) then
@@ -903,7 +905,7 @@ contains
 
              pPart => realParticles(i,j)
 
-             momentum=pPart%momentum
+             momentum=pPart%mom
              call lorentz(beta,momentum)
 
              momentumAbs=sqrt(dot_product(momentum(1:3),momentum(1:3)))
@@ -930,6 +932,7 @@ contains
           if (realParticles(i,j)%ID <= 0) cycle Particle_loop3
           if (realParticles(i,j)%ID.eq.rho) call AddHist(dNrhodM,realParticles(i,j)%mass,1.)
           if (realParticles(i,j)%ID.eq.omegaMeson) call AddHist(dNomegadM,realParticles(i,j)%mass,1.)
+          if (realParticles(i,j)%ID.eq.Delta) call AddHist(dNDeltadM,realParticles(i,j)%mass,1.)
        end do Particle_loop3
        !#######################################################################
 
@@ -940,8 +943,8 @@ contains
              do j = 1,size(realParticles,dim=2)
                 if (realParticles(i,j)%ID <= 0) cycle
                 if ( isBaryon(realParticles(i,j)%ID) .and. &
-                     &realParticles(i,j)%antiParticle ) then
-                   momentum=realParticles(i,j)%momentum
+                     &realParticles(i,j)%anti ) then
+                   momentum=realParticles(i,j)%mom
                    call lorentz(beta,momentum)
                    Ekin=momentum(0)-realParticles(i,j)%mass
                    call AddHist(dNNbardEkin(1),Ekin,1.)
@@ -1360,6 +1363,7 @@ contains
           call WriteHist(dNpiondPhi,31,file='dNpiondPhi.dat')
           call WriteHist(dNrhodM,31,file='dNrhodM.dat')
           call WriteHist(dNomegadM,31,file='dNomegadM.dat')
+          call WriteHist(dNDeltadM,31,file='dNDeltadM.dat')
           call WriteHist(dNNbardEkin(1),31,file='dNNbardEkin_all.dat')
           call WriteHist(dNNbardEkin(2),31,file='dNNbardEkin_inel.dat')
           call WriteHist(dNNbardEkin(3),31,file='dNNbardEkin_el.dat')

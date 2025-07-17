@@ -52,20 +52,20 @@ program test
      part(index,2)%charge=0
      part(index,2)%mass=baryon(nucleon)%mass
 
-     part(index,1)%momentum(1:3)=   pCM(sqrt(s), meson(pion)%mass, baryon(nucleon)%mass)    *rnOmega()
-     part(index,1)%momentum(0)  =freeEnergy(part(index,1))
+     part(index,1)%mom(1:3)=   pCM(sqrt(s), meson(pion)%mass, baryon(nucleon)%mass)    *rnOmega()
+     part(index,1)%mom(0)  =freeEnergy(part(index,1))
 
 
      part(index,1:2)%perweight=1.
 
-     part(index,2)%momentum(1:3)=   -part(index,1)%momentum(1:3)
-     part(index,2)%momentum(0)  =freeEnergy(part(index,2))
+     part(index,2)%mom(1:3)=   -part(index,1)%mom(1:3)
+     part(index,2)%mom(0)  =freeEnergy(part(index,2))
 
      
-     call lorentz(-beta, part(index,1)%momentum)
-     call lorentz(-beta, part(index,2)%momentum)
+     call lorentz(-beta, part(index,1)%mom)
+     call lorentz(-beta, part(index,2)%mom)
      if(debug) then
-        write(*,'(4E14.4)') part(index,1)%momentum+part(index,2)%momentum
+        write(*,'(4E14.4)') part(index,1)%mom+part(index,2)%mom
         write(*,'(4E14.4)') ptot
         write(*,*) s, sqrtS(part(index,1),part(index,2))**2
      end if

@@ -33,7 +33,8 @@ module baryonWidth
      real, dimension(nDecays) :: rho_AB_atPole ! Formula 2.76 in Effes PhD thesis evaluated at the polemass of the resonance
   end type tGammaField
 
-  ! Field which holds all the information for concerning  the vacuum width, initialized in "initWidth"
+  ! Field which holds all the information for concerning the vacuum width,
+  ! initialized in "initWidth"
   ! First Index: ID of Resonance
   ! Second Index: Mass Index in the range (0,maxIndexMass)
   type(tGammaField), dimension(:,:), allocatable, save  :: gammaField
@@ -49,6 +50,7 @@ module baryonWidth
 
 
   public :: partialWidthBaryon
+  public :: getPartialWidthBaryon
   public :: fullWidthBaryon
   public :: decayWidthBaryon
   public :: baryonWidth_gammaN
@@ -90,7 +92,7 @@ contains
   !****************************************************************************
   !****s* baryonWidth/partialWidthBaryon
   ! NAME
-  ! real function partialwidthBaryon (ID, mass, inWidth, mesonID, baryonID, mesonMass, baryonMass)
+  ! real function partialwidthBaryon(ID, mass, inWidth, mesonID, baryonID, mesonMass, baryonMass)
   ! PURPOSE
   ! This function calculates the mass-dependent partial width for a specific
   ! decay channel of a baryon resonance.
@@ -103,7 +105,7 @@ contains
   !                                              needed in the case of the In-Width if one of them is off-shell.
   !                                              Otherwise not relevant.
   !****************************************************************************
-  function partialwidthBaryon (ID, mass, inWidth, mesonID, baryonID, mesonMass, baryonMass) result(width)
+  function partialwidthBaryon(ID, mass, inWidth, mesonID, baryonID, mesonMass, baryonMass) result(width)
     use DecayChannels, only: Decay2BodyBaryon
     use IdTable, only: isMeson, isBaryon
     use particleProperties, only: Hadron, nDecays, getAngularMomentum_baryon
@@ -145,8 +147,9 @@ contains
           massIndex=maxIndexMass
        end if
 
-       ! Decide wether you need the width to scatter into the resonance or out of the resonance. And return
-       ! the compressed decay ratios and the full width. Compressed means summed over all angular momenta of a
+       ! Decide wether you need the width to scatter into the resonance or out
+       ! of the resonance. And return the compressed decay ratios and the full
+       ! width. Compressed means summed over all angular momenta of a
        ! specific decay product.
        width=0.
 
@@ -157,7 +160,8 @@ contains
           mass_down = hadron(ID)%minmass+float(down)*deltaMass
           weight = (mass-mass_down)/deltaMass ! weight for the interpolation
 
-          ! Loop over all decay channels and sum up all width which stem from different angular momentum but same decay products
+          ! Loop over all decay channels and sum up all width which stem from
+          ! different angular momentum but same decay products
           do i=1,nDecays
              dID = hadron(ID)%decaysID(i)
              if (dId<=0) cycle !  not 2Body
@@ -221,6 +225,55 @@ contains
 
 
   !****************************************************************************
+  !****f* baryonWidth/getPartialWidthBaryon
+  ! NAME
+  ! real function getPartialWidthBaryon(ID, mass, i)
+  !
+  ! PURPOSE
+  ! This function calculates the mass-dependent partial width for the
+  ! i--th decay channel of a baryon resonance.
+  ! INPUTS
+  ! * integer, intent(in) :: ID     ! id of resonance
+  ! * real, intent(in) :: mass      ! sqrt(p_mu p^mu) = mass of the resonance
+  !   (offshell), w/o mean field
+  ! * integer, intent(in) :: i      ! number of the decay channel
+  !   (i=1,...,nDecays) --- Don't mix with dID !!!
+  !****************************************************************************
+  function getPartialWidthBaryon(ID, mass, i) result(PartialWidth)
+
+     use particleProperties, only: hadron
+     use DecayChannels, only: Decay2BodyBaryon
+
+     integer, intent(in) :: ID     ! id of resonance
+     real, intent(in) :: mass      ! sqrt(p_mu p^mu) = mass of the resonance (offshell), w/o mean field
+     integer, intent(in) :: i      ! number of the decay channel (i=1,...,nDecays)
+
+     real :: PartialWidth,mass_down,weight,gamma_tot
+     integer :: dID,down,up
+
+     PartialWidth=0.
+
+     if(mass.le.hadron(ID)%minmass) return
+
+     dID = hadron(ID)%decaysID(i)
+     if(dId<=0) return
+
+     if(mass .le. hadron(Decay2BodyBaryon(dId)%ID(1))%minmass+hadron(Decay2BodyBaryon(dId)%ID(2))%minmass) return
+
+     down = min(maxIndexMass, floor((mass-hadron(ID)%minmass)/deltaMass))
+     up   = min(maxIndexMass, down+1)
+     mass_down = hadron(ID)%minmass+float(down)*deltaMass
+     weight = (mass-mass_down)/deltaMass ! weight for the interpolation
+     gamma_tot = gammaField(ID,down)%gammaTotal*(1.-weight) &
+               + gammaField(ID,up  )%gammaTotal*    weight
+
+     PartialWidth = gamma_tot * (gammaField(ID,down)%ratio(i)*(1.-weight) + &
+                                 gammaField(ID,up  )%ratio(i)*    weight)
+
+  end function getPartialWidthBaryon
+
+
+  !****************************************************************************
   !****f* baryonWidth/FullWidthBaryon
   ! NAME
   ! real function FullWidthBaryon(ID,mass)
@@ -235,7 +288,7 @@ contains
   !   FullWidthBaryon -> initWidth -> InitializeSpectralIntegral
   !   -> FullWidthBaryon
   !****************************************************************************
-  recursive real function FullWidthBaryon (ID, mass)
+  recursive real function FullWidthBaryon(ID, mass)
     use IdTable, only: isBaryon
     use particleProperties, only: hadron
     use CallStack, only: TRACEBACK
@@ -275,7 +328,7 @@ contains
   !****************************************************************************
   !****f* baryonWidth/decayWidthBaryon
   ! NAME
-  ! function decayWidthBaryon (ID, mass) result(decayWidth)
+  ! function decayWidthBaryon(ID, mass) result(decayWidth)
   ! PURPOSE
   ! This function returns the mass-dependent partial widths of all decay channels.
   ! INPUTS
@@ -284,7 +337,7 @@ contains
   ! OUTPUT
   ! * real, dimension(1:nDecays)) :: decayWidth --  widths of all decay channels
   !****************************************************************************
-  function decayWidthBaryon (ID, mass) result(decayWidth)
+  function decayWidthBaryon(ID, mass) result(decayWidth)
     use IdTable, only: IsBaryon
     use particleProperties, only: hadron
     use decayChannels, only: decay2BodyBaryon
@@ -375,7 +428,9 @@ contains
        end if
     end if
 
-    write(*,*) "Tabulating the baryonic vacuum widths"
+    call Write_InitStatus("Tabulating the baryonic vacuum widths",0)
+    write(*,'(" (reason:",3L2,")")') &
+         .not.readTable,get_rhoDelta_is_sigmaDelta(),get_rho_dilep()
 
     ! Initialize the gamma fields for the baryons by calling vacuumWidth
     do resonanceID=1,nbar
@@ -413,9 +468,11 @@ contains
           !****************Debugging end
        end do
     end do
+    write(*,*) ! due to 'advance=no'
 
     if (writeTable) call writeFile()
     write(*,*)
+    call Write_InitStatus("Tabulating the baryonic vacuum widths",1)
 
     initFlag=.false.
     call InitializeSpectralIntegral( 3.0 )
@@ -810,7 +867,7 @@ contains
     do id=1,nbar
        nDev = int(abs(arrSpectralIntegral(id)-1.0)/0.05)
        if (nDev>0) then
-          write(*,'("  Normalization off for id=",i3," at ",f5.3," GeV: ",f7.5," ",A)') &
+          write(*,'(" Normalization off for id=",i3," at ",f5.3," GeV: ",f7.5," ",A)') &
                id,massMax,arrSpectralIntegral(id),III(1:nDev)
        end if
     end do

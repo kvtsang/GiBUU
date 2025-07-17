@@ -1,13 +1,13 @@
 !******************************************************************************
-!****m* /argonnev18
+!****m* /argonne
 ! NAME
-! module argonnev18
+! module argonne
 !
 ! PURPOSE
-! This module implements the Argonne V18 NN-potential for Deuterium and Deuterium wave functions
+! This module implements the Argonne V18 NN-potential for Deuterium and
+! Deuterium wave functions
 !******************************************************************************
-
-module argonnev18
+module argonne
 
   implicit none
 
@@ -22,13 +22,13 @@ module argonnev18
 contains
 
   !****************************************************************************
-  !****f* argonnev18/argonne_WF_kSpace
+  !****f* argonne/argonne_WF_kSpace
   ! NAME
   ! function argonne_WF_kSpace (k_GeV, noPWave_in) result(wf)
   !
   ! PURPOSE
-  ! This function calculates the  square of the momentum space wave function of a deuteron
-  ! according to the Argonne V18 potential.
+  ! This function calculates the square of the momentum space wave function
+  ! of a deuteron according to the Argonne V18 potential.
   !
   ! INPUTS
   ! * real    :: k_GeV -- momentum in units of GeV
@@ -104,13 +104,13 @@ contains
 
 
   !****************************************************************************
-  !****f* argonnev18/argonne_WF_rSpace
+  !****f* argonne/argonne_WF_rSpace
   ! NAME
   ! function argonne_WF_rSpace (r, noPWave_in) result(wf)
   !
   ! PURPOSE
-  ! This function calculates the  square of the position space wave function of a deuteron
-  ! according to the Argonne V18 potential.
+  ! This function calculates the square of the position space wave function
+  ! of a deuteron according to the Argonne V18 potential.
   !
   ! INPUTS
   ! * real    :: r -- relative distance in units of [fm]
@@ -179,7 +179,7 @@ contains
 
 
   !****************************************************************************
-  !****s* argonnev18/argonne_deuteriumPot
+  !****s* argonne/argonne_deuteriumPot
   ! NAME
   ! real function argonne_deuteriumPot(r)
   !
@@ -215,4 +215,4 @@ contains
 
 
 
-end module argonnev18
+end module argonne

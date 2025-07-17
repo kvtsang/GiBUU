@@ -121,7 +121,7 @@ contains
     success=.false.
 
     ! 1) Photon Momentum
-    q=eN%boson%momentum
+    q=eN%boson%mom
 
     if (debug_kin) then
        write(*,*)
@@ -135,15 +135,15 @@ contains
 
     ! Define unit vector in direction of outgoing pion:
     ! Here z-axis is chosen in the direction of q(1:3)
-    betaTOCM(1:3)=(q(1:3)+eN%nucleon%momentum(1:3))/(q(0)+eN%nucleon%momentum(0))
+    betaTOCM(1:3)=(q(1:3)+eN%nucleon%mom(1:3))/(q(0)+eN%nucleon%mom(0))
     if (pionAngles_inCM) then
        ! Boost event to CM
        qCM=q
-       call lorentz(betaTOCM, qCM, ' getKinematics_eN')
-       pCM=eN%nucleon%momentum
-       call lorentz(betaTOCM, pCM, ' getKinematics_eN')
+       call lorentz(betaTOCM, qCM)
+       pCM=eN%nucleon%mom
+       call lorentz(betaTOCM, pCM)
        nucleonCM=eN%nucleon
-       nucleonCM%momentum=pCM
+       nucleonCM%mom=pCM
        ! Construct pion unit vector in CM system
        k_unit(1:3)=(/sin(radian(theta_k))*cos(radian(phi_k)),&
             &        sin(radian(theta_k))*sin(radian(phi_k)),&
@@ -158,7 +158,7 @@ contains
        k_abs=get_K_abs(k_unit(1),k_unit(2),k_unit(3),qCM,nucleonCM,pionCharge,nucleon_out_charge,success,k,betaToCF_in=-betaToCM)
 
        ! Boost k back
-       call lorentz(-betaTOCM, k, ' getKinematics_eN')
+       call lorentz(-betaTOCM, k)
        twoRoots=.false.
     else
        k_unit(1:3)=(/sin(radian(theta_k))*cos(radian(phi_k)),&
@@ -201,7 +201,7 @@ contains
           write(*,*) 'Warning: Outgoing pion momentum 0!'
           write(*,*) "k_abs=", k_abs
        end if
-       pf=q+eN%nucleon%momentum-k
+       pf=q+eN%nucleon%mom-k
     else
        k=0
        pf=0
@@ -369,6 +369,7 @@ contains
     logical, parameter :: writeFlag=.false. ! Write the iteration point (kabs,errorEnergyConservation) to fort.12
     integer :: counter
     integer :: numRestarts
+    logical :: flagOK
 
     low = 0.     !=0 eV as lower bound for abs(vec(k))
     if (present(low_in)) low=low_in
@@ -389,8 +390,9 @@ contains
 !       write(*,*) 'k_abs Problem 1'
        return ! FAILURE !!!!
     end if
-    f(1)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(1),low,high)
+    f(1)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(1),low,high,flagOK)
     if (writeFlag) write(12,*) k_abs(1),f(1)
+    if (.not.flagOK) return ! FAILURE !!!!
 
     if (abs(f(1)).lt.maxError.and.k_abs(1).gt.0) then !  Successful!!!
        if (DebugFlag) write(*,*) 'SuccesFull with f(1)',f(1),k_abs(1)
@@ -405,8 +407,9 @@ contains
 !       write(*,*) 'k_abs Problem 2'
        return ! FAILURE !!!!
     end if
-    f(2)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(2),low,high)
+    f(2)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(2),low,high,flagOK)
     if (writeFlag) write(12,*) k_abs(2),f(2)
+    if (.not.flagOK) return ! FAILURE !!!!
 
     if (abs(f(2)).lt.maxError.and.k_abs(2).gt.0) then !  Successful!!!
        if (DebugFlag) write(*,*) 'SuccessFull with f(2)',f(2),k_abs(2)
@@ -432,13 +435,15 @@ contains
 !             write(*,*) 'k_abs Problem x1: ',k_abs(1)
              return ! FAILURE !!!!
           end if
-          f(1)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(1),low,high)
+          f(1)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(1),low,high,flagOK)
+          if (.not.flagOK) return ! FAILURE !!!!
 
           if (.not. set_k(k_abs(2),k,initNuc,pionCharge,betaToCF)) then
 !             write(*,*) 'k_abs Problem x2: ',k_abs(2)
              return ! FAILURE !!!!
           end if
-          f(2)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(2),low,high)
+          f(2)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCF,k_abs(2),low,high,flagOK)
+          if (.not.flagOK) return ! FAILURE !!!!
 
           numRestarts=numRestarts+1
           if (numRestarts.eq.100) then
@@ -452,8 +457,9 @@ contains
 !          write(*,*) 'k_abs Problem x3: ',k_abs(3)
           return ! FAILURE !!!!
        end if
-       f(3)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCf,k_abs(3),low,high)
+       f(3)=error_energyConservation(k,q,initNuc,pionCharge,nucleon_out_charge,betaToCf,k_abs(3),low,high,flagOK)
        if (writeFlag) write(12,*) k_abs(3),f(3)
+       if (.not.flagOK) return ! FAILURE !!!!
 
        if (abs(f(3)).lt.maxError.and.k_abs(3).gt.0) then !Successful!!!
           get_k_abs=k_abs(3)
@@ -528,11 +534,11 @@ contains
          ! Define outgoing pion
          outPion=initNuc
          outPion%ID=pion
-         outPion%momentum(1:3)=k(1:3)
+         outPion%mom(1:3)=k(1:3)
          outPion%charge=pionCharge
          outPion%mass=mPi
          call energyDetermination(outPion,betaToCF,warn=.false.)
-         k(0)=outPion%momentum(0)
+         k(0)=outPion%mom(0)
       else
          k(0)=sqrt(mPi**2+absolut**2)
       end if
@@ -566,11 +572,12 @@ contains
   ! * real, intent(in) :: high_in
   !
   ! OUTPUT
-  !
+  ! * function value: error
+  ! * logical :: flagOK
   !
   !****************************************************************************
   real function error_energyConservation(k, q, initial_nucleon, pionCharge,&
-       & nucleon_out_charge,betaToCF,kabs,low_in,high_in)
+       & nucleon_out_charge,betaToCF,kabs,low_in,high_in, flagOK)
     use particleDefinition
     use energyCalc, only: energyDetermination
     use idTable, only: nucleon
@@ -585,34 +592,35 @@ contains
     real :: penalty
     real, parameter :: penalty_constant=1.
     real, intent(in) :: low_in, high_in
+    logical, intent(out) :: flagOK
 
     !real, dimension(0:3) :: pf
     type(particle) :: final_nucleon
-    logical :: debugFlag=.false.
+    logical, parameter :: debugFlag=.false.
 
     if (debugFlag) write(*,*) 'in error_energyConservation'
 
     ! Construct the final state nucleon:
-    final_nucleon%momentum(1:3)=q(1:3)+initial_nucleon%momentum(1:3)-k(1:3)
+    final_nucleon%mom(1:3)=q(1:3)+initial_nucleon%mom(1:3)-k(1:3)
     final_nucleon%mass=mN
-    final_nucleon%position(1:3)=initial_nucleon%position(1:3)
+    final_nucleon%pos(1:3)=initial_nucleon%pos(1:3)
     final_nucleon%ID=nucleon
     final_nucleon%charge=nucleon_out_charge
-    final_nucleon%perturbative=initial_nucleon%perturbative
+    final_nucleon%pert=initial_nucleon%pert
 
 !!$    If(AbsMom(final_nucleon).gt.1000) then
 !!$       write(*,*) "Particle with large momentum"
 !!$
 !!$       write(*,*) 'q: ',q(1:3)
 !!$       write(*,*) 'k: ',k(1:3)
-!!$       write(*,*) 'N: ',initial_nucleon%momentum(1:3)
+!!$       write(*,*) 'N: ',initial_nucleon%mom(1:3)
 !!$    end If
 
-    call energyDetermination(final_nucleon,betaToCF, warn=.false.)
+    call energyDetermination(final_nucleon,betaToCF, warn=.false., flagOK=flagOK, verbose=.false.)
 
-    if (debugFlag) write(*,*) 'final_nucleon%momentum(0)=',final_nucleon%momentum(0)
+    if (debugFlag) write(*,*) 'final_nucleon%mom(0)=',final_nucleon%mom(0)
 
-    error_energyConservation=q(0)+initial_nucleon%momentum(0)-k(0)-final_nucleon%momentum(0)
+    error_energyConservation=q(0)+initial_nucleon%mom(0)-k(0)-final_nucleon%mom(0)
 
     if (kabs.lt.low_in) then
        ! Make penalty since we are in a forbidden regime
@@ -629,7 +637,7 @@ contains
 
   subroutine get_dV_Pi_dk(dV,k_abs,initNuc,pionCharge)
     ! returns the momentum derivative of the potential of the pion
-    use potentialModule, only: potential_LRF
+    use potentialMain, only: potential_LRF
     use particleDefinition
     use idtable, only: pion
 
@@ -645,13 +653,13 @@ contains
     ! Define outgoing pion
     outPion=initNuc
     outPion%ID=pion
-    outPion%momentum(1:3)=(/k_abs,0.,0./)
+    outPion%mom(1:3)=(/k_abs,0.,0./)
     outPion%charge=pionCharge
     ! Energy is not well defined since the potential should not depend on it:
-    outPion%momentum(0)=0.
+    outPion%mom(0)=0.
 
     do i=-2,2
-       outPion%momentum(1:3)=(/k_abs+float(i)*dp,0.,0./)
+       outPion%mom(1:3)=(/k_abs+float(i)*dp,0.,0./)
        V(i)=potential_LRF(outPion)
     end do
 
@@ -667,7 +675,7 @@ contains
 
   subroutine getV_out(V_out,dV_out,pf,initNuc,pionCharge)
     ! returns the potential of the nucleon and its derivative at the kinematics of the outgoing nucleon
-    use potentialModule, only:potential_LRF
+    use potentialMain, only:potential_LRF
     use particleDefinition
 
     real, intent(out) :: V_out, dV_out
@@ -682,12 +690,12 @@ contains
 
     ! Define outgoing nucleon
     outNuc=initNuc
-    outNuc%momentum=pf
+    outNuc%mom=pf
     outNuc%charge=initNuc%charge-pionCharge
     absMom2=sqrt(Dot_product(pf(1:3),pf(1:3)))
 
     do i=-2,2
-       outNuc%momentum(1:3)=(/0.,0.,float(i)*dp+absMom2/)
+       outNuc%mom(1:3)=(/0.,0.,float(i)*dp+absMom2/)
        V(i)=potential_LRF(outNuc)
     end do
 

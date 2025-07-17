@@ -54,7 +54,7 @@ contains
     use twoBodyTools, only: IsElastic, IsChargeExchange
     use hadronFormation, only: useJetSetVec
     use output, only: DoPR, WriteParticle
-    use CollGetLeading, only: GetLeading_PY
+    use GetLeading, only: GetLeading_PY
     use ID_translation, only: KFfromBUU, SplitKFtoQ
     use ParticleProperties, only: hadron
 
@@ -131,7 +131,7 @@ contains
 
 
     !...set incoming particles:
-     if (inPart(1)%antiparticle) then ! (Shift antiparticle to second position)
+     if (inPart(1)%anti) then ! (Shift antiparticle to second position)
         part1 = inPart(2)
         part2 = inPart(1)
      else
@@ -139,7 +139,7 @@ contains
         part2 = inPart(2)
      end if
 
-     if (part1%antiparticle) then
+     if (part1%anti) then
         if (DoPr(1)) write(*,*) 'DoColl_Pythia: converting anti+anti: '
         call WriteParticle(6,0,1,inPart(1))
         call WriteParticle(6,0,2,inPart(2))
@@ -176,8 +176,8 @@ contains
 
     ID1 = part1%ID
     ID2 = part2%ID
-    if (part1%antiparticle) ID1 = -ID1
-    if (part2%antiparticle) ID2 = -ID2
+    if (part1%anti) ID1 = -ID1
+    if (part2%anti) ID2 = -ID2
     IZ1 = part1%charge
     IZ2 = part2%charge
 
@@ -216,7 +216,7 @@ contains
 !!$       endif
 
 
-       if (inPart(1)%antiparticle) then
+       if (inPart(1)%anti) then
           call ConvertToAnti(inPart(1),part1) ! converted particle is anti,
           call ConvertToAnti(inPart(2),part2) ! should be stored at pos 2
        else
@@ -399,7 +399,7 @@ contains
           ! Test for charge-exchange event in antinucleon-nucleon,
           ! antinucleon-delta or nucleon-antidelta collision
           if ((InPart(1)%Id+InPart(2)%Id<=nucleon+delta) .and. &
-              (InPart(1)%antiParticle.neqv.InPart(2)%antiParticle) .and. &
+              (InPart(1)%anti.neqv.InPart(2)%anti) .and. &
               IsChargeExchange(InPart(1),InPart(2),OutPart(1),OutPart(2))) cycle
 
        end if

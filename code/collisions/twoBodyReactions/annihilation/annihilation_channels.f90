@@ -5,8 +5,9 @@
 ! PURPOSE
 ! Includes the routines for selecting annihilation channel.
 !******************************************************************************
-
 module annihilation_channels
+
+  use CallStack, only: Traceback
 
   implicit none
 
@@ -16,7 +17,7 @@ module annihilation_channels
   !****t* annihilation_channels/anni_channel
   ! SOURCE
   !
-  Type anni_channel
+  type anni_channel
      integer,dimension(1:6) :: id=0      ! Id's of the final state particles
      integer,dimension(1:6) :: charge=0  ! charges of the final state particles
      real :: probability=0.              ! channel probability
@@ -28,7 +29,7 @@ module annihilation_channels
   !****g* annihilation_channels/pbarp_channels_atRest
   ! SOURCE
   !
-  Type(anni_channel), Allocatable, dimension(:), save :: pbarp_channels_atRest
+  type(anni_channel), Allocatable, dimension(:), save, target :: pbarp_channels_atRest
   ! PURPOSE
   ! Stores the information for all possible channels of antiproton-proton
   ! annihilation at rest.
@@ -38,7 +39,7 @@ module annihilation_channels
   !****g* annihilation_channels/pbarp_channels_eDep
   ! SOURCE
   !
-  Type(anni_channel), Allocatable, dimension(:), save :: pbarp_channels_eDep
+  type(anni_channel), Allocatable, dimension(:), save, target :: pbarp_channels_eDep
   ! PURPOSE
   ! Stores the information for all possible channels of antiproton-proton
   ! annihilation at the given beam energy.
@@ -49,7 +50,7 @@ module annihilation_channels
   !****g* annihilation_channels/pbarn_channels_atRest
   ! SOURCE
   !
-  Type(anni_channel), Allocatable, dimension(:), save :: pbarn_channels_atRest
+  type(anni_channel), Allocatable, dimension(:), save, target :: pbarn_channels_atRest
   ! PURPOSE
   ! Stores the information for all possible channels of antiproton-neutron
   ! annihilation at rest.
@@ -60,16 +61,17 @@ module annihilation_channels
   !****g* annihilation_channels/pbarn_channels_eDep
   ! SOURCE
   !
-  Type(anni_channel), Allocatable, dimension(:), save :: pbarn_channels_eDep
+  type(anni_channel), Allocatable, dimension(:), save, target :: pbarn_channels_eDep
   ! PURPOSE
   ! Stores the information for all possible channels of antiproton-neutron
   ! annihilation at the given beam energy.
   !****************************************************************************
 
-  integer, save :: n_pbarp_atRest, n_pbarn_atRest   ! Sizes of arrays pbarp_channels_atRest
-                                                    ! and pbarn_channels_atRest respectively.
-  integer, save :: n_pbarp_eDep, n_pbarn_eDep       ! Sizes of arrays pbarp_channels_eDep
-                                                    ! and pbarn_channels_eDep respectively.
+  ! Sizes of arrays pbarp_channels_atRest, pbarn_channels_atRest:
+  integer, save :: n_pbarp_atRest, n_pbarn_atRest
+
+  ! Sizes of arrays pbarp_channels_eDep, pbarn_channels_eDep:
+  integer, save :: n_pbarp_eDep, n_pbarn_eDep
 
   public :: choose_channel
 
@@ -85,18 +87,18 @@ contains
   ! Selects randomly the outgoing channel (id's and charges only) for
   ! a given antibaryon-baryon annihilating pair.
   ! INPUTS
-  ! * real, intent(in)           ::  srts                         ! inv. energy
-  ! * type(particle), intent(in) ::  antibar                      ! antibaryon particle
-  ! * type(particle), intent(in) ::  bar                          ! baryon particle
-  ! * real, intent(in)           ::  time                         ! current time step (fm/c)
+  ! * real           ::  srts       --- inv. energy
+  ! * type(particle) ::  antibar    --- antibaryon particle
+  ! * type(particle) ::  bar        --- baryon particle
+  ! * real           ::  time       --- current time step (fm/c)
   ! OUTPUT
-  ! * type(particle), intent(inout), dimension(:) :: finalState   ! Array of the final state particles
-  !                                                               ! (only id's and charges are determined)
-  ! * logical, intent(out) ::        success                      ! .true. if the channel choice was
-  !                                                               ! successfull
+  ! * type(particle), dimension(:) :: finalState --- final state particles
+  !   (only id's and charges are determined)
+  ! * logical :: success --- .true. if the channel choice was successfull
   ! NOTES
+  ! * this code relies on a size of finalState of (at least) 6
   !****************************************************************************
-    subroutine choose_channel(srts,antibar,bar,time,finalState,success)
+  subroutine choose_channel(srts,antibar,bar,time,finalState,success)
 
     use particleDefinition, only: particle
     use IdTable, only: getAntiMeson
@@ -105,75 +107,71 @@ contains
     use inputGeneral, only: eventtype
     use eventtypes, only: elementary
 
-    real, intent(in)           ::  srts                         ! inv. energy
-    type(particle), intent(in) ::  antibar                      ! antibaryon particle
-    type(particle), intent(in) ::  bar                          ! baryon particle
-    real, intent(in)           ::  time                         ! current time step (fm/c)
-    type(particle), intent(inout), dimension(:) :: finalState   ! Array of the final state particles
-                                                                ! (only id's and charges are determined)
-    logical, intent(out) ::        success                      ! .true. if the channel choice was
-                                                                ! successfull
+    real, intent(in)           ::  srts
+    type(particle), intent(in) ::  antibar
+    type(particle), intent(in) ::  bar
+    real, intent(in)           ::  time
+    type(particle), intent(inout), dimension(:) :: finalState
+    logical, intent(out) ::        success
 
-    integer :: totalCharm, totalStrangeness, totalCharge, i, k, antiID, antiCharge
+    integer :: totalCharm, totalStrangeness, totalCharge, antiID, antiCharge
+    integer :: i,k
     real :: Prob, x, sum
 
-    Type(anni_channel), Allocatable, dimension(:) :: pbarp_channels, pbarn_channels ! Working arrays
+    ! Working arrays:
+    type(anni_channel), dimension(:), POINTER :: pbarp_channels
+    type(anni_channel), dimension(:), POINTER :: pbarn_channels
 
-    integer :: n_pbarp, n_pbarn                                 ! Sizes of arrays pbarp_channels
-                                                                ! and pbarn_channels respectively.
+    ! Sizes of arrays pbarp_channels, pbarn_channels:
+    integer :: n_pbarp, n_pbarn
 
-    logical, parameter :: flagEnergyDependent=.true.            ! If .true. -- use srts-dependent tables
-                                                                ! of channels, .false. -- use tables for
-                                                                ! annihilation at rest.
-    real, parameter :: srts_min=1.876                           ! Minimum possible value of srts (GeV)
-                                                                ! in annihilation.
-    real, parameter :: srts_max=2.6                             ! Maximum value of srts up to which
-                                                                ! channel tables at rest are still contributing
-                                                                ! (above srts_max pure Unitary Model tables
-                                                                !  are used).
+    logical, parameter :: flagEnergyDependent=.true.
+    ! .true.  -- use srts-dependent tables of channels,
+    ! .false. -- use tables for annihilation at rest.
 
-    real, save :: srtsAverage=0., srtsAverage_previous=-100., time_previous=-100.
+    real, parameter :: srts_min=1.876
+    ! Minimum possible value of srts (GeV) in annihilation.
+
+    real, parameter :: srts_max=2.6
+    ! Maximum value of srts up to which channel tables at rest are still
+    ! contributing (above srts_max pure Unitary Model tables are used).
+
+    real, save :: srtsAverage=0.
+    real, save :: srtsAverage_previous=-100.
+    real, save :: time_previous=-100.
     integer, save :: nCalls=0
     logical, save :: flagIni=.true.
 
-    totalCharm= hadron(bar%Id)%charm - hadron(antibar%Id)%charm
+    success=.false.
 
-    if (totalCharm.ne.0) then  ! Annihilation with nonvanishing total charm
-                              ! is not implemented
-       success=.false.
-       return
-    end if
+    totalCharm = hadron(bar%Id)%charm - hadron(antibar%Id)%charm
 
-    totalStrangeness=  hadron(bar%Id)%strangeness - hadron(antibar%Id)%strangeness
+    ! Annihilation with nonvanishing total charm is not implemented:
+    if (totalCharm.ne.0) return ! ==> failure
 
-    if (totalStrangeness.ne.0) then  ! Annihilation with nonvanishing total strangeness
-                                    ! is not implemented yet here (see, however, DoColl_BaB)
-       success=.false.
-       return
-    end if
+    totalStrangeness = hadron(bar%Id)%strangeness - hadron(antibar%Id)%strangeness
+    ! Annihilation with nonvanishing total strangeness is not implemented here:
+    ! (see, however, DoColl_BaB)
+    if (totalStrangeness.ne.0) return ! ==> failure
 
-    totalCharge= antibar%charge + bar%charge
+    totalCharge = antibar%charge + bar%charge
 
-    if (abs(totalCharge).gt.1) then
-       success=.false.
-       return
-    end if
+    if (abs(totalCharge).gt.1) return  ! ==> failure
 
     if (flagIni) then
        call readInput
        flagIni=.false.
     end if
 
-    if (allocated(pbarp_channels)) deallocate(pbarp_channels)
-    if (allocated(pbarn_channels)) deallocate(pbarn_channels)
+    if (size(finalState) < 6) &
+         call TRACEBACK('size of finalstate < 6! cf. MAXOUT!!')
 
     if (.not.flagEnergyDependent) then  ! Use channel tables at rest
 
-       n_pbarp=n_pbarp_atRest
-       n_pbarn=n_pbarn_atRest
-       allocate(pbarp_channels(1:n_pbarp),pbarn_channels(1:n_pbarn))
-       pbarp_channels=pbarp_channels_atRest
-       pbarn_channels=pbarn_channels_atRest
+       n_pbarp = n_pbarp_atRest
+       n_pbarn = n_pbarn_atRest
+       pbarp_channels => pbarp_channels_atRest
+       pbarn_channels => pbarn_channels_atRest
 
     else  !  Choose randomly between tables at rest and tables generated by Unitary Model
 
@@ -184,7 +182,8 @@ contains
              srtsAverage=srts
           end if
           !write(*,'(1x,A26,1x,3(e13.6,1x))')' time, srts, srtsAverage: ', time, srts, srtsAverage
-          if (srtsAverage.ne.srtsAverage_previous) call generate_table(srtsAverage)
+          if (srtsAverage.ne.srtsAverage_previous) &
+               call generate_table(srtsAverage)
           srtsAverage_previous=srtsAverage
           srtsAverage=0.
           nCalls=0
@@ -200,17 +199,15 @@ contains
        Prob=1.-(srts-srts_min)/(srts_max-srts_min)
 
        if (rn().lt.Prob) then
-          n_pbarp=n_pbarp_atRest
-          n_pbarn=n_pbarn_atRest
-          allocate(pbarp_channels(1:n_pbarp),pbarn_channels(1:n_pbarn))
-          pbarp_channels=pbarp_channels_atRest
-          pbarn_channels=pbarn_channels_atRest
+          n_pbarp = n_pbarp_atRest
+          n_pbarn = n_pbarn_atRest
+          pbarp_channels => pbarp_channels_atRest
+          pbarn_channels => pbarn_channels_atRest
        else
-          n_pbarp=n_pbarp_eDep
-          n_pbarn=n_pbarn_eDep
-          allocate(pbarp_channels(1:n_pbarp),pbarn_channels(1:n_pbarn))
-          pbarp_channels=pbarp_channels_eDep
-          pbarn_channels=pbarn_channels_eDep
+          n_pbarp = n_pbarp_eDep
+          n_pbarn = n_pbarn_eDep
+          pbarp_channels => pbarp_channels_eDep
+          pbarn_channels => pbarn_channels_eDep
        end if
 
     end if
@@ -226,8 +223,7 @@ contains
        do
           i=i+1
           if (i.gt.n_pbarp) then
-             write(*,*) 'In choose_channel pbarp: no channel found'
-             stop
+             call TRACEBACK('In choose_channel pbarp: no channel found')
           end if
           sum=sum+pbarp_channels(i)%probability
           if (sum.gt.x) exit
@@ -252,8 +248,7 @@ contains
        do
           i=i+1
           if (i.gt.n_pbarn) then
-             write(*,*) 'In choose_channel pbarn: no channel found'
-             stop
+             call TRACEBACK('In choose_channel pbarn: no channel found')
           end if
           sum=sum+pbarn_channels(i)%probability
           if (sum.gt.x) exit
@@ -285,7 +280,7 @@ contains
 
     end if
 
-    end subroutine choose_channel
+  end subroutine choose_channel
 
 
   !****************************************************************************
@@ -293,18 +288,18 @@ contains
   ! NAME
   ! subroutine generate_table(srts)
   ! PURPOSE
-  ! Interface subroutine to Igor Pshenichnov code which  generates the tables
+  ! Interface subroutine to Igor Pshenichnov code which generates the tables
   ! of outgoing channels for PbarP and PbarN annihilation.
   ! INPUTS
-  ! * real, intent(in)           ::  srts                         ! inv. energy
+  ! * real, intent(in) ::  srts  --- inv. energy
   !****************************************************************************
-    subroutine generate_table(srts)
+  subroutine generate_table(srts)
 
     use twoBodyTools, only: p_lab
     use constants, only: mN
     use output, only: Write_InitStatus
 
-    real, intent(in)           ::  srts                         ! inv. energy
+    real, intent(in) ::  srts
 
     real :: PLAB,fnorm
     integer :: i,j,k,id,iz
@@ -325,13 +320,15 @@ contains
     n_pbarn_eDep=NSUPL(3)
 
     if (verbose) write(*,*) 'srts, plab:', srts, PLAB
-    if (verbose) write(*,*) 'number of pbarp and pbarn annihilation channels :', &
-              & n_pbarp_eDep,n_pbarn_eDep
+    if (verbose) &
+         write(*,*) 'number of pbarp and pbarn annihilation channels :', &
+         & n_pbarp_eDep,n_pbarn_eDep
 
     if (allocated(pbarp_channels_eDep)) deallocate(pbarp_channels_eDep)
     if (allocated(pbarn_channels_eDep)) deallocate(pbarn_channels_eDep)
 
-    allocate(pbarp_channels_eDep(1:n_pbarp_eDep),pbarn_channels_eDep(1:n_pbarn_eDep))
+    allocate(pbarp_channels_eDep(1:n_pbarp_eDep))
+    allocate(pbarn_channels_eDep(1:n_pbarn_eDep))
 
     j=0
     do i=1,n_pbarp_eDep
@@ -369,20 +366,20 @@ contains
 
     if (verbose) call Write_InitStatus('annihilation_channels/generate_table',1)
 
-    end subroutine generate_table
+  end subroutine generate_table
 
 
 
   !****************************************************************************
-  !****s* annihilation_channels/init
+  !****s* annihilation_channels/readInput
   ! NAME
-  ! subroutine init
+  ! subroutine readInput
   ! PURPOSE
   ! Initializes the tables of outgoing channels for PbarP and PbarN annihilation
   ! at rest according to I.A. Pshenichnov (private communication, see also
   ! E.S. Golubeva et al., NPA 537, 393 (1992))
   !****************************************************************************
-    subroutine readInput
+  subroutine readInput
 
     use inputGeneral, only: path_To_Input
     use output, only: Write_ReadingInput, Write_InitStatus
@@ -399,7 +396,8 @@ contains
     n_pbarp_atRest=200
     n_pbarn_atRest=200
 
-    allocate(pbarp_channels_atRest(1:n_pbarp_atRest),pbarn_channels_atRest(1:n_pbarn_atRest))
+    allocate(pbarp_channels_atRest(1:n_pbarp_atRest))
+    allocate(pbarn_channels_atRest(1:n_pbarn_atRest))
 
     call Write_ReadingInput('PbarP annihilation table',0)
     ios=0
@@ -415,17 +413,17 @@ contains
 !       if (verbose) write(2,405) num, id_anni(1:6), symb(1:6), w
  405   FORMAT(1x,I5,1x,6(1X,I3),1x,6(1X,A4),1x,F8.4)
        do k=1,6
-         call decode_to_GiBUU(id_anni(k),id,iz)
-         pbarp_channels_atRest(i)%Id(k)=id
-         pbarp_channels_atRest(i)%charge(k)=iz
+          call decode_to_GiBUU(id_anni(k),id,iz)
+          pbarp_channels_atRest(i)%Id(k)=id
+          pbarp_channels_atRest(i)%charge(k)=iz
        end do
        pbarp_channels_atRest(i)%probability=w
        cycle
 5      exit
-10     write(*,*) 'In annihilation_channels/readInput: error in reading empir_table.fnp'
-       stop
+10     call TRACEBACK('error in reading empir_table.fnp')
     end do
     close(1)
+
     if (verbose) write(2,*)' Number of channels: ', i
     fnorm= sum(pbarp_channels_atRest(1:i)%probability)
     if (verbose) write(2,*)' Norma: ', fnorm
@@ -445,17 +443,17 @@ contains
        i=i+1
        if (verbose) write(2,405) num, id_anni(1:6), symb(1:6), w
        do k=1,6
-         call decode_to_GiBUU(id_anni(k),id,iz)
-         pbarn_channels_atRest(i)%Id(k)=id
-         pbarn_channels_atRest(i)%charge(k)=iz
+          call decode_to_GiBUU(id_anni(k),id,iz)
+          pbarn_channels_atRest(i)%Id(k)=id
+          pbarn_channels_atRest(i)%charge(k)=iz
        end do
        pbarn_channels_atRest(i)%probability=w
        cycle
 15     exit
-20     write(*,*) 'In annihilation_channels/readInput: error in reading empir_table.fnn'
-       stop
+20     call TRACEBACK('error in reading empir_table.fnn')
     end do
     close(1)
+
     if (verbose) write(2,*)' Number of channels: ', i
     fnorm= sum(pbarn_channels_atRest(1:i)%probability)
     if (verbose) write(2,*)' Norma: ', fnorm
@@ -465,7 +463,7 @@ contains
 
     call Write_InitStatus('annihilation_channels',1)
 
-    end subroutine readInput
+  end subroutine readInput
 
 
 
@@ -474,87 +472,89 @@ contains
   ! NAME
   ! subroutine decode_to_GiBUU(id_input,id,iz)
   ! PURPOSE
-  ! Transform the internal particle coding of Igor Pshenichnov's annihilation code
-  ! to GiBUU coding.
+  ! Transform the internal particle coding of Igor Pshenichnov's annihilation
+  ! code to GiBUU coding.
   ! INPUTS
-  ! * integer, intent(in)         ::  id_input             ! Id in Pshenichnov's coding
+  ! * integer, intent(in)  ::  id_input     --- Id in Pshenichnov's coding
   ! OUTPUT
-  ! * integer, intent(out)        ::  id                   ! Id in GiBUU coding
-  ! * integer, intent(out)        ::  iz                   ! charge of particle
+  ! * integer, intent(out) ::  id           --- Id in GiBUU coding
+  ! * integer, intent(out) ::  iz           --- charge of particle
   ! NOTES
-  ! Only mesons are considered.
+  ! * Only mesons are considered.
+  ! * An implementation as lookup table could be faster
   !****************************************************************************
-    subroutine decode_to_GiBUU(id_input,id,iz)
+  subroutine decode_to_GiBUU(id_input,id,iz)
 
     use IdTable
 
-    integer, intent(in)         ::  id_input             ! Id in Pshenichnov's coding
-    integer, intent(out)        ::  id                   ! Id in GiBUU coding
-    integer, intent(out)        ::  iz                   ! charge of particle
+    integer, intent(in)         ::  id_input
+    integer, intent(out)        ::  id
+    integer, intent(out)        ::  iz
 
     select case (id_input)
 
     case (1)
-      id=pion
-      iz=1
+       id=pion
+       iz=1
     case (2)
-      id=pion
-      iz=-1
+       id=pion
+       iz=-1
     case (3)
-      id=kaon
-      iz=1
+       id=kaon
+       iz=1
     case (4)
-      id=kaonBar
-      iz=-1
+       id=kaonBar
+       iz=-1
     case (5)
-      id=kaon
-      iz=0
+       id=kaon
+       iz=0
     case (6)
-      id=kaonBar
-      iz=0
+       id=kaonBar
+       iz=0
     case (7)
-      id=pion
-      iz=0
+       id=pion
+       iz=0
     case (8)
-      id=eta
-      iz=0
+       id=eta
+       iz=0
     case (9)
-      id=etaPrime
-      iz=0
+       id=etaPrime
+       iz=0
     case (10)
-      id=rho
-      iz=1
+       id=rho
+       iz=1
     case (11)
-      id=rho
-      iz=-1
+       id=rho
+       iz=-1
     case (12)
-      id=kaonStar
-      iz=1
+       id=kaonStar
+       iz=1
     case (13)
-      id=kaonStarBar
-      iz=-1
+       id=kaonStarBar
+       iz=-1
     case (14)
-      id=kaonStar
-      iz=0
+       id=kaonStar
+       iz=0
     case (15)
-      id=kaonStarBar
-      iz=0
+       id=kaonStarBar
+       iz=0
     case (16)
-      id=rho
-      iz=0
+       id=rho
+       iz=0
     case (17)
-      id=omegaMeson
-      iz=0
+       id=omegaMeson
+       iz=0
     case (18)
-      id=phi
-      iz=0
+       id=phi
+       iz=0
     case (19)
-      id=0
-      iz=0
+       id=0
+       iz=0
     case default
-      write(*,*) 'In decode_to_GiBUU: wrong input channel'
+       write(*,*) 'id_input = ',id_input
+       call TRACEBACK('In decode_to_GiBUU: wrong input channel')
     end select
 
-    end subroutine decode_to_GiBUU
+  end subroutine decode_to_GiBUU
 
 end module annihilation_channels

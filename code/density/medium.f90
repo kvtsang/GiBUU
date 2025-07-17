@@ -105,7 +105,7 @@ contains
   type(medium) function mediumAt2(density,r)
     use dichteDefinition
     use minkowski, only: abs4
-    use thermoDynamics, only: temperatureAt
+    use thermoDyn, only: temperatureAt
 
     type(dichte),intent(in):: density
     real,dimension(1:3),intent(in) :: r

@@ -2,9 +2,9 @@
 ! Input for CrossSectionPlotter
 !
 $Plotter2
-  id1    = 101        ! Id of particle 1	
+  id1    = 1        ! Id of particle 1
   id2    = 101        ! Id of particle 2
-  q1     = +1        ! charge of particle 1 
+  q1     =  0        ! charge of particle 1
   q2     = -1        ! charge of particle 2
   anti1  = .false.  ! if .true., then particle 1 is an antiparticle
   anti2  = .false.  ! if .true., then particle 2 is an antiparticle
@@ -12,11 +12,11 @@ $Plotter2
   id_out = 101
   q_out = 0
 
-  Nevents = 2000
+  Nevents = 5000
   srts_min = 0.
-  srts_max = 2.
-  dp = 0.05
-$end          
+  srts_max = 2.55
+  dp = 0.01
+$end
 !****************************************************
 
 !***************************************************
@@ -49,3 +49,8 @@ $end
 ! $master_2Body
 !   usePythia = 0          ! use Fritiof instead of Pythia
 ! $end
+
+! file: ./collisions/twoBodyReactions/hadronFormation.f90
+&hadronformation
+      useJetSetVec    = F ! not needed on nucleon -> speed up
+/

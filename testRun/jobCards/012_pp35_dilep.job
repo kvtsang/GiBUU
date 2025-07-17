@@ -21,6 +21,7 @@
   freezeRealParticles = T
   ! localEnsemble = T		! default: parallel ensemble
   path_to_input = "~/GiBUU/buuinput"
+  version = 2025
 /
 
 &target
@@ -81,4 +82,9 @@
 
 &decayChannels
   rhoDelta_is_sigmaDelta = T
+/
+
+! file: code/numerics/random.f90
+&initRandom
+      Seed = 45678              ! seed for the random number
 /

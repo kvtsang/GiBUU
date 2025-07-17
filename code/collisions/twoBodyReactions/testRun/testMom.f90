@@ -58,30 +58,30 @@ end program
        write(*,*) 'id2 is no particle:', id2
     end if
 
-    pair(1)%position=(/0.001,0.,0./)
-    pair(2)%position=(/0.,0.,0./)
+    pair(1)%pos=(/0.001,0.,0./)
+    pair(2)%pos=(/0.,0.,0./)
 
-    pair(1)%momentum(1:3)=(/0.,0.,0./)
-    pair(1)%momentum(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
+    pair(1)%mom(1:3)=(/0.,0.,0./)
+    pair(1)%mom(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
 
-    pair(2)%momentum(1:3)=(/0.,mom,0./)
-    pair(2)%momentum(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+    pair(2)%mom(1:3)=(/0.,mom,0./)
+    pair(2)%mom(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
 
-    pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
-    pair(2)%velocity=pair(2)%momentum(1:3)/pair(2)%momentum(0)
+    pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
+    pair(2)%vel=pair(2)%mom(1:3)/pair(2)%mom(0)
 
     numEnsembles=100
 
     totMom_NachherSum=0.
-    totMom_Vorher=pair(1)%momentum+pair(2)%momentum
+    totMom_Vorher=pair(1)%mom+pair(2)%mom
 
     Do i=1,2000
        Print *
        Print *, 'momenta'
-       Print *, pair(1)%momentum
-       Print *, pair(2)%momentum
+       Print *, pair(1)%mom
+       Print *, pair(2)%mom
        Print *, 'Wurzel(s)=',sqrts(pair(1),pair(2))
-       Print *, 'Total momentum=',pair(1)%momentum+pair(2)%momentum
+       Print *, 'Total momentum=',pair(1)%mom+pair(2)%mom
        print * ,'***********************'
           call setToDefault(finalState)
        call collide_2body(pair,finalState,numEnsembles,collisionFlag,0.57,HiEnergyFlag,HiEnergyType)
@@ -89,12 +89,12 @@ end program
           totMom_VorherSum=totMom_VorherSum+totMom_Vorher
            Print *, 'Finalstate:       ############################',collisionFlag
           Print *, finalState(1:4)%ID, collisionFlag, HiEnergyFlag,HiEnergyType
-          Print *, 'Charges' , finalState(1:4)%charge, finalState(1:4)%antiParticle
+          Print *, 'Charges' , finalState(1:4)%charge, finalState(1:4)%anti
           totMom_Nachher=0.
           Do j=lBound(finalState,dim=1),uBound(finalState,dim=1)
              If(finalState(j)%ID.ne.0) then
-                totMom_Nachher=totMom_Nachher+finalState(j)%momentum
-                write(9,*) j, finalstate(j)%ID, finalState(j)%momentum
+                totMom_Nachher=totMom_Nachher+finalState(j)%mom
+                write(9,*) j, finalstate(j)%ID, finalState(j)%mom
              end if
           end do
           Print *, ' Total momentum=',totMom_Nachher

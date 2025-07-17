@@ -32,7 +32,7 @@ contains
   subroutine EventGenerator(r,pi1,pi2,po1,po2,po3,mediumAtPosition,position,noBoostToLab)
     use lorentzTrafo, only: lorentz
     use random, only: rn
-    use amplitudes_2Pi, only: ampli, dos
+    use gamma2pi_Amplitudes, only: ampli, dos
     use mediumDefinition
     use minkowski, only: abs4,sp
     use constants, only: pi, hbarc, mPi, mN

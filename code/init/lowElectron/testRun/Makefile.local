@@ -3,5 +3,5 @@ FILEEXCL := test_CM_MonteCarlo.f90 createDatatable.f90 testElementar.f90 testFF.
 #EXEFILE :=test_CM_MonteCarlo.f90
 #EXEFILE :=PhaseSpace2p2h.f90
 #EXEFILE :=testQE2.f90 createDatatable.f90
-#EXEFILE :=testBosted.f90
-EXEFILE := test_res.f90
+EXEFILE :=testBosted.f90
+#EXEFILE := test_res.f90

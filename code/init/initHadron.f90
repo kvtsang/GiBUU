@@ -244,7 +244,7 @@ contains
   use nucleus, only: getTarget
   use collisionNumbering, only: real_numbering,pert_Numbering
   use residue, only: InitResidue
-  
+
   type(particle), dimension(:,:), intent(inout) :: teilchenReal, teilchenPert
 
   type(tNucleus),pointer :: targetNuc                      ! Target nucleus
@@ -297,12 +297,12 @@ contains
            teilchenReal(j,index)=teilchen
            teilchenReal(j,:)%firstevent=j*1000+1
            teilchenReal(j,:)%perweight=1.
-           
+
       end do
 
-      ! Initialize target residue determination (for analysis only): 
-      call InitResidue(size(teilchenReal,dim=1),1,targetNuc%mass,targetNuc%charge)  
-      
+      ! Initialize target residue determination (for analysis only):
+      call InitResidue(size(teilchenReal,dim=1),1,targetNuc%mass,targetNuc%charge)
+
   else
 
       do j=1,size(teilchenPert,dim=1) ! Loop over all Ensembles
@@ -330,7 +330,7 @@ contains
                call setNumber(teilchen)
                teilchen%firstevent=j*1000+i
                teilchen%event(1:2)=pert_numbering()
-               teilchen%perturbative=.true.
+               teilchen%pert=.true.
                teilchen%perweight=1./float(numberParticles)
                teilchenPert(j,index)=teilchen
 
@@ -338,7 +338,7 @@ contains
 
       end do
 
-      ! Initialize target residue determination (for analysis only): 
+      ! Initialize target residue determination (for analysis only):
       call InitResidue(size(teilchenPert,dim=1),numberParticles,targetNuc%mass,targetNuc%charge)
 
   end if
@@ -439,15 +439,18 @@ contains
       use constants, only: hbarc
       use random, only: rn
       use RMF, only: getRMF_flag, ModificationFactor, g_rho, g_omega, g_sigma
-      use densitymodule, only: gridSpacing, gridPoints, rhoField, omegaField, sigmaField
+      use densitymodule, only: gridSpacing, gridPoints, getFieldRMF
       use IdTable, only: nucleon
       use coulomb, only: emfoca
 
       real :: E, width_p, pAbs, P_cut, fact, isofact, mstar, V0, Estar
       integer :: I1,I2,I3
 
+      real :: sigmaV
+      real, dimension(0:3) :: omegaV, rhoV
+
       teilchen%ID=particleId
-      teilchen%antiparticle=antiparticle
+      teilchen%anti=antiparticle
       teilchen%charge=particleCharge
       teilchen%mass=hadron(particleId)%mass
 
@@ -460,19 +463,20 @@ contains
 
          if ( getRMF_flag() ) then ! Determine vector and scalar potentials
 
-            fact = ModificationFactor(teilchen%Id,teilchen%antiparticle)
+            fact = ModificationFactor(teilchen%Id,teilchen%anti)
 
             ! position in large grid:
-            I1=NINT(teilchen%position(1)/gridSpacing(1))
-            I2=NINT(teilchen%position(2)/gridSpacing(2))
-            I3=NINT(teilchen%position(3)/gridSpacing(3))
+            I1=NINT(teilchen%pos(1)/gridSpacing(1))
+            I2=NINT(teilchen%pos(2)/gridSpacing(2))
+            I3=NINT(teilchen%pos(3)/gridSpacing(3))
 
             if (       abs(I1).le.gridPoints(1) &
               & .and. abs(I2).le.gridPoints(2) &
               & .and. abs(I3).le.gridPoints(3)  ) then
 
-               mstar = teilchen%mass &
-                    &+ fact*g_sigma*sigmaField(I1,I2,I3)
+               call getFieldRMF(I1,I2,I3, sigmaV,omegaV,rhoV)
+
+               mstar = teilchen%mass + fact*g_sigma*sigmaV
                if (mstar.le.0.) then
                  write(*,*) ' problems in initHadron, mstar: ', mstar
                  stop
@@ -485,17 +489,16 @@ contains
                      isofact=1.
                   end if
                else
-                  isofact=0. !isospin sector presently only only for protons and neutrons
+                  isofact=0. !isospin sector presently only for protons&neutrons
                end if
 
-               if ( teilchen%antiparticle ) fact=-fact
+               if ( teilchen%anti ) fact=-fact
 
-               V0 = g_omega*omegaField(I1,I2,I3,0)*fact &
-                 &+ isofact*fact*g_rho*rhoField(I1,I2,I3,0)
+               V0 = g_omega*omegaV(0)*fact + isofact*fact*g_rho*rhoV(0)
 
             end if
 
-            V0 = V0 + emfoca(teilchen%position,(/0.,0.,0./),teilchen%charge,teilchen%ID)
+            V0 = V0 + emfoca(teilchen%pos,(/0.,0.,0./),teilchen%charge,teilchen%ID)
             !write(*,*) 'initHadronInduced/setKinematics V0, S: ', &
             !         & V0, mstar - teilchen%mass
 
@@ -534,9 +537,9 @@ contains
              stop
          end if
 
-         teilchen%momentum(0)=Estar
+         teilchen%mom(0)=Estar
          ! the hadron is initialized moving in positive z-direction:
-         teilchen%momentum(1:3)=(/0.,0.,p_lab/)
+         teilchen%mom(1:3)=(/0.,0.,p_lab/)
          beta(1:3)=(/0.,0.,p_lab/Estar/)
          if (abs(beta(3)).gt.1.) then
             write(*,*) ' Problem in initHadron/setKinematics, beta(3)=',beta(3)
@@ -544,7 +547,7 @@ contains
          end if
 
          if (iniType==2) &  ! Lorentz-contracted Gaussian wave packet:
-           teilchen%position(3) = (teilchen%position(3)-z)*sqrt(1.-beta(3)**2) + z
+           teilchen%pos(3) = (teilchen%pos(3)-z)*sqrt(1.-beta(3)**2) + z
 
       case (1)  ! Initialisation using Gaussian wave packet in momentum space:
 
@@ -553,16 +556,16 @@ contains
          P_cut=5.*width_p
          do
            do
-             teilchen%momentum(1)=(1.-2.*rn())*P_cut
-             teilchen%momentum(2)=(1.-2.*rn())*P_cut
-             teilchen%momentum(3)=(1.-2.*rn())*P_cut
-             pAbs=Sqrt( dot_product(teilchen%momentum(1:3),teilchen%momentum(1:3)) )
+             teilchen%mom(1)=(1.-2.*rn())*P_cut
+             teilchen%mom(2)=(1.-2.*rn())*P_cut
+             teilchen%mom(3)=(1.-2.*rn())*P_cut
+             pAbs=Sqrt( dot_product(teilchen%mom(1:3),teilchen%mom(1:3)) )
              if (pAbs.le.P_cut) exit
            end do
            if ( rn() <= exp(-(pAbs/width_p)**2/2.) ) exit
          end do
 
-         teilchen%momentum(0)=sqrt(teilchen%mass**2+pAbs**2)
+         teilchen%mom(0)=sqrt(teilchen%mass**2+pAbs**2)
          beta=0.
 
       case default
@@ -572,15 +575,15 @@ contains
 
       end select
 
-      teilchen%velocity(1:3)=teilchen%momentum(1:3)/teilchen%momentum(0)
+      teilchen%vel(1:3)=teilchen%mom(1:3)/teilchen%mom(0)
 
       if (debug) then
         write(*,*) 'Id of a hadron:',teilchen%Id
         write(*,*) 'Charge:',teilchen%charge
-        write(*,*) 'Antiparticle ?:',teilchen%antiparticle
+        write(*,*) 'Antiparticle ?:',teilchen%anti
         write(*,*) 'Mass:',teilchen%mass
-        write(*,*) '4-momentum:',teilchen%momentum
-        write(*,*) 'Velocity:',teilchen%velocity
+        write(*,*) '4-momentum:',teilchen%mom
+        write(*,*) 'Velocity:',teilchen%vel
         write(*,*) 'Boost velocity:', beta
         write(*,*) 'Gamma factor:', 1./sqrt(1.-beta(3)**2)
       end if
@@ -611,9 +614,9 @@ contains
 
       case (0)  ! Usual initialisation in coordinate space:
 
-          teilchen%position=(/b*cos(phi),b*sin(phi),z/)
+          teilchen%pos=(/b*cos(phi),b*sin(phi),z/)
 
-          if (debug) write(*,*) 'Position of hadron:',teilchen%position
+          if (debug) write(*,*) 'Position of hadron:',teilchen%pos
 
       case (1,2) ! Initialisation using Gaussian wave packet in coordinate space:
 
@@ -621,21 +624,21 @@ contains
           R_cut=5.*width
           do
             do
-              teilchen%position(1)=(1.-2.*rn())*R_cut
-              teilchen%position(2)=(1.-2.*rn())*R_cut
-              teilchen%position(3)=(1.-2.*rn())*R_cut
-              rAbs=Sqrt( dot_product(teilchen%position(1:3),teilchen%position(1:3)) )
+              teilchen%pos(1)=(1.-2.*rn())*R_cut
+              teilchen%pos(2)=(1.-2.*rn())*R_cut
+              teilchen%pos(3)=(1.-2.*rn())*R_cut
+              rAbs=Sqrt( dot_product(teilchen%pos(1:3),teilchen%pos(1:3)) )
               if (rAbs.le.R_cut) exit
             end do
             if ( rn() <= exp(-(rAbs/width)**2/2.) ) exit
           end do
 
           if (iniType.eq.2) then
-             teilchen%position(3)=teilchen%position(3)+z
-             teilchen%position(1)=teilchen%position(1)+b
-             place=teilchen%position
-             teilchen%position(1)=place(1)*cos(phi)-place(2)*sin(phi)
-             teilchen%position(2)=place(1)*sin(phi)+place(2)*cos(phi)
+             teilchen%pos(3)=teilchen%pos(3)+z
+             teilchen%pos(1)=teilchen%pos(1)+b
+             place=teilchen%pos
+             teilchen%pos(1)=place(1)*cos(phi)-place(2)*sin(phi)
+             teilchen%pos(2)=place(1)*sin(phi)+place(2)*cos(phi)
           end if
 
       case default
@@ -671,7 +674,7 @@ contains
 
       real :: Radial_distance
 
-      Radial_distance = targetNuc%radius + delta
+      Radial_distance = targetNuc%radius(0) + delta
 
       if (impactParameter.ge.0.) then
         b = impactParameter
@@ -695,7 +698,7 @@ contains
 
       case (2) ! The hadron is initialised at fixed z:
 
-         z = -targetNuc%radius - deltaZ
+         z = -targetNuc%radius(0) - deltaZ
 
       case default
 

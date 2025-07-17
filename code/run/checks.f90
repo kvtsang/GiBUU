@@ -132,7 +132,7 @@ module checks
   ! SOURCE
   logical, save :: Do_CheckPertFlag = .true.
   ! PURPOSE
-  ! Flag to indicate whether the flag '%perturbative' is set correctly in the
+  ! Flag to indicate whether the flag '%pert' is set correctly in the
   ! particle vectors
   !****************************************************************************
 
@@ -500,7 +500,7 @@ contains
   subroutine ChecksCallAll(timestep,time,realParticles,pertParticles)
     use particleDefinition
     use output, only: intTochar
-    use baryonPotentialModule, only: getPotentialEQSType
+    use baryonPotentialMain, only: getPotentialEQSType
 
     integer, intent(in) :: timestep
     real, intent(in) :: time
@@ -575,10 +575,10 @@ contains
   subroutine evaluateFermiSurface(fileName)
     use particleDefinition
     use dichteDefinition
-    use densitymodule, only: get_densitySwitch, set_densitySwitch, densityAt, fermiMomAt !, fermiMomentum_sym, fermiMomentum_noIsospin,
+    use densitymodule, only: getDensitySwitch, setDensitySwitch, densityAt, fermiMomAt !, fermiMomentum_sym, fermiMomentum_noIsospin,
     use coulomb, only: emfoca
     use minkowski, only: abs4
-    use baryonPotentialModule
+    use baryonPotentialMain
     use Idtable, only: nucleon
     use constants, only: pi, mN
     use mediumDefinition
@@ -595,8 +595,8 @@ contains
 
 
     p%ID=nucleon
-    p%position=0.
-    p%momentum=0.
+    p%pos=0.
+    p%mom=0.
     p%mass=mN
 
     med%temperature    =0.
@@ -615,13 +615,13 @@ contains
          & "pot_p(p=0)", "pot_n(p=0)"
 
     if (doOne) then
-       densitySwitch_Save = get_densitySwitch()
-       call set_densitySwitch(2)
+       densitySwitch_Save = getDensitySwitch()
+       call setDensitySwitch(2)
     end if
 
     do i=0,1000
-       p%position(1) = float(i)*dr
-       dens          = densityAt(p%position(1))
+       p%pos(1) = float(i)*dr
+       dens          = densityAt(p%pos(1))
        rhoNuc        = abs4(dens%proton+dens%neutron)
        rhoNuc_p      = abs4(dens%proton)
        rhoNuc_n      = abs4(dens%neutron)
@@ -631,28 +631,28 @@ contains
        med%densityNeutron = rhoNuc_n
 
 !       pf_n          = fermiMomentum_noIsospin(rhoNuc_n)
-       pf_n          = fermiMomAt(p%position, 0)
+       pf_n          = fermiMomAt(p%pos, 0)
        p%charge      = 0
-       p%momentum(1) = 0.0
+       p%mom(1) = 0.0
        pot_n0        = BaryonPotential(p,med,.false.)
-       p%momentum(1) = pf_n
+       p%mom(1) = pf_n
        pot_n         = BaryonPotential(p,med,.false.)
        Ef_n          = sqrt(mN**2+pf_n**2)-mN+pot_n
 !       Efree_n       = freeEnergy(p) != sqrt(mN**2+pf_n**2)-mN
 
 !       pf_p          = fermiMomentum_noIsospin(rhoNuc_p)
-       pf_p          = fermiMomAt(p%position, 1)
+       pf_p          = fermiMomAt(p%pos, 1)
        p%charge      = 1
-       p%momentum(1) = 0.0
+       p%mom(1) = 0.0
        pot_p0        = BaryonPotential(p,med,.false.)
-       p%momentum(1) = pf_p
+       p%mom(1) = pf_p
        pot_p         = BaryonPotential(p,med,.false.)
-       cpot          = emfoca(p%position,p%momentum,1, 1)
+       cpot          = emfoca(p%pos,p%mom,1, 1)
        Ef_p          = sqrt(mN**2+pf_p**2)-mN+pot_p+cpot
 !       Efree_p       = freeEnergy(p) != sqrt(mN**2+pf_p**2)-mN
 
 
-       write(100,'(36E20.9)') p%position(1), &
+       write(100,'(36E20.9)') p%pos(1), &
             & Ef_p, Ef_n, pf_p, pf_n, &
             & rhoNuc_p, rhoNuc_n, pot_p, pot_n, cpot, pot_p0, pot_n0
     end do
@@ -660,7 +660,7 @@ contains
     close (100)
     if (doOne) then
        !return to original value:
-       call set_densitySwitch(densitySwitch_Save)
+       call setDensitySwitch(densitySwitch_Save)
        return ! Exit this routine
     end if
 
@@ -669,18 +669,18 @@ contains
     average=0.
     densInt=0.
     do i=0,1000
-       p%position(1)=float(i)*dr
-       dens=densityAt(p%position)
+       p%pos(1)=float(i)*dr
+       dens=densityAt(p%pos)
        rhoNuc=abs4(dens%proton+dens%neutron)
        rhoNuc_p      = abs4(dens%proton)
        rhoNuc_n      = abs4(dens%neutron)
        med%density        = rhoNuc
        med%densityProton  = rhoNuc_p
        med%densityNeutron = rhoNuc_n
-       p%momentum(1)=fermiMomAt(p%position)
+       p%mom(1)=fermiMomAt(p%pos)
        pot_n=BaryonPotential(p,med,.false.)
-       average=average+(freeEnergy(p)+pot_N-mN)*4.*pi/3.*rhoNuc*p%position(1)**2/dr
-       densInt=densInt+4.*pi/3.*rhoNuc*p%position(1)**2/dr
+       average=average+(freeEnergy(p)+pot_N-mN)*4.*pi/3.*rhoNuc*p%pos(1)**2/dr
+       densInt=densInt+4.*pi/3.*rhoNuc*p%pos(1)**2/dr
     end do
 
     if (densInt.gt.1E-10) &
@@ -690,27 +690,27 @@ contains
     average=0.
     densInt=0.
     do i=0,1000
-       p%position(1)=float(i)*dr
-       dens=densityAt(p%position)
+       p%pos(1)=float(i)*dr
+       dens=densityAt(p%pos)
        rhoNuc=abs4(dens%proton+dens%neutron)
        rhoNuc_p      = abs4(dens%proton)
        rhoNuc_n      = abs4(dens%neutron)
        med%density        = rhoNuc
        med%densityProton  = rhoNuc_p
        med%densityNeutron = rhoNuc_n
-       pf=fermiMomAt(p%position)
+       pf=fermiMomAt(p%pos)
        dp=pf/1000.
        average_fs=0.
        fsInt=0.
        if (pf.gt.0.001) then
           do j=0,1000
-             p%momentum(1)=float(j)*dp
+             p%mom(1)=float(j)*dp
              pot_n=BaryonPotential(p,med,.false.)
-             average_fs=average_fs+pot_n*4.*pi/3.*p%momentum(1)**2/dp
-             fsInt     =fsInt     +      4.*pi/3.*p%momentum(1)**2/dp
+             average_fs=average_fs+pot_n*4.*pi/3.*p%mom(1)**2/dp
+             fsInt     =fsInt     +      4.*pi/3.*p%mom(1)**2/dp
           end do
-          average=average+average_fs*4.*pi/3.*p%position(1)**2/dr
-          densInt=densInt+     fsInt*4.*pi/3.*p%position(1)**2/dr
+          average=average+average_fs*4.*pi/3.*p%pos(1)**2/dr
+          densInt=densInt+     fsInt*4.*pi/3.*p%pos(1)**2/dr
        end if
 
     end do
@@ -743,7 +743,7 @@ contains
 !     else
 !        Open(100,file='particle_track.dat', position='Append')
 !     end if
-!     write(100,'(I8,7F20.5)') p%ID, p%position , p%momentum
+!     write(100,'(I8,7F20.5)') p%ID, p%pos , p%mom
 !   end subroutine particleTrack
 
 
@@ -786,12 +786,12 @@ contains
 !     do j=lbound(parts,dim=2),ubound(parts,dim=2)
 !        do i=lbound(parts,dim=1),ubound(parts,dim=1)
 !           if(parts(i,j)%number.eq.number.and.parts(i,j)%ID.gt.0) then
-!              write(100,'(f15.5,I8,11F13.5)') t, parts(i,j)%ID, parts(i,j)%position , &
-!                   & parts(i,j)%momentum,parts(i,j)%mass,parts(i,j)%velocity
+!              write(100,'(f15.5,I8,11F13.5)') t, parts(i,j)%ID, parts(i,j)%pos , &
+!                   & parts(i,j)%mom,parts(i,j)%mass,parts(i,j)%vel
 ! !             found=.true.
 ! !             write(*,*) 'Particle found!'
-! !             write(*,'(I8,11F13.5)') parts(i,j)%ID, parts(i,j)%position , &
-! !                  & parts(i,j)%momentum,parts(i,j)%mass,parts(i,j)%velocity
+! !             write(*,'(I8,11F13.5)') parts(i,j)%ID, parts(i,j)%pos , &
+! !                  & parts(i,j)%mom,parts(i,j)%mass,parts(i,j)%vel
 !           else
 ! !             parts(i,j)%ID=0
 !           end if
@@ -936,7 +936,7 @@ contains
   !****************************************************************************
   subroutine checkMomentumDensity(realParticles,timestep,filename)
     use particleDefinition
-    use histf90
+    use hist
 !    use hist2Df90
     use dichteDefinition
     use densitymodule, only: densityAt
@@ -952,9 +952,9 @@ contains
     real, save :: integral,mean_momentum
     logical, save :: DoInit = .true.
 
-    real :: dens_nuc, p
+    real :: p! , dens_nuc
     real, parameter :: dp=0.005 ! grid spacing for histogram
-    type(dichte) :: dens
+!    type(dichte) :: dens
     integer :: i,j
 
 !    if ((checkGS_Flag).and.(timestep > 0)) return
@@ -976,7 +976,7 @@ contains
           if (realParticles(i,j)%ID.ne.nucleon) cycle
           p = absMom(realParticles(i,j))
           call AddHist(momentumHist,p ,1./p**2)
-!!$          dens=densityAt(realParticles(i,j)%position)
+!!$          dens=densityAt(realParticles(i,j)%pos)
 !!$          dens_nuc=abs4(dens%proton+dens%neutron)
 !!$          call AddHist2d(momDens,(/p,dens_nuc/) ,1.)
 
@@ -1035,20 +1035,20 @@ contains
   !
   !****************************************************************************
   subroutine checkDensity(realParticles,filename)
-    use densityModule, only: densityAt,get_densitySwitch,set_densitySwitch,&
-         updateDensity,gridPoints,gridSpacing
+    use densityModule, only: densityAt,getDensitySwitch,setDensitySwitch,&
+         updateDensity !,gridPoints,gridSpacing
     use dichtedefinition
     use particleDefinition
-    use histf90
+    use hist
     use idtable, only: nucleon
 
     type(particle), dimension(:,:) :: realParticles
     character(20),intent(in),optional :: filename
-    integer :: i,j,k
-    real :: x,y,z
-    real , dimension(1:3) :: place
-    real :: meanvalue
-    type(dichte) :: density
+    integer :: i,j !,k
+    ! real :: x,y,z
+    ! real , dimension(1:3) :: place
+    ! real :: meanvalue
+    ! type(dichte) :: density
     type(histogram), save   :: positionHist
     logical, save :: DoInit = .true.
     real, save :: integral
@@ -1058,8 +1058,8 @@ contains
     write(*,*) 'Check density'
 
     ! set density to dynamic
-    save_densitySwitch=get_densitySwitch()
-    call set_densitySwitch(1)
+    save_densitySwitch=getDensitySwitch()
+    call setDensitySwitch(1)
 
     if (save_densitySwitch/=1) call updateDensity(realParticles)
 
@@ -1068,6 +1068,8 @@ contains
        call CreateHist(positionHist, '1/N dN/r^2 dr [fm^(-3)]',0.,10.,0.1)
        DoInit = .false.
     end if
+
+! TODO: is here a call clearHist missing ???
 
     do i= lbound(realParticles,dim=1),ubound(realParticles,dim=1)
        do j= lbound(realParticles,dim=2),ubound(realParticles,dim=2)
@@ -1148,7 +1150,7 @@ contains
 !!$    close(121)
     ! Set densitySwitch back to original value
 
-    call set_densitySwitch(save_densitySwitch)
+    call setDensitySwitch(save_densitySwitch)
 
   end subroutine checkDensity
 
@@ -1250,7 +1252,7 @@ contains
 !     use yukawa, only: getYukawaAlpha, yukPot
 !     use densitymodule, only: densityAt
 !     use dichtedefinition
-!     use potentialModule, only: potential_LRF
+!     use potentialMain, only: potential_LRF
 !     use constants, only: mN, rhoNull
 !     use energyCalc, only: energyDetermination
 !
@@ -1283,8 +1285,8 @@ contains
 !        dens=i*0.25*rhoNull
 !        Do j=0,10
 !           p=j*0.04
-!           testparticle%position(1:3)=(/x,0.,0./)
-!           testparticle%momentum(1:3)=(/p,0.,0./)
+!           testparticle%pos(1:3)=(/x,0.,0./)
+!           testparticle%mom(1:3)=(/p,0.,0./)
 !           write(11,fmt='(3f6.3)') dens/rhoNull,p,potential_LRF(testParticle)
 !        end do
 !     end do
@@ -1296,9 +1298,9 @@ contains
 !        x=i*0.5
 !        Do j=0,25
 !           p=j*0.04
-!           testparticle%position(1:3)=(/x,0.,0./)
-!           testparticle%momentum(1:3)=(/p,0.,0./)
-!           place=testparticle%position(1:3)
+!           testparticle%pos(1:3)=(/x,0.,0./)
+!           testparticle%mom(1:3)=(/p,0.,0./)
+!           place=testparticle%pos(1:3)
 !           density=densityAt(place)
 !           write(11,fmt='(3f6.3)') density%baryon(0)/rhoNull,p,potential_LRF(testParticle)
 !        end do
@@ -1311,8 +1313,8 @@ contains
 !        dens=i*0.25*rhoNull
 !        Do j=0,10
 !           p=j*0.04
-!           testparticle%position(1:3)=(/x,0.,0./)
-!           testparticle%momentum(1:3)=(/p,0.,0./)
+!           testparticle%pos(1:3)=(/x,0.,0./)
+!           testparticle%mom(1:3)=(/p,0.,0./)
 !           write(11,fmt='(3f6.3)') dens/rhoNull,p,potential_LRF(testParticle)
 !        end do
 !     end do
@@ -1324,9 +1326,9 @@ contains
 !        x=i*0.5
 !        Do j=0,25
 !           p=j*0.04
-!           testparticle%position(1:3)=(/x,0.,0./)
-!           testparticle%momentum(1:3)=(/p,0.,0./)
-!           place=testparticle%position(1:3)
+!           testparticle%pos(1:3)=(/x,0.,0./)
+!           testparticle%mom(1:3)=(/p,0.,0./)
+!           place=testparticle%pos(1:3)
 !           density=densityAt(place)
 !           write(11,fmt='(3f6.3)') density%baryon(0),p,potential_LRF(testParticle)
 !        end do
@@ -1338,47 +1340,47 @@ contains
 !        testparticle%Id=nucleon
 !        testparticle%charge=1
 !        testparticle%mass=mN
-!        testparticle%position(1:3)=(/0.,0.,0./)
+!        testparticle%pos(1:3)=(/0.,0.,0./)
 !        p=0.
-!        testparticle%momentum(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
-!        place=testparticle%position(1:3)
+!        testparticle%mom(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
+!        place=testparticle%pos(1:3)
 !        density=densityAt(place)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        call energyDetermination(testparticle)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        Write(*,*) potential_LRF(testParticle)+mN
 !        Write(*,*)
 !
-!        testparticle%position(1:3)=(/0.,0.,0./)
+!        testparticle%pos(1:3)=(/0.,0.,0./)
 !        p=0.1
-!        testparticle%momentum(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
-!        place=testparticle%position(1:3)
+!        testparticle%mom(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
+!        place=testparticle%pos(1:3)
 !        density=densityAt(place)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        call energyDetermination(testparticle)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        Write(*,*) potential_LRF(testParticle,density%baryon(0))+SQRT(mN**2+p**2)
 !        Write(*,*)
 !
-!        testparticle%position(1:3)=(/0.,0.,0./)
+!        testparticle%pos(1:3)=(/0.,0.,0./)
 !        p=10.
-!        testparticle%momentum(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
-!        place=testparticle%position(1:3)
+!        testparticle%mom(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
+!        place=testparticle%pos(1:3)
 !        density=densityAt(place)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        call energyDetermination(testparticle)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        Write(*,*) potential_LRF(testParticle,density%baryon(0))+SQRT(mN**2+p**2)
 !        Write(*,*)
 !
-!        testparticle%position(1:3)=(/1120.,0.,0./)
+!        testparticle%pos(1:3)=(/1120.,0.,0./)
 !        p=10.
-!        testparticle%momentum(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
-!        place=testparticle%position(1:3)
+!        testparticle%mom(0:3)=(/SQRT(mN**2+p**2),p,0.,0./)
+!        place=testparticle%pos(1:3)
 !        density=densityAt(place)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        call energyDetermination(testparticle)
-!        write(*,*) density%baryon(0),testparticle%momentum(0:3)
+!        write(*,*) density%baryon(0),testparticle%mom(0:3)
 !        Write(*,*) potential_LRF(testParticle)+SQRT(mN**2+p**2)
 !        Write(*,*)
 !     end if
@@ -1507,7 +1509,7 @@ contains
     use nucleus, only: getTarget
     use dichteDefinition
     use densitymodule, only: densityAt,gridSpacing
-    use baryonPotentialModule, only: rhoLaplace
+    use baryonPotentialMain, only: rhoLaplace
 
     type(particle), dimension(:,:),intent(in) :: teilchen
     real,dimension(1:3)  :: rvec
@@ -1542,7 +1544,7 @@ contains
        do i=1,size(teilchen,dim=1)
           if (teilchen(i,j)%Id > 0) then
              numberParticles=numberParticles+1
-             rvec=teilchen(i,j)%position(1:3)
+             rvec=teilchen(i,j)%pos(1:3)
              pos=densityAt(rvec)
              rhocent=SQRT(pos%baryon(0)**2 &
                   -Dot_Product(pos%baryon(1:3),pos%baryon(1:3)))
@@ -1550,7 +1552,7 @@ contains
              ptemp=0.
              rabstemp=0.
              do l=1,3,1
-                ptemp=ptemp+teilchen(i,j)%momentum(l)**2
+                ptemp=ptemp+teilchen(i,j)%mom(l)**2
                 rabstemp=rabstemp+rvec(l)**2
              end do
              rabstemp=SQRT(rabstemp)
@@ -1604,7 +1606,7 @@ contains
     use nucleus, only: getTarget
     use dichteDefinition
     use densitymodule, only: densityAt,gridSpacing
-    use baryonPotentialModule, only: rhoLaplace
+    use baryonPotentialMain, only: rhoLaplace
 
     type(particle), dimension(:,:),intent(in) :: teilchen
     real,dimension(1:3)  :: rvec
@@ -1639,9 +1641,9 @@ contains
     do j=1,size(teilchen,dim=2)
        do i=1,size(teilchen,dim=1)
           if (teilchen(i,j)%Id > 0) then
-             Energymomentum=Energymomentum+teilchen(i,j)%momentum(0)
+             Energymomentum=Energymomentum+teilchen(i,j)%mom(0)
              numberParticles=numberParticles+1
-             rvec=teilchen(i,j)%position(1:3)
+             rvec=teilchen(i,j)%pos(1:3)
              pos=densityAt(rvec)
              rhocent=SQRT(pos%baryon(0)**2 &
                   -Dot_Product(pos%baryon(1:3),pos%baryon(1:3)))
@@ -1649,7 +1651,7 @@ contains
              ptemp=0.
              rabstemp=0.
              do l=1,3,1
-                ptemp=ptemp+teilchen(i,j)%momentum(l)**2
+                ptemp=ptemp+teilchen(i,j)%mom(l)**2
                 rabstemp=rabstemp+rvec(l)**2
              end do
              rabstemp=SQRT(rabstemp)
@@ -1722,7 +1724,7 @@ contains
        do j=1,size(teilchen,dim=2)
           if (teilchen(i,j)%ID.eq.nucleon) then
              Ekin=Ekin+KineticEnergy(teilchen(i,j))
-             Ekin0=Ekin0+teilchen(i,j)%momentum(0)-teilchen(i,j)%mass
+             Ekin0=Ekin0+teilchen(i,j)%mom(0)-teilchen(i,j)%mass
              numberParticles=numberParticles+1
           end if
        end do
@@ -1745,10 +1747,10 @@ contains
   !****************************************************************************
   subroutine evaluateBindingEnergy_Teis(teilchen, time)
     use particleDefinition
-    use potentialModule, only: trueEnergy
+    use potentialMain, only: trueEnergy
     use IdTable, only: isBaryon, nucleon
     use output, only: writeFileDocu
-    use histf90
+    use hist
     use constants, only: mN
 
     type(particle), dimension(:,:), intent(in) :: teilchen
@@ -1804,18 +1806,18 @@ contains
           ! Sum up energies of all particles (not only nucleons):
           if (teilchen(i,j)%ID > 0) then
              EE = trueEnergy(teilchen(i,j))
-!             EE = teilchen(i,j)%momentum(0)
+!             EE = teilchen(i,j)%mom(0)
 
 !             dE = teilchen(i,j)%perWeight*(/1.,EE,0./)+(/0.,0.,1./)
              dE = (/1.,EE,1./)
              E_all=E_all+dE
              ! Count only baryons, since baryon number must be conserved:
              if (isBaryon(teilchen(i,j)%ID)) then
-                if (.not.teilchen(i,j)%antiparticle) then
+                if (.not.teilchen(i,j)%anti) then
                    E_bar=E_bar+dE
                    if (teilchen(i,j)%ID==nucleon) then
                       E_nuc=E_nuc+dE
-                      if (teilchen(i,j)%momentum(0)<=mN) then
+                      if (teilchen(i,j)%mom(0)<=mN) then
                          E_nucB=E_nucB+dE
                          EE_nucB=EE_nucB+dE
                       end if
@@ -1875,11 +1877,11 @@ contains
 !        Open(23,file='Trajectory_3.dat',position='Append')
 !     end if
 !
-!     Write(20,fmt='(3f8.2)') teilchen(1,1)%position(1:3)
+!     Write(20,fmt='(3f8.2)') teilchen(1,1)%pos(1:3)
 !     If(size(teilchen,dim=2).ge.4) then
-!        Write(21,fmt='(3f8.2)') teilchen(1,2)%position(1:3)
-!        Write(22,fmt='(3f8.2)') teilchen(1,3)%position(1:3)
-!        Write(23,fmt='(3f8.2)') teilchen(1,4)%position(1:3)
+!        Write(21,fmt='(3f8.2)') teilchen(1,2)%pos(1:3)
+!        Write(22,fmt='(3f8.2)') teilchen(1,3)%pos(1:3)
+!        Write(23,fmt='(3f8.2)') teilchen(1,4)%pos(1:3)
 !     end if
 !     close(20)
 !     close(21)
@@ -1910,7 +1912,7 @@ contains
   subroutine evaluateTimeStep(iflag,coll_num,delta_T_max,time,delta_T_new)
 
     use collisionNumbering, only: GetCountedEvents,getn_participants
-    use densitymodule, only: get_realGridSpacing
+    use densitymodule, only: getGridSpacing0
 
     real, intent(in) :: coll_num
     integer, intent(in) :: iflag
@@ -1931,7 +1933,7 @@ contains
     logical, save :: flag
 
     n_participants=getn_participants()
-    GridSpacing = get_realGridSpacing()
+    GridSpacing = getGridSpacing0()
 
     delta_T_max1 = min(delta_T_max,GridSpacing(3))  ! Time step restriction due to grid spacing
 
@@ -2018,8 +2020,9 @@ contains
 
     use particleDefinition, only: particle
     use IdTable, only: isBaryon
-    use densitymodule, only: true4Momentum_RMF
+    use densitymodule, only: TensorRMF,TotalEnergyRMF,true4MomentumRMF
     use coulomb, only: emfoca
+    use RMF, only: Tens_flag
 
     type(particle), dimension(:,:), intent(in) :: teilchen
     real, intent(in) :: time
@@ -2030,10 +2033,15 @@ contains
     real, dimension(0:3) :: Pstar_tot, P_tot ! Total kinetic and canonical 4-momenta of particles.
     real, dimension(0:3) :: momentum
 
-    real :: P_tc
+    real :: Etot,P_tc,deltaBar
     real, dimension(1:3) :: place,impuls
 
     logical :: flag
+
+    if(Tens_flag) then
+       call TensorRMF(teilchen)  ! Compute  energy-momentum tensor and four-momentum density field
+       call TotalEnergyRMF(Etot,teilchen)
+    end if
 
     nEns = size(teilchen,dim=1)
     nPart = size(teilchen,dim=2)
@@ -2042,6 +2050,7 @@ contains
 
     Pstar_tot = 0.
     P_tot = 0.
+    Etot = 0.
     P_tc = 0.
     baryonNumber = 0.
     charge = 0.
@@ -2060,17 +2069,17 @@ contains
              exit Loop_over_particles
           end if
 
-          Pstar_tot(0:3) = Pstar_tot(0:3) + teilchen(i,j)%momentum(0:3)
+          Pstar_tot(0:3) = Pstar_tot(0:3) + teilchen(i,j)%mom(0:3)
 
-          call true4Momentum_RMF(teilchen(i,j),momentum,flag)
+          momentum = true4MomentumRMF(teilchen(i,j),flag)
 
           charge = charge + float(teilchen(i,j)%charge)
 
           if ( isBaryon(teilchen(i,j)%ID) ) then
-             meff = sqrt( teilchen(i,j)%momentum(0)**2 - dot_product( teilchen(i,j)%momentum(1:3), &
-                  &teilchen(i,j)%momentum(1:3) ) )
+             meff = sqrt( teilchen(i,j)%mom(0)**2 - dot_product( teilchen(i,j)%mom(1:3), &
+                  &teilchen(i,j)%mom(1:3) ) )
              meff_aver = meff_aver + meff
-             if ( .not.teilchen(i,j)%antiparticle ) then
+             if ( .not.teilchen(i,j)%anti ) then
                 baryonNumber = baryonNumber + 1.
              else
                 antibaryonNumber = antibaryonNumber + 1.
@@ -2090,8 +2099,8 @@ contains
           ! V_c(x) leading to a simple sumation over
           ! the test particles (j(x) is represented in terms of delta functions
           ! within the test-particle formalism).
-          place(1:3)  = teilchen(i,j)%position(1:3)
-          impuls(1:3) = teilchen(i,j)%momentum(1:3)
+          place(1:3)  = teilchen(i,j)%pos(1:3)
+          impuls(1:3) = teilchen(i,j)%mom(1:3)
           P_tc = P_tc + momentum(0) &
                + 0.5*emfoca(place,impuls,teilchen(i,j)%charge,teilchen(i,j)%ID)
 
@@ -2107,10 +2116,13 @@ contains
     baryons_inside_grid = baryons_inside_grid / float(nEns)
     meff_aver = meff_aver / float(nEns) / baryonNumber
 
-    write(20,'(11(1x,f13.6))')   time, &
+    deltaBar = baryonNumber-antibaryonNumber
+    if (abs(deltaBar)< 1e-10) deltaBar = 1e-10
+
+    write(20,'(12(1x,f13.6))')   time, &
          & baryonNumber, charge, antibaryonNumber, baryons_inside_grid, &
-         & P_tc/(baryonNumber-antibaryonNumber),&
-         & P_tot(0:3)/(baryonNumber-antibaryonNumber),meff_aver
+         & P_tc/deltaBar,&
+         & P_tot(0:3)/deltaBar,Etot/deltaBar,meff_aver
 
 
     close(20)
@@ -2187,7 +2199,7 @@ contains
                 exit
              end if
              if (isMeson(teilchen(i,j)%ID)) cycle ! only baryons
-             posOrig(:)=abs( NINT(Teilchen(i,j)%position(:)/gridSpacing(:)) )
+             posOrig(:)=abs( NINT(Teilchen(i,j)%pos(:)/gridSpacing(:)) )
              if ( (posOrig(1) > gridSize(1)) .or. &
                   & (posOrig(2) > gridSize(2)) .or. &
                   & (posOrig(3) > gridSize(3)) )  &
@@ -2257,10 +2269,10 @@ contains
        do j=lbound(Parts,dim=2),ubound(Parts,dim=2)
           if (Parts(i,j)%ID<=0) cycle
 
-          if (abs4Sq(Parts(i,j)%momentum) < -1E-6) then
+          if (abs4Sq(Parts(i,j)%mom) < -1E-6) then
              found = .true.
              write(*,'(A,A)') Text,'   Tachyon found !!!'
-             write(*,*) '  M^2 = ', abs4Sq(Parts(i,j)%momentum)
+             write(*,*) '  M^2 = ', abs4Sq(Parts(i,j)%mom)
              call WriteParticle(6,i,j,Parts(i,j))
 
              ! since the problem with the tachyons occured within the neutrino
@@ -2282,7 +2294,7 @@ contains
   ! NAME
   ! subroutine ChecksCallPertFlag(particles, flag)
   ! PURPOSE
-  ! This routine checks, whether the particle property '%perturbative'
+  ! This routine checks, whether the particle property '%pert'
   ! is set to the given value (.true./.false.( for all particles
   !****************************************************************************
   subroutine ChecksCallPertFlag(particles, flag)
@@ -2298,10 +2310,10 @@ contains
     do iEns=lbound(particles,dim=1),ubound(particles,dim=1)
        do iPart=lbound(particles,dim=2),ubound(particles,dim=2)
           if (particles(iEns,iPart)%ID <= 0) cycle
-          if (particles(iEns,iPart)%perturbative .neqv. flag) then
+          if (particles(iEns,iPart)%pert .neqv. flag) then
              call WriteParticle(6,iEns,iPart,particles(iEns,iPart))
              write(*,*) 'checking for flag=',flag
-             call traceback('flag %perturbative has wrong value!')
+             call traceback('flag %pert has wrong value!')
           end if
        end do
     end do
@@ -2335,10 +2347,9 @@ contains
     type(particle), pointer :: pPart
     real, save, dimension(0:3) :: MomTot = 0.
     real, dimension(0:3) :: MomTot_in = 0.
-    integer, save :: qBTot = 0, qSTot = 0
-    integer :: qBTot_in = 0, qSTot_in = 0
+    integer, save :: qBTot = 0, qSTot = 0, qQTot = 0
+    integer :: qBTot_in = 0, qSTot_in = 0, qQTot_in = 0
     logical, save :: first = .true.
-    integer :: qB,qS,qC,qIx2
     logical :: flagOK
 
     write(*,*) 'Check Conservation...'
@@ -2346,15 +2357,17 @@ contains
     MomTot_in = 0.
     qBTot_in = 0
     qSTot_in = 0
+    qQTot_in = 0
 
     do iEns=lbound(particles,dim=1),ubound(particles,dim=1)
        do iPart=lbound(particles,dim=2),ubound(particles,dim=2)
           if (particles(iEns,iPart)%ID <= 0) cycle
           pPart => particles(iEns,iPart)
-          MomTot_in = MomTot_in + pPart%momentum
+          MomTot_in = MomTot_in + pPart%mom
+          qQTot_in = qQTot_in + pPart%charge
 
           if (isBaryon(pPart%Id)) then
-             if (.not.pPart%antiparticle) then
+             if (.not.pPart%anti) then
                 qBTot_in = qBTot_in + 1
                 qSTot_in = qSTot_in + hadron(pPart%Id)%strangeness
              else
@@ -2362,7 +2375,7 @@ contains
                 qSTot_in = qSTot_in - hadron(pPart%Id)%strangeness
              end if
           else if (isMeson(pPart%Id)) then
-             if (.not.pPart%antiparticle) then
+             if (.not.pPart%anti) then
                 qSTot_in = qSTot_in + hadron(pPart%Id)%strangeness
              else
                 qSTot_in = qSTot_in - hadron(pPart%Id)%strangeness
@@ -2393,7 +2406,14 @@ contains
           write(*,*) 'qSTot_in:',qSTot_in
           flagOK = .false.
        end if
+       if (qQTot_in /= qQTot) then
+          write(*,*)
+          write(*,*) 'qQTot   :',qQTot
+          write(*,*) 'qQTot_in:',qQTot_in
+          flagOK = .false.
+       end if
 
+!       if (.not.flagOK) write(*,*) "Conservation violated!"
        if (.not.flagOK) call TraceBack("Conservation violated!")
 
     end if
@@ -2402,6 +2422,7 @@ contains
     MomTot = MomTot_in
     qBTot = qBTot_in
     qSTot = qSTot_in
+    qQTot = qQTot_in
 
   end subroutine CheckConservation
 

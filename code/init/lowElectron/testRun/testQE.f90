@@ -36,9 +36,9 @@ subroutine test2
   maxSteps=int(0.3/dE)
 
   targetNuc%charge=1
-  targetNuc%position=0.
+  targetNuc%pos=0.
   targetNuc%ID=nucleon
-  targetNuc%momentum(1:2)=0.
+  targetNuc%mom(1:2)=0.
   targetNuc%mass=baryon(nucleon)%mass
 
   open(100,file="QE_toAway.dat")
@@ -54,27 +54,27 @@ subroutine test2
      do j=-2000,2000,3
         call energyDetermination(targetNuc)
         ! (1) Find out q-direction by getting the cross section with some target input
-        targetNuc%momentum(1:3)=0.
+        targetNuc%mom(1:3)=0.
         call energyDetermination(targetNuc)
         dummy= dSigmadcosTheta_l_dE_l_BW(targetNuc,E_lepton_in,E_lepton_out,theta_lepton_out,lf,pf,nuc_bareMass,q)
 
         ! (2) Define target momentum in q-direction
         !absP=0.001*float(j)
         do 
-           targetNuc%momentum(1)=(-1.+2.*rn())*pfermi
-           targetNuc%momentum(2)=(-1.+2.*rn())*pfermi
-           targetNuc%momentum(3)=(-1.+2.*rn())*pfermi
-           if(dot_product(targetNuc%momentum(1:3),targetNuc%momentum(1:3)).lt.pfermi**2) exit
+           targetNuc%mom(1)=(-1.+2.*rn())*pfermi
+           targetNuc%mom(2)=(-1.+2.*rn())*pfermi
+           targetNuc%mom(3)=(-1.+2.*rn())*pfermi
+           if(dot_product(targetNuc%mom(1:3),targetNuc%mom(1:3)).lt.pfermi**2) exit
         end do
 
         call energyDetermination(targetNuc)
 
         sigma=  dSigmadcosTheta_l_dE_l_BW(targetNuc,E_lepton_in,E_lepton_out,theta_lepton_out,lf,pf,nuc_bareMass)
         if(absVec(pf(1:3)).gt.pfermi) then
-           if(dot_Product(targetNuc%momentum(1:3),q(1:3)).gt.0) then
+           if(dot_Product(targetNuc%mom(1:3),q(1:3)).gt.0) then
               sigma_away= sigma_away+ sigma
               num(1)=num(1)+1 
-           else if(dot_Product(targetNuc%momentum(1:3),q(1:3)).lt.0) then
+           else if(dot_Product(targetNuc%mom(1:3),q(1:3)).lt.0) then
               sigma_to= sigma_to+ sigma
               num(2)=num(2)+1 
            end if
@@ -108,9 +108,9 @@ real :: absP, dummy
 maxSteps=int(E_lepton_in/dE)
 
 targetNuc%charge=1
-targetNuc%position=0.
+targetNuc%pos=0.
 targetNuc%ID=nucleon
-targetNuc%momentum(1:2)=0.
+targetNuc%mom(1:2)=0.
 targetNuc%mass=baryon(nucleon)%mass
 
 
@@ -126,27 +126,27 @@ do j=-1,1
    end if
    call energyDetermination(targetNuc)
 
-   !targetNuc%momentum(0)=sqrt(baryon(nucleon)%mass**2 &
-   !     & + Dot_Product(targetNuc%momentum(1:3),targetNuc%momentum(1:3)))+ &
-   !     & + scalarPotential_nucleon(targetNuc%momentum(3),targetNuc%charge,targetNuc%position)
+   !targetNuc%mom(0)=sqrt(baryon(nucleon)%mass**2 &
+   !     & + Dot_Product(targetNuc%mom(1:3),targetNuc%mom(1:3)))+ &
+   !     & + scalarPotential_nucleon(targetNuc%mom(3),targetNuc%charge,targetNuc%pos)
 
    write(100,'(A,4F9.4)')  ' # Momentum',absP
    write(100,'(A,I5)')    ' # Charge  ',targetNuc%charge
-   write(100,'(A,3F9.4)') ' # Position',targetNuc%position
+   write(100,'(A,3F9.4)') ' # Position',targetNuc%pos
    do i=1,maxSteps
       E_lepton_out=dE*float(i)
 
       ! (1) Find out q-direction by getting the cross section with some target input
-      targetNuc%momentum(1:3)=0.
+      targetNuc%mom(1:3)=0.
       call energyDetermination(targetNuc)
       dummy= dSigmadcosTheta_l_dE_l_BW(targetNuc,E_lepton_in,E_lepton_out,theta_lepton_out,lf,pf,nuc_bareMass,q)
            
       ! (2) Define target momentum perpendicular to q-direction
-      !targetNuc%momentum(1:3)=crossProduct(q(1:3)/absVec(q(1:3)),(/1.,0.,0./))*absP
+      !targetNuc%mom(1:3)=crossProduct(q(1:3)/absVec(q(1:3)),(/1.,0.,0./))*absP
 
 
       ! (2) Define target momentum in q-direction
-      targetNuc%momentum(1:3)=q(1:3)/absVec(q(1:3))*absP
+      targetNuc%mom(1:3)=q(1:3)/absVec(q(1:3))*absP
       call energyDetermination(targetNuc)
       write(100,'(10E20.5,L8)') E_lepton_in-E_lepton_out, &
            &  dSigmadcosTheta_l_dE_l_BW(targetNuc,E_lepton_in,E_lepton_out,theta_lepton_out,lf,pf,nuc_bareMass)&
@@ -180,9 +180,9 @@ integer :: numPoints=5000
 maxSteps=int((E_lepton_in-0.3)/dE)
 
 targetNuc%charge=1
-targetNuc%position=0.
+targetNuc%pos=0.
 targetNuc%ID=nucleon
-targetNuc%momentum(1:2)=0.
+targetNuc%mom(1:2)=0.
 targetNuc%mass=baryon(nucleon)%mass
 
 sigmaTot=0.
@@ -196,16 +196,16 @@ do i=1,maxSteps
 
    do j=1,numPoints
       do
-         targetNuc%momentum(1)=(1.-2.*rn())*pfermi
-         targetNuc%momentum(2)=(1.-2.*rn())*pfermi
-         targetNuc%momentum(3)=(1.-2.*rn())*pfermi
-         absP=sqrt(Dot_product(targetNuc%momentum(1:3),targetNuc%momentum(1:3)))
+         targetNuc%mom(1)=(1.-2.*rn())*pfermi
+         targetNuc%mom(2)=(1.-2.*rn())*pfermi
+         targetNuc%mom(3)=(1.-2.*rn())*pfermi
+         absP=sqrt(Dot_product(targetNuc%mom(1:3),targetNuc%mom(1:3)))
          if (absP.lt.pfermi) exit
       end do
 
 
-      targetNuc%momentum(0)=sqrt(baryon(nucleon)%mass**2 + absP**2)+ &
-           & + scapot(1,targetNuc%charge,(/0.,0.,p/),targetNuc%position)
+      targetNuc%mom(0)=sqrt(baryon(nucleon)%mass**2 + absP**2)+ &
+           & + scapot(1,targetNuc%charge,(/0.,0.,p/),targetNuc%pos)
 
       sigma=sigma+ dSigmadcosTheta_l_dE_l_BW(targetNuc,E_lepton_in,E_lepton_out,theta_lepton_out,lf,pf,nuc_bareMass)
    end do

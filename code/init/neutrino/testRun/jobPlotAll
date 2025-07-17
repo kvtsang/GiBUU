@@ -12,7 +12,7 @@ $datatable
 !  iWmax   = 199
 !  iWdelta =   2
 
-  iQ2min   = 100
+  iQ2min   = 10! 200
   iQ2max   = 499
   iQ2delta = 900
 
@@ -32,6 +32,15 @@ $end
       enu = 99.9                ! DUMMY
       delta_enu=99.9            ! DUMMY
 /
+
+! file: code/init/neutrino/neutrinoparms.f90
+&nl_neweN
+      new_eN = F
+      new_eNres = F
+      T = 1
+      ME_ODW = 2
+/
+
 
 !************************************************************ -*- fortran -*-
 !* A JobCard for BUU: (K.Gallmeister, 10.10.2006)

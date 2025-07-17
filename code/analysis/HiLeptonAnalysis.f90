@@ -14,9 +14,9 @@
 !******************************************************************************
 module HiLeptonAnalysis
 
-  use histf90
-  use hist2Df90
-  use histMPf90
+  use hist
+  use hist2D
+  use histMP
   use histMC
   use AnaEventDefinition
   use AnaEvent
@@ -308,8 +308,8 @@ module HiLeptonAnalysis
   !************ Histograms for 'DoClassifyFirst':
 
   type(histogramMP), dimension(0:3),  save :: hMP_nleadPT
-  type(histogramMP), dimension(0:8),  save :: hMP_zHClass, hMP_pT2Class
-  type(histogramMP), dimension(-1:10),  save :: hMP_zH_Generation
+  type(histogramMP), dimension(-1:8),  save :: hMP_zHClass, hMP_pT2Class
+  type(histogramMP), dimension(-1:10),  save :: hMP_zH_Generation, hMP_pT2_Generation
 
   !************ Histograms for 'DoMandelT':
 
@@ -367,8 +367,8 @@ contains
     use particleDefinition
     use EventInfo_HiLep, only: EventInfo_HiLep_Get
     use initHiLepton, only: GetiExperiment,HiLepton_getRealRun
-    use histf90
-    use hist2Df90
+    use hist
+    use hist2D
     use collisionReporter
 
     use PIL_FormInfo
@@ -376,7 +376,7 @@ contains
 
     use Rho0Finder
     use particlePointerListDefinition
-    use particlePointerList, only: ParticleList_CLEAR,ParticleList_INIT!,ParticleList_Print
+    use particlePointerList, only: PartList_CLEAR,PartList_INIT!,PartList_Print
 
     use output
     use CallStack
@@ -475,9 +475,9 @@ contains
           allocate(PreEvArr0(nEns,MassNum))
           do i=1,nEns
              do j=1,MassNum
-                call ParticleList_INIT(EventArr(i,j)%particleList)
+                call PartList_INIT(EventArr(i,j)%Parts)
                 call event_CLEAR(EventArr(i,j))
-                call ParticleList_INIT(EventArr0(i,j)%particleList)
+                call PartList_INIT(EventArr0(i,j)%Parts)
                 call event_CLEAR(EventArr0(i,j))
              end do
           end do
@@ -590,6 +590,9 @@ contains
           end do
        end do
 
+       ! nLeptons set by DoBinningLepton():
+       mul0 = 1./(max(nLeptons,1.0))
+
        if (DoEventAdd) then
 
           ! repeating here 3 times the double loop structure
@@ -606,7 +609,7 @@ contains
                 if (pArr(i,j)%Id <  0) exit
                 if (pArr(i,j)%Id <= 0) cycle
 
-                if (pArr(i,j)%lastCollisionTime <  0) cycle
+                if (pArr(i,j)%lastCollTime <  0) cycle
 
                 iEns = pArr(i,j)%firstEvent / 1000
                 iNuc = mod(pArr(i,j)%firstEvent,1000)
@@ -618,7 +621,7 @@ contains
           do i=1,nEns
              do j=1,MassNum
                 if (CreateSortedPreEvent(EventArr0(i,j),PreEvArr0(i,j)%preE)) then
-                   PreEvArr0(i,j)%weight = EventArr0(i,j)%particleList%first%V%perweight
+                   PreEvArr0(i,j)%weight = EventArr0(i,j)%Parts%first%V%perweight
                    if (DoOutChannels) call PreEvList_INSERT(PreEvList0,PreEvArr0(i,j))
                 end if
              end do
@@ -627,7 +630,7 @@ contains
           if (DoOutChannels) then
              open(141,file='OutChannels.INIT.dat', status='unknown')
              rewind(141)
-             call PreEvList_Print(141,PreEvList0,mul0,withLN=.true.)
+             call PreEvList_Print(141,PreEvList0,mul0)
              close(141)
           end if
        end if
@@ -646,8 +649,8 @@ contains
              if (.not.(EventInfo_HiLep_Get(i,iNr,Weight,nu,Q2,epsilon,EventType))) &
                   & call TRACEBACK()
 
-             zH = pPart%momentum(0)/nu
-             pT2 = pPart%momentum(1)**2 + pPart%momentum(2)**2
+             zH = pPart%mom(0)/nu
+             pT2 = pPart%mom(1)**2 + pPart%mom(2)**2
 
              if (DoClassifyFirst) then
                 nLead = 0
@@ -721,7 +724,7 @@ contains
 
           call DoBinningHadron(pPart,nu,Q2,Ebeam,phi_Lepton,i,j)
 
-          if (pPart%lastCollisionTime <  0) cycle
+          if (pPart%lastCollTime <  0) cycle
 
           if (DoEventAdd) then
              iEns = pPart%firstEvent / 1000
@@ -771,19 +774,19 @@ contains
           do j=1,MassNum
              if (EventInfo_HiLep_Get(i,j,Weight,nu,Q2,epsilon,EventType)) then
 !               write(*,'("#### EVENT ",i5,i3," ##### ",i7)') i,j,EventType
-!               call ParticleList_Print(EventArr(i,j))
+!               call PartList_Print(EventArr(i,j))
                 call InvMasses_FillEvent(EventArr(i,j))
              end if
           end do
        end do
-       call InvMasses_Write (mul0)
+       call InvMasses_Write(mul0)
     end if
 
     if (DoEventAdd2) then
        do i=1,nEns
           do j=1,MassNum
              if (CreateSortedPreEvent(EventArr(i,j),PreEvArr(i,j)%preE)) then
-                PreEvArr(i,j)%weight = EventArr(i,j)%particleList%first%V%perweight
+                PreEvArr(i,j)%weight = EventArr(i,j)%Parts%first%V%perweight
                 if (DoOutChannels) call PreEvList_INSERT(PreEvList,PreEvArr(i,j))
              end if
           end do
@@ -1098,24 +1101,24 @@ contains
             if (pertPart(i,j)%ID <= 0) cycle
             Part = pertPart(i,j)
 
-            rDum1 = Part%productionTime
-            rDum2 = Part%formationTime
+            rDum1 = Part%prodTime
+            rDum2 = Part%formTime
 
             if (EventInfo_HiLep_Get(i,Part%firstEvent,Weight,nu,Q2,epsilon,EventType,Ebeam)) then
             else
                write(*,*) 'Ooops,L111'
             end if
 
-            zH = Part%momentum(0)/nu
-            !velo = sqrt(Part%velocity(1)**2+Part%velocity(2)**2+Part%velocity(3)**2)
+            zH = Part%mom(0)/nu
+            !velo = sqrt(Part%vel(1)**2+Part%vel(2)**2+Part%vel(3)**2)
 
-!!$            gamma = Part%momentum(0)/Part%mass
+!!$            gamma = Part%mom(0)/Part%mass
 
 !!$            rDum1=rDum1/gamma
 !!$            rDum2=rDum2/gamma
 
-!!$            rDum1=rDum1/Part%momentum(0)
-!!$            rDum2=rDum2/Part%momentum(0)
+!!$            rDum1=rDum1/Part%mom(0)
+!!$            rDum2=rDum2/Part%mom(0)
 
             w0 = Part%perweight
 
@@ -1262,7 +1265,7 @@ contains
       weight = pPart%perweight
 
       vecQ = (/nu, 0., 0., sqrt(nu**2+Q2) /)
-      vecMiss = vecQ - pPart%momentum
+      vecMiss = vecQ - pPart%mom
 
       select case (MassNum)
       case (1)
@@ -1379,7 +1382,7 @@ contains
       pV => PreEvArr(iEns,iNuc)
 
       do j=1,8
-         AA(j) = PartName(pV%preE(j)%ID,pV%preE(j)%charge,pV%preE(j)%antiparticle)
+         AA(j) = PartName(pV%preE(j)%ID,pV%preE(j)%charge,pV%preE(j)%anti)
       end do
 !      write(6,'(A,8A16)') 'Clasie..Primary Event:',AA
       write(1172+iHist,'(A,8A16)') 'Clasie..Primary Event:',AA
@@ -1499,7 +1502,7 @@ contains
       if (DoMorrowInit) then
 
          finalstate%ID = 0
-         finalstate%antiparticle = .false.
+         finalstate%anti = .false.
 
          !=== p rho0 : entry 1
          finalstate(1,1:2)%ID     =(/1,rho/)
@@ -1572,7 +1575,7 @@ contains
 
             MandelstamT = 0.0
 
-            pNode1 => EventArr(i,j)%particleList%first
+            pNode1 => EventArr(i,j)%Parts%first
             do
               if (.not. associated(pNode1)) exit
               iH1 = MorrowPartClass(pNode1%V%ID,pNode1%V%charge)
@@ -1582,19 +1585,19 @@ contains
                  if (.not. associated(pNode2)) exit
                  iH2 = MorrowPartClass(pNode2%V%ID,pNode2%V%charge)
 
-                 mass = abs4(pNode1%V%momentum+pNode2%V%momentum)
+                 mass = abs4(pNode1%V%mom+pNode2%V%mom)
 
                  select case (iH1+iH2)
                  case (6)
                     iH = 1 ! pi+ pi-
-                    MandelstamT = abs4Sq(pPhoton-(pNode1%V%momentum+pNode2%V%momentum))
+                    MandelstamT = abs4Sq(pPhoton-(pNode1%V%mom+pNode2%V%mom))
                  case (3)
                     iH = 2 ! p pi+
                  case (5)
                     iH = 3 ! p pi-
                  case default
                     write(*,*) 'wrong iH:',iH1,iH2
-                    write(*,*) EventArr(i,j)%particleList%nEntries
+                    write(*,*) EventArr(i,j)%Parts%nEntries
                     call TRACEBACK()
                     ! This error means: it is not a p pi pi event,
                     ! but plus some additional particle
@@ -1658,9 +1661,9 @@ contains
                call TRACEBACK()
             end if
 
-            zH = pertPart(i,j)%momentum(0)/nu
+            zH = pertPart(i,j)%mom(0)/nu
             xB = Q2/(2*mN*nu)
-            pT2 = pertPart(i,j)%momentum(1)**2 + pertPart(i,j)%momentum(2)**2
+            pT2 = pertPart(i,j)%mom(1)**2 + pertPart(i,j)%mom(2)**2
 
 
             iQ2 = 0
@@ -1737,7 +1740,7 @@ contains
             if (.not.EventInfo_HiLep_Get(i,j,Weight,nu,Q2,epsilon,EventType,W=Wcalc)) cycle
 
 !            write(*,'("#### EVENT ",i5,i3," ##### ",i7)') i,j,EventType
-!            call ParticleList_Print(EventArr(i,j)%particleList)
+!            call PartList_Print(EventArr(i,j)%Parts)
 !!            stop
 
             ! In the case of a decaying rho0, we first have to recombine them from the
@@ -1746,16 +1749,16 @@ contains
 
             if (hadron(rho)%stability .ne. 0) then
 
-               allocate(Probs(EventArr(i,j)%particleList%nEntries))
+               allocate(Probs(EventArr(i,j)%Parts%nEntries))
 
-               pNode => EventArr(i,j)%particleList%first
+               pNode => EventArr(i,j)%Parts%first
                Probs = 0
                ii = 1
                do while (associated(pNode))
                   call checkCuts(pNode%V,nu,Q2,Ebeam,phi_Lepton,AccFlag,AccWeight)
 
                   if (iExperiment.eq.18) then
-                     if (pNode%V%momentum(0).lt.10.0) AccWeight=0.0
+                     if (pNode%V%mom(0).lt.10.0) AccWeight=0.0
                   end if
 
                   Probs(ii) = AccWeight
@@ -1763,15 +1766,15 @@ contains
                   ii=ii+1
                end do
 
-               call FindRho0(EventArr(i,j)%particleList,PartsOut,&
+               call FindRho0(EventArr(i,j)%Parts,PartsOut,&
                     & (/mN+nu,0.0,0.0,sqrt(nu**2+Q2)/),Probs)
 
-!               call ParticleList_Print(PartsOut)
+!               call PartList_Print(PartsOut)
 
                pNode => PartsOut%first
 
             else
-               pNode => EventArr(i,j)%particleList%first
+               pNode => EventArr(i,j)%Parts%first
             end if
 
             do while (associated(pNode))
@@ -1789,24 +1792,24 @@ contains
 
                select case (iExperiment)
                case (14,15) !  JLAB,  4/5GeV (CLAS, rho0)
-!                  if (abs(pNode%V%position(2)).gt.0.1) AccFlag = .false. ! <-- Delta E; not used acc. Kawtar
+!                  if (abs(pNode%V%pos(2)).gt.0.1) AccFlag = .false. ! <-- Delta E; not used acc. Kawtar
 
-                  MandelstamT = abs4Sq((/nu,0.0,0.0,sqrt(nu**2+Q2)/)-pNode%V%momentum)
+                  MandelstamT = abs4Sq((/nu,0.0,0.0,sqrt(nu**2+Q2)/)-pNode%V%mom)
                   if (MandelstamT.lt.-0.4) CutFlag = .false.
                   if (MandelstamT.gt.-0.1) CutFlag = .false.
 
-                  if (pNode%V%momentum(0).lt.0.9*nu) CutFlag = .false.
+                  if (pNode%V%mom(0).lt.0.9*nu) CutFlag = .false.
 
                case default
 
                   ! for TEMORARY USE !!!!!!!!!!!!!!
-                  MandelstamT = abs4Sq((/nu,0.0,0.0,sqrt(nu**2+Q2)/)-pNode%V%momentum)
+                  MandelstamT = abs4Sq((/nu,0.0,0.0,sqrt(nu**2+Q2)/)-pNode%V%mom)
 !                     if (MandelstamT.lt.-0.5) CutFlag = .false.
 !                     if (MandelstamT.lt.-0.4) CutFlag = .false.
 !                     if (MandelstamT.gt.-0.1) CutFlag = .false.
 
-                  if (pNode%V%momentum(0).lt.0.9*nu) CutFlag = .false.
-!                     if (pNode%V%momentum(0).lt.0.8*nu) CutFlag = .false.
+                  if (pNode%V%mom(0).lt.0.9*nu) CutFlag = .false.
+!                     if (pNode%V%mom(0).lt.0.8*nu) CutFlag = .false.
 
                end select
 
@@ -1819,7 +1822,7 @@ contains
 !!$                      call WriteParticle(6,1,1,pNode%V)
 !!$                      write(*,*)
 !!$                      write(*,*) Probs(1:ii-1)
-!!$                      call ParticleList_Print(EventArr(i,j)%particleList)
+!!$                      call PartList_Print(EventArr(i,j)%Parts)
 
                   w0 = pNode%V%perWeight
                   w1 = w0
@@ -1829,12 +1832,12 @@ contains
 
 
                   call AddHist(hRho0MV,pNode%V%mass,w0,w1)
-                  call AddHist(hRho0MX,pNode%V%position(1),w0,w1)      ! abuse: pos(1)==MX !!!
-                  call AddHist(hRho0DE,pNode%V%position(2),w0,w1)      ! abuse: pos(2)==DE !!!
-                  call AddHist(hRho0DecTime,pNode%V%position(3),w0,w1) ! abuse: pos(3)==DecayTime !!!
-                  call AddHist(hRho0Theta,pNode%V%offShellParameter,w0,w1) ! abuse: ...==thetaDecay !!!
+                  call AddHist(hRho0MX,pNode%V%pos(1),w0,w1)      ! abuse: pos(1)==MX !!!
+                  call AddHist(hRho0DE,pNode%V%pos(2),w0,w1)      ! abuse: pos(2)==DE !!!
+                  call AddHist(hRho0DecTime,pNode%V%pos(3),w0,w1) ! abuse: pos(3)==DecayTime !!!
+                  call AddHist(hRho0Theta,pNode%V%offshellPar,w0,w1) ! abuse: ...==thetaDecay !!!
 
-                  call AddHist(hRho0Mom,pNode%V%momentum(0),w0,w1)
+                  call AddHist(hRho0Mom,pNode%V%mom(0),w0,w1)
 
 
                   hWeight = PreEvArr0(i,j)%weight
@@ -1843,7 +1846,7 @@ contains
                   PreEvArr0(i,j)%weight = hWeight
 
                   W = sqrt(mN**2-Q2+2*mN*nu) ! != Wcalc!
-                  zH = pNode%V%momentum(0)/nu
+                  zH = pNode%V%mom(0)/nu
 
                   select case (EventType)
                   case (2001:2004)
@@ -1868,7 +1871,7 @@ contains
 
 
             if (hadron(rho)%stability /= 0) then
-               call ParticleList_CLEAR(PartsOut,.true.)
+               call PartList_CLEAR(PartsOut,.true.)
                deallocate(Probs)
             end if
 
@@ -1891,15 +1894,15 @@ contains
             if (.not.EventInfo_HiLep_Get(i,j,Weight,nu,Q2,epsilon,EventType,W=Wcalc)) cycle
 
             pPhoton = (/nu,0.0,0.0,sqrt(nu**2+Q2)/)
-            pNode => EventArr(i,j)%particleList%first
+            pNode => EventArr(i,j)%Parts%first
 
             w2 = 0.0
-            if (EventArr(i,j)%particleList%nEntries .le. 2) w2 = Weight ! 'exclusive' event
+            if (EventArr(i,j)%Parts%nEntries .le. 2) w2 = Weight ! 'exclusive' event
 
             do while (associated(pNode))
                pPart => pNode%V
 
-               MandelstamT = abs4Sq(pPhoton-pPart%momentum)
+               MandelstamT = abs4Sq(pPhoton-pPart%mom)
                call AddHistMP(HMP_MandelstamT, pPart, -MandelstamT,  Weight,w2)
 
                pNode=>pNode%next
@@ -1939,23 +1942,23 @@ contains
             call AddHist(H_CN_bT, bT, Weight)
             call AddHist(H_CN_bZ, bZ, Weight)
 
-            pNode => EventArr(i,j)%particleList%first
+            pNode => EventArr(i,j)%Parts%first
             do while (associated(pNode))
                pPart => pNode%V
 
-               if ((pPart%ID .eq. 1).and.(.not.pPart%antiparticle)) then
+               if ((pPart%ID .eq. 1).and.(.not.pPart%anti)) then
 
-!                  dens = densityAt(pPart%position)
+!                  dens = densityAt(pPart%pos)
 !                  isUnbound = (dens%baryon(0) .lt. densMax/100)
 
                   isUnbound = .true. ! accept all
 
                   if (isUnbound) then
 
-                     p = absVec(pPart%momentum(1:3))
-                     pT = absVec(pPart%momentum(1:2))
-                     z = pPart%momentum(0)/nu
-                     Ekin = pPart%momentum(0)-mN
+                     p = absVec(pPart%mom(1:3))
+                     pT = absVec(pPart%mom(1:2))
+                     z = pPart%mom(0)/nu
+                     Ekin = pPart%mom(0)-mN
 
                      call AddHist2D(H2D_CN_b(pPart%charge), (/b,p/), Weight)
                      call AddHist2D(H2D_CN_bT(pPart%charge), (/bT,p/), Weight)
@@ -2315,15 +2318,23 @@ contains
          &(/Q2R%l,nuR%l/), (/Q2R%u,nuR%u/), (/Q2R%d,nuR%d/), .true.)
 
     if (DoClassifyFirst) then
+       call CreateHistMP(hMP_zHClass(-1), "dN_id/(N_e dzH) ALL",  0.0,  1.2,  0.01, iPartSet)
+       call CreateHistMP(hMP_pT2Class(-1), "d<pT2>/dzH ALL",  0.0,  1.2,  0.01, iPartSet)
        do i=0,8
           call CreateHistMP(hMP_zHClass(i), "dN_id/(N_e dzH) "//trim(IntToChar(i)),  0.0,  1.2,  0.01, iPartSet)
           call CreateHistMP(hMP_pT2Class(i), "d<pT2>/dzH "//trim(IntToChar(i)),  0.0,  1.2,  0.01, iPartSet)
        end do
 
        call CreateHistMP(hMP_zH_Generation(-1), "dN_id/(N_e dzH) Generation ALL",  0.0,  1.2,  0.01, iPartSet)
+       call CreateHistMP(hMP_pT2_Generation(-1), "dN_id/(N_e dpT2) Generation ALL", pTR%l,pTR%u,pTR%d, iPartSet)
        do i=0,10
           call CreateHistMP(hMP_zH_Generation(i), "dN_id/(N_e dzH) Generation "//intToChar(i),  0.0,  1.2,  0.01, iPartSet)
+          call CreateHistMP(hMP_pT2_Generation(i), "dN_id/(N_e dpT2) Generation "//intToChar(i), pTR%l,pTR%u,pTR%d, iPartSet)
        end do
+
+
+
+
     end if
 
     if (CollHist_GetDoCollHistory()) then
@@ -2533,10 +2544,10 @@ contains
 
     ID=Part%ID
     IZ=Part%charge
-    zh=Part%momentum(0)/nu
+    zh=Part%mom(0)/nu
     pp = absMom(Part)
 
-    pT2 = Part%momentum(1)**2 + Part%momentum(2)**2 ! pT^2 according photon axis
+    pT2 = Part%mom(1)**2 + Part%mom(2)**2 ! pT^2 according photon axis
 !      write(*,*) 'pT2:',pT2,pT2L
 !      pT2 = pT2L                                      ! pT^2 according lepton axis
 
@@ -2642,18 +2653,18 @@ contains
 !    endif
 
     if (DoClassifyFirst) then
-       call AddHistMP(HMP_zHClass(0),     Part, zH,W2)
-       call AddHistMP(HMP_pT2Class(0),    Part, zH,W2,W2*pT2)
+       call AddHistMP(HMP_zHClass(-1),     Part, zH,W2)
+       call AddHistMP(HMP_pT2Class(-1),    Part, zH,W2,W2*pT2)
        iClass = ClassifyFirstEvent(iEns1,iNuc)
-       if (iClass.gt.0) then
-          call AddHistMP(HMP_zHClass(iClass), Part, zH,W2)
-          call AddHistMP(HMP_pT2Class(iClass),Part, zH,W2,W2*pT2)
-       end if
+       call AddHistMP(HMP_zHClass(iClass), Part, zH,W2)
+       call AddHistMP(HMP_pT2Class(iClass),Part, zH,W2,W2*pT2)
 
-       iGen = history_getGeneration(Part%history)
        call AddHistMP(hMP_zH_Generation(-1),Part, zH, W2)
+       call AddHistMP(hMP_pT2_Generation(-1),Part, pT2, W2)
+       iGen = history_getGeneration(Part%history)
        if (iGen.lt.11) then
           call AddHistMP(hMP_zH_Generation(iGen),Part, zH, W2)
+          call AddHistMP(hMP_pT2_Generation(iGen),Part, pT2, W2)
        end if
     end if
 
@@ -2955,6 +2966,10 @@ contains
 !    end do
 
     if (DoClassifyFirst) then
+       call WriteHistMP(hMP_zHClass(-1),add=add0,mul=mul0,iColumn=1,&
+            & file='HiLep.zHclass.'//trim(intToChar(999))//'.dat',dump=.true.) ! Acc
+       call WriteHistMP(hMP_pT2Class(-1),DoAve=.true.,&
+            & file='HiLep.pT2class.'//trim(intToChar(999))//'.dat',dump=.true.) ! Acc
        do i=0,8
           call WriteHistMP(hMP_zHClass(i),add=add0,mul=mul0,iColumn=1,&
                & file='HiLep.zHclass.'//trim(intToChar(i))//'.dat',dump=.true.) ! Acc
@@ -2967,6 +2982,13 @@ contains
        do i=0,10
           call WriteHistMP(hMP_zH_Generation(i),add=add0,mul=mul0,iColumn=1,&
                & file='HiLep.zH_Generation.'//intToChar(i)//'.dat',dump=.true.)
+       end do
+
+       call WriteHistMP(hMP_pT2_Generation(-1),add=add0,mul=mul0,iColumn=1,&
+            & file='HiLep.pT2_Generation.'//intToChar(999)//'.dat',dump=.true.)
+       do i=0,10
+          call WriteHistMP(hMP_pT2_Generation(i),add=add0,mul=mul0,iColumn=1,&
+               & file='HiLep.pT2_Generation.'//intToChar(i)//'.dat',dump=.true.)
        end do
     end if
 
@@ -3297,7 +3319,7 @@ contains
 
     weight=0.
     acceptFlag=.false.
-    if (Part%momentum(0).lt.EHR%l) return
+    if (Part%mom(0).lt.EHR%l) return
 
     acceptFlag=.true.
 
@@ -3310,7 +3332,7 @@ contains
     ! The following is the same:
     alpha=acos((2*Ebeam*nu+Q2)/(2*pBeam*pPhoton)) ! angle between photon momentum and beam axis
 
-    call labrotate(alpha,phi_Lepton,Part%momentum,theta,pT2=h)
+    call labrotate(alpha,phi_Lepton,Part%mom,theta,pT2=h)
     if (present(pT2))  pT2 =  h
 
     weight=AccWeight(iDetector,Part%ID,Part%charge,absMom(Part),theta) !theta is angle between hadron momentum and beam axis
@@ -3387,7 +3409,7 @@ contains
   !****************************************************************************
   subroutine HiLeptonAnalysisPerTime(Time, pParts)
     use particleDefinition
-    use hist2Df90
+    use hist2D
     use EventInfo_HiLep
 
     real,    intent(in)       :: Time
@@ -3417,7 +3439,7 @@ contains
        do i=1,Size(pParts,dim=1)
           if (pParts(i,j)%ID > 0) then
 
-             Eh = pParts(i,j)%momentum(0)
+             Eh = pParts(i,j)%mom(0)
 
              if (EventInfo_HiLep_Get(i,pParts(i,j)%firstEvent,Weight,nu,Q2,epsilon,EventType)) then
              else
@@ -3432,7 +3454,7 @@ contains
 
              call AddHist2D(hist_Time, (/zh,time/), ws, w)
 
-             r = sqrt(DOT_PRODUCT(pParts(i,j)%position,pParts(i,j)%position))
+             r = sqrt(DOT_PRODUCT(pParts(i,j)%pos,pParts(i,j)%pos))
              call AddHist2D(hist_Pos, (/zh,r/), ws, w)
           end if
        end do
@@ -3649,7 +3671,7 @@ contains
     pV => PreEvArr0(iEns,iNuc)
 
 !!$    do j=1,8
-!!$       AA(j) = PartName(pV%preE(j)%ID,pV%preE(j)%charge,pV%preE(j)%antiparticle)
+!!$       AA(j) = PartName(pV%preE(j)%ID,pV%preE(j)%charge,pV%preE(j)%anti)
 !!$    enddo
 !!$    write(6,'(f12.5,8A16)') pV%weight * 1.0,AA
 

@@ -1,7 +1,7 @@
 !******************************************************************************
-!****m* /histMPf90
+!****m* /histMP
 ! NAME
-! module histMPf90
+! module histMP
 ! PURPOSE
 ! Encapsulate all routines and datas for multi-particle Histogramms.
 !
@@ -31,16 +31,16 @@
 ! INPUTS
 ! ...(This module needs no input)
 !******************************************************************************
-module histMPf90
+module histMP
 
-  use histf90
+  use hist
 
   implicit none
 
   public :: histogramMP
 
   !****************************************************************************
-  !****t* histMPf90/histogramMP
+  !****t* histMP/histogramMP
   ! NAME
   ! type histogramMP
   ! PURPOSE
@@ -83,10 +83,11 @@ module histMPf90
   public :: FetchHistMP
   public :: Map2HistMP
   public :: Map2HistMP_getN
+  public :: Map2HistMP_getTit
   public :: SumHistMP
 
   !****************************************************************************
-  !****s* histMPf90/AddHistMP
+  !****s* histMP/AddHistMP
   ! NAME
   ! subroutine AddHistMP(H, ID,IC,anti, x,y,y2)
   !
@@ -124,7 +125,7 @@ module histMPf90
   end interface
 
   !****************************************************************************
-  !****f* histMPf90/Map2HistMP
+  !****f* histMP/Map2HistMP
   ! NAME
   ! integer function Map2HistMP(ID,IC,anti, iSet)
   !
@@ -147,19 +148,22 @@ module histMPf90
   end interface Map2HistMP
 
   !****************************************************************************
-  !****s* histMPf90/WriteHistMP_Names
+  !****s* histMP/WriteHistMP_Names
   ! NAME
-  ! subroutine WriteHistMP_Names(H,iFile)
+  ! subroutine WriteHistMP_Names(H,iFile,lastCol)
   !
-  ! subroutine WriteHistMP_Names(iSet,iFile)
+  ! subroutine WriteHistMP_Names(iSet,iFile,lastCol)
+  !
   ! PURPOSE
   ! Write a Header line with the names of the particles
   ! INPUTS
   ! * type(histogramMP) :: H -- histogram to use
   ! * integer :: iFile -- number of file to write to
+  ! * character*(*), OPTIONAL :: lastCol -- title of last column added
   ! or:
   ! * integer :: iSet -- set of histogram
   ! * integer :: iFile -- number of file to write to
+  ! * character*(*), OPTIONAL :: lastCol -- title of last column added
   !****************************************************************************
   interface WriteHistMP_Names
      module procedure WriteHistMP_Names_H, WriteHistMP_Names_I
@@ -167,7 +171,7 @@ module histMPf90
 
 contains
   !****************************************************************************
-  !****s* histMPf90/histMPf90_Init
+  !****s* histMP/histMPf90_Init
   ! NAME
   ! subroutine histMPf90_Init
   ! PURPOSE
@@ -439,7 +443,7 @@ contains
   end subroutine histMPf90_Init
 
   !****************************************************************************
-  !****s* histMPf90/CreateHistMP
+  !****s* histMP/CreateHistMP
   ! NAME
   ! subroutine CreateHistMP(H, HName,x1,x2,bin, iPartSet)
   ! PURPOSE
@@ -514,7 +518,7 @@ contains
   end subroutine CreateHistMP
 
   !****************************************************************************
-  !****s* histMPf90/ClearHistMP
+  !****s* histMP/ClearHistMP
   ! NAME
   ! subroutine ClearHistMP(H)
   ! PURPOSE
@@ -565,7 +569,7 @@ contains
     real,intent(in)          :: y
     real,intent(in),optional :: y2
 
-    call AddHistMP_I(H, Part%ID,Part%charge,Part%antiparticle, x,y,y2)
+    call AddHistMP_I(H, Part%ID,Part%charge,Part%anti, x,y,y2)
 
   end subroutine AddHistMP_P
   !----------------------------------------------------------------------------
@@ -591,7 +595,7 @@ contains
   end subroutine AddHistMP_KF
 
   !****************************************************************************
-  !****s* histMPf90/AddHistMP_IH
+  !****s* histMP/AddHistMP_IH
   ! NAME
   ! subroutine AddHistMP_IH(H, iH, x,y,y2)
   ! PURPOSE
@@ -612,6 +616,8 @@ contains
   !****************************************************************************
   pure subroutine AddHistMP_IH(H, iH, x,y,y2)
 
+    use ieee_arithmetic, only: ieee_is_nan
+
     type(histogramMP),intent(inout) :: H
     integer, intent(in)      :: iH
     real,intent(in)          :: x
@@ -626,6 +632,9 @@ contains
     yy = 0.
     if (present(y2)) yy = y2
 
+    if (ieee_is_nan(x)) return
+    if (ieee_is_nan(y)) return
+    if (ieee_is_nan(yy)) return
 
     if (x.lt.H%xExtreme(iH,1)) H%xExtreme(iH,1)=x
     if (x.gt.H%xExtreme(iH,2)) H%xExtreme(iH,2)=x
@@ -645,7 +654,7 @@ contains
   end subroutine AddHistMP_IH
 
   !****************************************************************************
-  !****f* histMPf90/Map2HistMP_getN
+  !****f* histMP/Map2HistMP_getN
   ! NAME
   ! integer function Map2HistMP_getN(iSet)
   ! PURPOSE
@@ -665,6 +674,32 @@ contains
 
     Map2HistMP_getN = Map2Hist_N(iSet)
   end function Map2HistMP_getN
+
+  !****************************************************************************
+  !****f* histMP/Map2HistMP_getTit
+  ! NAME
+  ! character(12) function Map2HistMP_getTit(iSet,iH)
+  ! PURPOSE
+  ! return the title of histogram iH for the given particle set.
+  ! returns empty string, if the particle set is invalid.
+  !****************************************************************************
+  character(12) function Map2HistMP_getTit(iSet,iH)
+
+    integer, intent(in):: iSet,iH
+
+    Map2HistMP_getTit = ""
+
+    if (initFlag) call histMPf90_Init
+
+    if (iSet<0) return
+    if (iSet>nSet) return
+
+    if (iH<0) return
+    if (iH>Map2Hist_N(iSet)) return
+
+    Map2HistMP_getTit = Map2Hist_TIT(iSet,iH)
+
+  end function Map2HistMP_getTit
 
   !****************************************************************************
   ! cf. interface Map2HistMP
@@ -701,7 +736,7 @@ contains
     type(particle),intent(in) :: Part
     integer, intent(in):: iSet
 
-    Map2HistMP_P = Map2HistMP_I(Part%ID,Part%charge,Part%antiparticle, iSet)
+    Map2HistMP_P = Map2HistMP_I(Part%ID,Part%charge,Part%anti, iSet)
   end function Map2HistMP_P
   !----------------------------------------------------------------------------
   pure integer function Map2HistMP_KF(KF, iSet)
@@ -742,7 +777,7 @@ contains
   end function Map2HistMP_KF
 
   !****************************************************************************
-  !****s* histMPf90/WriteHistMP
+  !****s* histMP/WriteHistMP
   ! NAME
   ! subroutine WriteHistMP(H,iFile,add,mul,iColumn,DoAve,maxVal,H2,file,dump)
   ! PURPOSE
@@ -751,15 +786,15 @@ contains
   ! The entries are multiplied by 'mul' and 'add' is added.
   ! INPUTS
   ! * type(histogramMP) :: H     -- Histogramm to be used
-  ! * integer           :: iFile -- File number output to redirect [OPTIONAL]
-  ! * real              :: add   -- factor to add      [OPTIONAL]
-  ! * real              :: mul   -- factor to multiply [OPTIONAL]
-  ! * integer           :: iColumn -- column to write [OPTIONAL]
-  ! * logical           :: DoAve -- write "average" (cf Notes) [OPTIONAL]
-  ! * real              :: maxVal -- value used instead "divide by zero" [OPTIONAL]
-  ! * type(histogram)   :: H2    -- Histogramm to divide by [OPTIONAL]
-  ! * character*(*)     :: file  -- name of file to open and close [OPTIONAL]
-  ! * logical           :: dump  -- if true, also dump it binary to file [OPTIONAL]
+  ! * integer        :: iFile -- File number output to redirect [OPTIONAL]
+  ! * real           :: add   -- factor to add      [OPTIONAL]
+  ! * real           :: mul   -- factor to multiply [OPTIONAL]
+  ! * integer        :: iColumn -- column to write [OPTIONAL]
+  ! * logical        :: DoAve -- write "average" (cf Notes) [OPTIONAL]
+  ! * real           :: maxVal -- value used instead "divide by zero" [OPTIONAL]
+  ! * type(histogram):: H2    -- Histogramm to divide by [OPTIONAL]
+  ! * character*(*)  :: file  -- name of file to open and close [OPTIONAL]
+  ! * logical        :: dump  -- if true, also dump it binary to file [OPTIONAL]
   ! OUTPUT
   ! write to file number
   ! NOTES
@@ -775,15 +810,15 @@ contains
     use CALLSTACK, only: TRACEBACK
 
     type(histogramMP),intent(in)          :: H
-    integer,        intent(in),optional :: iFile_in
-    real,           intent(in),optional :: add
-    real,           intent(in),optional :: mul
-    integer,        intent(in),optional :: iColumn
-    logical,        intent(in),optional :: DoAve
-    real,           intent(in),optional :: maxVal
-    type(histogram),intent(in),optional :: H2
-    character*(*),  intent(in),optional :: file
-    logical,        intent(in),optional :: dump
+    integer,          intent(in),optional :: iFile_in
+    real,             intent(in),optional :: add
+    real,             intent(in),optional :: mul
+    integer,          intent(in),optional :: iColumn
+    logical,          intent(in),optional :: DoAve
+    real,             intent(in),optional :: maxVal
+    type(histogram),  intent(in),optional :: H2
+    character*(*),    intent(in),optional :: file
+    logical,          intent(in),optional :: dump
 
     real,dimension(:,:),allocatable :: S
     real,dimension(:),  allocatable :: z
@@ -900,11 +935,13 @@ contains
        close(iFile)
     end if
 
-    if ((present(dump)).and.(dump)) then
-       if (present(file)) then
-          call DumpHistMP(H,file//".bin",iFile)
-       else
-          call DumpHistMP(H,"DumpHist.bin",iFile)
+    if (present(dump)) then
+       if (dump) then
+          if (present(file)) then
+             call DumpHistMP(H,file//".bin",iFile,addFak,mulFak)
+          else
+             call DumpHistMP(H,"DumpHist.bin",iFile,addFak,mulFak)
+          end if
        end if
     end if
 
@@ -913,31 +950,40 @@ contains
   !****************************************************************************
   ! cf. interface WriteHistMP_Names
   !****************************************************************************
-  subroutine WriteHistMP_Names_I(iSet, iFile)
+  subroutine WriteHistMP_Names_I(iSet, iFile, lastCol)
 
     integer, intent(in) :: iSet
     integer, intent(in) :: iFile
+    character*(*),optional, intent(in) :: lastCol
 
     integer :: i,nP
+    character*(9) :: Buf
 
 1002 format (1X,'#####',/,1X,'#####         ',100(i2,':',A9))
 
     nP = Map2Hist_N(iSet)
-    write(iFile,1002) ( i+1,Map2Hist_TIT(iSet,i),i=1,nP)
+    if (present(lastCol)) then
+       Buf = lastCol ! needed for left adjusting the text
+       write(iFile,1002) ( i+1,Map2Hist_TIT(iSet,i),i=1,nP),&
+            nP+2,Buf
+    else
+       write(iFile,1002) ( i+1,Map2Hist_TIT(iSet,i),i=1,nP)
+    end if
 
   end subroutine WriteHistMP_Names_I
 
-  subroutine WriteHistMP_Names_H(H, iFile)
+  subroutine WriteHistMP_Names_H(H, iFile, lastCol)
 
     type(histogramMP),intent(in) :: H
     integer,          intent(in) :: iFile
+    character*(*),optional, intent(in) :: lastCol
 
-    call WriteHistMP_Names_I(H%iSet, iFile)
+    call WriteHistMP_Names_I(H%iSet, iFile, lastCol)
 
   end subroutine WriteHistMP_Names_H
 
   !****************************************************************************
-  !****s* histMPf90/sumHistMP
+  !****s* histMP/sumHistMP
   ! NAME
   ! subroutine sumHistMP(A, B, w, doCheck)
   ! PURPOSE
@@ -976,27 +1022,32 @@ contains
   end subroutine sumHistMP
 
   !****************************************************************************
-  !****s* histMPf90/DumpHistMP
+  !****s* histMP/DumpHistMP
   ! NAME
-  ! subroutine DumpHistMP(H,file,iFile)
+  ! subroutine DumpHistMP(H,file,iFile, add,mul)
   ! PURPOSE
   ! Write all the histogram information unformatted (i.e. binary) to a file
   !
   ! INPUTS
   ! * type(histogramMP) :: H     -- Histogramm to be used
   ! * character*(*)     :: file  -- name of file to open and close
-  ! * integer,OPTIONAL  :: iFile -- File number output to redirect [OPTIONAL]
+  ! * integer,OPTIONAL  :: iFile -- File number output to redirect
+  ! * real,OPTIONAL     :: add   -- factor to add
+  ! * real,OPTIONAL     :: mul   -- factor to multiply
   ! OUTPUT
   ! H is written UNFORMATTED to the given file
   !
   !****************************************************************************
-  subroutine DumpHistMP(H,file,iFile)
+  subroutine DumpHistMP(H,file,iFile, add,mul)
 
     type(histogramMP),intent(in)          :: H
     character*(*),    intent(in)          :: file
     integer,          intent(in),optional :: iFile
+    real,             intent(in),optional :: add,mul
 
     integer :: iF
+    real :: addFak,mulFak
+    logical :: WriteFaks
 
     iF=121
     if (present(iFile)) iF = iFile
@@ -1009,24 +1060,40 @@ contains
     write(iF) H%Name
     write(iF) H%yVal
 
+    WriteFaks = .false.
+    addFak = 0.0
+    mulFak = 1.0
+    if (present(mul)) then
+       mulFak = mul
+       WriteFaks = .true.
+    end if
+    if (present(add)) then
+       addFak = add
+       WriteFaks = .true.
+    end if
+
+    if (WriteFaks) write(iF) addFak,mulFak
+
     close(iF)
 
   end subroutine DumpHistMP
 
   !****************************************************************************
-  !****s* histMPf90/FetchHistMP
+  !****s* histMP/FetchHistMP
   ! NAME
-  ! subroutine FetchHistMP(H,file,iFile,flagOK)
+  ! subroutine FetchHistMP(H,file,iFile, add,mul, flagOK)
   ! PURPOSE
   ! Read in all the histogram information previously dumped unformatted
   ! (i.e. binary) to a file
   !
   ! INPUTS
   ! * character*(*)   :: file  -- name of file to open and close
-  ! * integer,OPTIONAL:: iFile -- File number input to redirect [OPTIONAL]
+  ! * integer,OPTIONAL:: iFile -- File number input to redirect
   ! OUTPUT
   ! * type(histogramMP) :: H     -- Histogramm to be used
-  ! * logical           :: flagOK -- flag, if reading was okay [OPTIONAL]
+  ! * real,OPTIONAL     :: add   -- factor to add
+  ! * real,OPTIONAL     :: mul   -- factor to multiply
+  ! * logical           :: flagOK -- flag, if reading was okay
   !
   ! H is read UNFORMATTED from the given file. Sizes are calculated as in
   ! CreateHist, also memory is allocated.
@@ -1034,16 +1101,18 @@ contains
   ! NOTES
   ! No checks about input are performed!
   !****************************************************************************
-  subroutine FetchHistMP(H,file,iFile,flagOK)
+  subroutine FetchHistMP(H,file,iFile, add,mul, flagOK)
 
     type(histogramMP),intent(inout)       :: H
     character*(*),  intent(in)          :: file
     integer,        intent(in),optional :: iFile
+    real,           intent(out),optional:: add,mul
     logical,        intent(out),optional:: flagOK
 
     integer :: iF
     integer :: L
     integer :: ios
+    real :: addFak,mulFak
     logical, parameter :: verbose = .true.
 
     if (initFlag) call histMPf90_Init
@@ -1051,7 +1120,7 @@ contains
     iF=121
     if (present(iFile)) iF = iFile
 
-    open(iF,file=file,status='UNKNOWN',form='UNFORMATTED',iostat=ios)
+    open(iF,file=file,status='OLD',form='UNFORMATTED',iostat=ios)
     if (ios.ne.0) then
        close(iF)
        if (present(flagOK)) flagOK=.false.
@@ -1082,6 +1151,21 @@ contains
 
     read(iF) H%yVal
 
+    if (present(add).or.present(mul)) then
+       addFak = 0.0
+       mulFak = 1.0
+       read(iF,iostat=ios) addFak,mulFak
+       if (ios.ne.0) then
+          write(*,*) 'FetchHist: old file version, no add/mul info!'
+          addFak = 0.0
+          mulFak = 1.0
+       else
+          mulFak = mulFak*H%xBin
+       end if
+       if (present(add)) add=addFak
+       if (present(mul)) mul=mulFak
+    end if
+
     close(iF)
     if (present(flagOK)) flagOK=.true.
 
@@ -1089,4 +1173,4 @@ contains
 
   !****************************************************************************
 
-end module histMPf90
+end module histMP

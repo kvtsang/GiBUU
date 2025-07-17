@@ -1,4 +1,7 @@
 program readPipe
+  ! This program tries to check the output into the named pipe (fifo)
+  ! "FinalEvents.pipe"
+  ! It reads the output and does some dummy output.
 
   use CallStack, only: TraceBack
 

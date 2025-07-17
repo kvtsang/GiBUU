@@ -26,52 +26,52 @@ end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-p%position = (/ 999., 999., 999. /) ! vacuum
+p%pos = (/ 999., 999., 999. /) ! vacuum
 
 p%ID = 103
 do i=0,N
-  p%momentum(0) = i*dm
+  p%mom(0) = i*dm
   sf = specFuncMes (p)
-  write(p%ID+cien,*) p%momentum(0),sf
+  write(p%ID+cien,*) p%mom(0),sf
 end do
 
 p%ID = 105
 do i=0,N
-  p%momentum(0) = i*dm
+  p%mom(0) = i*dm
   sf = specFuncMes (p)
-  write(p%ID+cien,*) p%momentum(0),sf
+  write(p%ID+cien,*) p%mom(0),sf
 end do
 
 p%ID = 107
 do i=0,N
-  p%momentum(0) = i*dm
+  p%mom(0) = i*dm
   sf = specFuncMes (p)
-  write(p%ID+cien,*) p%momentum(0),sf
+  write(p%ID+cien,*) p%mom(0),sf
 end do
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-p%position = (/ 0., 0., 0. /) ! medium
+p%pos = (/ 0., 0., 0. /) ! medium
 
 p%ID = 103
 do i=0,N
-  p%momentum(0) = i*dm
+  p%mom(0) = i*dm
   sf = specFuncMes (p)
-  write(1000+p%ID+cien,*) p%momentum(0),sf
+  write(1000+p%ID+cien,*) p%mom(0),sf
 end do
 
 p%ID = 105
 do i=0,N
-  p%momentum(0) = i*dm
+  p%mom(0) = i*dm
   sf = specFuncMes (p)
-  write(1000+p%ID+cien,*) p%momentum(0),sf
+  write(1000+p%ID+cien,*) p%mom(0),sf
 end do
 
 p%ID = 107
 do i=0,N
-  p%momentum(0) = i*dm
+  p%mom(0) = i*dm
   sf = specFuncMes (p)
-  write(1000+p%ID+cien,*) p%momentum(0),sf
+  write(1000+p%ID+cien,*) p%mom(0),sf
 end do
 
 end program

@@ -47,7 +47,7 @@ subroutine sub_electron
 
   do charge=0,1
      p%charge=charge
-     p%momentum=(/hadron(nucleon)%mass,0.,0.,0./)
+     p%mom=(/hadron(nucleon)%mass,0.,0.,0./)
      p%ID=nucleon
 
      if(charge.eq.1) then
@@ -139,10 +139,10 @@ subroutine sub_photon
   integer :: iEgamma, iCosTheta
 
   p%charge=0
-  p%momentum=(/0.938,0.,0.,0./)
+  p%mom=(/0.938,0.,0.,0./)
   p%mass=0.938
   p%ID=nucleon
-  p%position=(/100.,100.,100./)
+  p%pos=(/100.,100.,100./)
 
   ! Resonance contribution
   do nucCharge=0,1

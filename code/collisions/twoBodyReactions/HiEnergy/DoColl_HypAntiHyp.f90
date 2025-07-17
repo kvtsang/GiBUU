@@ -71,15 +71,15 @@ contains
     double precision MP_P ! prototype
 
 
-    if (inPart(1)%antiparticle.eqv.inPart(2)%antiparticle) then
+    if (inPart(1)%anti.eqv.inPart(2)%anti) then
        write(*,*) 'DoColl_YYbar can not be used for Bar+Bar or AntiBar+Antibar collisions !'
        stop
     end if
 
     flagOK = .TRUE.
 
-    outPart(1:2)%antiparticle=inPart(1:2)%antiparticle
-    if ( inPart(1)%antiparticle ) then
+    outPart(1:2)%anti=inPart(1:2)%anti
+    if ( inPart(1)%anti ) then
        nAnti=1
     else
        nAnti=2
@@ -205,11 +205,11 @@ contains
 
     do i=1,2                   ! set momenta according scattering
        do j=1,3
-          outPart(i)%momentum(j) = real(MP_P(i,j))
+          outPart(i)%mom(j) = real(MP_P(i,j))
        end do
 
-       outPart(i)%momentum(0) = outPart(i)%mass
-       outPart(i)%momentum(0) = sqrt(DOT_PRODUCT(outPart(i)%momentum,outPart(i)%momentum))
+       outPart(i)%mom(0) = outPart(i)%mass
+       outPart(i)%mom(0) = sqrt(DOT_PRODUCT(outPart(i)%mom,outPart(i)%mom))
     end do
 
     outPart(1:2)%number = 0

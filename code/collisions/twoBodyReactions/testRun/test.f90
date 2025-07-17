@@ -63,36 +63,36 @@ end program
        write(*,*) 'id2 is no particle:', id2
     end if
 
-    pair(1)%position=(/0.001,0.,0./)
-    pair(2)%position=(/0.,0.,0./)
+    pair(1)%pos=(/0.001,0.,0./)
+    pair(2)%pos=(/0.,0.,0./)
 
-    pair(1)%momentum(1:3)=(/0.,0.,0./)
-    pair(1)%momentum(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
+    pair(1)%mom(1:3)=(/0.,0.,0./)
+    pair(1)%mom(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
 
-    pair(2)%momentum(1:3)=(/0.,1.2,0./)
-    pair(2)%momentum(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+    pair(2)%mom(1:3)=(/0.,1.2,0./)
+    pair(2)%mom(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
 
-    pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
-    pair(2)%velocity=pair(2)%momentum(1:3)/pair(2)%momentum(0)
+    pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
+    pair(2)%vel=pair(2)%mom(1:3)/pair(2)%mom(0)
 
     numEnsembles=100
 
     Do i=1,20
-       pair(2)%momentum(1:3)=(/0.,i*0.1,0./)
-       pair(2)%momentum(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+       pair(2)%mom(1:3)=(/0.,i*0.1,0./)
+       pair(2)%mom(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
        Print *
        Print *, 'momenta'
-       Print *, pair(1)%momentum
-       Print *, pair(2)%momentum
+       Print *, pair(1)%mom
+       Print *, pair(2)%mom
        Print *, 'Wurzel(s)=',sqrts(pair(1),pair(2))
-       Print *, 'Total momentum=',pair(1)%momentum+pair(2)%momentum
+       Print *, 'Total momentum=',pair(1)%mom+pair(2)%mom
        print * ,'***********************'
        call collide_2body(pair,finalState,numEnsembles,collisionFlag,0.57,HiEnergyFlag,HiEnergyType)
        If (collisionFlag) then
           Print *, 'Finalstate:       ############################'
           Print *, finalState(1:4)%ID, collisionFlag, sqrtS(finalState(1),finalState(2),finalState(3))
-          Print *, '             Charges' , finalState(1:4)%charge, finalState(1:4)%antiParticle
-          Print *, ' Total momentum=',finalState(1)%momentum+finalState(2)%momentum+finalState(3)%momentum
+          Print *, '             Charges' , finalState(1:4)%charge, finalState(1:4)%anti
+          Print *, ' Total momentum=',finalState(1)%mom+finalState(2)%mom+finalState(3)%mom
        else
           Print *, 'No collision'
        end if
@@ -101,8 +101,8 @@ end program
 
     write(*,*)
     write(*,*) 'checking speed'
-    pair(2)%momentum(1:3)=(/0.,1.5,0./)
-    pair(2)%momentum(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+    pair(2)%mom(1:3)=(/0.,1.5,0./)
+    pair(2)%mom(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
     write(*,*) 'Wurzel(s)=', sqrtS(pair(1),pair(2))
     write(*,*) pair%ID
     write(*,*)
@@ -196,10 +196,10 @@ contains
     write(*,*) 'Testing xSectionMaster'
     pair%Id=(/id1,id2/)
     pair%charge=(/q1,q2/)
-    pair%antiparticle=(/anti1,anti2/)
+    pair%anti=(/anti1,anti2/)
     pair(1)%event=(/1,1/)
-    pair(1)%perturbative=.true.
-    pair(2)%perturbative=.false.
+    pair(1)%pert=.true.
+    pair(2)%pert=.false.
     pair(2)%event=(/2,2/)
 
     If(isMeson(id1)) then
@@ -219,37 +219,37 @@ contains
     end if
 
 
-    pair(1)%position=(/1.,0.,0./)
-    pair(2)%position=(/0.,0.,0./)
+    pair(1)%pos=(/1.,0.,0./)
+    pair(2)%pos=(/0.,0.,0./)
 
-    pair(1)%momentum(1:3)=(/0.,0.,0./)
+    pair(1)%mom(1:3)=(/0.,0.,0./)
 
-    !pair(1)%momentum(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%momentum(1:3),pair(1)%momentum(1:3)))
+    !pair(1)%mom(0)=sqrt(pair(1)%mass**2+Dot_Product(pair(1)%mom(1:3),pair(1)%mom(1:3)))
     call energyDetermination(pair(1),(/0.,0.,0./))
     call energyDetermination(pair(2),(/0.,0.,0./))
 
-    pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
+    pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
 
 
     numEnsembles=100
 
     Print *, 'positions'
-    Print *, pair(1)%position
-    Print *, pair(2)%position
+    Print *, pair(1)%pos
+    Print *, pair(2)%pos
     Print *, 'momenta'
-    Print *, pair(1)%momentum
-    Print *, pair(2)%momentum
+    Print *, pair(1)%mom
+    Print *, pair(2)%mom
     Print *, 'Wurzel(s)=',sqrts(pair(1),pair(2))
-    Print *, 'Total momentum=',pair(1)%momentum+pair(2)%momentum
+    Print *, 'Total momentum=',pair(1)%mom+pair(2)%mom
     print * ,'***********************'
 
     Do i=1,2000
-       pair(2)%momentum(1:3)=(/0.,float(i)*0.05,0./)
-       !pair(2)%momentum(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%momentum(1:3),pair(2)%momentum(1:3)))
+       pair(2)%mom(1:3)=(/0.,float(i)*0.05,0./)
+       !pair(2)%mom(0)=sqrt(pair(2)%mass**2+Dot_Product(pair(2)%mom(1:3),pair(2)%mom(1:3)))
 
        betaToCF=(/0.,0.,0./)
        call energyDetermination(pair(2),betaToCF)
-       pair(2)%velocity=pair(2)%momentum(1:3)/pair(2)%momentum(0)
+       pair(2)%vel=pair(2)%mom(1:3)/pair(2)%mom(0)
 
        srts=sqrts(pair(1),pair(2))
 
@@ -257,7 +257,7 @@ contains
 
        write(*,*) '--- srts = ',srts
 
-       momentumLRF=pair(2)%momentum+pair(1)%momentum
+       momentumLRF=pair(2)%mom+pair(1)%mom
 
 
        rHiEnergy = HiEnergyContib(srts,pair)

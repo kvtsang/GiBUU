@@ -11,12 +11,21 @@ module barBar_barBarMes
   private
 
   !****************************************************************************
+  !****g* barBar_barBarMes/NNpi
+  ! SOURCE
+  !
+  logical, save :: NNpi = .true.
+  ! PURPOSE
+  ! Global switch for the N N -> N N pi contibution
+  !****************************************************************************
+
+  !****************************************************************************
   !****g* barBar_barBarMes/NNpi_BG
   ! SOURCE
   !
   integer, save :: NNpi_BG = 2
   ! PURPOSE
-  ! Switch for the N N -> N N pi background:
+  ! Switch for the N N -> N N pi background (s-channel):
   ! * 0 = no BG
   ! * 1 = BG according to Teis
   ! * 2 = BG according to Buss (improves threshold behavior, default)
@@ -57,8 +66,11 @@ module barBar_barBarMes
   !****************************************************************************
 
 
-  public :: NN_NNpi_direct, sig_NNV, chooseCharge_NNpiomega
-  public :: Np_NRplus_NNPion, sstatepi
+  public :: NN_NNpi_direct
+  public :: sig_NNV
+  public :: chooseCharge_NNpiomega
+  public :: Np_NRplus_NNPion
+  public :: sstatepi
 
   logical, save :: first = .true.
 
@@ -77,18 +89,20 @@ contains
     ! NAMELIST barBar_barBarMes
     ! PURPOSE
     ! Includes the switches:
+    ! * NNpi
     ! * NNpi_BG
     ! * NNV_BG
     ! * isofac_omega
     ! * isofac_phi
     !**************************************************************************
-    NAMELIST /barBar_barBarMes/ NNpi_BG, NNV_BG, isofac_omega, isofac_phi
+    NAMELIST /barBar_barBarMes/ NNpi, NNpi_BG, NNV_BG, isofac_omega, isofac_phi
 
     call Write_ReadingInput('barBar_barBarMes',0)
     rewind(5)
     read(5,nml=barBar_barBarMes,iostat=ios)
     call Write_ReadingInput('barBar_barBarMes',0,ios)
-    write(*,*) 'NNpi_BG      = ', NNpi_BG
+    write(*,*) 'NNpi         = ', NNpi
+    write(*,*) '   NNpi_BG   = ', NNpi_BG
     write(*,*) 'NNV_BG       = ', NNV_BG
     write(*,*) 'isofac_omega = ', isofac_omega
     write(*,*) 'isofac_phi   = ', isofac_phi
@@ -102,27 +116,26 @@ contains
   !****************************************************************************
   !****f* barBar_barBarMes/NN_NNpi_direct
   ! NAME
-  ! function NN_NNpi_direct (srtfree, bg) result(Sigma_NNPion)
+  ! function NN_NNpi_direct(srtfree, bg) result(Sigma_NNPion)
   ! PURPOSE
-  ! Returns the background contributions to NN-> NN pion (via non-propagated resonances, plus non-resonant part).
-  ! The pion cross sections contain the following channels:
+  ! Returns the background contributions to NN-> NN pion
+  ! (via non-propagated resonances, plus non-resonant part).
+  !
+  ! It contain the following channels:
   ! * 1: p p -> p p pi^0 ; which is equivalent to n n -> n n pi^0
   ! * 2: p n -> n n pi^+ ; which is equivalent to  p n -> p p pi^-
   ! * 3: p n -> p n pi^0 ;
   ! * 4: p p -> p n pi^+ ; which is equivalent to n n -> p n pi^-
   ! INPUTS
-  ! * real, intent(in) :: srtfree             --- sqrt(s) in GeV
+  ! * real :: srtfree                         --- sqrt(s) in GeV
   ! OUTPUT
-  ! * real, dimension (1:4) :: Sigma_NNPION   --- Cross sections in mB
+  ! * real, dimension (1:4) :: Sigma_NNPion   --- cross sections in mB
   !****************************************************************************
-  function NN_NNpi_direct (srtfree) result(Sigma_NNPion)
+  function NN_NNpi_direct(srtfree) result(Sigma_NNPion)
     use constants, only: mN, mPi
 
     real, intent(in) :: srtfree
-    real, dimension (1:4) :: Sigma_NNPion  ! 1: p p -> p p pi^0 ; which is equivalent to n n -> n n pi^0
-                                           ! 2: p n -> n n pi^+ ; which is equivalent to  p n -> p p pi^-
-                                           ! 3: p n -> p n pi^0 ;
-                                           ! 4: p p -> p n pi^+ ; which is equivalent to n n -> p n pi^-
+    real, dimension (1:4) :: Sigma_NNPion
 
     real :: sigmaDelta, sigma1_2, sigma3_2, sigmaAdd(4)
     real, parameter :: isofac12(1:4) = (/ 1./3., 1./3., 1./3., 2./3. /)
@@ -132,20 +145,28 @@ contains
 
     sigma_NNPion = 0.
 
+    if (.not.NNpi) return
+
     ! Evaluate background cross sections for NN -> NN Pion
     if (srtfree > 2*mN + mPi) then
-      sigmaAdd = sstatepi (srtFree)                ! non-resonant background
 
       ! pp: contribution of non-progagated resonances
-      call Np_NRplus_NNPion (srtFree, .true., 1, sigmaDelta, sigma1_2, sigma3_2)
-      Sigma_NNPion(1) = isofac12(1) * sigma1_2 + isofac32(1) * (sigmaDelta+sigma3_2) + sigmaAdd(1)
-      Sigma_NNPion(4) = isofac12(4) * sigma1_2 + isofac32(4) * (sigmaDelta+sigma3_2) + sigmaAdd(4)
+      call Np_NRplus_NNPion(srtFree, .true., 1, sigmaDelta, sigma1_2, sigma3_2)
+      Sigma_NNPion(1) = isofac12(1) * sigma1_2 + isofac32(1) * (sigmaDelta+sigma3_2)
+      Sigma_NNPion(4) = isofac12(4) * sigma1_2 + isofac32(4) * (sigmaDelta+sigma3_2)
 
       ! pn: contribution of non-progagated resonances
-      call Np_NRplus_NNPion (srtFree, .true., 0, sigmaDelta, sigma1_2, sigma3_2)
-      Sigma_NNPion(2) = isofac12(2) * sigma1_2 + isofac32(2) * (sigmaDelta+sigma3_2) + sigmaAdd(2)
-      Sigma_NNPion(3) = isofac12(3) * sigma1_2 + isofac32(3) * (sigmaDelta+sigma3_2) + sigmaAdd(3)
-    end if
+      call Np_NRplus_NNPion(srtFree, .true., 0, sigmaDelta, sigma1_2, sigma3_2)
+      Sigma_NNPion(2) = isofac12(2) * sigma1_2 + isofac32(2) * (sigmaDelta+sigma3_2)
+      Sigma_NNPion(3) = isofac12(3) * sigma1_2 + isofac32(3) * (sigmaDelta+sigma3_2)
+
+      ! s-state contibution:
+      if (NNpi_BG>0) then
+         sigmaAdd = sstatepi(srtFree)
+         Sigma_NNPion = Sigma_NNPion + sigmaAdd
+      end if
+
+   end if
 
   end function NN_NNpi_direct
 
@@ -153,23 +174,30 @@ contains
   !****************************************************************************
   !****s* barBar_barBarMes/Np_NRplus_NNPion
   ! NAME
-  ! subroutine Np_NRplus_NNPion (srtS, background, ch, sigmaDelta, sigma1_2, sigma3_2)
+  ! subroutine Np_NRplus_NNPion(srtS, background, ch, sigmaDelta, sigma1_2, sigma3_2)
   ! PURPOSE
-  ! Evaluates the cross sections for N p -> N Resonance(+) -> N N pion with vacuum assumptions. It returns
-  ! the cross sections sigma1_2, which is summed over all I=1/2 resonances in the intermediate state, and
-  ! sigma3_2, which is summed over all I=3/2 resonances in the intermediate state.
+  ! Evaluates the cross sections for N p -> N Resonance(+) -> N N pion with
+  ! vacuum assumptions. It returns the cross sections sigma1_2, which is
+  ! summed over all I=1/2 resonances in the intermediate state, and
+  ! sigma3_2, which is summed over all I=3/2 resonances in the intermediate
+  ! state.
+  !
   ! INPUTS
-  ! * real, intent(in) :: srts    ! sqrt(s)
-  ! * logical, intent(in) :: background
-  !   .true. : do not consider any propagated resonances, therefore the background contribution is returned
-  !   .false. : Consider all resonances, Therefore the full resonance contribution is returned
-  ! * integer, intent(in) :: ch   ! charge of incoming nucleon
+  ! * real :: srts -- sqrt(s)
+  ! * logical :: background --
+  !   .true. : do not consider any propagated resonances, therefore the
+  !   background contribution is returned;
+  !   .false. : Consider all resonances, therefore the full resonance
+  !   contribution is returned
+  ! * integer :: ch   -- charge of incoming nucleon
   ! OUTPUT
-  ! * real, intent(out) :: sigmaDelta ! the cross section contribution of the Delta resonance
-  ! * real, intent(out) :: sigma1_2   ! the cross section summed over all I=1/2 resonances
-  ! * real, intent(out) :: sigma3_2   ! the cross section summed over all I=3/2 resonances (except the Delta)
+  ! * real :: sigmaDelta -- cross section contribution of Delta
+  ! * real :: sigma1_2
+  !   -- cross section summed over all I=1/2 resonances
+  ! * real :: sigma3_2
+  !   -- cross section summed over all I=3/2 resonances (except the Delta)
   !****************************************************************************
-  subroutine Np_NRplus_NNPion (srtS, background, ch, sigmaDelta, sigma1_2, sigma3_2)
+  subroutine Np_NRplus_NNPion(srtS, background, ch, sigmaDelta, sigma1_2, sigma3_2)
 
     use IdTable, only: nucleon, Delta, F37_1950
     use barBar_BarBar, only: NN_NRes
@@ -179,9 +207,8 @@ contains
     use twoBodyTools, only: pCM
 
     real, intent(in) :: srts
-    logical, intent(in) :: background  ! .true.  : do not consider any propagated resonances, therefore the background contribution is returned
-                                       ! .false. : consider all resonances, therefore the full resonance contribution is returned
-    integer ,intent(in) :: ch          ! charge of incoming nucleon
+    logical, intent(in) :: background
+    integer, intent(in) :: ch
     real, intent(out) :: sigmaDelta, sigma1_2, sigma3_2
 
     real :: p_cm
@@ -198,7 +225,8 @@ contains
 
     ! The Delta contribution
     if (.not.(background.and.hadron(Delta)%propagated) .and. (p_cm > 1E-9)) then       ! If Delta is not switched off
-      ! factor 1/3 because dimixsec contains the xsection for p p->n D++. And Clebsch(N p->N D+)/(p p->n D++) = (1/4) / (3/4) = 1/3
+       ! factor 1/3 because dimixsec contains the xsection for p p->n D++.
+       !And Clebsch(N p->N D+)/(p p->n D++) = (1/4) / (3/4) = 1/3
       sigmaDelta = dimiIntegrated(srts) / (3.*p_cm)
     end if
 
@@ -220,21 +248,24 @@ contains
   !****************************************************************************
   !****f* barBar_barBarMes/sstatepi
   ! NAME
-  ! function sstatepi (srts, choice) result(sigma)
+  ! function sstatepi(srts, choice) result(sigma)
   ! PURPOSE
-  ! Function for calculation of N N -> N N pi background (non-resonant), for the following channels:
+  ! Function for calculation of N N -> N N pi background (non-resonant),
+  ! for the following channels:
   ! * 1: p p -> p p pi0
   ! * 2: p n -> n n pi+   =   p n -> p p pi-
   ! * 3: p n -> p n pi0
   ! * 4: p p -> p n pi+
+  !
   ! INPUTS
   ! * real, intent(in) :: srts                --- sqrt(s)
-  ! * integer, intent(in), optional :: choice --- choice of parametrization: 1=Teis,2=Buss,3=Weil;
-  !                                               if not given, the value is taken from the namelist switch 'NNpi_BG'
+  ! * integer, intent(in), optional :: choice --- choice of parametrization:
+  !   1=Teis,2=Buss,3=Weil;
+  !   if not given, the value is taken from the namelist switch 'NNpi_BG'
   ! OUTPUT
   ! * real :: sigma(4)
   !****************************************************************************
-  function sstatepi (srts, choice) result(sigma)
+  function sstatepi(srts, choice) result(sigma)
 
     real, intent(in) :: srts
     integer, intent(in), optional :: choice
@@ -315,26 +346,32 @@ contains
   !****************************************************************************
   !****f* barBar_barBarMes/sig_NNV
   ! NAME
-  ! real function sig_NNV (srts, charge_in)
+  ! real function sig_NNV(srts, charge_in)
   ! PURPOSE
-  ! Calculates cross sections for
-  !   1) N N -> N N omega
-  !   2) N N -> N N phi
-  !   3) N N -> N N pi omega
-  ! in mb as function of sqrt(s), according to the parametrization (eq. 15) from
-  ! Sibirtsev, Nucl. Phys. A 604 (1996) 455.
+  ! Calculates cross sections for:
+  ! * N N -> N N omega
+  ! * N N -> N N phi
+  ! * N N -> N N pi omega
+  ! in mb as function of sqrt(s), according to the parametrization (eq. 15)
+  ! from Sibirtsev, Nucl. Phys. A 604 (1996) 455.
+  !
   ! INPUTS
   ! * real, intent(in) :: srts           --- sqrt(s) in GeV
-  ! * integer, intent(in) :: charge_in   --- total incoming charge (2=pp, 1=pn, 0=nn)
+  ! * integer, intent(in) :: charge_in
+  !   --- total incoming charge (2=pp, 1=pn, 0=nn)
   ! OUTPUT
-  ! * real :: sig(1:3)                   --- cross section in mb for the three channels
+  ! * real :: sig(1:3)
+  !   --- cross section in mb for the three channels
   ! NOTE
   ! The parameters for channel (1) have been taken from Sibirtsev.
-  ! The first parameter 'a' has been updated slightly by M. Abdel-Bary et al., Phys. Lett. B 647 (2007) 351.
-  ! The parameters for channel (2) are from E.Ya. Paryev, J.Phys.G G36 (2009) 015103.
-  ! The parameters for the third channel have been fitted to results of Pythia 6.4.25 (tuned).
+  ! The first parameter 'a' has been updated slightly by M. Abdel-Bary et al.,
+  ! Phys. Lett. B 647 (2007) 351.
+  ! The parameters for channel (2) are from E.Ya. Paryev,
+  ! J.Phys.G G36 (2009) 015103.
+  ! The parameters for the third channel have been fitted to results of
+  ! Pythia 6.4.25 (tuned).
   !****************************************************************************
-  function sig_NNV (srts, charge_in) result (sig)
+  function sig_NNV(srts, charge_in) result (sig)
 
     use particleProperties, only: hadron
     use idTable, only: omegaMeson, phi
@@ -376,20 +413,20 @@ contains
   !****************************************************************************
   !****f* barBar_barBarMes/chooseCharge_NNpiomega
   ! NAME
-  ! subroutine chooseCharge_NNpiomega (chIn, chOut)
+  ! subroutine chooseCharge_NNpiomega(chIn, chOut)
   ! PURPOSE
   ! Choose final state charges for N N -> N N pi omega,
   ! using Clebsch-Gordan factors which assume the pion is produced via a Delta.
   ! INPUTS
-  ! * integer, dimension(1:2), intent(in) :: chIn   --- initial state charges (N,N)
+  ! * integer, dimension(1:2) :: chIn   --- initial state charges (N,N)
   ! OUTPUT
-  ! * integer, dimension(1:3) :: chOut              --- final state charges (N,N,pi)
+  ! * integer, dimension(1:3) :: chOut  --- final state charges (N,N,pi)
   !****************************************************************************
-  function chooseCharge_NNpiomega (chIn) result (chOut)
+  function chooseCharge_NNpiomega(chIn) result (chOut)
     use random, only: rn
 
-    integer, dimension(1:2), intent(in) :: chIn    ! initial state charges (N,N)
-    integer, dimension(1:3) :: chOut  ! final state charges (N,N,pi)
+    integer, dimension(1:2), intent(in) :: chIn
+    integer, dimension(1:3) :: chOut
 
     real :: x
 

@@ -76,8 +76,8 @@ program test
     partIn(2)%Id=nucleon
     partIn(2)%charge=chargeNuk
     partIn(2)%mass=0.938
-    partIn(2)%momentum=(/partIn(2)%mass,0.,0.,0./)
-    partIn(2)%velocity=(/0.,0.,0./)
+    partIn(2)%mom=(/partIn(2)%mass,0.,0.,0./)
+    partIn(2)%vel=(/0.,0.,0./)
 
     open(301,file='PhiNucleonXsections.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
@@ -102,8 +102,8 @@ program test
              plab = sqrt(plab)/(2*hadron(nucleon)%mass)
 
              partIn(1)%mass=mass
-             partIn(1)%momentum=(/sqrt(mass**2+plab**2),plab,0.,0./)
-             partIn(1)%velocity=(/partIn(1)%momentum(1)/partIn(1)%momentum(0),0.,0./)
+             partIn(1)%mom=(/sqrt(mass**2+plab**2),plab,0.,0./)
+             partIn(1)%vel=(/partIn(1)%mom(1)/partIn(1)%mom(0),0.,0./)
 
 
              momLRF=(/SQRT(mass**2+plab**2)+hadron(nucleon)%mass ,plab,0.,0./)
@@ -134,8 +134,8 @@ program test
     do i=1,numTries
        plab=0.2
        srts=SQRT((SQRT(hadron(phi)%mass**2+plab**2)+hadron(nucleon)%mass)**2-plab**2)
-       partIn(1)%momentum=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
-       partIn(1)%velocity=(/partIn(1)%momentum(1)/partIn(1)%momentum(0),0.,0./)
+       partIn(1)%mom=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
+       partIn(1)%vel=(/partIn(1)%mom(1)/partIn(1)%mom(0),0.,0./)
 
        momLRF=(/SQRT(hadron(phi)%mass**2+plab**2)+hadron(nucleon)%mass ,plab,0.,0./)
        call phiNuc(srts,partIn,mediumAtColl,partOut,sigmaTot,sigmaElast,.true.,2.3,.false.)
@@ -164,18 +164,18 @@ program test
 
     partIn(2)%Id=nucleon
     partIn(2)%charge=-chargeNuk
-    partIn(2)%antiparticle=.true.
+    partIn(2)%anti=.true.
     partIn(2)%mass=0.938
-    partIn(2)%momentum=(/partIn(2)%mass,0.,0.,0./)
-    partIn(2)%velocity=(/0.,0.,0./)
+    partIn(2)%mom=(/partIn(2)%mass,0.,0.,0./)
+    partIn(2)%vel=(/0.,0.,0./)
 
     open(301,file='PhiNucleonXsections_anti.dat',status='unknown')
     write(301,*) '# nukCharge=',chargeNuk,'    mesonCharge=', chargeMeson
     do i=1,250
        plab=i*0.01
 
-       partIn(1)%momentum=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
-       partIn(1)%velocity=(/partIn(1)%momentum(1)/partIn(1)%momentum(0),0.,0./)
+       partIn(1)%mom=(/sqrt(partIn(1)%mass**2+plab**2),plab,0.,0./)
+       partIn(1)%vel=(/partIn(1)%mom(1)/partIn(1)%mom(0),0.,0./)
 
        srts=SQRT((SQRT(hadron(phi)%mass**2+plab**2)+hadron(nucleon)%mass)**2-plab**2)
        momLRF=(/SQRT(hadron(phi)%mass**2+plab**2)+hadron(nucleon)%mass ,plab,0.,0./)

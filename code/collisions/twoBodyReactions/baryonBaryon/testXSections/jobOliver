@@ -40,7 +40,6 @@ $master_2Body
   usePythia = 1                         ! 0=Fritiof, 1=Pythia
   HiEnergyThresholdBarBar      = 4.0
   HiEnergyThresholdBarBarDelta = 0.0
-  debug = .false.
 $end
 
 &barBar_barBar

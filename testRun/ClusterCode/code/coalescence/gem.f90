@@ -117,7 +117,7 @@ module GEM_Evaporation
          !* returns average binding energy (exp. values), total energy 
          !  and Excitation energy per nucleon
          !---------------------------------------------------------------------
-         CALL ENERGY(FMass,PosFra,ParticleVector,FragmentVector(i)%momentum, & 
+         CALL ENERGY(FMass,PosFra,ParticleVector,FragmentVector(i)%mom, & 
               &      Etot,betax,betay,betaz)
          !---------------------------------------------------------------------
          !get the TOTAL excitation energy of the cluster-->input for GEM 
@@ -191,7 +191,7 @@ module GEM_Evaporation
          k = 1
          Patern1 : if (NewA(i,k)==1) then !single free particle emission, no cluster
             ifrm(npar(i,NewA(i,k))) = 0
-            ParticleVector(npar(i,NewA(i,k)))%Momentum(:) = Mom(i,k,:)*0.001
+            ParticleVector(npar(i,NewA(i,k)))%mom(:) = Mom(i,k,:)*0.001
          else!cluster emission, select bounded particles of patern2
             nfnew = nfnew + 1
             newFragments = newFragments + 1
@@ -199,7 +199,7 @@ module GEM_Evaporation
             do m=1,NewA(i,k)
                npar_new(nfnew,m)       = npar(i,m)
             end do
-            FragmentVector(nfnew)%momentum(:) = Mom(i,k,:)*0.001
+            FragmentVector(nfnew)%mom(:) = Mom(i,k,:)*0.001
             FragmentVector(nfnew)%mass        = real(NewA(i,k))*NucMassFm
             FragmentVector(nfnew)%ID          = 1
             FragmentVector(nfnew)%MassNumber  = NewA(i,k)
@@ -209,15 +209,15 @@ module GEM_Evaporation
             xnew(:) = 0.0
             do m=1,NewA(i,k)
                xnew(:) = xnew(:) + & 
-                    & ParticleVector(npar_new(nfnew,m))%position(:) * & 
+                    & ParticleVector(npar_new(nfnew,m))%pos(:) * & 
                     & ParticleVector(npar_new(nfnew,m))%Mass
             end do
-            FragmentVector(nfnew)%position(:) =  xnew(:)/FragmentVector(nfnew)%mass
+            FragmentVector(nfnew)%pos(:) =  xnew(:)/FragmentVector(nfnew)%mass
          endif Patern1
          k = k + 1
          Patern2 : if (NewA(i,k)==1) then !single free particle emission, no cluster
             ifrm(npar(i,(NewA(i,k)+NewA(i,k-1)))) = 0 
-            ParticleVector(npar(i,(NewA(i,k)+NewA(i,k-1))))%Momentum(:) = Mom(i,k,:)*0.001
+            ParticleVector(npar(i,(NewA(i,k)+NewA(i,k-1))))%mom(:) = Mom(i,k,:)*0.001
          else !cluster emission, select bounded particles of patern2
             nfnew = nfnew + 1
             newFragments = newFragments + 1
@@ -225,7 +225,7 @@ module GEM_Evaporation
             do m=1,NewA(i,k)
                npar_new(nfnew,m)       = npar(i,m+NewA(i,k-1))
             end do
-            FragmentVector(nfnew)%momentum(:) = Mom(i,k,:)*0.001
+            FragmentVector(nfnew)%mom(:) = Mom(i,k,:)*0.001
             FragmentVector(nfnew)%mass        = real(NewA(i,k))*NucMassFm
             FragmentVector(nfnew)%ID          = 1
             FragmentVector(nfnew)%MassNumber  = NewA(i,k)
@@ -235,10 +235,10 @@ module GEM_Evaporation
             xnew(:) = 0.0
             do m=1,NewA(i,k)
                xnew(:) = xnew(:) + & 
-                    & ParticleVector(npar_new(nfnew,m))%position(:) * & 
+                    & ParticleVector(npar_new(nfnew,m))%pos(:) * & 
                     & ParticleVector(npar_new(nfnew,m))%Mass
             end do
-            FragmentVector(nfnew)%position(:) =  xnew(:)/FragmentVector(nfnew)%mass
+            FragmentVector(nfnew)%pos(:) =  xnew(:)/FragmentVector(nfnew)%mass
          endif Patern2
       end do NewClusters
       !---------------------------------------------------------------------

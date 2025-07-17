@@ -383,8 +383,9 @@ contains
     logical, intent(in) :: value
     if (initFlag) call readInput
     if (UseMassAssInfo .neqv. value) then
-       write(*,*) 'WARNING: Overriding value read form jobcard. New value:'
-       write(*,*) '  UseMassAssInfo = ',value
+       write(*,'(A)') 'WARNING: Overriding value read from jobcard. New value:'
+       write(*,*) 'UseMassAssInfo = ',value
+       write(*,*)
     end if
     UseMassAssInfo = value
   end subroutine Set_UseMassAssInfo

@@ -4,7 +4,7 @@ program test_param
   use inputGeneral, only: readInputGeneral
   use version, only: PrintVersion
   use particleProperties, only: initParticleProperties
-  use parametrizationsBarMes, only :  piN_to_strangeBaryon_kaon_pion
+  use parametrizationBarMes, only :  piN_to_strangeBaryon_kaon_pion
 
   implicit none
 

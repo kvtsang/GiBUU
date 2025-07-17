@@ -3,8 +3,8 @@ program CLASpi0acceptance
   use inputGeneral
   use particleProperties
   use clebschGordan
-  use histf90
-  use hist2Df90
+  use hist
+  use hist2D
 
   implicit none
 

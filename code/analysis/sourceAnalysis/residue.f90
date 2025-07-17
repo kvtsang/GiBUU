@@ -15,6 +15,8 @@
 !******************************************************************************
 module residue
 
+  use CALLSTACK, only: TRACEBACK
+
   implicit none
 
   private
@@ -34,7 +36,7 @@ module residue
   !****************************************************************************
   !****g* residue/mode
   ! PURPOSE
-  ! select the mode, how the residue energy is determined (field res%momentum(0)):
+  ! select the mode, how the residue energy is determined (field res%mom(0)):
   ! * 1: the sum of hole excitation energies
   ! * 2: the sum of energies of the removed particles (with minus sign)
   !
@@ -45,7 +47,7 @@ module residue
   !****************************************************************************
   !****g* residue/switchOutput
   ! PURPOSE
-  ! select the output
+  ! select the output:
   ! * 1: write out TargetResidue.dat
   ! * 2: write out TargetResidue.Plot.dat
   ! * 3: write out both files
@@ -63,7 +65,7 @@ module residue
   ! Stores properties of nuclear target remnant.
   ! SOURCE
   type remnant
-     real, dimension(0:3) :: momentum=0. ! 4-momentum (GeV)
+     real, dimension(0:3) :: mom=0.      ! 4-momentum (GeV)
      integer              :: A=0         ! mass number
      integer              :: Z=0         ! charge number
      real                 :: weight=0.   ! perweight
@@ -93,6 +95,7 @@ module residue
   public :: ResidueSetWeight
   public :: OutputResidue
   public :: ResidueGetScale
+  public :: ResidueGetVal
 
 contains
   !****************************************************************************
@@ -131,7 +134,7 @@ contains
 
     if (DetermineResidue) then
        select case (eventType)
-       case (HiPion,HiLepton,Neutrino,hadron,ExternalSource,RealPhoton)
+       case (LoPion,RealPhoton,Neutrino,HiPion,HiLepton,ExternalSource,Hadron)
           ! nothing to do
 
        case default
@@ -238,8 +241,7 @@ contains
     use densitymodule, only: FermiMomAt, energyDeterminationRMF
     use energyCalc, only: energyDetermination
     use RMF, only: getRMF_flag, g_rho
-    use baryonPotentialModule, only: getsymmetryPotFlag_baryon
-
+    use baryonPotentialMain, only: getsymmetryPotFlag_baryon
 
     integer, intent(in) :: firstEvent
     type(particle), intent(in) :: teilchen
@@ -251,7 +253,7 @@ contains
 
     if (initFlag) call readInput
 
-    if(.not.DetermineResidue) return
+    if (.not.DetermineResidue) return
 
     iEvent = ResidueCalcIndex(firstEvent)
 
@@ -259,7 +261,7 @@ contains
          write(*,*) ' Wrong firstEvent in the input to ResidueAddPH '
          write(*,*) ' firstEvent : ', firstEvent
          write(*,*) ' iEvent : ', iEvent
-         stop
+         call Traceback()
     end if
 
     res => ArrResidue(iEvent)
@@ -273,23 +275,23 @@ contains
        if (getRMF_flag()) then
 
           if (g_rho/=0.) then
-             pF=FermiMomAt(teilchen%position,teilchen%charge)
+             pF=FermiMomAt(teilchen%pos,teilchen%charge)
           else
-             pF=FermiMomAt(teilchen%position)
+             pF=FermiMomAt(teilchen%pos)
           end if
 
        else
 
           if (getsymmetryPotFlag_baryon()) then
-             pF=FermiMomAt(teilchen%position,teilchen%charge)
+             pF=FermiMomAt(teilchen%pos,teilchen%charge)
           else
-             pF=FermiMomAt(teilchen%position)
+             pF=FermiMomAt(teilchen%pos)
           end if
 
        end if
 
        Teilchen_Fermi=teilchen
-       Teilchen_Fermi%momentum(1:3)=(/pF,0.,0./)
+       Teilchen_Fermi%mom(1:3)=(/pF,0.,0./)
 
        if(getRMF_flag()) then
           call energyDeterminationRMF(Teilchen_Fermi)
@@ -297,15 +299,15 @@ contains
           call energyDetermination(Teilchen_Fermi)
        end if
 
-       res%momentum(0)=res%momentum(0)+Teilchen_Fermi%momentum(0)-teilchen%momentum(0)
+       res%mom(0)=res%mom(0)+Teilchen_Fermi%mom(0)-teilchen%mom(0)
 
-!           res%momentum(0)=res%momentum(0)+sqrt(pf**2+0.938**2)&
-!                &-sqrt(teilchen%momentum(1)**2+teilchen%momentum(2)**2+teilchen%momentum(3)**2+0.938**2)
+!           res%mom(0)=res%mom(0)+sqrt(pf**2+0.938**2)&
+!                &-sqrt(teilchen%mom(1)**2+teilchen%mom(2)**2+teilchen%mom(3)**2+0.938**2)
 
-       res%momentum(1:3)=res%momentum(1:3)-teilchen%momentum(1:3)
+       res%mom(1:3)=res%mom(1:3)-teilchen%mom(1:3)
 
     case (2)
-       res%momentum(0:3)=res%momentum(0:3)-teilchen%momentum(0:3)
+       res%mom(0:3)=res%mom(0:3)-teilchen%mom(0:3)
 
     end select
 
@@ -346,12 +348,44 @@ contains
 
   !****************************************************************************
   !****************************************************************************
+  logical function ResidueGetVal(firstEvent,A,Z,mom,weight)
+    integer, intent(in) :: firstEvent
+    integer, intent(out), optional :: A
+    integer, intent(out), optional :: Z
+    real, dimension(0:3), intent(out), optional :: mom
+    real, intent(out), optional :: weight
+
+    integer :: iEvent
+    type(remnant), pointer :: res
+    logical, parameter :: withIsospin = .true.
+
+    ResidueGetVal = .false.
+
+    if (initFlag) call readInput
+    if (.not.DetermineResidue) return
+
+    if (firstEvent==0) return
+
+    iEvent = ResidueCalcIndex(firstEvent)
+    res => ArrResidue(iEvent)
+
+    if (present(A)) A = res%A
+    if (present(Z)) Z = res%Z
+    if (present(mom)) mom = res%mom
+    if (present(weight)) weight = res%weight
+
+    ResidueGetVal = .true.
+
+  end function ResidueGetVal
+
+  !****************************************************************************
+  !****************************************************************************
   subroutine ResidueSetWeight(firstEvent,weight)
 
     integer, intent(in) :: firstEvent
     real, intent(in) :: weight
 
-    if(.not.DetermineResidue) return
+    if (.not.DetermineResidue) return
 
     ArrResidue(ResidueCalcIndex(firstEvent))%weight = weight
 
@@ -400,7 +434,7 @@ contains
 
     use inputGeneral, only: eventType
     use eventtypes
-    use histf90
+    use hist
 
     integer :: iEvent,iens,inuc
     type(remnant), pointer :: res
@@ -410,7 +444,7 @@ contains
     integer, save :: nCalls = 1
 
     if (initFlag) call readInput
-    if(.not.DetermineResidue) return
+    if (.not.DetermineResidue) return
 
     !==========================================================================
 
@@ -422,10 +456,10 @@ contains
              iEns = (iEvent-1)/numParticles_+1
              iNuc = mod((iEvent-1),numParticles_)+1
              write(171,'(1x,i4,3x,i3,4x,i3,3x,i3,3x,1P,e14.7,3x,3(e14.7,1x),e13.4)') &
-                  iEns,iNuc,res%A,res%Z,res%momentum(0:3),res%weight
+                  iEns,iNuc,res%A,res%Z,res%mom(0:3),res%weight
           else
              write(171,'(1x,i7,4x,i3,3x,i3,3x,1P,e14.7,3x,3(e14.7,1x),e13.4)') &
-                  iEvent,res%A,res%Z,res%momentum(0:3),res%weight
+                  iEvent,res%A,res%Z,res%mom(0:3),res%weight
           end if
        end do
        close(171)
@@ -443,7 +477,7 @@ contains
           res => ArrResidue(iEvent)
 
           call addHist(hNinteract, real(Remnant0%A-res%A), res%weight)
-          call addHist(hMom, sqrt(sum(res%momentum(1:3)**2)), res%weight)
+          call addHist(hMom, sqrt(sum(res%mom(1:3)**2)), res%weight)
        end do
 
        fak = 1.0/(nCalls*numEnsembles_)

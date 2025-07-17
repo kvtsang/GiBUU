@@ -10,7 +10,7 @@
 ! Used by HiPionAnalysis and HiLeptonAnalysis
 !******************************************************************************
 module InvMassesAnalysis
-  use histf90
+  use hist
   use histMC
   implicit none
 
@@ -177,16 +177,16 @@ contains
 !    type(particle) :: Part
 
     nPion = 0
-    nnPion = L%numberparticles(1,-1)+L%numberparticles(1,0)+L%numberparticles(1,1)
+    nnPion = L%nParts(1,-1)+L%nParts(1,0)+L%nParts(1,1)
 
-    pNode1 => L%particleList%first
+    pNode1 => L%Parts%first
 
     do
        if (.not. associated(pNode1)) exit
 
        Weight = pNode1%V%perWeight ! should always be the same ;)
 
-       iH1 = PartClass(pNode1%V%ID,pNode1%V%charge,pNode1%V%antiparticle)
+       iH1 = PartClass(pNode1%V%ID,pNode1%V%charge,pNode1%V%anti)
        if (iH1>0) then
 
           if (iH1 .le. 3) nPion=nPion+1
@@ -199,7 +199,7 @@ contains
           do
              if (.not. associated(pNode2)) exit
 
-             iH2 = PartClass(pNode2%V%ID,pNode2%V%charge,pNode2%V%antiparticle)
+             iH2 = PartClass(pNode2%V%ID,pNode2%V%charge,pNode2%V%anti)
              if (iH2>0) then
 
 !                AccW2 = 1.0

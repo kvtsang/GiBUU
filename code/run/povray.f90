@@ -217,27 +217,27 @@ contains
 
       select case (iPart%ID)
       case (nucleon)
-        if (iPart%antiparticle) then
-          write(77,T) 'antiNucleon', iPart%position(1:3)
+        if (iPart%anti) then
+          write(77,T) 'antiNucleon', iPart%pos(1:3)
         else if (iPart%charge==1) then
-          write(77,T) 'proton', iPart%position(1:3)
+          write(77,T) 'proton', iPart%pos(1:3)
         else if (iPart%charge==0) then
-          write(77,T) 'neutron', iPart%position(1:3)
+          write(77,T) 'neutron', iPart%pos(1:3)
         end if
       case (pion)
-        write(77,T) 'pion', iPart%position(1:3)
+        write(77,T) 'pion', iPart%pos(1:3)
       case (delta:pion-1)
         ! Baryons
         if (isCharmed(iPart%ID) .or. isStrange(iPart%ID)) then
-          write(77,T) 'ExoBar', iPart%position(1:3)
+          write(77,T) 'ExoBar', iPart%pos(1:3)
         else
-          write(77,T) 'Bar', iPart%position(1:3)
+          write(77,T) 'Bar', iPart%pos(1:3)
         end if
       case default
         if (isCharmed(iPart%ID) .or. isStrange(iPart%ID)) then
-          write(77,T) 'ExoMes', iPart%position(1:3)
+          write(77,T) 'ExoMes', iPart%pos(1:3)
         else
-          write(77,T) 'Mes', iPart%position(1:3)
+          write(77,T) 'Mes', iPart%pos(1:3)
         end if
       end select
 
@@ -260,9 +260,9 @@ contains
       character(*), parameter :: T1 = '(1P,3e12.3,0P,i5,i3,f7.3)'
 
       iType = iPart%ID
-      if (iPart%antiparticle) iType = -iPart%ID
+      if (iPart%anti) iType = -iPart%ID
 
-      write(77,T1) iPart%position(1:3), iType, iPart%charge, iPart%scaleCS
+      write(77,T1) iPart%pos(1:3), iType, iPart%charge, iPart%scaleCS
 
     end subroutine sphereDat
 

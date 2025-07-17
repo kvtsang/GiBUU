@@ -1,13 +1,13 @@
 !******************************************************************************
-!****m* /photonXSections
+!****m* /photonXS
 ! NAME
-! module photonXSections
+! module photonXS
 !
 ! PURPOSE
 ! This module collects some routines for cross-section parametrizations
 ! for the photon-induced reactions (gamma+N).
 !******************************************************************************
-module photonXSections
+module photonXS
 
   use mediumDefinition
 
@@ -23,7 +23,7 @@ module photonXSections
 
 
   !****************************************************************************
-  !****g* photonXSections/iParam
+  !****g* photonXS/iParam
   ! SOURCE
   !
   integer, save :: iParam = 2
@@ -36,7 +36,7 @@ module photonXSections
 
 
   !****************************************************************************
-  !****g* photonXSections/omega_saphir
+  !****g* photonXS/omega_saphir
   ! SOURCE
   !
   logical, save :: omega_saphir = .true.
@@ -55,7 +55,7 @@ module photonXSections
 contains
 
   !****************************************************************************
-  !****s* photonXSections/setIParam
+  !****s* photonXS/setIParam
   ! NAME
   ! subroutine setIParam(i,os)
   ! PURPOSE
@@ -73,7 +73,7 @@ contains
 
 
   !****************************************************************************
-  !****s* photonXSections/readInput
+  !****s* photonXS/readInput
   ! NAME
   ! subroutine readInput
   ! PURPOSE
@@ -85,7 +85,7 @@ contains
     integer :: ios
 
     !**************************************************************************
-    !****n* photonXSections/photonXS
+    !****n* photonXS/photonXS
     ! NAME
     ! NAMELIST photonXS
     ! PURPOSE
@@ -111,7 +111,7 @@ contains
 
 
   !****************************************************************************
-  !****s* photonXSections/gammaN2VN_matrix
+  !****s* photonXS/gammaN2VN_matrix
   ! NAME
   ! subroutine gammaN2VN_matrix(srts,i,spot,matrix)
   ! PURPOSE
@@ -288,7 +288,7 @@ contains
 
 
   !****************************************************************************
-  !****s* photonXSections/calcXS_gammaN2VN
+  !****s* photonXS/calcXS_gammaN2VN
   ! NAME
   ! subroutine calcXS_gammaN2VN(srts,media,sig,sigi)
   ! PURPOSE
@@ -311,7 +311,7 @@ contains
     use twoBodyPhaseSpace, only: Integrate_2bodyPS_resonance
     use threeBodyPhaseSpace, only: Integrate_3bodyPS_resonance
     use mediumDefinition
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
     use constants, only: mN, mPi
 
     type(medium),intent(in)  :: media
@@ -381,7 +381,7 @@ contains
 
 
   !****************************************************************************
-  !****s* photonXSections/calcXS_gammaN2VDelta
+  !****s* photonXS/calcXS_gammaN2VDelta
   ! NAME
   ! subroutine calcXS_gammaN2VDelta(srts,sigi,media)
   !
@@ -410,7 +410,7 @@ contains
     use idTable, only: delta, rho, omegaMeson,JPSI,phi
     use constants, only: pi, GeVSquared_times_mb, mN, mPi
     use mediumDefinition
-    use mesonPotentialModule, only: vecMes_massShift
+    use mesonPotentialMain, only: vecMes_massShift
 
     real, intent(in) :: srts
     real, intent(out),dimension(1:4) :: sigi
@@ -1150,7 +1150,7 @@ contains
 
 
   !****************************************************************************
-  !****s* photonXSections/calcXS_gammaN2strange
+  !****s* photonXS/calcXS_gammaN2strange
   ! NAME
   ! subroutine calcXS_gammaN2strange(srts,sigma)
   ! PURPOSE
@@ -1236,7 +1236,7 @@ contains
 
 
   !****************************************************************************
-  !****s* photonXSections/calcXS_omega_saphir
+  !****s* photonXS/calcXS_omega_saphir
   ! NAME
   ! subroutine calcXS_omega_saphir(srts,cs)
   ! PURPOSE
@@ -1329,4 +1329,4 @@ contains
   end function
 
 
-end module photonXSections
+end module photonXS

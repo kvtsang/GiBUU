@@ -21,7 +21,7 @@
 ! ...(This module needs no input)
 !******************************************************************************
 module hist_multipleRuns
-  use histf90, only: histogram
+  use hist, only: histogram
 
 
   integer, parameter:: NameLength = 40
@@ -66,7 +66,7 @@ contains
   ! H is changed
   !****************************************************************************
   subroutine CreateHist_mr(H, HName,x1,x2,bin)
-    use histf90, only: createHist
+    use hist, only: createHist
     implicit none
     type(histogram_mr),intent(inout) :: H
     character*(*),intent(in) :: HName
@@ -94,7 +94,7 @@ contains
   ! H is changed
   !****************************************************************************
   subroutine RemoveHist_mr(H)
-    use histf90, only: removeHist
+    use hist, only: removeHist
     implicit none
     type(histogram_mr),intent(inout) :: H
 
@@ -120,7 +120,7 @@ contains
   ! H is changed
   !****************************************************************************
   subroutine AddHist_mr(H, x,y,y2)
-    use histf90, only: addhist
+    use hist, only: addhist
     implicit none
     type(histogram_mr),intent(inout) :: H
     real,intent(in)          :: x
@@ -149,7 +149,7 @@ contains
   ! H is changed
   !****************************************************************************
   subroutine startRunHist_mr(H)
-    use histf90, only: clearHist
+    use hist, only: clearHist
     implicit none
     type(histogram_mr),intent(inout) :: H
 

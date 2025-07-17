@@ -25,7 +25,7 @@ contains
 
 
   subroutine test_rnCos
-    use histf90
+    use hist
     use random, only: rnCos
     type(histogram) :: h,cosh
     integer :: i
@@ -47,7 +47,7 @@ contains
 
   subroutine test_rnPower (p)
     use random, only: rnPower
-    use histf90
+    use hist
     
     real, intent(in) :: p
     

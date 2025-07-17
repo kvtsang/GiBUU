@@ -1,3 +1,17 @@
+&ModifyParticles
+!     mass(21)=
+     width(21)=0.05
+/
+
+&baryonWidth
+  readTable=F
+/
+
+
+&spectralFunction
+  relativistic=T
+/
+
 $barbar_barbar
 !use_ND_ND_model=.false.
 !new_NR_NR=.true.
@@ -13,10 +27,6 @@ $baryonWidthMedium_tables
 !onlyNucleon=.true.
 !DeltaOset=.true.
 maxres=2
-$end
-
-$spectralFunction
-debugflag=.false.
 $end
 
 $baryonWidthVacuum
@@ -60,7 +70,7 @@ SEED=45678         !Seed for the random number
 $end
 
 $initDensity
-densitySwitch=2           !0=no density,1=dynamic density according to testparticle density, 2=analytic density prescription
+densitySwitch=0           !0=no density,1=dynamic density according to testparticle density, 2=analytic density prescription
 $end
 
 $initPauli
@@ -99,8 +109,8 @@ $end
 !***************************************************************
 
 $width_Baryon
-mediumSwitch=.true.       ! Switch on/off in-medium width of all baryons at once -> The vacuum width are used.
-mediumSwitch_coll=.true. ! Switch on/off in-medium width of the delta. .false.=vacuum width
+mediumSwitch=.false.       ! Switch on/off in-medium width of all baryons at once -> The vacuum width are used.
+mediumSwitch_coll=.false. ! Switch on/off in-medium width of the delta. .false.=vacuum width
 mediumSwitch_delta=.false.
 $end
 

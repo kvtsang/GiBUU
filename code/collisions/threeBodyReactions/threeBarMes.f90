@@ -138,7 +138,7 @@ contains
          srts = sqrtS(Part1,Part2,Part3)
          if (srts < srts0) cycle tripleLoop
 
-         momCalc = Part1%momentum+Part2%momentum+Part3%momentum
+         momCalc = Part1%mom+Part2%mom+Part3%mom
          betaToCM = lorentzCalcBeta(momCalc)
 
          ! we assume: LRF = calc frame
@@ -147,7 +147,7 @@ contains
 
          preFak = delta_T/(numEnsembles*VolumeElements_boxSize())**2 &
               * 0.1*hbarc**3 * 6.0 * scaleFak &
-              / ( 2 * Part1%momentum(0)*Part2%momentum(0)*Part3%momentum(0) &
+              / ( 2 * Part1%mom(0)*Part2%mom(0)*Part3%mom(0) &
               * 2.0 * calcPhi3(srts, mPi) * 4*pi)
 
          do iq1 = 0,1
@@ -157,10 +157,10 @@ contains
 
             partOut(1)%ID = nucleon
             partOut(1)%charge = q1
-            partOut(1)%antiparticle = (iAnti==1)
+            partOut(1)%anti = (iAnti==1)
 
             partOut(2)%charge = q2
-            partOut(2)%antiparticle = .false.
+            partOut(2)%anti = .false.
 
             select case (q2)
             case (0) !===== pi0, omega, phi =====
@@ -345,8 +345,8 @@ contains
 
       !===== Set new particles =====
 
-      partOut(1)%position = (part1%position+part2%position+part3%position)/3
-      partOut(2)%position = partOut(1)%position
+      partOut(1)%pos = (part1%pos+part2%pos+part3%pos)/3
+      partOut(2)%pos = partOut(1)%pos
 
       partOut(1:2)%number = 0 ! first reset it, then set it again
       call setNumber(partOut)
@@ -354,18 +354,18 @@ contains
       call setHistory(part1,part2,part3, partOut)
 
       ! no formation time effects:
-      partOut%lastCollisionTime = time
-      partOut%productionTime    = time
-      partOut%formationTime     = time
+      partOut%lastCollTime = time
+      partOut%prodTime    = time
+      partOut%formTime     = time
       !    partOut%scaleCS=1.
-      !    partOut%in_Formation=.false.
+      !    partOut%inF=.false.
 
       ! particles are not perturbative:
-      !    partOut%perturbative = .false.
+      !    partOut%pert = .false.
       !    partOut%perWeight = 1.0
 
       ! particles are 'on-shell':
-      !    partOut%offshellParameter = 0.
+      !    partOut%offshellPar = 0.
 
       ! now the tricky part starts:
       number=real_numbering()
@@ -374,8 +374,8 @@ contains
 
       partOut%firstEvent = real_firstnumbering()
 
-      call lorentz(-betaToCM,partOut(1)%momentum)
-      call lorentz(-betaToCM,partOut(2)%momentum)
+      call lorentz(-betaToCM,partOut(1)%mom)
+      call lorentz(-betaToCM,partOut(2)%mom)
 
       !===== Set some global counters =====
 

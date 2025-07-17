@@ -114,7 +114,7 @@ contains
        ctheta = 2*rn()-1
     else
 
-       if ( inPart(1)%antiParticle.eqv.inPart(2)%antiParticle ) then
+       if ( inPart(1)%anti.eqv.inPart(2)%anti ) then
           write(*,*) ' DoColl_Elast: charge exchange is done only for baryon-antibaryon presently !'
           stop
        end if
@@ -125,7 +125,7 @@ contains
           h1 = tSlope_CEX_pbarp(sqrts)
        else
           write(*,*) ' DoColl_Elast: no charge exchange implemented for this channel'
-          write(*,*) inPart%ID, inPart%charge, inPart%antiParticle
+          write(*,*) inPart%ID, inPart%charge, inPart%anti
           stop
        end if
 
@@ -170,21 +170,21 @@ contains
 
     ! set outgoing particles:
 
-    flag = outPart(1)%perturbative ! remember this flag
+    flag = outPart(1)%pert ! remember this flag
 
     outPart%ID = 0 ! reset all particles
 
     outPart(1:2) = inPart(1:2) ! set all variables to the ingoing values
     outPart(1:2)%number = 0
-    outPart(1:2)%perturbative = flag
+    outPart(1:2)%pert = flag
 
     do i=1,2                   ! set momenta according scattering
        do j=1,3
-          outPart(i)%momentum(j) = real(MP_P(i,j))
+          outPart(i)%mom(j) = real(MP_P(i,j))
        end do
 
-       outPart(i)%momentum(0) = outPart(i)%mass
-       outPart(i)%momentum(0) = sqrt(DOT_PRODUCT(outPart(i)%momentum,outPart(i)%momentum))
+       outPart(i)%mom(0) = outPart(i)%mass
+       outPart(i)%mom(0) = sqrt(DOT_PRODUCT(outPart(i)%mom,outPart(i)%mom))
     end do
 
     if ( inPart(1)%Id.eq.nucleon ) then
@@ -192,7 +192,7 @@ contains
     else
        iNucleon=2
     end if
-    if ( inPart(iNucleon)%antiParticle ) then
+    if ( inPart(iNucleon)%anti ) then
        outPart(iNucleon)%charge= -1 - inPart(iNucleon)%charge
     else
        outPart(iNucleon)%charge= 1 - inPart(iNucleon)%charge

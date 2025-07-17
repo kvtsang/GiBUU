@@ -81,8 +81,8 @@ contains
              ! --- Set cross section scaling factor ---
 
              stringFactor=1.
-             If(pair(1)%in_Formation) stringFactor=stringFactor*pair(1)%scaleCS
-             If(pair(2)%in_Formation) stringFactor=stringFactor*pair(2)%scaleCS
+             If(pair(1)%inF) stringFactor=stringFactor*pair(1)%scaleCS
+             If(pair(2)%inF) stringFactor=stringFactor*pair(2)%scaleCS
 
              ! --- Check for collision [continue] ---
 
@@ -210,14 +210,14 @@ contains
                 endif
 
                 stringFactor=1.
-                If(pair(1)%in_Formation) stringFactor=stringFactor*pair(1)%scaleCS
-                If(pair(2)%in_Formation) stringFactor=stringFactor*pair(2)%scaleCS
+                If(pair(1)%inF) stringFactor=stringFactor*pair(1)%scaleCS
+                If(pair(2)%inF) stringFactor=stringFactor*pair(2)%scaleCS
 
                 If(.not.check_veryRough(pair,stringFactor,nEns,scenario))   cycle
                 if(.not.kodama_time(pair,delta_T))                          cycle
                 If(.not.checkKodama_rough(pair,stringFactor,nEns,scenario)) cycle
 
-                RelMom(1:3) = pair(1)%momentum(1:3)-pair(2)%momentum(1:3)
+                RelMom(1:3) = pair(1)%mom(1:3)-pair(2)%mom(1:3)
                 AbsRelMom = sqrt(DOT_PRODUCT(RelMom,RelMom))
 
                 if (AbsRelMom > AbsRelMom_Min) then
@@ -241,7 +241,7 @@ contains
              if (iP == Cluster(1)) cycle
              if (iP == Cluster(2)) cycle
 
-             RelPos = realparticles(iEns,group(iGr,iP))%position - realparticles(iEns,group(iGr,Cluster(1)))%position
+             RelPos = realparticles(iEns,group(iGr,iP))%pos - realparticles(iEns,group(iGr,Cluster(1)))%pos
              if (DOT_PRODUCT(RelPos,RelPos).lt.lambda_Min**2) then
                 !                  write(*,*) 'insert Cluster; 1'
                 sizeCluster = sizeCluster+1
@@ -249,7 +249,7 @@ contains
                 cycle
              end if
 
-             RelPos = realparticles(iEns,group(iGr,iP))%position - realparticles(iEns,group(iGr,Cluster(2)))%position
+             RelPos = realparticles(iEns,group(iGr,iP))%pos - realparticles(iEns,group(iGr,Cluster(2)))%pos
              if (DOT_PRODUCT(RelPos,RelPos).lt.lambda_Min**2) then
                 !                  write(*,*) 'insert Cluster; 2'
                 sizeCluster = sizeCluster+1

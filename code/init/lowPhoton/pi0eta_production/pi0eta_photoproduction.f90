@@ -71,7 +71,7 @@ contains
     ! set up initial state
     iState=(/gamma,nuc/)
     ! set up final state
-    fState%perturbative=perturbative
+    fState%pert=perturbative
 
     fState(1)%id=nucleon
     fState(2)%id=eta
@@ -80,25 +80,25 @@ contains
     fState(1)  %charge=nuc%charge
     fState(2:3)%charge=0
 
-    fState(1)%position=nuc%position
-    fState(2)%position=nuc%position
-    fState(3)%position=nuc%position
+    fState(1)%pos=nuc%pos
+    fState(2)%pos=nuc%pos
+    fState(3)%pos=nuc%pos
 
     fState(1)%mass=mN
 
 
     fState%perweight=sigTot
     ! Evaluate boost to LRF
-    density=densityAt(nuc%position)
+    density=densityAt(nuc%pos)
     if (density%baryon(0).gt.getMediumCutOff()/100. .and. .not.getRMF_flag() ) then
-       betaLRF = lorentzCalcBeta (density%baryon, 'vecmesProduction')
+       betaLRF = lorentzCalcBeta(density%baryon)
     else
        betaLRF=0.
     end if
     ! assign the masses and kinematics
     call setKinematics(srts,srtFree,betaLRF,-betaCM,mediumAtPosition,iState,fState,flag)
-    fState(2)%in_Formation=.true.
-    fState(2)%formationTime=-999 ! use old formation time concept by default
+    fState(2)%inF=.true.
+    fState(2)%formTime=-999 ! use old formation time concept by default
   end subroutine event_gamma_p_to_p_pi0_eta
 
 

@@ -1,7 +1,7 @@
 program main
   
   use random
-  use histf90
+  use hist
   implicit none
 
   integer :: iMC,nMC=1000000, ix0, nx0=50

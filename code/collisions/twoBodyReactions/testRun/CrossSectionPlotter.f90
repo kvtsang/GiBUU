@@ -33,6 +33,7 @@ program CrossSectionPlotter
   real :: momLRF(0:3),betaToCF(1:3),rHiEnergy,srts,srtS_XS,srtS_vacuum,srtS_corr,mstar(2)
   real :: sigma_lo(0:7),sigma_hi(0:7)
   integer :: i,q1,q2,id1,id2
+  real :: mass1,mass2
   logical :: HiFlag,anti1,anti2
   type(medium) :: tMedium
   real :: srts_max = 100.
@@ -50,23 +51,21 @@ program CrossSectionPlotter
 
   pair%Id = (/id1,id2/)
   pair%charge = (/q1,q2/)
-  pair%antiparticle = (/anti1,anti2/)
-  pair%perturbative = .false.
+  pair%anti = (/anti1,anti2/)
+  pair%mass = (/mass1,mass2/)
+  pair%pert = .false.
   pair(1)%event = 1
   pair(2)%event = 2
 
-  pair(1)%mass = hadron(id1)%mass
-  pair(2)%mass = hadron(id2)%mass
+  pair(1)%pos = (/0.,0.,-1./)
+  pair(2)%pos = (/0.,0.,0./)
 
-  pair(1)%position = (/0.,0.,-1./)
-  pair(2)%position = (/0.,0.,0./)
+  pair(1)%mom(1:3)=(/0.,0.,0.01/)
 
-  pair(1)%momentum(1:3)=(/0.,0.,0.01/)
+  call energyDetermination(pair(1), betaToCF)
+  call energyDetermination(pair(2), betaToCF)
 
-  call energyDetermination (pair(1), betaToCF)
-  call energyDetermination (pair(2), betaToCF)
-
-  pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
+  pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
 
   if (.not. validCharge(pair(1))) then
     write(*,'(A,I3,A,I3)') "Error: particle 1 with ID ", id1, " has invalid charge", q1
@@ -80,7 +79,7 @@ program CrossSectionPlotter
   dataFileTotal = trim(path_to_input) // "/PDG_data/rpp2012-" // trim(name(1)) // trim(name(2)) // "_total.dat"
   dataFileElast = trim(path_to_input) // "/PDG_data/rpp2012-" // trim(name(1)) // trim(name(2)) // "_elastic.dat"
 
-  tMedium = mediumAt(pair(2)%position)
+  tMedium = mediumAt(pair(2)%pos)
 
   write(*,*) '***********************'
   write(*,*) dataFileTotal
@@ -92,17 +91,17 @@ program CrossSectionPlotter
   call system_command ("ln -sf "//trim(dataFileElast)//" dataElast.dat")
 
   open(23,file='XS.dat')
-  write(23,'("#  >> ",A," + ",A," <<")') trim(name(2)),trim(name(1))
+  write(23,'("#  >> ",A," + ",A," <<")') trim(name(1)),trim(name(2))
   write(23,'("# 1: pLab, 2: sqrt(s), 3: sigma_tot, 4: sigma_el, 5,6: (lo energy), 7,8: (hi energy), 9: rHi, 10: Ekin_lab")')
   write(23,'("#")')
 
   do i=1,200000
-!     pair(1)%momentum(3)= pair(1)%momentum(3) * 10.**(1./50.)
-!     pair(1)%momentum(3)= pair(1)%momentum(3) * 10.**(1./100.)
-     pair(1)%momentum(3)= pair(1)%momentum(3) * 10.**(1./500.)
+!     pair(1)%mom(3)= pair(1)%mom(3) * 10.**(1./50.)
+!     pair(1)%mom(3)= pair(1)%mom(3) * 10.**(1./100.)
+     pair(1)%mom(3)= pair(1)%mom(3) * 10.**(1./500.)
 
      call energyDetermination(pair(1),betaToCF)
-     pair(1)%velocity=pair(1)%momentum(1:3)/pair(1)%momentum(0)
+     pair(1)%vel=pair(1)%mom(1:3)/pair(1)%mom(0)
 
      srtS = sqrtS(pair,"generateFinalState, srtS")
      srtS_vacuum=sqrtS_free(pair)
@@ -120,8 +119,8 @@ program CrossSectionPlotter
 
      write(*,*) 'plab = ', absmom(pair(1)), ', srts = ', srts, srts_XS
 
-     momLRF = pair(1)%momentum+pair(2)%momentum
-     rHiEnergy = HiEnergyContrib(srts,pair%ID,pair%Antiparticle)
+     momLRF = pair(1)%mom+pair(2)%mom
+     rHiEnergy = HiEnergyContrib(srts,pair%ID,pair%anti)
      sigma_lo = 0.
      sigma_hi = 0.
 
@@ -151,7 +150,10 @@ contains
 
     use output, only: Write_ReadingInput
 
-    NAMELIST /Plotter/ id1,id2,q1,q2,anti1,anti2,srts_max
+    NAMELIST /Plotter/ id1,id2,q1,q2,anti1,anti2,mass1,mass2,srts_max
+
+    mass1 = -99.9
+    mass2 = -99.9
 
     call Write_ReadingInput('Plotter',0)
     rewind(5)
@@ -162,13 +164,20 @@ contains
     write(*,*) '  Charge of second particle : ', q2
     write(*,*) '  antiparticle 1            : ', anti1
     write(*,*) '  antiparticle 2            : ', anti2
+
+    if (mass1 < 0) mass1 = hadron(id1)%mass
+    if (mass2 < 0) mass2 = hadron(id2)%mass
+
+    write(*,*) '  Mass of first particle    : ', mass1
+    write(*,*) '  Mass of second particle   : ', mass2
+
     write(*,*) '  srt(s)_max                : ', srts_max
 
     name(1) = PartName(id1,q1,anti1)
     name(2) = PartName(id2,q2,anti2)
 
     write(*,*)
-    write(*,*) '  >> ',trim(name(2)),' --> ',trim(name(1)),' <<'
+    write(*,*) '  >> ',trim(name(1)),' --> ',trim(name(2)),' <<'
     write(*,*)
 
     call Write_ReadingInput('Plotter',1)

@@ -7,6 +7,8 @@
 !******************************************************************************
 module collisionTerm
 
+  use CallStack, only: Traceback
+
   implicit none
   private
 
@@ -146,6 +148,12 @@ module collisionTerm
   integer,save :: maxOut=100
   ! PURPOSE
   ! Maximal number of produced particles in one process.
+  ! Must not be smaller than 4.
+  !
+  ! NOTES
+  ! * When using annihilation, must not be smaller than 6
+  ! * If using FRITIOF or PYTHIA, should probably larger than 6
+  ! * Code stops with an error message, if value chosen too small
   !****************************************************************************
 
   !****************************************************************************
@@ -256,7 +264,7 @@ module collisionTerm
   ! vector. Due to implementation issues, these outgoing particles may interact
   ! during the same timestep.
   !
-  ! Setting this flag to true, the parameter '%lastCollisionTime' is checked
+  ! Setting this flag to true, the parameter '%lastCollTime' is checked
   ! against the actual time variable and collisions of these particles are
   ! excluded.
   !****************************************************************************
@@ -368,6 +376,9 @@ contains
     write(*,*)
 
     write(*,*) 'Maximal number of final state particles :', maxOut
+    if (maxOut<4) &
+         call Traceback("maxout must not be smaller than 4!")
+
     write(*,*) 'protocol collisions?', collisionProtocol
     write(*,*) 'print positions    ?', printPositions
     write(*,*) 'Statistical output ?' ,useStatistics
@@ -500,7 +511,6 @@ contains
     use inputGeneral, only: localEnsemble
     use CollHistory, only: CollHist_SetSize
     use AntibaryonWidth, only: DoAnnihilation
-    use CallStack, only: Traceback
     use ThreeMeson, only: doThreeMeson
     use ThreeBarMes, only: doThreeBarMes
 
@@ -598,7 +608,6 @@ contains
     use pauliBlockingModule, only: checkPauli
     use twoBodyStatistics, only: rate
     use insertion, only: particlePropagated, setIntoVector
-    use CallStack, only: Traceback
     use collisionTools, only: finalCheck
 
     type(particle), intent(inout), dimension(:,:) :: partPert, partReal
@@ -608,7 +617,7 @@ contains
     integer :: index,ensemble
     type(particle),target         :: resonance   ! particle which shall decay
     type(particle),dimension(1:3) :: finalState  ! final state of particles
-    logical :: Flag, setFlag, pauliFlag
+    logical :: Flag, setFlag
 
     oneBody = .false.
 
@@ -639,13 +648,11 @@ contains
             deuterium_pertOrigin=>resonance
             deuterium_pertOrigin_flag=11
 
-            call decayParticle(resonance,finalState,flag,pauliFlag,ForceFlag, &
+            call decayParticle(resonance,finalState,flag,ForceFlag, &
                               & time)
-            if ((.not.PauliFlag) .and. (.not.ForceFlag)) then
-               ! Note : a) PauliFlag is set if the Pauli Blocking was already
-               !           considered in the decay width
-               !        b) If particles are forced to decay then we forget
-               !           about Pauli blocking
+            if (.not.ForceFlag) then
+               ! Note : If particles are forced to decay then we forget
+               !        about Pauli blocking
                if (.not. flag) cycle index_loop
                flag = checkPauli(finalState,partReal)
             end if
@@ -733,12 +740,10 @@ contains
             deuterium_pertOrigin=>resonance
             deuterium_pertOrigin_flag=1
 
-            call decayParticle(resonance,finalState,flag,pauliFlag,ForceFlag,time)
-            if ((.not.PauliFlag).and.(.not.ForceFlag)) then
-               ! Note : a) PauliFlag is set if the Pauli Blocking was already &
-               !            & considered in the decay width
-               !        b) If particles are forced to decay then we forget    &
-               !            & about Pauli blocking
+            call decayParticle(resonance,finalState,flag,ForceFlag,time)
+            if (.not.ForceFlag) then
+               ! Note : If particles are forced to decay then we forget
+               !        about Pauli blocking
                if (.not.flag) cycle index_loop
                flag = checkPauli(finalState,partReal)
             end if
@@ -760,12 +765,12 @@ contains
                ! Statistical output
                if (printPositions .and. (finalState(k)%id==pion .or. &
                    & finalState(k)%id==nucleon)) &
-                    call positionPrinter (finalstate(k))
+                    call positionPrinter(finalstate(k))
                if (useStatistics) then
                   call saveInfo(finalState(k)%number,ensemble,  &
-                               & finalstate(k)%position, resonance%ID,0,0)
+                               & finalstate(k)%pos, resonance%ID,0,0)
                   if (debugSaveInfo) write(98,*)finalState(k)%number,ensemble, &
-                     & finalstate(k)%position, resonance%ID
+                     & finalstate(k)%pos, resonance%ID
                end if
             end do
 
@@ -779,12 +784,12 @@ contains
                if (r) then
                   call PIL_rho0Dec_PUT(finalState(1)%number,   &
                                       & finalState(2)%number, &
-                     & resonance%lastCollisionTime, resonance%productionTime, &
-                     &  resonance%formationTime)
+                     & resonance%lastCollTime, resonance%prodTime, &
+                     &  resonance%formTime)
                   call PIL_rho0Dec_PUT(finalState(2)%number, &
                                       &  finalState(1)%number, &
-                      &  resonance%lastCollisionTime, resonance%productionTime,&
-                      &  resonance%formationTime)
+                      &  resonance%lastCollTime, resonance%prodTime,&
+                      &  resonance%formTime)
                end if
             end if
 
@@ -860,7 +865,7 @@ contains
     use particleDefinition
     use output, only: WriteParticleVector, timeMeasurement
     use IdTable, only: isMeson, isBaryon
-    use masterNBody, only: NBody_Analysis, check_for_Nbody, &
+    use master_NBody, only: NBody_Analysis, check_for_Nbody, &
         & generate_3body_collision
     use XsectionRatios, only: accept_event
     use deuterium_PL, only: deuterium_pertOrigin,deuterium_pertOrigin_flag,  &
@@ -868,7 +873,6 @@ contains
     use pauliBlockingModule, only: checkPauli
     use initHadron, only: particleId,antiparticle,particleCharge
     use insertion, only: particlePropagated, setIntoVector
-    use CallStack, only: Traceback
     use collisionTools, only: finalCheck
     use residue, only: ResidueAddPH
 
@@ -908,7 +912,7 @@ contains
       use twoBodyTools, only: isElastic
 
       type(particle), pointer :: part1, part2, part3
-      type(particle) :: partIn(1:2)
+      type(particle), dimension(1:2) :: partIn
 
       !************************************************************************
       ! Variables needed for many-body collisions:
@@ -956,10 +960,8 @@ contains
                if (part1%ID <= 0) cycle index1_loop
                if (part1%ID.eq.photon) cycle index1_loop
 
-               if (noRecollisions.and.(part1%lastCollisionTime>time-1e-6))  &
+               if (noRecollisions.and.(part1%lastCollTime>time-1e-6))  &
                   & cycle index1_loop
-
-               partIn(1) = part1
 
                if (ensemble2.eq.ensemble1) then
                   index2_end=index1-1
@@ -977,10 +979,8 @@ contains
                   if (part2%ID <= 0) cycle index2_loop
                   if (part2%ID.eq.photon) cycle index2_loop
 
-                  if (noRecollisions.and.(part2%lastCollisionTime>time-1e-6)) &
+                  if (noRecollisions.and.(part2%lastCollTime>time-1e-6)) &
                      & cycle index2_loop
-
-                  partIn(2) = part2
 
                   if (DoJustAbsorptive .and. part2%event(1).ge.1000000)   &
                      & cycle index2_loop
@@ -1054,29 +1054,29 @@ contains
                      imax=i
                      if (debug) then
                         write(*,*) 'Id, antiparticle ?, charge, number:',&
-                             &finalState(i)%Id,finalState(i)%antiparticle,&
+                             &finalState(i)%Id,finalState(i)%anti,&
                              &finalState(i)%charge,finalState(i)%number
                      end if
                   end do
 
                   if (debug .and. flag_3Body) then
                      write(*,*) ' 3-d particle:'
-                     write(*,*) part3%Id, part3%antiparticle, part3%charge, &
+                     write(*,*) part3%Id, part3%anti, part3%charge, &
                                 & part3%mass
-                     write(*,*) part3%momentum
-                     write(*,*) part3%velocity
+                     write(*,*) part3%mom
+                     write(*,*) part3%vel
                      write(*,*) ' last final particle:'
                      write(*,*) finalState(imax)%Id, &
-                                & finalState(imax)%antiparticle, &
+                                & finalState(imax)%anti, &
                                 & finalState(imax)%charge, finalState(imax)%mass
-                     write(*,*) finalState(imax)%momentum
-                     write(*,*) finalState(imax)%velocity
+                     write(*,*) finalState(imax)%mom
+                     write(*,*) finalState(imax)%vel
                   end if
 
                   if (.not. flag_3Body) then
                      ! Accept or reject the event randomly,
                      ! using the in-medium cross section ratios:
-                     if (.not.accept_event((/part1,part2/),finalState))  &
+                     if (.not.accept_event((/part1,part2/),finalState,HiEnergyFlag))  &
                         & cycle index2_loop
                   end if
 
@@ -1089,10 +1089,10 @@ contains
                         isuccess = 0
                      end if
                      write(990,'(f6.1,2i4,4f8.4,2i4,4f8.4,i2)') time, &
-                          & part1%ID, part1%charge, abs4(part1%momentum), &
-                          & part1%momentum(1:3), &
-                          & part2%ID, part2%charge, abs4(part2%momentum), &
-                          & part2%momentum(1:3), isuccess
+                          & part1%ID, part1%charge, abs4(part1%mom), &
+                          & part1%mom(1:3), &
+                          & part2%ID, part2%charge, abs4(part2%mom), &
+                          & part2%mom(1:3), isuccess
                   end if
 
                   if (.not. flag) cycle index2_loop
@@ -1124,12 +1124,12 @@ contains
                   number=real_numbering()
                   if (DoJustAbsorptive) then
                      if (part1%id==particleId .and.  &
-                        & (part1%antiparticle.eqv.antiparticle) .and. &
+                        & (part1%anti.eqv.antiparticle) .and. &
                         & part1%charge==particleCharge) then
                         part1%event=number
                         cycle index1_loop
                      else if (part2%id==particleId .and.   &
-                             & (part2%antiparticle.eqv.antiparticle) .and. &
+                             & (part2%anti.eqv.antiparticle) .and. &
                              & part2%charge==particleCharge) then
                         part2%event=number
                         cycle index2_loop
@@ -1142,10 +1142,12 @@ contains
                   number = min(part1%firstEvent, part2%firstEvent)
                   if (number==0) number = real_firstnumbering()
                   finalState%firstEvent = number
-                  finalState%perturbative = .false.
+                  finalState%pert = .false.
 
                   ! (2) Create final state particles
                   NumbersAlreadySet = AcceptGuessedNumbers()
+
+                  partIn = (/part1,part2/) ! do a Backup of the incoming parts
 
                   flag1=.false.
                   flag2=.false.
@@ -1154,7 +1156,7 @@ contains
                      if (particlePropagated(finalState(i))) then
                         if (.not.flag1 .and. ((isBaryon(part1%ID) .and. &
                            & isBaryon(finalState(i)%ID) .and. &
-                           & (part1%antiparticle.eqv.finalState(i)%antiparticle)) &
+                           & (part1%anti.eqv.finalState(i)%anti)) &
                            & .or. &
                            & (isMeson(part1%ID).and.isMeson(finalState(i)%ID))))&
                            & then
@@ -1165,8 +1167,8 @@ contains
                            flag1 = .true.
                         else if (.not.flag2 .and. ((isBaryon(part2%ID) .and. &
                                 & isBaryon(finalState(i)%ID) .and. &
-                                & (part2%antiparticle.eqv.  &
-                                & finalState(i)%antiparticle)) .or. &
+                                & (part2%anti.eqv.  &
+                                & finalState(i)%anti)) .or. &
                              (isMeson(part2%ID) .and. &
                              & isMeson(finalState(i)%ID)))) then
                            if (.not.NumbersAlreadySet .or. &
@@ -1177,7 +1179,7 @@ contains
                         else if (flag_3Body .and. .not.flag3 .and. &
                              ((isBaryon(part3%ID) .and. isBaryon(finalState(i)%ID)&
                              & .and. &
-                             (part3%antiparticle.eqv.finalState(i)%antiparticle))&
+                             (part3%anti.eqv.finalState(i)%anti))&
                              & .or. &
                              & (isMeson(part3%ID) .and. &
                              & isMeson(finalState(i)%ID)))) then
@@ -1304,7 +1306,7 @@ contains
                   if (part2%ID < 0) exit index2_loop
                   if (part2%ID <= 0) cycle index2_loop
                   if (part2%ID.eq.photon) cycle index2_loop
-                  if (noRecollisions.and.(part2%lastCollisionTime>time-1e-6)) &
+                  if (noRecollisions.and.(part2%lastCollTime>time-1e-6)) &
                        cycle index2_loop
 
                   part2S = part2
@@ -1329,6 +1331,10 @@ contains
 
                   flag = finalCheck((/part1,part2/), finalState, HiEnergyFlag)
                   if (.not.flag) cycle index2_loop
+
+                  ! Accept or reject the event randomly,
+                  ! using the in-medium cross section ratios:
+                  if (.not.accept_event((/part1,part2/),finalState,HiEnergyFlag)) cycle index2_loop
 
                   if (.not.pauliIsIncluded) flag = checkPauli(finalState,partReal)
                   if (.not.flag) cycle index2_loop
@@ -1378,23 +1384,23 @@ contains
                      if (finalState(i)%id <= 0) exit
 
                      finalState(i)%event = number
-                     finalState(i)%lastCollisionTime = time
+                     finalState(i)%lastCollTime = time
                      finalState(i)%perweight = part2%perweight
                      finalState(i)%firstEvent = number2
-                     finalState(i)%perturbative = .true.
+                     finalState(i)%pert = .true.
                      if (.not.NumbersAlreadySet) call setNumber(finalState(i))
 
                      !#########################################################
                      ! Writing statistical information
                      if (useStatistics .and. finalState(i)%ID==pion) then
                         call saveInfo(finalState(i)%number,ensemble2, &
-                             & finalstate(i)%position, part1%ID,part2%ID,0)
+                             & finalstate(i)%pos, part1%ID,part2%ID,0)
                         if (debugSaveInfo) write(99,*) finalState(i)%number, 6,&
-                           &ensemble2,finalstate(i)%position, part1%ID,part2%ID,0
+                           &ensemble2,finalstate(i)%pos, part1%ID,part2%ID,0
                      end if
                      if (printPositions .and. (finalState(i)%id==pion .or. &
                         & finalState(i)%id==nucleon)) &
-                        & call positionPrinter (finalstate(i))
+                        & call positionPrinter(finalstate(i))
                      !#########################################################
                   end do
 
@@ -1489,9 +1495,9 @@ contains
     use VolumeElements, only: &
          & VolumeElements_CLEAR_Pert, VolumeElements_CLEAR_Real, &
          & VolumeElements_SETUP_Pert, VolumeElements_SETUP_Real
+    use XsectionRatios, only: accept_event
     use pauliBlockingModule, only: checkPauli
     use insertion, only: particlePropagated, setIntoVector
-    use CallStack, only: Traceback
     use collisionTools, only: finalCheck
     use inputGeneral, only: freezeRealParticles
     use residue, only: ResidueAddPH
@@ -1524,7 +1530,11 @@ contains
     end if
     if (twoBodyProcessesRealReal) then
        call VolumeElements_CLEAR_Real
-       call VolumeElements_SETUP_Real(partReal)
+       if (noRecollisions) then
+          call VolumeElements_SETUP_Real(partReal,time)
+       else
+          call VolumeElements_SETUP_Real(partReal)
+       end if
        call realReal
     end if
 
@@ -1595,6 +1605,10 @@ contains
          flag = finalCheck ((/part1,part2/), finalState, HiEnergyFlag)
          if (.not.flag) cycle
 
+         ! Accept or reject the event randomly,
+         ! using the in-medium cross section ratios:
+         if (.not.accept_event((/part1,part2/),finalState,HiEnergyFlag)) cycle
+
          if (.not.pauliIsIncluded) flag = checkPauli(finalState,partReal)
          if (.not.flag) cycle
 
@@ -1606,8 +1620,8 @@ contains
          finalState%event(1)=number
          finalState%event(2)=number
 
-         finalState%lastCollisionTime = time
-         finalState%perturbative = .false.
+         finalState%lastCollTime = time
+         finalState%pert = .false.
          finalState%perweight = min(Part1%perweight, Part2%perweight)
          number = min(part1%firstEvent,part2%firstEvent)
          if (number==0) number = real_firstnumbering()
@@ -1722,6 +1736,10 @@ contains
          flag = finalCheck((/part1,part2/), finalState, HiEnergyFlag)
          if (.not.flag) cycle
 
+         ! Accept or reject the event randomly,
+         ! using the in-medium cross section ratios:
+         if (.not.accept_event((/part1,part2/),finalState,HiEnergyFlag)) cycle
+
          if (.not.pauliIsIncluded) flag = checkPauli(finalState,partReal)
 
 !!$         if (part2%ID.eq.101) then
@@ -1781,19 +1799,19 @@ contains
             if (finalState(i)%id <= 0) exit
 
             finalState(i)%event = number
-            finalState(i)%lastCollisionTime = time
+            finalState(i)%lastCollTime = time
             finalState(i)%perweight = part2%perweight
             finalState(i)%firstEvent = number2
-            finalState(i)%perturbative = .true.
+            finalState(i)%pert = .true.
             if (.not.NumbersAlreadySet) call setNumber(finalState(i))
 
             !##################################################################
             ! Writing statistical information
             if (useStatistics .and. finalState(i)%ID==pion) then
-               call saveInfo(finalState(i)%number,iEns2,finalstate(i)%position, &
+               call saveInfo(finalState(i)%number,iEns2,finalstate(i)%pos, &
                     & part1%ID,part2%ID,0)
                if (debugSaveInfo) write(99,*) finalState(i)%number,  &
-                  & iEns2,finalstate(i)%position, part1%ID,part2%ID,0
+                  & iEns2,finalstate(i)%pos, part1%ID,part2%ID,0
             end if
             if (printPositions .and. (finalState(i)%id==pion .or. &
                & finalState(i)%id==nucleon)) &
@@ -1863,14 +1881,14 @@ contains
   ! * type(particle), intent(in), optional :: p
   !
   ! OUTPUT
-  ! * file 'ProdPlaces_pionPlus.dat'    -- All saved positions of pi^+
-  ! * file 'ProdPlaces_pionNull.dat'    -- All saved positions of pi^0
-  ! * file 'ProdPlaces_pionMinus.dat'   -- All saved positions of pi^-
-  ! * file 'ProdPlaces_nucleon.dat'     -- All saved positions of nucleons
+  ! * file 'ProdPlaces_piPlus.dat'    -- All saved positions of pi^+
+  ! * file 'ProdPlaces_piNull.dat'    -- All saved positions of pi^0
+  ! * file 'ProdPlaces_piMinus.dat'   -- All saved positions of pi^-
+  ! * file 'ProdPlaces_nucleon.dat'   -- All saved positions of nucleons
   !****************************************************************************
   subroutine positionPrinter(p)
     use particleDefinition
-    use hist2Df90
+    use hist2D
     use idTable, only: pion, nucleon
 
     type(particle), intent(in), optional :: p
@@ -1878,11 +1896,11 @@ contains
     ! store position information in terms of z and the zylinder coordinate rho :
     type(histogram2D),save :: positions_pi(-1:1),positions_nuc
 
-    logical, save :: initFlagge=.true.
+    logical, save :: firstCall=.true.
     real, dimension(1:3) :: r
     real :: rho, weight
 
-    if (initFlagge) then
+    if (firstCall) then
        call createHist2d(positions_pi(1),  'ProdPlaces_pion_plus',&
             &  (/-8.,0./),(/8.,8./),(/0.25,0.25/))
        call createHist2d(positions_pi(0),  'ProdPlaces_pion_null',&
@@ -1891,11 +1909,11 @@ contains
             & (/-8.,0./),(/8.,8./),(/0.25,0.25/))
        call createHist2d(positions_nuc,    'ProdPlaces_nucleon',   &
             & (/-8.,0./),(/8.,8./),(/0.25,0.25/))
-       initFlagge=.false.
+       firstCall=.false.
     end if
 
     if (present(p)) then
-       r = p%position
+       r = p%pos
        rho = sqrt(r(1)**2+r(2)**2)
        weight = p%perweight
        select case (p%ID)
@@ -1904,20 +1922,15 @@ contains
        case (nucleon)
           call AddHist2D(positions_nuc,(/r(3),rho/),weight)
        end select
-    else
-       open(101,file='ProdPlaces_pionPlus.dat')
-       call WriteHist2D_Gnuplot(positions_pi(1),101)
-       close(101)
-       open(101,file='ProdPlaces_pionNull.dat')
-       call WriteHist2D_Gnuplot(positions_pi(0),101)
-       close(101)
-       open(101,file='ProdPlaces_pionMinus.dat')
-       call WriteHist2D_Gnuplot(positions_pi(-1),101)
-       close(101)
-       open(101,file='ProdPlaces_nucleon.dat')
-       call WriteHist2D_Gnuplot(positions_nuc,101)
-       close(101)
+       return
     end if
+
+    ! no input, therefore produce output:
+    call WriteHist2D_Gnuplot(positions_pi(1),file='ProdPlaces_piPlus.dat')
+    call WriteHist2D_Gnuplot(positions_pi(0),file='ProdPlaces_piNull.dat')
+    call WriteHist2D_Gnuplot(positions_pi(-1),file='ProdPlaces_piMinus.dat')
+    call WriteHist2D_Gnuplot(positions_nuc,file='ProdPlaces_nucleon.dat')
+
 
   end subroutine positionPrinter
 
@@ -1932,7 +1945,7 @@ contains
   ! INPUTS
   ! * type(particle),dimension(:,:) :: partPert -- perturbative particles
   ! * type(particle),dimension(:,:) :: partReal -- real particles
-  ! * real                          :: time         -- actual time step
+  ! * real                          :: time     -- actual time step
   !
   ! OUTPUT
   ! * partPert and partReal are changed
@@ -1944,7 +1957,7 @@ contains
     use particleDefinition
     use master_3Body, only: GetRadiusNukSearch, nukSearch, make_3Body_Collision
     use collisionNumbering, only: pert_numbering,real_numbering,  &
-        & ReportEventNumber,real_firstnumbering
+        & ReportEventNumber,pert_firstnumbering,real_firstnumbering
     use output, only: WriteParticleVector
     use VolumeElements, only: VolumeElements_NukSearch, &
         & VolumeElements_CLEAR_Pert, VolumeElements_CLEAR_Real, &
@@ -1952,31 +1965,29 @@ contains
     use CollHistory, only: CollHist_UpdateHist
     use pauliBlockingModule, only: checkPauli
     use insertion, only: particlePropagated, setIntoVector
-    use CallStack, only: Traceback
     use twoBodyStatistics, only: rate
     use collisionTools, only: finalCheck
     use residue, only: ResidueAddPH
 
-    type(particle), intent(inout), dimension(:,:) :: partPert, partReal
+    type(particle), intent(inout), dimension(:,:), target :: partPert, partReal
     real, intent(in) :: time
 
-    INTEGER :: i,j,number,ii
-    logical :: successFlag
-    logical :: nukSearch_VE=.true.
-    type(particle), pointer:: proton1, proton2                 ! Closest protons
-    type(particle), pointer:: neutron1, neutron2               ! Closest neutrons
+    INTEGER :: i,j,number,number2,ii
+    logical :: flagOk
+    logical, parameter :: nukSearch_VE=.true.
+    type(particle), pointer:: proton1, proton2              ! Closest protons
+    type(particle), pointer:: neutron1, neutron2            ! Closest neutrons
     !  ! Particles which one is scattering with:
-    type(particle), pointer:: scatterPartner1, scatterPartner2
+    type(particle), pointer:: part, scatterPartner1, scatterPartner2
     type(particle), dimension(1:3) :: FinalState
     ! logical :: justDeleteDelta=.false.! If Delta shall be just deleted -
-    !                                 ! therefore energy conservation is violated.
+    !                             ! therefore energy conservation is violated.
     integer, dimension(2,maxOut) :: posOut
     type(particle) :: partS2
 
     logical, save :: firstCall = .true.
 
     if (localEnsemble) then
-       !=== Setup VolumeElements
 
        if (firstCall.or.(.not.freezeRealParticles)) then
           call VolumeElements_CLEAR_Real
@@ -1995,7 +2006,9 @@ contains
 
     do i=lbound(partPert,dim=1),ubound(partPert,dim=1)
        do j=lbound(partPert,dim=2),ubound(partPert,dim=2)
-          if ( partPert(i,j)%ID.ne.pion.and.partPert(i,j)%ID.ne.delta) cycle
+          part => partPert(i,j)
+
+          if (part%ID.ne.pion.and.part%ID.ne.delta) cycle
 
           if (associated(proton1))  Nullify(proton1)
           if (associated(proton2))  Nullify(proton2)
@@ -2005,75 +2018,81 @@ contains
           ! Find closest nucleons
           if (fullensemble) then
              if (nukSearch_VE.and.localEnsemble) then
-                call VolumeElements_NukSearch(partPert(i,j), GetRadiusNukSearch(),&
-                     & proton1,proton2,neutron1,neutron2, successFlag)
+                call VolumeElements_NukSearch(part, GetRadiusNukSearch(), &
+                     proton1,proton2,neutron1,neutron2, flagOk)
              else
-                call NukSearch(partPert(i,j),partReal,&
-                     & proton1,proton2,neutron1,neutron2, successFlag)
+                call NukSearch(part,partReal,&
+                     proton1,proton2,neutron1,neutron2, flagOk)
              end if
           else
-             call NukSearch(partPert(i,j),partReal(i:i,:),&
-                  & proton1,proton2,neutron1,neutron2, successFlag)
+             call NukSearch(part,partReal(i:i,:),&
+                  proton1,proton2,neutron1,neutron2, flagOk)
           end if
 
-          if (.not.successFlag) cycle
-          call make_3Body_Collision(partPert(i,j),proton1,proton2,neutron1, &
-               & neutron2, scatterPartner1,scatterPartner2,finalstate, &
-               & successFlag)
+          if (.not.flagOk) cycle
+          call make_3Body_Collision(part, proton1,proton2,neutron1,neutron2, &
+               scatterPartner1,scatterPartner2,finalstate, flagOk)
 
-          if (.not.successFlag) cycle
+          if (.not.flagOk) cycle
 
-          if (partPert(i,j)%ID==Delta .and. JustDeleteDelta) then
+          if (part%ID==Delta .and. JustDeleteDelta) then
              ! just delete the delta, no final state
              finalState%event(1)=pert_numbering(scatterPartner1)
              finalState%event(2)=pert_numbering(scatterPartner2)
-             call ReportEventNumber((/partPert(i,j),scatterPartner1, &
-                  & scatterPartner2/),finalState, finalState(1)%event,time,3112)
+             call ReportEventNumber((/part,scatterPartner1,scatterPartner2/), &
+                  finalState, finalState(1)%event,time,3112)
              ! (2) Eliminate incoming perturbative particles
-             partPert(i,j)%Id=0
+             part%Id=0
              cycle
           end if
 
-          successflag = finalCheck((/partPert(i,j),scatterPartner1,  &
-                        & scatterPartner2/), finalState, .false.)
-          if (.not. successFlag) cycle
-          if (partPert(i,j)%ID/=Delta) then
-             successflag = checkPauli(finalState,partReal)
+          flagOk = finalCheck((/part,scatterPartner1,scatterPartner2/), &
+               finalState, .false.)
+          if (.not.flagOk) cycle
+          if (part%ID/=Delta) then
+             flagOk = checkPauli(finalState,partReal)
           else
              ! Pauli Blocking is already included in the delta "decay width",
-             !therefore we should not count it twice!
-             successFlag = .true.
+             ! therefore we should not count it twice!
+             flagOk = .true.
           end if
-          if (.not. successflag) cycle
+          if (.not.flagOk) cycle
           ! (1) Label event by eventNumber,
           ! such that we can track the perturbative particle to its
           ! real scattering partner.
           finalState%event(1)=pert_numbering(scatterPartner1)
           finalState%event(2)=pert_numbering(scatterPartner2)
 
-          finalState%lastCollisionTime = time
-          finalState%perweight = partPert(i,j)%perweight
-          finalState%firstEvent = partPert(i,j)%firstEvent
-          finalState%perturbative = .true.
+          finalState%lastCollTime = time
+          finalState%perweight = part%perweight
+          finalState%pert = .true.
+
+          if (part%firstEvent==0) then
+             number2 = pert_firstnumbering(scatterPartner1,part)
+          else
+             number2 = part%firstEvent
+          end if
+          finalState%firstEvent = number2
 
           do ii=1,size(finalState)
-             if (particlePropagated(finalState(ii))) call setNumber(finalState(ii))
+             if (particlePropagated(finalState(ii))) &
+                  call setNumber(finalState(ii))
           end do
 
-          call ReportEventNumber((/partPert(i,j),scatterPartner1,scatterPartner2/),&
-               & finalState, finalState(1)%event, time, 3112)
+          call ReportEventNumber((/part,scatterPartner1,scatterPartner2/), &
+               finalState, finalState(1)%event, time, 3112)
 
-          call rate((/partPert(i,j),scatterPartner1,scatterPartner2/), finalState, &
-                   & time)
+          call rate((/part,scatterPartner1,scatterPartner2/), &
+               finalState, time)
 
           if(scatterPartner1%event(1).lt.1000000) &
-               call ResidueAddPH(partPert(i,j)%firstEvent,scatterPartner1)
+               call ResidueAddPH(number2,scatterPartner1)
           if(scatterPartner2%event(1).lt.1000000) &
-               call ResidueAddPH(partPert(i,j)%firstEvent,scatterPartner2)
+               call ResidueAddPH(number2,scatterPartner2)
 
           ! (2) Eliminate incoming perturbative particles
-          partS2 = partPert(i,j)
-          partPert(i,j)%Id=0
+          partS2 = part
+          part%Id = 0
 
           ! (3) Create final state particles
           posOut = 0
@@ -2082,10 +2101,10 @@ contains
              posOut(1:2,1) = (/i,j/)
           end if
           if (fullensemble) then
-             call setIntoVector(finalState(2:), partPert, successFlag, .true., &
+             call setIntoVector(finalState(2:), partPert, flagOk, .true., &
                                & positions=posOut(:,2:))
           else
-             call setIntoVector(finalState(2:), partPert(i:i,:), successFlag, &
+             call setIntoVector(finalState(2:), partPert(i:i,:), flagOk, &
                                & .true., positions=posOut(:,2:))
              posOut(1,2:) = i
           end if
@@ -2094,7 +2113,7 @@ contains
                   & finalState, (/i,j/), posOut, finalState(1)%perweight)
 
           ! (4) Check that setting into perturbative particle vector worked out
-          if (.not.successFlag) then
+          if (.not.flagOk) then
              write(*,*) 'Perturbative particle vector too small!'
              write(*,*) size(finalState),  lbound(partPert), ubound(partPert)
              write(*,*) 'Dumping real particles to files "RealParticles_stop_*!"'
@@ -2113,7 +2132,9 @@ contains
 
     do i=lbound(partReal,dim=1), ubound(partReal,dim=1)
        do j=lbound(partReal,dim=2), ubound(partReal,dim=2)
-          if (partReal(i,j)%ID/=pion .and. partReal(i,j)%ID/=delta) cycle
+          part => partReal(i,j)
+
+          if (part%ID/=pion .and. part%ID/=delta) cycle
 
           if (associated(proton1))  Nullify(proton1)
           if (associated(proton2))  Nullify(proton2)
@@ -2122,68 +2143,83 @@ contains
 
           ! Find closest nucleons
           if (fullensemble) then
-             call NukSearch(partReal(i,j), partReal, proton1, proton2, neutron1,&
-                           &  neutron2, successFlag)
+             if (nukSearch_VE.and.localEnsemble) then
+                call VolumeElements_NukSearch(part, &
+                     GetRadiusNukSearch(),&
+                     proton1,proton2,neutron1,neutron2, flagOk)
+             else
+                call NukSearch(part, partReal, &
+                     proton1, proton2, neutron1, neutron2, flagOk)
+             end if
           else
-             call NukSearch(partReal(i,j), partReal(i:i,:), proton1, proton2,   &
-                           & neutron1, neutron2, successFlag)
+             call NukSearch(part, partReal(i:i,:), &
+                  proton1, proton2, neutron1, neutron2, flagOk)
           end if
 
-          if (.not. successFlag) cycle
-          call make_3Body_Collision (partReal(i,j), proton1, proton2, neutron1, &
-            & neutron2, scatterPartner1, scatterPartner2, finalstate, successFlag)
-          if (.not. successFlag) cycle
+!!$          if (.not.flagOk) then
+!!$             write(*,*) 'nothing found'
+!!$          else
+!!$             write(*,*) '---- found'
+!!$          end if
 
-          if (partReal(i,j)%ID==Delta .and. JustDeleteDelta) then
+
+          if (.not.flagOk) cycle
+          call make_3Body_Collision(part, proton1,proton2,neutron1,neutron2, &
+               scatterPartner1, scatterPartner2, finalstate, flagOk)
+          if (.not.flagOk) cycle
+
+          if (part%ID==Delta .and. JustDeleteDelta) then
              number = real_numbering()
-             call ReportEventNumber((/partReal(i,j),scatterPartner1, &
-                  & scatterPartner2/),finalState, (/number,number/), time, 3111)
+             call ReportEventNumber((/part,scatterPartner1,scatterPartner2/), &
+                  finalState, (/number,number/), time, 3111)
              ! convert the Delta to a nucleon:
-             partReal(i,j)%Id = nucleon
+             part%Id = nucleon
              ! dont care about total charge:
-             partReal(i,j)%charge = (partReal(i,j)%charge + 1)/2
-             partReal(i,j)%event = number
+             part%charge = (part%charge + 1)/2
+             part%event = number
              cycle
           end if
 
-          successflag = finalCheck((/partReal(i,j),scatterPartner1, &
-                        & scatterPartner2/), finalState, .false.)
-          if (.not. successFlag) cycle
-          if (partReal(i,j)%ID/=Delta) then
-             successflag = checkPauli(finalState,partReal)
+          flagOk = finalCheck((/part,scatterPartner1,scatterPartner2/), &
+               finalState, .false.)
+          if (.not.flagOk) cycle
+          if (part%ID/=Delta) then
+             flagOk = checkPauli(finalState,partReal)
           else
              ! Pauli Blocking is already included in the delta "decay width",
              ! therefore we should not count it twice!
-             successFlag = .true.
+             flagOk = .true.
           end if
-          if (.not. successflag) cycle
+          if (.not.flagOk) cycle
 
           ! (1) Label event by eventNumber
           number = real_numbering()
           finalState%event(1) = number
           finalState%event(2) = number
 
-          finalState%lastCollisionTime = time
-          finalState%perturbative = .false.
-          finalState%perweight = min(scatterPartner1%perweight,  &
-                    & scatterPartner2%perweight, partReal(i,j)%perweight)
-          number = min(scatterPartner1%firstEvent, scatterPartner2%firstEvent, &
-                    & partReal(i,j)%firstEvent)
-          if (number==0) number = real_firstnumbering()
-          finalState%firstEvent = number
+          finalState%lastCollTime = time
+          finalState%pert = .false.
+          finalState%perweight = min(part%perweight, &
+               scatterPartner1%perweight, scatterPartner2%perweight)
+          number2 = min(part%firstEvent, &
+               scatterPartner1%firstEvent, scatterPartner2%firstEvent)
+          if (number2==0) number2 = real_firstnumbering()
+          finalState%firstEvent = number2
 
-          call ReportEventNumber((/partReal(i,j),scatterPartner1,scatterPartner2/),&
-               & finalState, finalState(1)%event, time, 3111)
+          call ReportEventNumber((/part,scatterPartner1,scatterPartner2/), &
+               finalState, finalState(1)%event, time, 3111)
 
-          call rate((/partReal(i,j),scatterPartner1,scatterPartner2/), &
-                    & finalState, time)
+          call rate((/part,scatterPartner1,scatterPartner2/), &
+               finalState, time)
 
-          ! Add two holes in the target nucleus (analysis only):
-          if(scatterPartner1%event(1).lt.1000000) call ResidueAddPH(number,scatterPartner1)
-          if(scatterPartner2%event(1).lt.1000000) call ResidueAddPH(number,scatterPartner2)
+          ! Add two holes in the target nucleus:
+          if(scatterPartner1%event(1).lt.1000000) &
+               call ResidueAddPH(number2,scatterPartner1)
+          if(scatterPartner2%event(1).lt.1000000) &
+               call ResidueAddPH(number2,scatterPartner2)
 
           ! (2) Eliminate incoming particles
-          partReal(i,j)%Id = 0
+          part%Id = 0
           scatterPartner1%Id = 0
           scatterPartner2%Id = 0
 

@@ -18,13 +18,13 @@ Write(*,*) 'etaPrime'
 
 time=0.
 resonance%ID=etaPrime
-resonance%antiParticle=.false.
+resonance%anti=.false.
 resonance%Charge=0
 resonance%mass=meson(etaPrime)%mass
 mom=0.5
 
-resonance%momentum(0)=Sqrt(resonance%mass**2+mom**2)
-resonance%momentum(1)=mom
+resonance%mom(0)=Sqrt(resonance%mass**2+mom**2)
+resonance%mom(1)=mom
 counter=0.
 
 Do j=1,10000
@@ -34,10 +34,10 @@ Do j=1,10000
    Write(*,*) 'Flags=' , CollisionFlag, pauliFlag
    If(collisionFlag) then
       Write(*,*) finalState(1:4)%ID
-      Write(*,*) finalState(1:4)%antiParticle
+      Write(*,*) finalState(1:4)%anti
       Write(*,*) finalState(1:4)%Charge
       Do i=1,4
-         Write(*,*) finalState(i)%Momentum
+         Write(*,*) finalState(i)%mom
       end do
       if((finalState(1)%ID.eq.pion).and.(finalState(2)%ID.eq.pion).and.(finalState(3)%ID.eq.eta)) then
          if((finalState(1)%charge.eq.0).and.(finalState(2)%charge.eq.0).and.(finalState(3)%charge.eq.0)) then
