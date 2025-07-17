@@ -63,8 +63,8 @@ export SHELL = /bin/bash
 export NameOfExe=GiBUU
 
 ### Version of code
-export VERSION='SVN revision $(shell svnversion -n .)'
-#export VERSION='$(shell cat version.txt)'
+#export VERSION='SVN revision $(shell svnversion -n .)'
+export VERSION='$(shell cat version.txt)'
 
 export OS = $(strip $(shell uname))
 export OS_LONG = '$(shell uname -s -r -m)'
