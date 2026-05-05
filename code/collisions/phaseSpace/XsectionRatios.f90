@@ -54,7 +54,7 @@ module XsectionRatios
   ! * 2: in-medium screening of BB total cross section according to
   !   P. Daniewlewicz, NPA 673, 375 (2000); Acta. Phys. Pol. B 33, 45 (2002)
   ! NOTES
-  ! relevant when  flagScreen = .true.
+  ! relevant when  flagScreen = .true., is deprecated
   !****************************************************************************
 
 
@@ -86,6 +86,8 @@ module XsectionRatios
   !   in-medium reduction according to Eq. (33) from
   !   T. Song, C.M. Ko, PRC 91, 014901 (2015)
   !   [works in all modes (Skyrme, RMF, cascade)]
+  !   Elastic cross section change only can be obtained by setting alpha = 0
+  ! * 3: Only Song-Ko modification for Delta excitation turned on
   ! NOTES
   ! relevant when flagInMedium = .true.
   !****************************************************************************
@@ -135,7 +137,8 @@ module XsectionRatios
   ! Parameter which controls the density dependence of the NN <-> N Delta
   ! cross section via suppression factor of exp(-alpha*(rho/rho_0)**beta)
   !
-  ! for the density dependence from: Song/Ko, arXiv:1403.7363 (InMediumMode=2)
+  ! for the density dependence from: Song/Ko, arXiv:1403.7363
+  ! (InMediumMode=2 or 3)
   !****************************************************************************
 
   !****************************************************************************
@@ -147,7 +150,8 @@ module XsectionRatios
   ! Parameter which controls the density dependence of the NN <-> N Delta
   ! cross section via suppression factor of exp(-alpha*(rho/rho_0)**beta)
   !
-  ! for the density dependence of the type of arXiv:2107.13384 (InMediumMode=2)
+  ! for the density dependence of the type of arXiv:2107.13384
+  ! (InMediumMode=2 or 3)
   !****************************************************************************
 
 
@@ -204,13 +208,14 @@ contains
     real, dimension(0:3)  :: j_baryon, momentumStar
     type(dichte) :: density
     real :: sigma_0
-    integer :: iso
+    logical :: isIso
 
     if ( iniFlag ) call init
 
     getSigmaScreened = sigma
 
-    if ( .not.flagScreen ) return
+    if ( .not.flagScreen ) return   ! flagScreen is deprecated,
+                                    ! its action is replaced by flagInMedium
 
     ! Currently only baryon-baryon collisions are included:
     if (isMeson(pair(1)%ID) .or. isMeson(pair(2)%ID)) return
@@ -224,13 +229,8 @@ contains
 
        if(pair(1)%ID==nucleon .and. pair(2)%ID==nucleon) then
 
-          if (pair(1)%charge == pair(2)%charge) then ! nn or pp
-             iso=1
-          else  ! pn
-             iso=0
-          end if
-
-          getSigmaScreened = sigma * densfact(srts,mediumATColl%density,iso)
+          isIso = (pair(1)%charge == pair(2)%charge)  ! nn or pp
+          getSigmaScreened = sigma * densfact(srts,mediumATColl%density,isIso)
        end if
 
     case(2)  ! Daniewlewicz
@@ -253,28 +253,37 @@ contains
 
   end function getSigmaScreened
 
-
-  ! Li and Machleidt modification factor
-  real function densfact(srts,rho,iso)
+  !****************************************************************************
+  !****if* XsectionRatios/densfact
+  ! NAME
+  ! real function densfact(srts,rho,isSso)
+  ! PURPOSE
+  ! calculate the Li and Machleidt modification factor
+  ! INPUTS
+  ! * real :: srts -- real function densfact(srts,rho,iso)
+  ! * real :: rho -- nucleon density (fm^-3)
+  ! * logical :: isIso -- if .true. then nn or pp (isospin=1), otherwise np
+  !****************************************************************************
+  real function densfact(srts,rho,isIso)
 
     use constants, only: mN
 
-    real, intent(in) :: srts ! invariant energy of NN collision (GeV)
-    real, intent(in) :: rho ! nucleon density (fm^-3)
-    integer, intent(in) :: iso ! total isospin
+    real, intent(in) :: srts
+    real, intent(in) :: rho
+    logical, intent(in) :: isIso
 
     real :: Elab
 
     Elab =((srts**2 - 2*mN**2)/(2*mN) - mN)*1000 ! kinetic lab energy in MeV
 
-    if (iso.eq.1) then ! nn or pp
+    if (isIso) then ! nn or pp
        densfact = (1. + 0.1667*Elab**1.05 * rho**3  &
-                    /(1+exp((Elab - 350)/20.)))/          &
-                    (1. + 9.704*rho**1.2/(1+exp((Elab - 350)/20.)))
+            /(1+exp((Elab - 350)/20.)))/          &
+            (1. + 9.704*rho**1.2/(1+exp((Elab - 350)/20.)))
     else  ! pn
        densfact = (1. + 0.0034*Elab**1.51 * rho**2  &
-                    /(1+exp((Elab - 350)/20.)))/                       &
-                    (1. + 21.55*rho**1.34/(1+exp((Elab - 350)/20.)))
+            /(1+exp((Elab - 350)/20.)))/                       &
+            (1. + 21.55*rho**1.34/(1+exp((Elab - 350)/20.)))
     end if
 
   end function densfact
@@ -288,7 +297,7 @@ contains
   ! Returns the total in-medium cross section (mbarn).
   !
   ! INPUTS
-  ! * type(particle), dimension(1:2) :: pair        -- incoming particles
+  ! * type(particle), dimension(1:2) :: pair -- incoming particles
   !
   ! NOTES
   ! The total in-medium pp cross section is used for all types of
@@ -399,10 +408,11 @@ contains
     real, dimension(1:2) :: mstar
     real, dimension(1:3) :: position
 
-    integer :: nFinal, nBaryon, i, iso
+    integer :: nFinal, nBaryon, i
+    logical :: isIso
 
-    integer, dimension(1:2) :: idBaryon    ! Id's of outgoing baryons
-    integer, dimension(1:2) :: iBaryon     ! position numbers of outgoing baryons in the finalState
+    integer, dimension(1:2) :: idBaryon  ! Id's of outgoing baryons
+    integer, dimension(1:2) :: iBaryon   ! position numbers of outgoing baryons in the finalState
 
     integer, parameter :: nmax=100
     real, dimension(1:nmax) :: mstar_final
@@ -492,10 +502,10 @@ contains
          & .or. hadron(idBaryon(2))%charm .ne. 0 &
          & .or. hadron(idBaryon(1))%strangeness &
          &       + hadron(idBaryon(2))%strangeness.le.-2  ) then
-         ! No medium modifications for outgoing charmed baryons or
-         ! outgoing pair of strange baryons, or a baryon with S=-2
-         accept_event = .true.
-         return
+       ! No medium modifications for outgoing charmed baryons or
+       ! outgoing pair of strange baryons, or a baryon with S=-2
+       accept_event = .true.
+       return
     end if
 
     ! BB -> BB (+mesons) event:
@@ -563,13 +573,13 @@ contains
 
        end if
 
-
        if (2.le.nFinal .and. nFinal.le.6) then
           factor=Ratio(sqrtsStar,(/mstar(1:2),mstar_final(1:nFinal)/),&
                &(/pair(1:2)%mass,finalState(1:nFinal)%mass/))
        else
-          factor=Ratio(sqrtsStar,(/mstar(1:2),mstar_final(iBaryon(1)),mstar_final(iBaryon(2))/),&
-               &(/pair(1:2)%mass,finalState(iBaryon(1))%mass,finalState(iBaryon(2))%mass/))
+          factor=Ratio(sqrtsStar,&
+               (/mstar(1:2),mstar_final(iBaryon(1)),mstar_final(iBaryon(2))/),&
+               (/pair(1:2)%mass,finalState(iBaryon(1))%mass,finalState(iBaryon(2))%mass/))
        end if
 
     case(2)  ! Li/Machleidt & Song/Ko
@@ -590,14 +600,9 @@ contains
              srtS_XS = sqrtsStar - mstar(1) - mstar(2) + pair(1)%mass + pair(2)%mass
           end if
 
-          if (pair(1)%charge == pair(2)%charge) then ! nn or pp
-             iso=1
-          else  ! pn
-             iso=0
-          end if
-
           ! Li and Machleidt modification factor:
-          factor=densfact(srtS_XS,densityBar,iso)
+          isIso = (pair(1)%charge == pair(2)%charge) ! nn or pp
+          factor=densfact(srtS_XS,densityBar,isIso)
 
        else ! all other channels
 
@@ -605,6 +610,18 @@ contains
           factor=exp(-alpha*(densityBar/rhoNull)**beta)
 
        end if
+
+    case(3) ! only NN* modified dependent on density according to Song-Ko
+
+       position=(pair(1)%pos+pair(2)%pos)/2.
+       density=densityAt(position)
+       densityBar=abs4(density%baryon)
+
+       if(nFinal.eq.2 .and. pair(1)%Id+pair(2)%Id+idBaryon(1)+idBaryon(2).ne.4) then
+          ! Song and Ko modification factor:
+          factor=exp(-alpha*(densityBar/rhoNull)**beta)
+       end if
+
 
     end select
 
@@ -616,7 +633,6 @@ contains
     accept_event = ( rn() .le. factor )
 
   end function accept_event
-
 
   !****************************************************************************
   !****s* XsectionRatios/init
@@ -953,7 +969,7 @@ contains
 
     positionFin = (nucleon1%pos+nucleon2%pos+pionPart%pos)/3.
 
-    if(InMediumMode.eq.2) then
+    if((InMediumMode .eq. 2) .or. (InmediumMode .eq. 3)) then
        ! Song and Ko modification factor:
        density=densityAt(positionFin)
        densityBar=abs4(density%baryon)

@@ -1,0 +1,323 @@
+################################################################################
+# CMakeLists.txt
+################################################################################
+#
+# you should use it by
+# > mkdir build; cd build; cmake <args> ..; make [; make install]
+#
+# CLI arguments for cmake are:
+#
+# * -DCMAKE_Fortran_COMPILER=gfortran|ifx| ...
+#
+# * -DCMAKE_BUILD_TYPE=Release|Debug| ...
+#   (only Release and Debug are supported)
+#
+# * -DFPE=0|1|2|3
+#
+# * -DIPO=0|1
+#
+# * -DWITH_ROOT=0|1
+#
+# * -DWITH_HEPMC3=0|1
+#
+# * -DCMAKE_VERBOSE_MAKEFILE=0|1
+#
+# * --install-prefix <path>
+#   GiBUU.x will be installed in <path>/bin/
+#
+#----------
+# not yet implemented:
+#
+# * OpenMP
+#
+# * -DWITH_POS=0|1
+#   also needed for RootTuple, and ...?
+#
+################################################################################
+#
+# * If HepMC3 not found automatically:
+#   -DHepMC3_DIR=<some_path>
+#   e.g.
+#   -DHepMC3_DIR="/home/gallmei/HEPMC3/hepmc3-install/share/HepMC3/cmake"
+#
+################################################################################
+cmake_minimum_required (VERSION 3.10)
+
+######### Set project name and languages #########
+project(GiBUU C Fortran)
+
+if (NOT CMAKE_BUILD_TYPE)
+   #set(CMAKE_BUILD_TYPE Debug)
+   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+string(TOUPPER "${CMAKE_BUILD_TYPE}" BUILD_TYPE_UPPER)
+
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+
+# -------------------------
+# Option: FPE = 0|1|2|3
+# -------------------------
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(FPE_DEFAULT "0")
+else()
+    set(FPE_DEFAULT "3")
+endif()
+
+set(FPE "${FPE_DEFAULT}" CACHE STRING "Set floating point exception mode")
+set_property(CACHE FPE PROPERTY STRINGS 0 1 2 3)
+
+if (NOT FPE MATCHES "^[0-3]$")
+    message(FATAL_ERROR "Invalid FPE value '${FPE}'. Must be 0,1,2,3.")
+endif()
+
+#message(STATUS "Floating point exception mode (FPE) = ${FPE}")
+
+
+# -------------------------
+# Option: IPO
+# -------------------------
+option(IPO "Enable interprocedural optimization (IPO/LTO)" OFF)
+
+#-------------------------
+# Option: WITH_ROOT
+#-------------------------
+option(WITH_ROOT "Use real RootTuple library instead of stub" OFF)
+
+#-------------------------
+# Option: WITH_HEPMC3
+#-------------------------
+option(WITH_HEPMC3 "Use real HEPMC3 library instead of stub" OFF)
+
+#-------------------------
+
+
+#--- for workingCode:
+#execute_process(COMMAND svnversion -n ${SOURCE_DIR} OUTPUT_VARIABLE SVNVERSION)
+#--- for release:
+file(READ "${CMAKE_SOURCE_DIR}/version.txt" SVNVERSION)
+string(STRIP "${SVNVERSION}" SVNVERSION)
+
+set(GIBUU_VERSION ${SVNVERSION} CACHE STRING "The version of the GiBUU main code")
+message(STATUS "GiBUU version = ${GIBUU_VERSION}")
+
+######### Set Compiler Options for different Fortran compilers #########
+
+## You may predefine the compiler by e.g. calling
+## cmake via 'FC=ifort cmake ..'
+## otherwise the compiler will be auto-detected.
+
+# set the compiler:
+# *) cmake -DCMAKE_Fortran_COMPILER=gfortran ..
+# *) FC=gfortran cmake ..
+# *) cmake -DCMAKE_TOOLCHAIN_FILE=mytoolchain.cmake .. with set(CMAKE_Fortran_COMPILER ifort)
+#
+# automatic order:
+# - gfortran
+# - ifort
+# - nvfortran
+# - flang
+# - f95, f90, …
+
+
+get_filename_component(Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
+
+#| Compiler         | `CMAKE_Fortran_COMPILER_ID` |
+#| ---------------- | --------------------------- |
+#| gfortran         | `GNU`                       |
+#| ifort            | `Intel`                     |
+#| ifx              | `IntelLLVM`                 |
+#| nvfortran        | `NVIDIA`                    |
+#| flang (classic)  | `Flang`                     |
+#| flang-new (LLVM) | `LLVMFlang`                 |
+#| nagfor           | `NAG`                       |
+#| crayftn          | `Cray`                      |
+#| pgfortran        | `PGI`                       |
+#
+# ebenfalls gesetzt:
+# CMAKE_Fortran_COMPILER_VERSION als String
+#
+# Möglichkeit:
+#if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+#    if (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
+#        set(FLAGSF90 -O2 -fallow-argument-mismatch)
+#    endif()
+#endif()
+
+message(STATUS "---Fortran Compiler: ${Fortran_COMPILER_NAME}")
+message(STATUS "---Fortran Compiler: ${CMAKE_Fortran_COMPILER_ID}")
+message(STATUS "---Fortran Compiler: ${CMAKE_Fortran_COMPILER_VERSION}")
+
+
+include(CheckIPOSupported)
+
+check_ipo_supported(RESULT IPO_SUPPORTED OUTPUT IPO_ERROR)
+set(USE_IPO FALSE)
+if (IPO)
+    if (IPO_SUPPORTED AND CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(USE_IPO TRUE)
+        message(STATUS "IPO/LTO enabled")
+    else()
+        message(WARNING "IPO/LTO requested but not supported: ${IPO_ERROR}")
+    endif()
+else()
+    # message(STATUS "IPO/LTO disabled (ENABLE_IPO=OFF)")
+endif()
+
+# special flags for .f90 and .f files:
+set(FLAGSF90 "")
+set(FLAGSF77 "")
+
+if (${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
+
+  #--- GCC/gfortran ---
+
+  set(CMAKE_Fortran_FLAGS "-ffree-line-length-none -Wno-align-commons -fdefault-real-8 -fdefault-double-8 -g -fbacktrace")
+  if (FPE STREQUAL "0")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffpe-trap=invalid,zero,overflow,underflow")
+  endif()
+  set(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -fcheck=all -Wall")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native -std=legacy")
+
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+     set(FLAGSF90 "${FLAGSF90} -Wextra")
+     set(FLAGSF77 "${FLAGSF77} -Wno-unused-variable -Wno-unused-dummy-argument -Wno-conversion -Wno-maybe-uninitialized -Wno-unused-label")
+  elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+     # set(FLAGSF90 "${FLAGSF90} ...nothing...")
+     # set(FLAGSF77 "${FLAGSF77} ...nothing...")
+  endif()
+
+elseif (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel")
+
+  #--- Intel ifort ---
+
+  message(FATAL_ERROR "Compiler ${Fortran_COMPILER_NAME} not yet supported!")
+
+  #set(CMAKE_Fortran_FLAGS       "-align commons -warn noalignments -cpp -noD -vec-report-0 -r8 -fpe${FPE}")
+  #set(CMAKE_Fortran_FLAGS_DEBUG "-g -traceback -check noarg_temp_created -check all")
+
+elseif (${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM")
+
+  #--- Intel ifx ---
+
+  set(CMAKE_Fortran_FLAGS "-align commons -warn noalignments -cpp -noD -msse2 -r8 -traceback -fpe${FPE}")
+  set(CMAKE_Fortran_FLAGS_DEBUG   "-O0")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -xHost")
+
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+     set(FLAGSF90 "${FLAGSF90} -check noarg_temp_created")
+     # set(FLAGSF77 "${FLAGSF77} ...nothing...")
+  elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+     # set(FLAGSF90 "${FLAGSF90} ...nothing...")
+     # set(FLAGSF77 "${FLAGSF77} ...nothing...")
+  endif()
+
+  if (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL 12.1)
+     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -diag-disable 8290 -diag-disable 8291")
+  endif()
+
+
+
+elseif (${CMAKE_Fortran_COMPILER_ID} STREQUAL "G95")
+
+  #--- g95 ---
+  message(FATAL_ERROR "Compiler ${Fortran_COMPILER_NAME} not yet supported!")
+
+elseif (Fortran_COMPILER_NAME STREQUAL "sunf95")
+
+  #--- Sun/Oracle ---
+  message(FATAL_ERROR "Compiler ${Fortran_COMPILER_NAME} not yet supported!")
+
+elseif (Fortran_COMPILER_NAME STREQUAL "pgf95")
+
+  #--- Portland PGI ---
+  message(FATAL_ERROR "Compiler ${Fortran_COMPILER_NAME} not yet supported!")
+
+else()
+
+  message(FATAL_ERROR "Final: Compiler ${Fortran_COMPILER_NAME} not yet supported!")
+
+endif()
+
+
+
+
+# print out some information
+message(STATUS "")
+message(STATUS "Fortran Compiler: ${Fortran_COMPILER_NAME} ${CMAKE_Fortran_COMPILER_VERSION}")
+message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
+message(STATUS "Generator: ${CMAKE_GENERATOR}")
+message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "")
+message(STATUS "CMAKE_Fortran_FLAGS : ${CMAKE_Fortran_FLAGS}")
+message(STATUS "CMAKE_Fortran_FLAGS_RELEASE : ${CMAKE_Fortran_FLAGS_RELEASE}")
+message(STATUS "CMAKE_Fortran_FLAGS_DEBUG   : ${CMAKE_Fortran_FLAGS_DEBUG}")
+message(STATUS "CMAKE_Fortran_FLAGS_PROF    : ${CMAKE_Fortran_FLAGS_PROF}")
+message(STATUS "")
+message(STATUS "Compiler Flags: ${CMAKE_Fortran_FLAGS} ${CMAKE_Fortran_FLAGS_${BUILD_TYPE_UPPER}}")
+message(STATUS "Compiler Flags F77: ${FLAGSF77}")
+message(STATUS "Compiler Flags F90: ${FLAGSF90}")
+#message(STATUS "Linker Flags: ${CMAKE_EXE_LINKER_FLAGS}")
+message(STATUS "Use IPO/LTO: ${USE_IPO}")
+#message (STATUS "STATIC: ${STATIC}")
+message(STATUS "FPE: ${FPE}")
+message(STATUS "WITH_ROOT:   ${WITH_ROOT}")
+message(STATUS "WITH_HEPMC3: ${WITH_HEPMC3}")
+message(STATUS "")
+
+######### Dump version info into file #########
+
+## generate 'version.info' file, with 'static' information for 'version.f90'
+file(WRITE  ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'OS         : ${CMAKE_HOST_SYSTEM} ${CMAKE_SYSTEM_PROCESSOR}'\n")
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'Compiler   : ${Fortran_COMPILER_NAME} ${CMAKE_Fortran_COMPILER_VERSION}'\n")
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'Flags      : ${CMAKE_Fortran_FLAGS} ${CMAKE_Fortran_FLAGS_${BUILD_TYPE_UPPER}} ${CMAKE_EXE_LINKER_FLAGS}'\n")
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'Flags F77  : ${FLAGSF77}'\n")
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'Flags F90  : ${FLAGSF90}'\n")
+#file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'Flags Link : ${CMAKE_EXE_LINKER_FLAGS}'\n")
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/src/version.info " write(*,2) 'IPO/LTO: ${USE_IPO}'\n")
+
+
+
+
+######### RootTuple library #########
+
+if (WITH_ROOT)
+
+   # This test is necessary, since the code does not stop, if Root not found
+   find_package(ROOT CONFIG REQUIRED)
+   if (NOT ROOT_FOUND)
+       message(FATAL_ERROR "ROOT lbrary not found")
+   endif()
+
+   # message(STATUS "ROOT_INCLUDE_DIR : ${ROOT_INCLUDE_DIR}")
+   # message(STATUS "ROOT_INCLUDE_DIRS : ${ROOT_INCLUDE_DIRS}")
+   # message(STATUS "ROOT_LIBRARIES : ${ROOT_LIBRARIES}")
+
+   add_subdirectory(libs/RootTuple/RootTuple-master/ EXCLUDE_FROM_ALL)
+endif()
+
+######### HEPMC3event library #########
+
+if (WITH_HEPMC3)
+
+   # TODO: for covenience, to be removed
+#   if (NOT DEFINED HepMC3_DIR)
+#      set(HepMC3_DIR "/home/gallmei/HEPMC3/hepmc3-install/share/HepMC3/cmake")
+#   endif()
+
+   find_package(HepMC3 REQUIRED)
+   #if(NOT HEPMC3_FOUND)
+   #	  message(FATAL_ERROR "HEPMC3 lbrary not found")
+   #endif()
+
+   message(STATUS "HEPMC3_INCLUDE_DIR : ${HEPMC3_INCLUDE_DIR}")
+   ###message(STATUS "HEPMC3_INCLUDE_DIRS : ${HEPMC3_INCLUDE_DIRS}")
+   message(STATUS "HEPMC3_LIBRARIES : ${HEPMC3_LIBRARIES}")
+
+   add_subdirectory(libs/HEPMC3event/ EXCLUDE_FROM_ALL)
+endif()
+
+######### Now parsing code subdirectory #########
+
+add_subdirectory(src)

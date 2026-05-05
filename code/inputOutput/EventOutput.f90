@@ -2061,7 +2061,7 @@ contains
   ! implements methods of "indexing". (We do not use the possibility of
   ! reallocating as provided by the module "PILIndex".)
   !
-  ! The loop over the final events is done via the lookup table of the 
+  ! The loop over the final events is done via the lookup table of the
   ! index-array
   !
   ! Problems at the moment:
@@ -2124,7 +2124,7 @@ contains
 
        pNode => ValueList(iiFE)%first
        iFE = pNode%V%firstEvent ! coincides with iiiFE, if there are no holes
-       iEvent = (current_run_number-1)*size(ValueList) + iiFE ! to be checked!!!
+       iEvent = (current_run_number-1)*size(ValueList) + iFE
        call this%write_event_header(NUP, iEvent, pNode%V%perweight, iFE)
 
        do

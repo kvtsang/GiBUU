@@ -9,7 +9,7 @@
 ! (propagation & collisions) and analysis.
 !
 ! COPYRIGHT
-! (C) 2005-2025 The GiBUU Team (see full list of authors below)
+! (C) 2005-2026 The GiBUU Team (see full list of authors below)
 !
 ! The GiBUU code is licensed under the GNU General Public License (GPL v2).
 ! See accompanying LICENSE file or http://www.gnu.org/licenses/gpl-2.0.html.

@@ -10,6 +10,9 @@
 ! * pion nucleon -> X
 !******************************************************************************
 module pionNucleon
+
+  use callstack, only: traceBack
+
   implicit none
   private
 
@@ -87,7 +90,7 @@ contains
     use twoBodyTools, only: velocity_correction, convertToAntiParticles, &
          searchInInput
     use RMF, only: getRMF_flag
-    use callstack, only: traceBack
+    use ieee_arithmetic, only: ieee_is_nan
 
     real, intent(in)                            :: srts
     type(particle), dimension(1:2), intent(in)  :: partIn
@@ -159,6 +162,17 @@ contains
     ! (2) Evaluate the cross sections
     call evaluateXsections
 
+    if (ieee_is_nan(sigmaTot)) then
+       write(*,*) sum(piN), omegaN, phiN, etaDelta, &
+            lambdaKaon, sum(sigmaKaon), sum(kaonKaonBarN), &
+            sum(pionDelta), sum(piP11_1440), &
+            sum(rhoN), sum(rhoDelta), &
+            sigmaN, etaN, sum(sigmaRes), omegaPiN, phiPiN,  &
+            sum(LambdaKaonPion), sum(SigmaKaonPion), pipiN, pipipiN
+
+       call TraceBack('sigmaTot is NaN')
+    end if
+
     ! (2a) only fill array, no event
     if (present(sigmaArr)) then
        sigmaArr = (/ &
@@ -190,9 +204,9 @@ contains
 
     ! (5) Check Output
     if (Sum(partOut(:)%Charge).ne.pionCharge+nukCharge) then
-       write(*,*) 'No charge conservation in pionNuc!!! Critical error' ,pionCharge, &
-            & nukCharge, partOut(:)%Charge,partOut(:)%ID
-       stop
+       write(*,*) 'No charge conservation in pionNuc!!! Critical error' , &
+            pionCharge, nukCharge, partOut(:)%Charge,partOut(:)%ID
+       call Traceback()
     end if
 
     ! (6) Re-Invert particles if antiparticles in input
@@ -747,23 +761,26 @@ contains
     ! NAME
     ! subroutine MakeDecision
     ! PURPOSE
-    ! Decides on the final state which is returned via partOut by Monte-Carlo.
-    !  * Assigns charges and ID's.
-    !  * Only for resonance-production also the mass is assigned, since the mass
-    !    of the resonance needed to be calculated earlier.
+    ! Decides on the final state which is returned via partOut by Monte-Carlo:
+    ! * Assigns charges and ID's.
+    ! * Only for resonance-production also the mass is assigned, since the mass
+    !   of the resonance needed to be calculated earlier.
     ! The Monte-Carlo routine is adding up channels until the sum is exceeding
     ! x*sigma(total). x has a flat distribution in [0,1].
     ! The last added channel is then the one which is chosen for the event.
     !**************************************************************************
     subroutine MakeDecision
       use random, only: rn, ranCharge
+      use ieee_arithmetic, only: ieee_is_nan
 
       real :: summe,cut,cut2
       integer :: totalCharge,charge,resID
       integer,dimension (1:3)  :: izmin,izmax,izout     ! needed for ranCharge
-      integer,dimension (1:4)  :: izmin4,izmax4,izout4     ! needed for ranCharge
+      integer,dimension (1:4)  :: izmin4,izmax4,izout4  ! needed for ranCharge
       logical :: ranChargeFlag
       integer, dimension (1:2) :: channel_index
+
+      if (ieee_is_nan(sigmaTot)) call TraceBack('sigmaTot is NaN')
 
       cut=rn()*sigmaTot ! random number for Monte-Carlo decision
 
@@ -1017,8 +1034,8 @@ contains
       ! Error message if no channel is chosen
       !########################################################################
       write(*,*) 'Error in makeDecision : No decision made', &
-                   cut, sum(kaonKaonBarN), partOut(:)%ID, partOut(:)%Charge, sigmaTot
-      Stop
+           cut, sum(kaonKaonBarN), partOut(:)%ID, partOut(:)%Charge, sigmaTot
+      call Traceback()
 
     end subroutine MakeDecision
 
@@ -1030,18 +1047,19 @@ contains
     ! PURPOSE
     ! Writes several cross sections to file as function of srts and plab [GeV].
     ! Filenames:
-    ! * 'piN_sigTotElast.dat'        : sigmaTot, sigmaElast
-    ! * 'piN_strangeProd.dat'        : strangeness production
-    ! * 'piN_resProd.dat'            : Baryon resonance production
-    ! * 'piN_nonStrange_nuk.dat'     : non-strange meson with nucleon in final state
-    ! * 'piN_nonStrange_delta.dat '  : non-strange meson with delta in final state
+    ! * piN_sigTotElast.dat    : sigmaTot, sigmaElast
+    ! * piN_strangeProd.dat    : strangeness production
+    ! * piN_resProd.dat        : Baryon resonance production
+    ! * piN_nonStrange_nuk.dat : non-strange meson with nucleon in final state
+    ! * piN_nonStrange_delta.dat : non-strange meson with delta in final state
     !**************************************************************************
     subroutine makeOutput
       logical, save :: initFlag=.true.
       real :: plab
-      character(len=24), parameter :: outputFile(1:5) = (/ 'piN_sigTotElast.dat     ', &
-                                                           'piN_strangeProd.dat     ', 'piN_resProd.dat         ', &
-                                                           'piN_nonStrange_nuk.dat  ', 'piN_nonStrange_delta.dat' /)
+      character(len=24), parameter :: outputFile(1:5) = (/ &
+           'piN_sigTotElast.dat     ', &
+           'piN_strangeProd.dat     ', 'piN_resProd.dat         ', &
+           'piN_nonStrange_nuk.dat  ', 'piN_nonStrange_delta.dat' /)
 
       plab=SQRT(((srts**2-pionMass**2-nukMass**2)/2./nukMass)**2-pionMass**2)
 

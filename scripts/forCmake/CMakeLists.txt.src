@@ -1,0 +1,81 @@
+
+#-----------------------------------------------------------------------
+
+
+file(GLOB SRC_F90 "*.f90" "*.F90")
+file(GLOB SRC_F   "*.f" "*.F")
+
+list(REMOVE_ITEM SRC_F ${CMAKE_CURRENT_SOURCE_DIR}/RootTuplestub.f)
+list(REMOVE_ITEM SRC_F ${CMAKE_CURRENT_SOURCE_DIR}/HEPMC3eventstub.f)
+
+set_source_files_properties(${SRC_F90} PROPERTIES COMPILE_OPTIONS "${FLAGSF90}" )
+set_source_files_properties(${SRC_F} PROPERTIES COMPILE_OPTIONS "${FLAGSF77}")
+
+#-------------------
+#--- version.f90
+#-------------------
+set(VERSION_SRC_DIR ${CMAKE_BINARY_DIR}/src)
+set(VERSION_F90 ${VERSION_SRC_DIR}/version.f90)
+
+# Custom Command: version.f90 beim Build erzeugen
+add_custom_command(
+    OUTPUT ${VERSION_F90}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${VERSION_SRC_DIR}
+    COMMAND /bin/sh -c "printf 'module version\\n' > ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' contains\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' subroutine PrintVersion\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' implicit none\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' write(*,2) \"Version    : ${SVNVERSION}\"\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' write(*,2) \"Build Date : '\"\$(date '+%a %d. %b %H:%M:%S %Z %Y')\"'\"\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "cat version.info  >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' 2 FORMAT(\" \",A)\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf ' end subroutine PrintVersion\\n' >> ${VERSION_F90}"
+    COMMAND /bin/sh -c "printf 'end module version\\n' >> ${VERSION_F90}"
+
+    COMMENT "Generating version.f90 with current build date"
+    VERBATIM
+)
+
+set_source_files_properties(${VERSION_F90} PROPERTIES COMPILE_OPTIONS "${FLAGSF90}" )
+add_custom_target(version ALL DEPENDS ${VERSION_F90} )
+
+#-------------------
+#--- GiBUU.x
+#-------------------
+add_executable(GiBUU.x ${SRC_F90} ${SRC_F} ${VERSION_F90} )
+
+add_dependencies(GiBUU.x version)
+
+if (USE_IPO)
+   set_property(TARGET GiBUU.x PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
+
+#===== Libraries: =====
+
+target_link_libraries(GiBUU.x PRIVATE bz2)
+
+function(LibrarySwitch Flag Target)
+  if (${Flag})
+     target_link_libraries(GiBUU.x PRIVATE ${Target})
+  else()
+     add_library("${Target}stub" STATIC "${Target}stub.f")
+     target_link_libraries(GiBUU.x PRIVATE "${Target}stub")
+  endif()
+endfunction()
+
+LibrarySwitch(WITH_ROOT RootTuple)
+LibrarySwitch(WITH_HEPMC3 HEPMC3event)
+
+if (WITH_ROOT)
+   target_link_libraries(GiBUU.x PRIVATE ${ROOT_LIBRARIES})
+   target_link_libraries(GiBUU.x PRIVATE ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES})
+   target_link_libraries(GiBUU.x PRIVATE stdc++)
+endif()
+
+if (WITH_HEPMC3)
+   target_link_libraries(GiBUU.x PRIVATE ${HEPMC3_LIBRARIES})
+   target_link_libraries(GiBUU.x PRIVATE stdc++)
+endif()
+
+
+install(TARGETS GiBUU.x)

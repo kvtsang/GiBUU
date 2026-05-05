@@ -68,19 +68,21 @@ contains
     real, dimension(0:3,1:2) :: velocity
     real, dimension(0:3) :: momCM_1,momCM_2
     real, dimension(1:3) :: beta_12,beta_12_vacuum,beta
-    real :: beta_12_squared
+    real :: beta_12_squared, v2
     logical, parameter :: debug=.false.
 
-    !*********************************************+
-    ! Evaluate real relative velocity in CM-Frame
-    !*********************************************+
+    velocity_Correction = 1.
 
     ! Define 4-velocities of both particles
     ! First particle:
-    velocity(0,1)=1./Sqrt(1.-Dot_Product(pair(1)%vel(1:3),pair(1)%vel(1:3)))
+    v2 = Dot_Product(pair(1)%vel(1:3),pair(1)%vel(1:3))
+    if (v2 >= 1.) return ! Workaround for 'tachyons'
+    velocity(0,1)=1./Sqrt(1.-v2)
     velocity(1:3,1)=pair(1)%vel(1:3)*velocity(0,1)
     ! Second particle:
-    velocity(0,2)=1./Sqrt(1.-Dot_Product(pair(2)%vel(1:3),pair(2)%vel(1:3)))
+    v2 = Dot_Product(pair(2)%vel(1:3),pair(2)%vel(1:3))
+    if (v2 >= 1.) return ! Workaround for 'tachyons'
+    velocity(0,2)=1./Sqrt(1.-v2)
     velocity(1:3,2)=pair(2)%vel(1:3)*velocity(0,2)
 
     !Evaluate the velocity of the CM-frame of both particles:

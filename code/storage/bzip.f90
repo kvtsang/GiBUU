@@ -227,9 +227,10 @@ contains
     integer :: length
     logical, optional :: debug
 
-    integer(c_int) :: i,r,err
+    integer(c_int) :: i,r,err,length_inp
     character(kind=C_CHAR) :: c
 
+    length_inp = length
     if (length>0) then
        length = length+1   ! add '\n'
        r = bzRead(err,f%bzHandle,buf,length)
@@ -245,7 +246,8 @@ contains
        if (buf(length:length)==c_new_line .or. f%eof) then
           length=length-1
           if (present(debug)) then
-             if (debug) print "(A,i4,2A)","bzReadLine(",length,"):",buf(1:length)
+             if (debug) &
+                  write(*,"(A,i4,2A)") "bzReadLine(",length,"):",buf(1:length)
           end if
           return
        end if
@@ -266,14 +268,21 @@ contains
        if (c==c_new_line .or. f%eof) then
           length = i-1
           if (present(debug)) then
-             if (debug) print "(A,i4,2A)","bzReadLine(",length,"):",buf(1:length)
+             if (debug) &
+                  write(*,"(A,i4,2A)") "bzReadLine(",length,"):",buf(1:length)
           end if
           return
        end if
     end do
 
     if (c/=c_new_line) then
-       print '(3A,I4,2A)', "Error in file ",trim(f%fname),"! bzReadLine: buffer too small (",len(buf),")! Data: ",trim(buf)
+       write(*,*) "Error in file ",trim(f%fname)
+       write(*,*) "Buffer length: ", len(buf)
+       write(*,*) "Input value for line length: ", length_inp
+       if (length_inp>0) then
+          write(*,*) '(Maybe this is incorrect for this input line?)'
+       end if
+       write(*,*) "Data: ", trim(buf)
        call TRACEBACK()
     end if
 

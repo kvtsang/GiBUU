@@ -63,26 +63,26 @@ export SHELL = /bin/bash
 export NameOfExe=GiBUU
 
 ### Version of code
-export VERSION='SVN revision $(shell svnversion -n .)'
-#export VERSION='$(shell cat version.txt)'
+#export VERSION:='SVN revision $(shell svnversion -n .)'
+export VERSION:='$(shell cat version.txt)'
 
-export OS = $(strip $(shell uname))
-export OS_LONG = '$(shell uname -s -r -m)'
+export OS := $(strip $(shell uname))
+export OS_LONG := '$(shell uname -s -r -m)'
 
 export noPrintDirectory=--no-print-directory
 
 ### PROGRAMS:
-export ECHO = echo -e
-export PERL = $(strip $(shell which perl 2>/dev/null))
+export ECHO := echo -e
+export PERL := $(strip $(shell which perl 2>/dev/null))
 ifeq ($(PERL),$(EMPTY))
-  export MAKEDEP = $(strip $(shell which makedepf90 2>/dev/null))
+  export MAKEDEP := $(strip $(shell which makedepf90 2>/dev/null))
 endif
 ifeq ($(OS),Darwin)
-  export FIND = gfind
+  export FIND := gfind
 else
-  export FIND = find
+  export FIND := find
 endif
-export AR = ar
+export AR := ar
 
 ### DIRECTORIES:
 
@@ -140,8 +140,6 @@ export StartHeader_green=$(whiteGreen)"\033[1m
 export StartHeader_red=$(whiteRed)"\033[1m
 export EndHeader=\033[0m"
 
-
-
 ### SUBDIRS:
 
 SUBDIR := code
@@ -163,28 +161,28 @@ FPE = 3
 
 ### default compiler: Intel ifx
 FORT=ifx
-FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
+FORTPATH := $(strip $(shell which $(FORT) 2>/dev/null))
 
 ### fallback options if ifx is not available
 ifeq ($(FORTPATH),$(EMPTY))
   FORT=ifort
-  FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
+  FORTPATH := $(strip $(shell which $(FORT) 2>/dev/null))
 endif
 ifeq ($(FORTPATH),$(EMPTY))
   FORT=gfortran
-  FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
+  FORTPATH := $(strip $(shell which $(FORT) 2>/dev/null))
 endif
 ifeq ($(FORTPATH),$(EMPTY))
   FORT=sunf95
-  FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
+  FORTPATH := $(strip $(shell which $(FORT) 2>/dev/null))
 endif
 ifeq ($(FORTPATH),$(EMPTY))
   FORT=pgf95
-  FORTPATH = $(strip $(shell which $(FORT) 2>/dev/null))
+  FORTPATH := $(strip $(shell which $(FORT) 2>/dev/null))
 endif
 
 
-FORT_NOPATH = $(notdir $(FORT))
+FORT_NOPATH := $(notdir $(FORT))
 
 #
 # Note:
@@ -197,7 +195,7 @@ FORT_NOPATH = $(notdir $(FORT))
 ##### FORTRAN COMPILER: Intel (ifx)                                 ##
 ######################################################################
 ifeq ($(FORT_NOPATH),ifx)
-  FORTVERS=`$(FORT) --version 2>&1|head -1`
+  FORTVERS:=`$(FORT) --version 2>&1|head -1`
 
   FLAGSF90=-check noarg_temp_created
 #  FLAGSF90+= -check all
@@ -234,11 +232,11 @@ ifeq ($(FORT_NOPATH),ifx)
     FLAGSFORALL += -O3 -ipo
 
     # community.intel.com/t5/Intel-Fortran-Compiler/Compile-a-static-library-from-IPO-error-adding-symbols-archive/m-p/1638493#M173997
-    ARPATH = $(strip $(shell which llvm-ar 2>/dev/null))
+    ARPATH := $(strip $(shell which llvm-ar 2>/dev/null))
     ifeq ($(ARPATH),$(EMPTY))
-      ARPATH = $(subst ifx,compiler/llvm-ar, $(FORTPATH))
+      ARPATH := $(subst ifx,compiler/llvm-ar, $(FORTPATH))
     endif
-    AR=$(ARPATH)
+    AR:=$(ARPATH)
   endif
 
 endif
@@ -246,7 +244,7 @@ endif
 ##### FORTRAN COMPILER: Intel (ifort)                               ##
 ######################################################################
 ifeq ($(FORT_NOPATH),ifort)
-  FORTVERS=`$(FORT) -V 2>&1|head -1`
+  FORTVERS:=`$(FORT) -V 2>&1|head -1`
 
   FLAGSF90=-check noarg_temp_created
 #  FLAGSF90+= -check all
@@ -291,7 +289,7 @@ endif
 ##### FORTRAN COMPILER: GCC/gfortran (requires version 4.6+)        ##
 ######################################################################
 ifeq ($(findstring gfortran,$(FORT_NOPATH)),gfortran)
-  FORTVERS=`$(FORT) -v 2>&1 | grep -i 'gcc.version'`
+  FORTVERS:=`$(FORT) -v 2>&1 | grep -i 'gcc.version'`
 
   FLAGSF77 =-fcheck=all
   FLAGSF77 += -Wall
@@ -354,7 +352,7 @@ endif
 ##### FORTRAN COMPILER: Sun/Oracle (sunf95, sunf90, ...)            ##
 ######################################################################
 ifeq ($(findstring sunf,$(FORT_NOPATH)),sunf)
-  FORTVERS=`$(FORT) -V 2>&1|head -1`
+  FORTVERS:=`$(FORT) -V 2>&1|head -1`
   FLAGSF90=-g -w2 -xcheck=%all
   FLAGSF77=$(FLAGSF90)
   ifeq ($(STATIC),1)
@@ -382,8 +380,8 @@ endif
 ifeq ($(findstring nvfortran,$(FORT_NOPATH)),nvfortran)
   itIsNVidia = yes
 endif
-ifdef itIsNVidia
-  FORTVERS=`$(FORT) -V 2>&1|head -2`
+ifeq ($(itIsNVidia),yes)
+  FORTVERS:=`$(FORT) -V 2>&1|head -2`
   FLAGSF90=-g
   FLAGSF77=$(FLAGSF90)
   FLAGSDOUBLE=-r8
@@ -402,7 +400,7 @@ endif
 ##### FORTRAN COMPILER: LLVM/flang                                  ##
 ######################################################################
 ifeq ($(findstring flang,$(FORT_NOPATH)),flang)
-  FORTVERS=`$(FORT) -v 2>&1|head -2`
+  FORTVERS:=`$(FORT) -v 2>&1|head -2`
   FLAGSF90=-g
   FLAGSF77=$(FLAGSF90)
   FLAGSDOUBLE=-r8
@@ -420,7 +418,7 @@ endif
 ##### FORTRAN COMPILER: g95
 #########################################################
 ifeq ($(FORT_NOPATH),g95)
-  FORTVERS=`$(FORT) --version|head -1`
+  FORTVERS:=`$(FORT) --version|head -1`
   FLAGSF90=-Wall -fbounds-check -ftrace=full
   FLAGSF77=$(FLAGSF90)
   FLAGSFORALL=-cpp -ffree-line-length-huge
@@ -433,7 +431,7 @@ endif
 ##### FORTRAN COMPILER: Open64
 #########################################################
 ifeq ($(FORT_NOPATH),openf95)
-  FORTVERS=`$(FORT) -V 2>&1|head -1`
+  FORTVERS:=`$(FORT) -V 2>&1|head -1`
   FLAGSF90=-g
   FLAGSF77=$(FLAGSF90)
   FLAGSDOUBLE=-r8
@@ -445,7 +443,7 @@ endif
 ##### FORTRAN COMPILER: PathScale pathf95
 #########################################################
 ifeq ($(FORT_NOPATH),pathf95)
-  FORTVERS=`$(FORT) -v 2>&1|head -1`
+  FORTVERS:=`$(FORT) -v 2>&1|head -1`
   FLAGSF90=-g -Wall -ffortran-bounds-check
   FLAGSF77=$(FLAGSF90)
   FLAGSDOUBLE=-r8
@@ -457,7 +455,7 @@ endif
 ##### FORTRAN COMPILER: Lahey lfc
 #########################################################
 ifeq ($(findstring lfc,$(FORT_NOPATH)),lfc)
-  FORTVERS=`$(FORT) lfc --version  2>&1|head -1`
+  FORTVERS:=`$(FORT) lfc --version  2>&1|head -1`
   # -chkglobal would be nice, however --chk x does not work with Pythia
   # FLAGSF90= --chk --chkglobal
   FLAGSF90= --chk
@@ -469,7 +467,7 @@ endif
 ##### FORTRAN COMPILER: NAGWare nagfor
 #########################################################
 ifeq ($(FORT_NOPATH),nagfor)
-  FORTVERS=`$(FORT) -v 2>&1|head -1`
+  FORTVERS:=`$(FORT) -v 2>&1|head -1`
   FLAGSF90=-g
   FLAGSF77=$(FLAGSF90)
 #  FLAGSDOUBLE=-r8
@@ -480,7 +478,7 @@ endif
 ##### FORTRAN COMPILER: Absoft f95
 #########################################################
 ifeq ($(FORT_NOPATH),f95)
-  FORTVERS=`$(FORT) -v | head -1`
+  FORTVERS:=`$(FORT) -v | head -1`
   FLAGSF90=
   FLAGSF77=
   FLAGSDOUBLE=-N113
@@ -559,6 +557,7 @@ export FLAGSF90
 export FLAGSF77
 export FLAGSFORALL
 export FLAGSDOUBLE
+
 
 #*******************************************************************************
 #*******************************************************************************
