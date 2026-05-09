@@ -957,13 +957,21 @@ parametrization & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipag
 \midrule
 MV2 & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}0.71\end{minipage} & \begin{minipage}[t]{12cm}vector mass squared in the dipole parametrization of the vector form factors\end{minipage}\\*
 \midrule
-MA\_in & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}1.0\end{minipage} & \begin{minipage}[t]{12cm}axial mass (only if useNonStandardMA=.true.)\end{minipage}\\*
+MA\_in & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}1.0\end{minipage} & \begin{minipage}[t]{12cm}axial mass (only if useNonStandardMA=.true.  and will only impact CC if parametrizationAxial=0,1).\end{minipage}\\*
 \midrule
-useNonStandardMA & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}if one wants to use a specific axial mass, set this to true and choose value for MA\_in\end{minipage}\\*
+useNonStandardMA & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}if one wants to use a specific axial mass, set this to true and choose value for MA\_in, will only impact CC if parametrizationAxial=0,1.\end{minipage}\\*
 \midrule
 deltas & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}-0.15\end{minipage} & \begin{minipage}[t]{12cm}strange contribution to the axial ff.\end{minipage}\\*
 \midrule
-axialMonopole & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}use axial ff. of Gari, Kaulfuss PLB 138 (1984)\end{minipage}\\*
+parametrizationAxial & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}0\end{minipage} & \begin{minipage}[t]{12cm}\begin{itemize}\leftmargin0em\itemindent0pt\item 0 = dipole approximation\item 1 = use axial ff. of Gari, Kaulfuss PLB 138 (1984)\item 2 = use z-expansion from MINERvA fit in Nature 614, 48-53 (2023)\item 3 = use z-expansion from LQCD fit in arXiv:2512.14097 eq (41)\item 4 = use z-expansion from Deuterium fit in arXiv:2512.14097 (50)\item 5 = use z-expansion with custom parameters, specified with t0,tc,a1,a2,...\end{itemize}\end{minipage}\\*
+\midrule
+kmax & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}20\end{minipage} & \begin{minipage}[t]{12cm}number of ak used in z-expansion (only if parametrizationAxial=5).\end{minipage}\\*
+\midrule
+t0 & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}-0.75\end{minipage} & \begin{minipage}[t]{12cm}parameter used in calculating z (only if parametrizationAxial=5).\end{minipage}\\*
+\midrule
+tc & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}0.173889\end{minipage} & \begin{minipage}[t]{12cm}cutoff parameter used in calculating z (only if parametrizationAxial=5).\end{minipage}\\*
+\midrule
+ak & \begin{minipage}[t]{2cm}\end{minipage} & \begin{minipage}[t]{2cm}\end{minipage} & \begin{minipage}[t]{12cm}\end{minipage}\\*
 \bottomrule
 \end{longtable}
 { }
@@ -990,16 +998,18 @@ NYK\_isotropic & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage
 
 
 
-% formfactors_pion     code/init/lepton/formfactors_pionProduction/formfactors_A_input.f90
+% formfactors_pion     code/init/lepton/formfactors_pionProduction/formfactors_A_main.f90
 
 \begin{longtable}{llll}
 \toprule
-\textbf{\large{formfactors\_pion}} & \multicolumn{3}{l}{\footnotesize{code/init/lepton/formfactors\_pionProduction/formfactors\_A\_input.f90}}\\*
+\textbf{\large{formfactors\_pion}} & \multicolumn{3}{l}{\footnotesize{code/init/lepton/formfactors\_pionProduction/formfactors\_A\_main.f90}}\\*
 \midrule
 \endfirsthead
 \midrule
 \endhead
 which\_MaidVersion & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}2\end{minipage} & \begin{minipage}[t]{12cm}choice of MAID version:  1=2003, 2=2007\end{minipage}\\*
+\midrule
+fineGridQ2 & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}if .true. use MAID tables with a finer grid in Q\^{}2 (dQ2 = 0.05GeV\^{}2) instead of default dQ2 = 0.1GeV\^{}2\end{minipage}\\*
 \bottomrule
 \end{longtable}
 { }
@@ -3157,7 +3167,7 @@ form\_factor & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[
 \endhead
 A & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}0\end{minipage} & \begin{minipage}[t]{12cm}Mass A of target nucleus ( = number of nucleons). If zero, a default isotope is chosen for the given Z.\end{minipage}\\*
 \midrule
-Z & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}20\end{minipage} & \begin{minipage}[t]{12cm}Charge Z of projectile nucleus ( = number of protons).\end{minipage}\\*
+Z & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}20\end{minipage} & \begin{minipage}[t]{12cm}Charge Z of target nucleus ( = number of protons).\end{minipage}\\*
 \midrule
 Projectile\_A & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}-99\end{minipage} & \begin{minipage}[t]{12cm}deprecated, use 'A' instead\end{minipage}\\*
 \midrule
@@ -3165,7 +3175,7 @@ Projectile\_Z & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}
 \midrule
 fermiMotion & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.true.\end{minipage} & \begin{minipage}[t]{12cm}Determines whether particles in target nucleus feel Fermi motion.\end{minipage}\\*
 \midrule
-densitySwitch\_static & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}3\end{minipage} & \begin{minipage}[t]{12cm}This switch is important, because it decides, which static density is used to set up the testparticles in the nuclei before the first time-step.\\ Possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 0 : density=0.0\item 1 : Static density using Woods-Saxon according to H. Lenske\item 2 : Static density according to Nieves93\item 3 : Static density using Woods-Saxon according to H. Lenske,   different radii for neutrons and protons\item 4 : Static density according oscillator shell model\item 5 : Density distribution is a sphere with density according to the   input value of "fermiMomentum\_input".\item 6 : Static Density based on LDA, implemented by Birger Steinmueller\item 7 : Static Density based on LDA + Welke potential\item 8 : Static Density prescription according Relativistic Thomas-Fermi   (valid only in RMF-mode)\end{itemize} Possible nuclei for the different prescriptions:\begin{itemize}\leftmargin0em\itemindent0pt\item 1 : A $>$ 2 (only A $>$ 16 makes sense)\item 2 : Be(9), C(12), O(16,18), Al(27), Ar(40), Ca(40,44), Fe(56), Cu(63),   As(75), Ce(142), Sn(112,116,120,124), Ta(181), Au(197), Pb(208)   see densityStatic.f90, subroutine denspar for more info\item 3 : 6$\rightarrow$C(12), 8$\rightarrow$O(16),O(18), 13$\rightarrow$Al(27), 20$\rightarrow$Ca(40),Ca(44), 79$\rightarrow$Au(197)   82$\rightarrow$Pb(208)\item 4: 2$\rightarrow$He(4), 4$\rightarrow$Be(9), 5$\rightarrow$B(11), 6$\rightarrow$C(12), 8$\rightarrow$O(16)\end{itemize} Refs:\begin{itemize}\leftmargin0em\itemindent0pt\item J.Nieves, E.Oset, C.Garcia-Recio, Nucl.Phys.A 554 (1993) 509\end{itemize}\end{minipage}\\*
+densitySwitch\_static & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}3\end{minipage} & \begin{minipage}[t]{12cm}This switch is important, because it decides, which static density is used to set up the testparticles in the nuclei before the first time-step.\\ Possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 0 : density=0.0\item 1 : Static density using Woods-Saxon according to H. Lenske\item 2 : Static density according to Nieves93\item 3 : Static density using Woods-Saxon according to H. Lenske,   different radii for neutrons and protons\item 4 : Static density according oscillator shell model\item 5 : Density distribution is a sphere with density according to the   input value of "fermiMomentum\_input".\item 6 : Static density based on LDA, implemented by Birger Steinmueller\item 7 : Static density based on LDA + Welke potential\item 8 : Static density prescription according Relativistic Thomas-Fermi   (valid only in RMF-mode)\end{itemize} Possible nuclei for the different prescriptions:\begin{itemize}\leftmargin0em\itemindent0pt\item 1 : A $>$ 2 (only A $>$ 16 makes sense)\item 2 : Be(9), C(12), O(16,18), Al(27), Ar(40), Ca(40,44), Fe(56), Cu(63),   As(75), Ce(142), Sn(112,116,120,124), Ta(181), Au(197), Pb(208)   see densityStatic.f90, subroutine denspar for more info\item 3 : 6$\rightarrow$C(12), 8$\rightarrow$O(16),O(18), 13$\rightarrow$Al(27), 20$\rightarrow$Ca(40),Ca(44), 79$\rightarrow$Au(197)   82$\rightarrow$Pb(208)\item 4: 2$\rightarrow$He(4), 4$\rightarrow$Be(9), 5$\rightarrow$B(11), 6$\rightarrow$C(12), 8$\rightarrow$O(16)\end{itemize} Refs:\begin{itemize}\leftmargin0em\itemindent0pt\item J.Nieves, E.Oset, C.Garcia-Recio, Nucl.Phys.A 554 (1993) 509\end{itemize}\end{minipage}\\*
 \midrule
 fermiMomentum\_input & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}0.225\end{minipage} & \begin{minipage}[t]{12cm}Input value of the fermi momentum for densitySwitch\_static=5 (in GeV).\end{minipage}\\*
 \midrule
@@ -3477,7 +3487,7 @@ relativistic & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[
 \endhead
 A & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}0\end{minipage} & \begin{minipage}[t]{12cm}Mass A of target nucleus ( = number of nucleons). If zero, a default isotope is chosen for the given Z.\end{minipage}\\*
 \midrule
-Z & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}20\end{minipage} & \begin{minipage}[t]{12cm}Charge Z of projectile nucleus ( = number of protons).\end{minipage}\\*
+Z & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}20\end{minipage} & \begin{minipage}[t]{12cm}Charge Z of target nucleus ( = number of protons).\end{minipage}\\*
 \midrule
 Target\_A & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}-99\end{minipage} & \begin{minipage}[t]{12cm}deprecated, use 'A' instead\end{minipage}\\*
 \midrule
@@ -3485,7 +3495,7 @@ Target\_Z & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{
 \midrule
 fermiMotion & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.true.\end{minipage} & \begin{minipage}[t]{12cm}Determines whether particles in target nucleus feel Fermi motion.\end{minipage}\\*
 \midrule
-densitySwitch\_static & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}3\end{minipage} & \begin{minipage}[t]{12cm}This switch is important, because it decides, which static density is used to set up the testparticles in the nuclei before the first time-step.\\ Possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 0 : density=0.0\item 1 : Static density using Woods-Saxon according to H. Lenske\item 2 : Static density according to Nieves93\item 3 : Static density using Woods-Saxon according to H. Lenske,   different radii for neutrons and protons\item 4 : Static density according oscillator shell model\item 5 : Density distribution is a sphere with density according to the   input value of "fermiMomentum\_input".\item 6 : Static Density based on LDA, implemented by Birger Steinmueller\item 7 : Static Density based on LDA + Welke potential\item 8 : Static Density prescription according Relativistic Thomas-Fermi   (valid only in RMF-mode)\end{itemize} Possible nuclei for the different prescriptions:\begin{itemize}\leftmargin0em\itemindent0pt\item 1 : A $>$ 2 (only A $>$ 16 makes sense)\item 2 : Be(9), C(12), O(16,18), Al(27), Ar(40), Ca(40,44), Fe(56), Cu(63),   As(75), Ce(142), Sn(112,116,120,124), Ta(181), Au(197), Pb(208)   see densityStatic.f90, subroutine denspar for more info\item 3 : 6$\rightarrow$C(12), 8$\rightarrow$O(16),O(18), 13$\rightarrow$Al(27), 20$\rightarrow$Ca(40),Ca(44), 79$\rightarrow$Au(197)   82$\rightarrow$Pb(208)\item 4: 2$\rightarrow$He(4), 4$\rightarrow$Be(9), 5$\rightarrow$B(11), 6$\rightarrow$C(12), 8$\rightarrow$O(16)\end{itemize} Refs:\begin{itemize}\leftmargin0em\itemindent0pt\item J.Nieves, E.Oset, C.Garcia-Recio, Nucl.Phys.A 554 (1993) 509\end{itemize}\end{minipage}\\*
+densitySwitch\_static & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}3\end{minipage} & \begin{minipage}[t]{12cm}This switch is important, because it decides, which static density is used to set up the testparticles in the nuclei before the first time-step.\\ Possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 0 : density=0.0\item 1 : Static density using Woods-Saxon according to H. Lenske\item 2 : Static density according to Nieves93\item 3 : Static density using Woods-Saxon according to H. Lenske,   different radii for neutrons and protons\item 4 : Static density according oscillator shell model\item 5 : Density distribution is a sphere with density according to the   input value of "fermiMomentum\_input".\item 6 : Static density based on LDA, implemented by Birger Steinmueller\item 7 : Static density based on LDA + Welke potential\item 8 : Static density prescription according Relativistic Thomas-Fermi   (valid only in RMF-mode)\end{itemize} Possible nuclei for the different prescriptions:\begin{itemize}\leftmargin0em\itemindent0pt\item 1 : A $>$ 2 (only A $>$ 16 makes sense)\item 2 : Be(9), C(12), O(16,18), Al(27), Ar(40), Ca(40,44), Fe(56), Cu(63),   As(75), Ce(142), Sn(112,116,120,124), Ta(181), Au(197), Pb(208)   see densityStatic.f90, subroutine denspar for more info\item 3 : 6$\rightarrow$C(12), 8$\rightarrow$O(16),O(18), 13$\rightarrow$Al(27), 20$\rightarrow$Ca(40),Ca(44), 79$\rightarrow$Au(197)   82$\rightarrow$Pb(208)\item 4: 2$\rightarrow$He(4), 4$\rightarrow$Be(9), 5$\rightarrow$B(11), 6$\rightarrow$C(12), 8$\rightarrow$O(16)\end{itemize} Refs:\begin{itemize}\leftmargin0em\itemindent0pt\item J.Nieves, E.Oset, C.Garcia-Recio, Nucl.Phys.A 554 (1993) 509\end{itemize}\end{minipage}\\*
 \midrule
 fermiMomentum\_input & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}0.225\end{minipage} & \begin{minipage}[t]{12cm}Input value of the fermi momentum for densitySwitch\_static=5 (in GeV).\end{minipage}\\*
 \midrule
@@ -3631,11 +3641,11 @@ allowMix & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2
 \endhead
 flagScreen & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}\begin{itemize}\leftmargin0em\itemindent0pt\item If .true. -- in-medium screening is applied to the input cross section.\item If .false. -- no cross section modification.\end{itemize}NOTES\\ flagScreen should be replaced by flagInMedium\end{minipage}\\*
 \midrule
-ScreenMode & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}1\end{minipage} & \begin{minipage}[t]{12cm}possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 1: in-medium screening of NN total cross section according to   Li and Machleidt, PRC 48 (1993) 1702 and PRC 49 (1994) 566\item 2: in-medium screening of BB total cross section according to   P. Daniewlewicz, NPA 673, 375 (2000); Acta. Phys. Pol. B 33, 45 (2002)\end{itemize}NOTES\\ relevant when  flagScreen = .true.\end{minipage}\\*
+ScreenMode & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}1\end{minipage} & \begin{minipage}[t]{12cm}possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 1: in-medium screening of NN total cross section according to   Li and Machleidt, PRC 48 (1993) 1702 and PRC 49 (1994) 566\item 2: in-medium screening of BB total cross section according to   P. Daniewlewicz, NPA 673, 375 (2000); Acta. Phys. Pol. B 33, 45 (2002)\end{itemize}NOTES\\ relevant when  flagScreen = .true., is deprecated\end{minipage}\\*
 \midrule
 flagInMedium & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}\begin{itemize}\leftmargin0em\itemindent0pt\item If .true. -- In-medium ratios are used to decide whether an event is   accepted or not.\item If .false. -- The event is always accepted\end{itemize}\end{minipage}\\*
 \midrule
-InMediumMode & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}2\end{minipage} & \begin{minipage}[t]{12cm}possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 1: all events of the type BB $\rightarrow$ BB (+ mesons) are subject to   in-medium reduction following Eqs.(194),(195) of GiBUU review paper   [currently works in RMF mode only]\item 2: NN $\rightarrow$ NN elastic scattering events are modified according to   Li and Machleidt   all other BB $\rightarrow$ BB (+ mesons  events are subject to   in-medium reduction according to Eq. (33) from   T. Song, C.M. Ko, PRC 91, 014901 (2015)   [works in all modes (Skyrme, RMF, cascade)]\end{itemize}NOTES\\ relevant when flagInMedium = .true.\end{minipage}\\*
+InMediumMode & \begin{minipage}[t]{2cm}integer\end{minipage} & \begin{minipage}[t]{2cm}2\end{minipage} & \begin{minipage}[t]{12cm}possible values:\begin{itemize}\leftmargin0em\itemindent0pt\item 1: all events of the type BB $\rightarrow$ BB (+ mesons) are subject to   in-medium reduction following Eqs.(194),(195) of GiBUU review paper   [currently works in RMF mode only]\item 2: NN $\rightarrow$ NN elastic scattering events are modified according to   Li and Machleidt   all other BB $\rightarrow$ BB (+ mesons  events are subject to   in-medium reduction according to Eq. (33) from   T. Song, C.M. Ko, PRC 91, 014901 (2015)   [works in all modes (Skyrme, RMF, cascade)]   Elastic cross section change only can be obtained by setting alpha = 0\item 3: Only Song-Ko modification for Delta excitation turned on\end{itemize}NOTES\\ relevant when flagInMedium = .true.\end{minipage}\\*
 \midrule
 flagVacEL & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}\begin{itemize}\leftmargin0em\itemindent0pt\item If .true. -- no in-medium modification for  NN $\rightarrow$ NN elastic\end{itemize}NOTES\\ relevant for flagInMedium = .true.\end{minipage}\\*
 \midrule
@@ -3643,9 +3653,9 @@ flagVacHRES & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t
 \midrule
 flagVacMesProd & \begin{minipage}[t]{2cm}logical\end{minipage} & \begin{minipage}[t]{2cm}.false.\end{minipage} & \begin{minipage}[t]{12cm}\begin{itemize}\leftmargin0em\itemindent0pt\item If .true. -- no in-medium modification for  BB $\rightarrow$ BB + meson(s)\end{itemize}NOTES\\ relevant for flagInMedium = .true.\end{minipage}\\*
 \midrule
-alpha & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}1.2\end{minipage} & \begin{minipage}[t]{12cm}Parameter which controls the density dependence of the NN $\leftrightarrow$ N Delta cross section via suppression factor of exp(-alpha*(rho/rho\_0)**beta)\\ for the density dependence from: Song/Ko, arXiv:1403.7363 (InMediumMode=2)\end{minipage}\\*
+alpha & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}1.2\end{minipage} & \begin{minipage}[t]{12cm}Parameter which controls the density dependence of the NN $\leftrightarrow$ N Delta cross section via suppression factor of exp(-alpha*(rho/rho\_0)**beta)\\ for the density dependence from: Song/Ko, arXiv:1403.7363 (InMediumMode=2 or 3)\end{minipage}\\*
 \midrule
-beta & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}1.\end{minipage} & \begin{minipage}[t]{12cm}Parameter which controls the density dependence of the NN $\leftrightarrow$ N Delta cross section via suppression factor of exp(-alpha*(rho/rho\_0)**beta)\\ for the density dependence of the type of arXiv:2107.13384 (InMediumMode=2)\end{minipage}\\*
+beta & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}1.\end{minipage} & \begin{minipage}[t]{12cm}Parameter which controls the density dependence of the NN $\leftrightarrow$ N Delta cross section via suppression factor of exp(-alpha*(rho/rho\_0)**beta)\\ for the density dependence of the type of arXiv:2107.13384 (InMediumMode=2 or 3)\end{minipage}\\*
 \midrule
 shift0 & \begin{minipage}[t]{2cm}real\end{minipage} & \begin{minipage}[t]{2cm}0.\end{minipage} & \begin{minipage}[t]{12cm}Mass shift m-m\^{}* (GeV) for using in elementary particle collision mode.\end{minipage}\\*
 \bottomrule

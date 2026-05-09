@@ -26,17 +26,17 @@ endif
 
 export CALLINGDIR := $(CURDIR)
 
-export OS = $(strip $(shell uname))
+export OS := $(strip $(shell uname))
 export noPrintDirectory=--no-print-directory
-export ECHO = echo -e
-export PERL = $(strip $(shell which perl 2>/dev/null))
+export ECHO := echo -e
+export PERL := $(strip $(shell which perl 2>/dev/null))
 ifeq ($(PERL),$(EMPTY))
-  export MAKEDEP = $(strip $(shell which makedepf90 2>/dev/null))
+  export MAKEDEP := $(strip $(shell which makedepf90 2>/dev/null))
 endif
 ifeq ($(OS),Darwin)
-  export FIND = gfind
+  export FIND := gfind
 else
-  export FIND = find
+  export FIND := find
 endif
 
 ### FILES:
@@ -72,7 +72,7 @@ OBJDIROBJ := $(filter-out $(strip $(OBJDIR))/PDFstub.orig.6225.o, $(OBJDIROBJ))
 
 ### Compiler flags for usage of FGSL:
 
-PKGCONFIG=$(strip $(shell which pkg-config 2>/dev/null))
+PKGCONFIG:=$(strip $(shell which pkg-config 2>/dev/null))
 ifeq ($(PKGCONFIG),$(EMPTY))
         # maybe one wants to give some flags here
 else
@@ -90,13 +90,13 @@ endif
 ### Compiler flags for usage of Root:
 
 ifneq ($(withROOT),$(EMPTY))
-ROOTCONFIG=$(strip $(shell which root-config 2>/dev/null))
+ROOTCONFIG:=$(strip $(shell which root-config 2>/dev/null))
 ifneq ($(ROOTCONFIG),$(EMPTY))
 	FLAGS_ROOT:=$(shell root-config --cflags)
 	FLAGS_ROOT:=$(subst -std=c++11, , $(FLAGS_ROOT))
 	FLAGSLD_ROOT:=$(shell root-config --libs) -lGui -lstdc++
 endif
-ROOTTUPLECONFIG=$(strip $(shell which RootTuple-config 2>/dev/null))
+ROOTTUPLECONFIG:=$(strip $(shell which RootTuple-config 2>/dev/null))
 ifneq ($(ROOTTUPLECONFIG),$(EMPTY))
 	FLAGSLD_ROOT:=$(shell RootTuple-config --libs) -lstdc++
 endif
@@ -106,13 +106,13 @@ endif
 ### Compiler flags for usage of HepMC3:
 
 ifneq ($(withHEPMC3),$(EMPTY))
-HEPMC3CONFIG=$(strip $(shell which HepMC3-config 2>/dev/null))
+HEPMC3CONFIG:=$(strip $(shell which HepMC3-config 2>/dev/null))
 ifneq ($(HEPMC3CONFIG),$(EMPTY))
 	FLAGS_HEPMC3:=$(shell HepMC3-config --cflags)
 	FLAGS_HEPMC3:=$(subst -std=c++11, , $(FLAGS_HEPMC3))
 	FLAGSLD_HEPMC3:=$(shell HepMC3-config --libs) -lstdc++
 endif
-HEPMC3EVENTCONFIG=$(strip $(shell which HepMC3event-config 2>/dev/null))
+HEPMC3EVENTCONFIG:=$(strip $(shell which HepMC3event-config 2>/dev/null))
 ifneq ($(HEPMC3EVENTCONFIG),$(EMPTY))
 	FLAGSLD_HEPMC3:=$(shell HepMC3event-config --libs) -lstdc++
 endif

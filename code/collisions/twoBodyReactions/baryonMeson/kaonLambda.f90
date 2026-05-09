@@ -357,16 +357,21 @@ contains
     ! NAME
     ! subroutine MakeDecision
     ! PURPOSE
-    ! Decides on the final state which is returned via teilchenOut by Monte-Carlo.
-    !  * Assigns charges and ID's.
-    !  * Only for resonance-production also the mass is assigned, since the mass of the resonance needed to be calculated earlier.
-    ! The Monte-Carlo routine is adding up channels until the sum is exceeding x*sigma(total). x has a flat distribution in [0,1].
-    ! The last added channel is then the one which is chosen for the event. After choosing a channel, the subroutine is returning to
-    ! the calling routine.
+    ! Decides on the final state which is returned via teilchenOut by
+    ! Monte-Carlo:
+    ! * Assigns charges and ID's.
+    ! * Only for resonance-production also the mass is assigned, since the
+    !   mass of the resonance needed to be calculated earlier.
+    ! The Monte-Carlo routine is adding up channels until the sum is exceeding
+    ! x*sigma(total). x has a flat distribution in [0,1].
+    ! The last added channel is then the one which is chosen for the event.
+    ! After choosing a channel, the subroutine is returning to the calling
+    ! routine.
     !**************************************************************************
     subroutine MakeDecision
 
       use random, only: rn
+      use Callstack, only: Traceback
 
       real :: summe, cut, cut2
       integer :: totalCharge, resID, pionCharge
@@ -426,8 +431,7 @@ contains
 
       write(*,*) 'Error in makeDecision : No decision made', &
            & cut,    sum(piDelta) , partOut(:)%ID,partOut(:)%Charge,sigmaTot
-
-      Stop
+      call Traceback()
 
     end subroutine MakeDecision
 

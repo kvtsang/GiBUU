@@ -9,7 +9,7 @@
 !------------------------------------------------------------------------------
 ! DON'T  FORGET to change  "path_to_input" in the namelist &input according to your local GiBUU installation
 !------------------------------------------------------------------------------
-! This jobcard is set up for MicroBooNE flux, to use another flux change "nuExp" in the namelist &neutrino_induced
+! This jobcard is set up for SBND flux, to use another flux change "nuExp" in the namelist &neutrino_induced
 !------------------------------------------------------------------------------
 ! In this jobcard some of the analysis is switched OFF, see namelist &neutrinoAnalysis;
 ! the output of final events and particles in each event is given to the file FinalEvents.dat
@@ -47,7 +47,7 @@
 
 &neutrino_induced
       process_ID      =  2      ! 2:CC, 3:NC, -2:antiCC, -3:antiNC
-      flavor_ID       =  1      ! 1:electron, 2:muon, 3:tau
+      flavor_ID       =  2      ! 1:electron, 2:muon, 3:tau
 !
 ! for calculations with given, fixed neutrino energy
 !     nuXsectionMode  =  6 !  6: dSigmaMC
@@ -76,14 +76,14 @@
 !       nuExp           = 16 ! 16: DUNE antineutrino mode flux
 !       nuExp           = 17 ! 17: LBNO
 !       nuExp           = 18 ! 18: NOMAD
-       nuExp           = 19 ! 19: BNB nue
+!       nuExp           = 19 ! 19: BNB nue
 !       nuExp           = 20 ! 10: BNB nuebar
-!       nuExp           = 21 ! 21: BNB numu
+       nuExp           = 21 ! 21: BNB numu
 !       nuExp           = 22 ! 22: BNB numubar
 !       nuExp           = 23 ! NOvA ND    !various modes for near detector 
 !       nuExp           = 24 ! T2K on axis beam (INGRID)
 !       nuExp           = 25 ! 25: MINERvA new 2016 flux
-!       nuExp           = 99   ! new, own flux
+!       nuExp           = 99 ! new, own flux
                              ! name of the flux file is given in the next line: 
         FileNameFlux = '~/GiBUU/buuinput/neutrino/MINERvA_MEflux.dat'
                              ! for nuExp=99
@@ -112,7 +112,7 @@
       Z=18
       A=40
       densitySwitch_Static=2    ! 0: density=0.0, 1: Woods-Saxon by Lenske, 2 : NPA 554, 3: Woods-Saxon by Lenske, different neutron and proton radii,
-                                ! 5: density distribution is a sphere with density according to the input value of "fermiMomentum_input".
+					            ! 5: density distribution is a sphere with density according to the input value of "fermiMomentum_input".
       fermiMomentum_input=0.225 ! Input value of the fermi momentum for densitySwitch_static=5.
       fermiMotion=.true.
 /
@@ -138,12 +138,12 @@
       eventtype=5               ! 5=neutrino, 200=simple transport of a given particle
 
       numEnsembles=1000         ! for C12 you can use 4000, for heavier nuclei should be lower; decrease it if there are problems with memory
-      numTimeSteps=200          ! the distance numTimeSteps*delta_T (100*0.2=20 fm in this example) should significantly exceed the radius of the target nucleus
-                                ! for inclusive cross sections set numTimeSteps= 0; set this to 0 for inclusive cross sections.
+      numTimeSteps=150          ! the distance numTimeSteps*delta_T (100*0.2=20 fm in this example) should significantly exceed the radius of the target nucleus
+      	                        ! for inclusive cross sections set numTimeSteps= 0; set this to 0 for inclusive cross sections.
       delta_T=0.2               ! timestep for FSI trajectories
 
-      fullensemble=.true.       ! do not change
-      localEnsemble=.true.      ! do not change
+      fullensemble=.true.
+      localEnsemble=.true.
 
       num_runs_SameEnergy=1     ! increase these if you want to increase statistics (= number of generated events)
       num_Energies=1            ! for nuXsectionMode=6 or 16 keep this 1
@@ -173,52 +173,14 @@
 ! in-medium switches
 !##############################################################################
 
-!################################################################
-! first, pion-Delta in-med changes
-#################################################################
-
-! file: code/inputOutput/inputGeneral
-&InMedium
-master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed changes. 
-                         ! If set to .true. it turns on all 
-                         ! the inmedium pion-Delta corrections, i.e.
-                         ! mediumSwitch=.true., mediumSwitch_Delta=.true.,
-                         ! s-wave pion absorption s_wave_abs = .true, and 
-                         ! pion Potential pionpotSwitch = 4
-                         ! If .false., the listed switches can be set independently
-/
-
-  
-! file: ./collisions/ThreeBodyReactions/master_3Body.f0
-&master_3Body
-      s_wave_abs = F        !switch for s-wave pion abs in NNpi -> NN
-/ 
-
 ! file: code/width/baryonWidthMedium.f90
 &width_Baryon
       mediumSwitch=.false.       ! if .false. vacuum widths will be used for all resonances
-                                 ! and other switches are not meaningful/relevant
+                                ! and other switches are not meaningful/relevant
       mediumSwitch_Delta=.false. ! Use Oset broadening of the Delta (only relevant for mediumSwitch_coll=.true.)
-      mediumSwitch_coll=.false.  ! Use collisional broadening of all resonances
+      mediumSwitch_coll=.false. ! Use collisional broadening of all resonances
 /
 
-
-!################################################################
-! now inmed-changes of NN X-sections
-!################################################################
-
-! file: code/collisions/phaseSpace/XsectionRatios.f90
-&XsectionRatios_input
-
-      flagInMedium = .true.    ! turns on in-medium changes of NN cross sections in deciding to keep an event
-!  switches only relevant if flagInMedium = .true. :
-!
-       InMediumMode = 3          ! NN elastic X-section reduced according to Machleidt-Li
-                                 ! BB -> BB* is reduced following Song,Ko, PRC91, 014901 (2015),
-                                 ! controlled by parameter alpha:
-       alpha = 1.2               ! parameter in the Song-Ko exponential suppression of NN->NDelta Xsection
-                                 ! alpha = 0. : no Delta suppression
-/
 
 ! file: code/spectralFunctions/spectralFunc.f90
 &spectralFunction
@@ -226,25 +188,16 @@ master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed cha
 /
 
 
-!##############################################################################
-! Hadron potentials
-!##############################################################################
 
-!file:  ./potential/mesonPotential.f90
-&mesonPotential
-      pionpot_Switch = 0     ! No pion potential for =0, for =4 s- and p-wave pion potential
-/
-
+!##############################################################################
+! Baryon potentials
+!##############################################################################
 ! file: code/potential/baryonPotential.f90
 &baryonPotential
       EQS_Type=5                ! 1=soft mom-dep, 2=hard mom-dep, 3=soft non-mom-dep, 4=hard non-mom-dep, 5=medium mom-dep
       DeltaPot=1                ! 1=2/3 of nucleon potential, 2=100 MeV*rho/rhoNull
 /
 
-! file: code/spectralFunctions/spectralFunc.f90
-&spectralFunction
-      nuclwidth=0.001           ! if mediumSwitch_coll=.false.: this parameter determines the "bare nucleon width", for numerical purpose    
-/
 
 ! file: code/collisions/insertion.f90
 &insertion
@@ -269,12 +222,10 @@ master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed cha
 &neutrinoAnalysis
       outputEvents=.true.       ! output list of events and all outgoing particles in each event to the file FinalEvents.dat
 
-      include_W_dist=.false.    ! printout of W-distributions for outgoing channel
-      DoOutChannels = .true.    ! gives cross sections for various final states
-      ZeroPion_analysis=.true.  ! extra cross sections for events with 0 pions in the final state
-      detailed_diff_output=.false. ! differential xsec; see namelist detailed_diff for max values and bins of the histograms
-      specificEvent_analysis=.false.  ! extra cross sections for specific final states; see namelist nl_specificEvent
-                                      ! also provides Q2 and energy reconstruction
+      include_W_dist=.false.     ! printout of W-distributions for outgoing channel
+	  DoOutChannels = .true.    ! gives cross sections for various final states
+	  ZeroPion_analysis=.true.  ! extra cross sections  for events with 0 pions in the final state
+	  detailed_diff_output=.false. ! differential xsec; see namelist detailed_diff for max values and bins of the histograms
 
 ! now various exp. cuts on final state nucleons and pions; these may affect the FinalEvents file
 ! should be turned off for own analysis
@@ -289,7 +240,8 @@ master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed cha
                        ! =2: only unbound particles, =0: all particles
 
       reconstruct_neutrino_energy=.false. ! calculate neutrino energy reconstruction for various final states (see nl_specificEvent)
-    
+      specificEvent_analysis=.false.      ! extra cross sections for specific final states; see namelist nl_specificEvent
+                                         ! also provides Q2 and energy reconstruction
 
 /
 
@@ -364,6 +316,29 @@ $nl_specificEvent
 &pythia
       PARP(91)=0.44  ! PYTHIA Parameter tuned to low energies
 /
+
+
+! file: code/init/lepton/formfactors_QE_nucleon/FF_QE_nucleonScattering.f90
+&ff_QE
+      parametrizationAxial=2 !! Select which axial form fact parameterization to use.
+                             !! Option 0 is the stadard dipole form factor.
+                             !! Option 1 is the ff. of Gari, Kaulfuss PLB 138 (1984).
+                             !! Option 2 is z-expansion from MINERvA fit in Nature 614, 48-53 (2023).
+                             !! Option 3 is the z-expansion from LQCD fit in arXiv:2512.14097 eq (41).
+                             !! Option 4 is z-expansion from Deuterium fit in arXiv:2512.14097 eq (50).
+                             !! Option 5 is a configurable custom z expansion, must specify tc, t0, ak, kmax.
+
+      !! These next two only matter if parametrizationAxial=0 or parametrizationAxial=1
+      ! useNonStandardMA=.true. ! Set true if you want to use M_A other than 1.0.
+      ! MA_in=1.2
+
+      !! These next four only matter if parametrizationAxial=5.
+      ! tc=0.173889
+      ! t0=-0.75
+      ! ak=-0.5,1.50,-1.2,-0.1,0.2,0.46,-0.4,0.15,-0.044
+      ! kmax=8
+/
+
 
 ! file: code/numerics/random.f90
 &initRandom

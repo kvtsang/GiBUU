@@ -30,8 +30,8 @@ contains
   !****************************************************************************
   !****f* electronPionProduction_medium_eN/dSdO_fdE_fdO_k_med_eN
   ! NAME
-  ! function dSdO_fdE_fdO_k_med_eN(eN, pionCharge, phi_k, theta_k, k, pf, processID,
-  ! pionNucleonSystem)
+  ! function dSdO_fdE_fdO_k_med_eN(eN, pionCharge, phi_k, theta_k, k, pf,
+  ! processID, pionNucleonSystem)
   !
   ! PURPOSE
   ! * Evaluates the electron nucleon -> electron pion nucleon cross section as
@@ -62,21 +62,22 @@ contains
   ! * real, dimension(0:3) :: pf       -- outgoing nucleon 4-momentum
   ! * real, dimension(0:3) :: k        -- outgoing pion  4-momentum
   !****************************************************************************
-  function dSdO_fdE_fdO_k_med_eN(eN, pionCharge, phi_k, theta_k, k, pf, processID, &
-                                & pionNucleonSystem) Result(dSigma)
+  function dSdO_fdE_fdO_k_med_eN(eN, pionCharge, phi_k, theta_k, k, pf, &
+       processID, pionNucleonSystem) Result(dSigma)
     use degRad_conversion, only: degrees, radian
     use constants, only: pi, mN, mPi, hbarc
     use particleDefinition
     use leptonicID
     use vector, only: absVec, theta_IN
-    use eN_eventDefinition, only:electronNucleon_event,write_electronNucleon_event
+    use eN_eventDefinition, only:electronNucleon_event, &
+         write_electronNucleon_event
     use electronPionProduction_kine, only: getV_out, get_dV_Pi_dk
     use lorentzTrafo, only: lorentz
 
 
     implicit none
 
-    real ::dSigma ! dsigma/dOmega(final electron)/dE(final Electron)/dOmega(final pion)
+    real ::dSigma
 
     type(electronNucleon_event) , intent(in)  :: eN
     integer                     , intent(in)  :: pionCharge
@@ -150,7 +151,7 @@ contains
        call getKinematics_eN(eN,pionCharge,charge_nucOut,phi_k,theta_k,&
             & k,pf,twoRoots,success)
     end if
-    if (debug)  write(*,*) 'After getKinematics:', success
+    if (debug) write(*,*) 'After getKinematics:', success
 
 
     if (.not.success) then
@@ -283,8 +284,8 @@ contains
 
   !****************************************************************************
   ! Evaluates the Matrixelement in the CM-Frame
-  real function  matrixElement_EN(pi_lab,pf_lab,li_lab,lf_lab,k_lab,q_lab,charge_pionOut, &
-                                 & charge_nucOut,processID,W_free)
+  real function  matrixElement_EN(pi_lab,pf_lab,li_lab,lf_lab,k_lab,q_lab, &
+       charge_pionOut,charge_nucOut,processID,W_free)
     use degRad_conversion, only: degrees
     use lorentzTrafo
     use leptonicID
@@ -293,8 +294,9 @@ contains
     real   , intent(in) :: W_free
     integer, intent(in) :: charge_pionOut,charge_nucOut
     ! in- and outgoing four-momenta in lab frame:
-    real, dimension(0:3),intent(in) :: pi_lab, pf_lab, li_lab,lf_lab,k_lab,q_lab
+    real, dimension(0:3),intent(in) :: pi_lab,pf_lab,li_lab,lf_lab,k_lab,q_lab
     integer, intent(in),optional :: processID
+
     real, dimension(0:3) :: pi, pf, li,lf,k,q ! in- and outgoing four-momenta in cm frame
     !real  :: Mi, Mf ! masses of nucleons
     !real  :: mie, mfe ! masses of electrons
@@ -361,14 +363,15 @@ contains
        write(*,'(A,2F9.5)') 'ougoing  nucleon mass:',sqrt(pair(pf,pf))
     end if
 
-   matrixElement_eN=contraction(W_free)
+    matrixElement_eN=contraction(W_free)
+
   contains
 
     real function contraction(W_free)
       use minkowski, only: metricTensor
       use leptonTensor, only: l_munu
       use hadronTensor_npi, only: h_munu
-      use formfactors_A_main, only: getA
+      use formfactors_A_main, only: getA, getMInW
 
       implicit none
       real, intent(in)       :: W_free
@@ -378,31 +381,35 @@ contains
       real :: theta,s_Vacuum
       real :: s_Vacuum_belowGrid
       logical :: belowGrid
+      real :: minS
 
 
       ! This is meant to solve the problem that acos(1)
       ! can sometimes give NAN since 1 is 1.000000000000001 or so.
       theta=degrees(Acos( &
-           &    Min( &
-           &    Max(&
-           &    Dot_product(q(1:3),k(1:3))&
-           &      /sqrt(Dot_product(q(1:3),q(1:3)))/sqrt(Dot_product(k(1:3),k(1:3))) &
-           &    ,-0.999999999999999999) &
-           &    , 0.999999999999999999)&
-           ))
-
+           Min(Max( &
+           Dot_product(q(1:3),k(1:3)) &
+           /sqrt(Dot_product(q(1:3),q(1:3))*Dot_product(k(1:3),k(1:3))), &
+           -0.999999999999999999), 0.999999999999999999) ))
 
       s_Vacuum=W_free**2
 
       ! The value 1.096 is dictated by the MAID input grid which has the
       ! lowest point at W=1.1 and dW=0.01
-      ! if W below this value, we do a linear extrapolation to the
+      ! (in the case of a linear interpolation in getA(...), A is
+      ! frozen for W<1.1GeV, so one would get the same value as without
+      ! interpolation)
+      ! if W below this value, we do an extrapolation to the
       ! pion-nucleon-threshold at 1.076 GeV
       belowGrid=.false.
-      if (sqrt(s_Vacuum).lt.1.096) then
+
+      !minS = 1.096**2
+      minS = getMinW()**2
+
+      if (s_Vacuum.lt.minS) then
          belowGrid=.true.
-         s_Vacuum_belowGrid=s_Vacuum
-         s_Vacuum=1.096**2
+         s_Vacuum_belowGrid = s_Vacuum
+         s_Vacuum = minS
       end if
 
 
@@ -415,24 +422,24 @@ contains
 
          select case (charge_pionout)
          case (1)
-            A=sqrt(2.)*getA(0,1,theta,s_Vacuum,-pair(q,q))&
-                 & -getA(-1,1,theta,s_Vacuum,-pair(q,q))
+            A = sqrt(2.)*getA(0,1,theta,s_Vacuum,-pair(q,q)) &
+                 - getA(-1,1,theta,s_Vacuum,-pair(q,q))
          case (0)
-            A=-getA(0,0,theta,s_Vacuum,-pair(q,q))-  &
-              & sqrt(2.)*getA(-1,1,theta,s_Vacuum,-pair(q,q))&
-              & +getA(0,1,theta,s_Vacuum,-pair(q,q))
+            A = -getA(0,0,theta,s_Vacuum,-pair(q,q)) &
+                 - sqrt(2.)*getA(-1,1,theta,s_Vacuum,-pair(q,q)) &
+                 + getA(0,1,theta,s_Vacuum,-pair(q,q))
          end select
 
       case (antiCC)
 
         select case (charge_pionout)
         case (-1)
-           A=sqrt(2.)*getA(0,1,theta,s_Vacuum,-pair(q,q))&
-                 & -getA(-1,1,theta,s_Vacuum,-pair(q,q))
+           A = sqrt(2.)*getA(0,1,theta,s_Vacuum,-pair(q,q)) &
+                - getA(-1,1,theta,s_Vacuum,-pair(q,q))
         case (0)
-           A=+getA(0,0,theta,s_Vacuum,-pair(q,q))+  &
-              & sqrt(2.)*getA(-1,1,theta,s_Vacuum,-pair(q,q))&
-              & -getA(0,1,theta,s_Vacuum,-pair(q,q))
+           A =  getA(0,0,theta,s_Vacuum,-pair(q,q)) &
+                + sqrt(2.)*getA(-1,1,theta,s_Vacuum,-pair(q,q)) &
+                - getA(0,1,theta,s_Vacuum,-pair(q,q))
         end select
 
 
@@ -443,17 +450,18 @@ contains
 
       ! extrapolate to lower W if necessary
       if (belowGrid) then
-         A=A/0.04344*(s_Vacuum_belowGrid-1.076**2)
-         !0.04344=1.096**2-1.076**2, i.e. last Maid gridpoint
-         ! minus pion-nucleon threshold
+         A = A * (s_Vacuum_belowGrid-1.076**2)/(minS-1.076**2)
+         ! if one wants to play around:
+         ! A = A * (sqrt(s_Vacuum_belowGrid)-1.076)/(sqrt(minS)-1.076)
+         ! A = 0
       end if
 
       contraction_c=0.
       do mu=0,3
          do nu=0,3
-            contraction_c=contraction_c+ &
-                 & metricTensor(mu,mu)*metricTensor(nu,nu)*l_munu(mu,nu,li,lf)&
-                 & *real(h_munu(mu,nu,pi,pf,k,q,A) )
+            contraction_c = contraction_c &
+                 +metricTensor(mu,mu)*metricTensor(nu,nu)*l_munu(mu,nu,li,lf)&
+                 *real(h_munu(mu,nu,pi,pf,k,q,A) )
          end do
       end do
       contraction=Contraction_c

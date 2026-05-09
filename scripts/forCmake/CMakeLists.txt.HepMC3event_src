@@ -1,0 +1,23 @@
+
+# Test FORTRAN/C interface abilities and produce name mangling macros
+include(FortranCInterface)
+FortranCInterface_VERIFY(CXX)
+FortranCInterface_HEADER(FC_namemangling.h)
+
+# message(STATUS "in HEPMC3event: CMAKE_SOURCE_DIR         : ${CMAKE_SOURCE_DIR}")
+# message(STATUS "in HEPMC3event: CMAKE_CURRENT_SOURCE_DIR : ${CMAKE_CURRENT_SOURCE_DIR}")
+# message(STATUS "in HEPMC3event: CMAKE_BINARY_DIR         : ${CMAKE_BINARY_DIR}")
+# message(STATUS "in HEPMC3event: CMAKE_CURRENT_BINARY_DIR : ${CMAKE_CURRENT_BINARY_DIR}")
+
+# Include binary tree in include path (to find name mangling macros)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+# Create library
+set(HEPMC3event_SOURCES HEPMC3event.cxx interface.cxx)
+set(HEPMC3event_HEADERS HEPMC3event.h interface.h ${CMAKE_CURRENT_BINARY_DIR}/FC_namemangling.h)
+add_library(HEPMC3event STATIC ${HEPMC3event_SOURCES})
+target_link_libraries(HEPMC3event ${HEPMC3_LIBRARIES})
+
+
+# Configure config script
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/HEPMC3event-config.in" "${CMAKE_CURRENT_BINARY_DIR}/HEPMC3event-config")

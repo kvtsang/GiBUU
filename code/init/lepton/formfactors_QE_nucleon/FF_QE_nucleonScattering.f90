@@ -26,29 +26,6 @@ module FF_QE_nucleonScattering
   ! * 3 = BBBA07 parametrization
   !****************************************************************************
 
-
-  !****************************************************************************
-  !****m* FF_QE_nucleonScattering/useNonStandardMA
-  ! SOURCE
-  !
-  logical,save::useNonStandardMA=.false.
-  !
-  ! PURPOSE
-  ! if one wants to use a specific axial mass, set this to true and choose value
-  ! for MA_in
-  !****************************************************************************
-
-
-  !****************************************************************************
-  !****m* FF_QE_nucleonScattering/MA_in
-  ! SOURCE
-  !
-  real,save :: MA_in=1.0
-  !
-  ! PURPOSE
-  ! axial mass (only if useNonStandardMA=.true.)
-  !****************************************************************************
-
   !****************************************************************************
   !****m* FF_QE_nucleonScattering/MV2
   ! SOURCE
@@ -73,14 +50,84 @@ module FF_QE_nucleonScattering
   !****************************************************************************
 
   !****************************************************************************
-  !****m* FF_QE_nucleonScattering/axialMonopole
+  !****m* FF_QE_nucleonScattering/parametrizationAxial
   ! SOURCE
   !
-  logical,save :: axialMonopole=.false.
+  integer,save :: parametrizationAxial=0
   !
   ! PURPOSE
-  ! use axial ff. of Gari, Kaulfuss PLB 138 (1984)
+  ! * 0 = dipole approximation
+  ! * 1 = use axial ff. of Gari, Kaulfuss PLB 138 (1984)
+  ! * 2 = use z-expansion from MINERvA fit in Nature 614, 48-53 (2023)
+  ! * 3 = use z-expansion from LQCD fit in arXiv:2512.14097 eq (41)
+  ! * 4 = use z-expansion from Deuterium fit in arXiv:2512.14097 (50)
+  ! * 5 = use z-expansion with custom parameters, specified with t0,tc,a1,a2,...
   !****************************************************************************
+
+  !****************************************************************************
+  !****m* FF_QE_nucleonScattering/useNonStandardMA
+  ! SOURCE
+  !
+  logical,save::useNonStandardMA=.false.
+  !
+  ! PURPOSE
+  ! if one wants to use a specific axial mass, set this to true and choose value
+  ! for MA_in, will only impact CC if parametrizationAxial=0,1.
+  !****************************************************************************
+
+
+  !****************************************************************************
+  !****m* FF_QE_nucleonScattering/MA_in
+  ! SOURCE
+  !
+  real,save :: MA_in=1.0
+  !
+  ! PURPOSE
+  ! axial mass (only if useNonStandardMA=.true. 
+  ! and will only impact CC if parametrizationAxial=0,1).
+  !****************************************************************************
+
+  !****************************************************************************
+  !****m* FF_QE_nucleonScattering/kmax
+  ! SOURCE
+  !
+  integer,save :: kmax=20
+  !
+  ! PURPOSE
+  ! number of ak used in z-expansion (only if parametrizationAxial=5).
+  !****************************************************************************
+
+  !****************************************************************************
+  !****m* FF_QE_nucleonScattering/t0
+  ! SOURCE
+  !
+  real,save :: t0=-0.75
+  !
+  ! PURPOSE
+  ! parameter used in calculating z (only if parametrizationAxial=5).
+  !****************************************************************************
+
+  !****************************************************************************
+  !****m* FF_QE_nucleonScattering/tc
+  ! SOURCE
+  !
+  real,save :: tc=0.173889
+  !
+  ! PURPOSE
+  ! cutoff parameter used in calculating z (only if parametrizationAxial=5).
+  !****************************************************************************
+
+  !****************************************************************************
+  !****m* FF_QE_nucleonScattering/a0
+  ! SOURCE
+  !
+  real,dimension(100),save :: ak=0.0
+  !
+  ! PURPOSE
+  ! ak coefficients for the z-expansion (only if parametrizationAxial=5), 
+  ! must contain less than kmax entries
+  !****************************************************************************
+
 
   ! constants: magnetic moments of proton and neutron
   real, parameter :: mup = 2.793
@@ -97,6 +144,7 @@ contains
     use output
 
     integer :: ios
+    integer :: i
 
     !**************************************************************************
     !****n* FF_QE_nucleonScattering/ff_QE
@@ -109,10 +157,14 @@ contains
     ! * MA_in
     ! * useNonStandardMA
     ! * deltas
-    ! * axialMonopole
+    ! * parametrizationAxial
+    ! * kmax
+    ! * t0
+    ! * tc
+    ! * ak
     !**************************************************************************
     NAMELIST /ff_QE/ parametrization,MV2,MA_in,&
-         useNonStandardMA,deltas,axialMonopole
+         useNonStandardMA,deltas,parametrizationAxial,kmax,t0,tc,ak
 
     call Write_ReadingInput('ff_QE',0)
 
@@ -135,11 +187,34 @@ contains
        stop
     end select
 
-    if (useNonStandardMA) write(*,*) 'useNonStandardMA: nucleon axial mass: ', MA_in
+    write(*,*) 'Axial Formfactor Parametrization for QE:'
+    select case (parametrizationAxial)
+    case (0)
+       write(*,*) '     => dipole approximation'
+       if (useNonStandardMA) write(*,*) 'useNonStandardMA: nucleon axial mass:', MA_in
+    case (1)
+       write(*,*) '     => ff. of Gari, Kaulfuss PLB 138 (1984)'
+       if (useNonStandardMA) write(*,*) 'useNonStandardMA: nucleon axial mass:', MA_in
+    case (2)
+       write(*,*) '     => z-expansion from MINERvA fit in Nature 614, 48-53 (2023)'
+    case (3)
+       write(*,*) '     => z-expansion from LQCD fit in arXiv:2512.14097 eq (41)'
+    case (4)
+       write(*,*) '     => z-expansion from Deuterium fit in arXiv:2512.14097 (50)'
+    case (5)
+       write(*,*) '     => custom z-expansion'
+       write(*,*) '       => t0:', t0
+       write(*,*) '       => tc:', tc
+       write(*,*) '       => kmax:', kmax
+       do i=0,kmax
+          write(*,*) '       => a',i,":",ak(i+1)
+       end do
+    case default
+       write(*,*) ' strange value for QE FF parametrization -> STOP',parametrizationAxial
+       stop
+    end select
 
     write(*,*) 'deltas= ', deltas
-
-    if (axialMonopole) write(*,*) 'use axial ff. of Gari, Kaulfuss PLB 138 (1984)'
 
     call Write_ReadingInput('ff_QE',1)
 
@@ -173,6 +248,8 @@ contains
     use constants, only: sinsthweinbg, mN, MPi
     use leptonicID
 
+    integer :: i
+
     real, intent(in) :: QSQuared ! =Q^2 : virtuality of gauge boson
     integer, intent(in) :: processID, initialState_charge ! Specifies the reaction type
 
@@ -200,6 +277,8 @@ contains
     real, parameter :: lambda1=0.85
     real, parameter :: lambda2=1.38
 
+    ! z expansion
+    real :: z
 
     if (initFlag) then
        call initInput
@@ -246,7 +325,73 @@ contains
        stop
     end select
 
-    if (useNonStandardMA) MA=MA_in  !overwrite MA with the value given in the jobcard
+    !*** Set Axial form factors:
+
+    if (useNonStandardMA) MA=MA_in  ! Overwrite MA with the value given in the jobcard, 
+                                    ! will still be used for NC interactions even if z-expansion is used
+
+    select case (parametrizationAxial)
+    case(0)
+       ! Dipole
+       kmax=-1
+    case(1)
+       ! monopole of Gari, Kaulfuss PLB 138 (1984)
+       kmax=-1
+
+    case(2)
+       ! MINERvA z-expansion from Nature 614, 48-53 (2023)
+       tc=0.173889
+       t0=-0.75
+       kmax=8
+       ak(1)=-0.5 ! a0
+       ak(2)=1.50
+       ak(3)=-1.2
+       ak(4)=-0.1
+       ak(5)=0.2
+       ak(6)=0.46
+       ak(7)=-0.4
+       ak(8)=0.15
+       ak(9)=-0.044 ! a8
+
+    case(3)
+       ! LQCD z-expansion from arXiv:2512.14097 eq (41)
+       ! sign flip to match convention used here
+       tc=0.161604
+       t0=-0.5
+       kmax=6
+       ak(1)=-0.71742019 ! a0
+       ak(2)=1.72089706
+       ak(3)=-0.30982708
+       ak(4)=-1.62125837
+       ak(5)=0.27506993
+       ak(6)=1.25297945
+       ak(7)=-0.60044079 ! a6
+
+    case(4)
+       ! Deuterium z-expansion from arXiv:2512.14097 eq (50)
+       ! sign flip to match convention used here
+       tc=0.161604
+       t0=-0.5
+       kmax=6
+       ak(1)=-0.54264533 ! a0
+       ak(2)=2.08493637
+       ak(3)=-1.89831616
+       ak(4)=-2.40319245
+       ak(5)=5.88979056
+       ak(6)=-4.14554900
+       ak(7)=1.01497601 ! a6
+    case(5)
+    case default
+       write(*,*) 'Wrong parametrization in formfactors_QE',parametrizationAxial,'STOP!!!'
+       stop
+    end select
+
+    do i=kmax+2,100
+      ak(i)=0
+    end do
+
+    z = ( SQRT(tc+QSquared) - SQRT(tc-t0) ) / ( SQRT(tc+QSquared) + SQRT(tc-t0) )
+
 
     if (initialState_charge==1) then
        if (present(GE)) GE=GEp
@@ -284,14 +429,31 @@ contains
           ! can be nonzero for proton in u-channel
           F1 = ((GEp-GEn)+tau*(GMp-GMn))/(1.+tau) !0.
           F2 = ((GMp-GMn) - (GEp-GEn))/(1.+tau) !0.
-          FA = gA/(1.+QSquared/MA**2)**2 !0.
+          if (parametrizationAxial==0) then
+             FA = gA/(1.+QSquared/MA**2)**2 !0.
+          else if (parametrizationAxial==1) then
+             FA = gA/(1.+QSquared/MA**2)*(lambda1**2/(lambda1**2+QSquared))*lambda2**4/(lambda2**4+QSquared**2)
+          else if (parametrizationAxial.gt.1) then
+             FA = 0
+             do i=0,kmax  
+                FA = FA + ak(i+1)*(z**i) 
+             end do
+          end if
           FP=  ((2.*mN**2)/(mPi**2. + QSquared))*FA !0.
           return
        else if (initialState_charge.eq.neutron) then
           F1 = ((GEp-GEn)+tau*(GMp-GMn))/(1.+tau)
           F2 = ((GMp-GMn) - (GEp-GEn))/(1.+tau)
-          FA = gA/(1.+QSquared/MA**2)**2
-          if (axialMonopole) FA = gA/(1.+QSquared/MA**2)*(lambda1**2/(lambda1**2+QSquared))*lambda2**4/(lambda2**4+QSquared**2)
+          if (parametrizationAxial==0) then
+             FA = gA/(1.+QSquared/MA**2)**2 
+          else if (parametrizationAxial==1) then
+             FA = gA/(1.+QSquared/MA**2)*(lambda1**2/(lambda1**2+QSquared))*lambda2**4/(lambda2**4+QSquared**2)
+          else if (parametrizationAxial.gt.1) then
+             FA = 0
+             do i=0,kmax
+                FA = FA + ak(i+1)*(z**i) 
+             end do
+          end if
           FP= ((2.*mN**2)/(mPi**2. + QSquared))*FA
        else
           write(*,*) 'Error in formfactors_QE! Strange initialState_charge',initialState_charge
@@ -349,11 +511,18 @@ contains
        else
           write(*,*) 'Error in formfactors_QE! Strange initialState_charge',initialState_charge
        end if
-       FA = gA*tau3/(2.*(1.+QSquared/MA**2.)**2.)+FAS/2.
-       if (axialMonopole)  &
-            & FA = gA*tau3/2./(1.+QSquared/MA**2)*(lambda1**2/(lambda1**2+QSquared))*lambda2**4/(lambda2**4+QSquared**2)+FAS/2.
-       FP=((2.*mN**2)/(mPi**2.+QSquared))*FA
 
+       if (parametrizationAxial==0) then
+          FA = gA*tau3/(2.*(1.+QSquared/MA**2.)**2.)+FAS/2.
+       else if (parametrizationAxial==1) then
+          FA = gA*tau3/2./(1.+QSquared/MA**2)*(lambda1**2/(lambda1**2+QSquared))*lambda2**4/(lambda2**4+QSquared**2)+FAS/2.
+       else if (parametrizationAxial.gt.1) then
+          FA = FAS/2
+          do i=0,kmax
+             FA = FA + tau3*ak(i+1)*(z**i)/2
+          end do
+       end if
+       FP=((2.*mN**2)/(mPi**2.+QSquared))*FA
 
     case default
        write(*,*) 'Error in formfactors_QE! Invalid process ID:', processID

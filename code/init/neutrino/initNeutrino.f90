@@ -1854,7 +1854,7 @@ contains
               & (/0.,0./),(/2.1,2.1/),(/1.0/100,1.0/100/))
          call CreateHist(hSigmaMC_nu(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs nu ', &
-              & 0.,numax,numax/100.)
+              & 0.,numax,numax/200.)
          call CreateHist(hSigmaMC_qz(iHist), &
               & 'sigma ('//trim(intToChar(iHist))//') vs qz=sqrt(nu^2+Q2) ', &
               & 0.,numax,numax/100.)
@@ -2556,7 +2556,7 @@ contains
          & 30.0,      &               ! MINOS-barnu-barnumode
          & 30.0, 30.0, 30.0, 30.0, &  ! MINERvA-numu, MINERvA-antinumu,DUNE-nu,DUNE-barnu
          & 30.0, 300.0,      &        ! LBNO-nu, NOMAD
-         & 7.5, 7.5, 7.5, 7.5, &      ! BNB-nue,BNB-nuebar,BNBnumu,BNBnumubar
+         & 5., 5., 5., 5., &          ! BNB-nue,BNB-nuebar,BNBnumu,BNBnumubar
          & 15., 20., 20., 2000./)     ! NOvA, T2Koa, MINERvA 2016,FASER
 
 

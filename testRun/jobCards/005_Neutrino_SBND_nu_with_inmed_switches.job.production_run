@@ -2,6 +2,9 @@
 !* MasterJobCard for eventType=5 (neutrino- or electron-induced)
 ! The word 'neutrino' in all of the following stands also for 'electron'
 !------------------------------------------------------------------------------
+! this version of a jobcard is usable for production runs, since it uses
+! more statistics and produces more analysis output
+!------------------------------------------------------------------------------
 ! please visit the GiBUU homepage for further information:
 ! https://gibuu.hepforge.org
 ! and in particular https://gibuu.hepforge.org/Documentation2025/namelists.pdf
@@ -137,7 +140,7 @@
 &input
       eventtype=5               ! 5=neutrino, 200=simple transport of a given particle
 
-      numEnsembles=1000         ! for C12 you can use 4000, for heavier nuclei should be lower; decrease it if there are problems with memory
+      numEnsembles=4000         ! for C12 you can use 4000, for heavier nuclei should be lower; decrease it if there are problems with memory
       numTimeSteps=200          ! the distance numTimeSteps*delta_T (100*0.2=20 fm in this example) should significantly exceed the radius of the target nucleus
                                 ! for inclusive cross sections set numTimeSteps= 0; set this to 0 for inclusive cross sections.
       delta_T=0.2               ! timestep for FSI trajectories
@@ -180,7 +183,7 @@
 ! file: code/inputOutput/inputGeneral
 &InMedium
 master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed changes. 
-                         ! If set to .true. it turns on all 
+                         ! If set to .true. it turns on all
                          ! the inmedium pion-Delta corrections, i.e.
                          ! mediumSwitch=.true., mediumSwitch_Delta=.true.,
                          ! s-wave pion absorption s_wave_abs = .true, and 
@@ -188,11 +191,11 @@ master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed cha
                          ! If .false., the listed switches can be set independently
 /
 
-  
+
 ! file: ./collisions/ThreeBodyReactions/master_3Body.f0
 &master_3Body
       s_wave_abs = F        !switch for s-wave pion abs in NNpi -> NN
-/ 
+/
 
 ! file: code/width/baryonWidthMedium.f90
 &width_Baryon
@@ -269,11 +272,11 @@ master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed cha
 &neutrinoAnalysis
       outputEvents=.true.       ! output list of events and all outgoing particles in each event to the file FinalEvents.dat
 
-      include_W_dist=.false.    ! printout of W-distributions for outgoing channel
+      include_W_dist=.true.     ! printout of W-distributions for outgoing channel
       DoOutChannels = .true.    ! gives cross sections for various final states
       ZeroPion_analysis=.true.  ! extra cross sections for events with 0 pions in the final state
-      detailed_diff_output=.false. ! differential xsec; see namelist detailed_diff for max values and bins of the histograms
-      specificEvent_analysis=.false.  ! extra cross sections for specific final states; see namelist nl_specificEvent
+      detailed_diff_output=.true.  ! differential xsec; see namelist detailed_diff for max values and bins of the histograms
+      specificEvent_analysis=.true.   ! extra cross sections for specific final states; see namelist nl_specificEvent
                                       ! also provides Q2 and energy reconstruction
 
 ! now various exp. cuts on final state nucleons and pions; these may affect the FinalEvents file
@@ -289,7 +292,7 @@ master_piDelta_inmed = .false.  ! This is a master switch for pi-Delta inmed cha
                        ! =2: only unbound particles, =0: all particles
 
       reconstruct_neutrino_energy=.false. ! calculate neutrino energy reconstruction for various final states (see nl_specificEvent)
-    
+
 
 /
 

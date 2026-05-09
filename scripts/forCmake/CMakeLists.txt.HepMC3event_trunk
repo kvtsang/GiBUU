@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.10)
+
+# Set project name and language dependencies
+project(HEPMC3event CXX C Fortran)
+
+message("")
+message("HepMC3event:")
+
+
+# Find HepMC3
+if(NOT DEFINED HEPMC3_INCLUDE_DIR)
+   find_package(HepMC3 REQUIRED)
+endif()
+include_directories(${HEPMC3_INCLUDE_DIR})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-show-template-tree")
+
+#SET(MY_VARIABLE "option_value" CACHE STRING "Some user-specified option")
+# message("MY_VARIABLE=${MY_VARIABLE}")
+
+SET(GIBUU_VERSION "" CACHE STRING "The version of the GiBUU main code")
+message(STATUS "GIBUU_VERSION = ${GIBUU_VERSION}")
+
+#add_definitions( -DGIBUU_VERSION="\\"${GIBUU_VERSION}\\"" )
+add_definitions( -DGIBUU_VERSION="${GIBUU_VERSION}" )
+
+add_subdirectory(src)
+#add_subdirectory(progs)

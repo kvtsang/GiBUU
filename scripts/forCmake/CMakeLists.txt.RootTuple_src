@@ -1,0 +1,38 @@
+# This is a slightly modified version by GiBUU
+
+find_package(ROOT CONFIG REQUIRED)
+if(NOT ROOT_FOUND)
+       message(FATAL_ERROR "ROOT-Bibliothek nicht gefunden")
+endif()
+
+include_directories(${ROOT_INCLUDE_DIR})
+include_directories(${ROOT_INCLUDE_DIRS})
+
+# Test FORTRAN/C interface abilities and produce name mangling macros
+include(FortranCInterface)
+FortranCInterface_VERIFY(CXX)
+FortranCInterface_HEADER(FC_namemangling.h)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17") # [GiBUU]
+
+# message(STATUS "in RootTuple: CMAKE_SOURCE_DIR         : ${CMAKE_SOURCE_DIR}")
+# message(STATUS "in RootTuple: CMAKE_CURRENT_SOURCE_DIR : ${CMAKE_CURRENT_SOURCE_DIR}")
+# message(STATUS "in RootTuple: CMAKE_BINARY_DIR         : ${CMAKE_BINARY_DIR}")
+# message(STATUS "in RootTuple: CMAKE_CURRENT_BINARY_DIR : ${CMAKE_CURRENT_BINARY_DIR}")
+
+# Include binary tree in include path (to find name mangling macros)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}) # [GiBUU]
+
+# Create library
+set(RootTuple_SOURCES RootTuple.cxx interface.cxx)
+set(RootTuple_HEADERS RootTuple.h interface.h ${CMAKE_CURRENT_BINARY_DIR}/FC_namemangling.h) # [GiBUU]
+add_library(RootTuple STATIC ${RootTuple_SOURCES}) # [GiBUU]
+target_link_libraries(RootTuple ${ROOT_LIBRARIES})
+
+# Configure config script
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/RootTuple-config.in" "${CMAKE_CURRENT_BINARY_DIR}/RootTuple-config") # [GiBUU]
+
+# Create install targets
+install(TARGETS RootTuple DESTINATION lib)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/RootTuple-config DESTINATION bin
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE) # [GiBUU]
