@@ -463,7 +463,7 @@ contains
           ! Evaluate final decays
           if (DoPr(2)) write(*,*) 'No usual Collision Term;   &
               &  Just particle decays: ', i
-          dec = oneBody(partPert,partReal,time,.true.)
+          dec = oneBody(partPert,partReal,99.99,.true.)
 
           ! final Dilepton Analysis during/after forced decays
           if (dec) then
@@ -482,8 +482,8 @@ contains
 
        if (oneBodyAdditional) then
           if (DoPr(2)) write(*,*) 'Perform additional Jetset Decays.'
-          call PerformAddDecay(partReal,time)
-          call PerformAddDecay(partPert,time)
+          call PerformAddDecay(partReal,99.99)
+          call PerformAddDecay(partPert,99.99)
        end if
     end if
 

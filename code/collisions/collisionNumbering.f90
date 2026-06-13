@@ -461,6 +461,18 @@ contains
           write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,3),InPart(2)%firstEvent
        endif
 
+       ! Write incoming particle lines
+       if (code1.lt.100) then
+          call WriteParticleCollisionList(iFile, iiEns(1), InPart(1:1))
+       else if(code1.lt.1000) then
+          call WriteParticleCollisionList(iFile, iiEns(1), InPart(1:1))
+          call WriteParticleCollisionList(iFile, iiEns(2), InPart(2:2))
+       else if(code1.lt.10000) then
+          call WriteParticleCollisionList(iFile, iiEns(1), InPart(1:1))
+          call WriteParticleCollisionList(iFile, iiEns(2), InPart(2:2))
+          call WriteParticleCollisionList(iFile, iiEns(3), InPart(3:3))
+       endif
+
        call WriteParticleCollisionList(iFile, 0, OutPart)
 
 1001   format(f5.2,i5,i3,3(" ",i5," ",i9),i9,i3)
