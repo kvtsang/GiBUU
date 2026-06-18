@@ -457,7 +457,7 @@ contains
           if (code1.eq.212) iiEns(2)=0
           write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,2),InPart(2)%firstEvent,code11
        else if(code1.lt.10000) then
-          if (code1.eq.3112) iiEns(3)=0
+          if (code1.eq.3112) iiEns(1)=0
           write(iFile,1001) time, code1, nout, (iiEns(i),InPart(i)%number,i=1,3),InPart(2)%firstEvent
        endif
 

@@ -955,7 +955,8 @@ contains
   ! * logical                 :: FlagOK
   !
   !****************************************************************************
-  subroutine VolumeElements_NukSearch(partIn,RadiusNukSearch,proton1,proton2,neutron1,neutron2,FlagOK)
+  subroutine VolumeElements_NukSearch(partIn,RadiusNukSearch,proton1,proton2,neutron1,neutron2,FlagOK, &
+       iEns_proton1,iEns_proton2,iEns_neutron1,iEns_neutron2)
     use GridOrdering
     use IDTable, only: nucleon
     use collisionNumbering, only: check_justCollided
@@ -968,6 +969,9 @@ contains
     type(particle), pointer :: proton1, proton2
     type(particle), pointer :: neutron1, neutron2
     logical, intent(out) :: FlagOK
+    integer, optional, intent(out) :: iEns_proton1, iEns_proton2
+    integer, optional, intent(out) :: iEns_neutron1, iEns_neutron2
+    integer :: iInd_tmp
 
     type(dichte) :: dens
     real,    save :: radiusMax
@@ -1053,8 +1057,10 @@ contains
                 select case (nFound(0))
                 case (0)
                    neutron1 => pPart
+                   if (present(iEns_neutron1)) call GetEnsInd_Real(pPart, iEns_neutron1, iInd_tmp)
                 case (1)
                    neutron2 => pPart
+                   if (present(iEns_neutron2)) call GetEnsInd_Real(pPart, iEns_neutron2, iInd_tmp)
                 case default
                    cycle
                 end select
@@ -1064,8 +1070,10 @@ contains
                 select case (nFound(1))
                 case (0)
                    proton1 => pPart
+                   if (present(iEns_proton1)) call GetEnsInd_Real(pPart, iEns_proton1, iInd_tmp)
                 case (1)
                    proton2 => pPart
+                   if (present(iEns_proton2)) call GetEnsInd_Real(pPart, iEns_proton2, iInd_tmp)
                 case default
                    cycle
                 end select

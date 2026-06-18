@@ -1027,7 +1027,8 @@ contains
  ! Searches in particle Vector for those nucleons which are closest to the given particleIn. It
  ! returns pointers to the closest neutrons and protons.
  !*****************************************************************************
-  subroutine NukSearch(particleIn,particleVector,proton1,proton2,neutron1,neutron2,flagOK)
+  subroutine NukSearch(particleIn,particleVector,proton1,proton2,neutron1,neutron2,flagOK, &
+       iEns_proton1,iEns_proton2,iEns_neutron1,iEns_neutron2)
     use densityModule
     use dichteDefinition
     use particleDefinition
@@ -1041,6 +1042,8 @@ contains
     type(particle), dimension(:,:), intent(in), target :: particleVector  ! field of possible scattering partners
     type(particle),pointer :: proton1,proton2,neutron1,neutron2           ! Closest protons & neutrons
     logical, intent(out) :: flagOK
+    integer, optional, intent(out) :: iEns_proton1, iEns_proton2
+    integer, optional, intent(out) :: iEns_neutron1, iEns_neutron2
 
     real, dimension(1:3) :: position, ortsAbstand
     integer, dimension(0:1) :: nucleonsFound       ! Number of found nucleons, 0=neutrons, 1=protons
@@ -1111,16 +1114,20 @@ contains
                    nucleonsFound(0)=nucleonsFound(0)+1
                    if (nucleonsFound(0).eq.1) then
                       neutron1=>particleVector(i_index,j_index)
+                      if (present(iEns_neutron1)) iEns_neutron1 = i_index
                    else
                       neutron2=>particleVector(i_index,j_index)
+                      if (present(iEns_neutron2)) iEns_neutron2 = i_index
                    end if
 
                 else if ((particleVector(i_index,j_index)%charge.eq.1).and.(nucleonsFound(1).le.1)) then ! proton found
                    nucleonsFound(1)=nucleonsFound(1)+1
                    if (nucleonsFound(1).eq.1) then
                       proton1=>particleVector(i_index,j_index)
+                      if (present(iEns_proton1)) iEns_proton1 = i_index
                    else
                       proton2=>particleVector(i_index,j_index)
+                      if (present(iEns_proton2)) iEns_proton2 = i_index
                    end if
                 end if
              end if

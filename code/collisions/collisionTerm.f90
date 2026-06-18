@@ -1983,6 +1983,8 @@ contains
     ! logical :: justDeleteDelta=.false.! If Delta shall be just deleted -
     !                             ! therefore energy conservation is violated.
     integer, dimension(2,maxOut) :: posOut
+    integer :: iEns_p1, iEns_p2, iEns_n1, iEns_n2
+    integer :: iEns_scatter1, iEns_scatter2
     type(particle) :: partS2
 
     logical, save :: firstCall = .true.
@@ -2019,19 +2021,34 @@ contains
           if (fullensemble) then
              if (nukSearch_VE.and.localEnsemble) then
                 call VolumeElements_NukSearch(part, GetRadiusNukSearch(), &
-                     proton1,proton2,neutron1,neutron2, flagOk)
+                     proton1,proton2,neutron1,neutron2, flagOk, &
+                     iEns_proton1=iEns_p1, iEns_proton2=iEns_p2, &
+                     iEns_neutron1=iEns_n1, iEns_neutron2=iEns_n2)
              else
                 call NukSearch(part,partReal,&
-                     proton1,proton2,neutron1,neutron2, flagOk)
+                     proton1,proton2,neutron1,neutron2, flagOk, &
+                     iEns_proton1=iEns_p1, iEns_proton2=iEns_p2, &
+                     iEns_neutron1=iEns_n1, iEns_neutron2=iEns_n2)
              end if
           else
              call NukSearch(part,partReal(i:i,:),&
                   proton1,proton2,neutron1,neutron2, flagOk)
+             iEns_p1 = i; iEns_p2 = i; iEns_n1 = i; iEns_n2 = i
           end if
 
           if (.not.flagOk) cycle
           call make_3Body_Collision(part, proton1,proton2,neutron1,neutron2, &
                scatterPartner1,scatterPartner2,finalstate, flagOk)
+          iEns_scatter1 = 0
+          iEns_scatter2 = 0
+          if (associated(scatterPartner1, proton1))  iEns_scatter1 = iEns_p1
+          if (associated(scatterPartner1, proton2))  iEns_scatter1 = iEns_p2
+          if (associated(scatterPartner1, neutron1)) iEns_scatter1 = iEns_n1
+          if (associated(scatterPartner1, neutron2)) iEns_scatter1 = iEns_n2
+          if (associated(scatterPartner2, proton1))  iEns_scatter2 = iEns_p1
+          if (associated(scatterPartner2, proton2))  iEns_scatter2 = iEns_p2
+          if (associated(scatterPartner2, neutron1)) iEns_scatter2 = iEns_n1
+          if (associated(scatterPartner2, neutron2)) iEns_scatter2 = iEns_n2
 
           if (.not.flagOk) cycle
 
@@ -2040,7 +2057,8 @@ contains
              finalState%event(1)=pert_numbering(scatterPartner1)
              finalState%event(2)=pert_numbering(scatterPartner2)
              call ReportEventNumber((/part,scatterPartner1,scatterPartner2/), &
-                  finalState, finalState(1)%event,time,3112)
+                  finalState, finalState(1)%event,time,3112, &
+                  iEns2=iEns_scatter1, iEns3=iEns_scatter2)
              ! (2) Eliminate incoming perturbative particles
              part%Id=0
              cycle
@@ -2080,7 +2098,8 @@ contains
           end do
 
           call ReportEventNumber((/part,scatterPartner1,scatterPartner2/), &
-               finalState, finalState(1)%event, time, 3112)
+               finalState, finalState(1)%event, time, 3112, &
+               iEns2=iEns_scatter1, iEns3=iEns_scatter2)
 
           call rate((/part,scatterPartner1,scatterPartner2/), &
                finalState, time)
