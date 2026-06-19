@@ -1217,6 +1217,11 @@ contains
        do
           nAttempts = nAttempts + 1
 
+          ! Clear any numbering guess left over from a failed prior attempt,
+          ! so a stale lastNumberWasGuessed flag cannot suppress setNumber for
+          ! the surviving elastic/CEX final state (would yield track number 0).
+          call resetNumberGuess()
+
           if (nAttempts>10) then
              write(*,*) ' In generateFinalState: energy correction FAILED:'
              write(*,*) ' Colliding particles:', &
