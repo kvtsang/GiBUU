@@ -93,7 +93,7 @@ ifneq ($(withROOT),$(EMPTY))
 ROOTCONFIG:=$(strip $(shell which root-config 2>/dev/null))
 ifneq ($(ROOTCONFIG),$(EMPTY))
 	FLAGS_ROOT:=$(shell root-config --cflags)
-	FLAGS_ROOT:=$(subst -std=c++11, , $(FLAGS_ROOT))
+	FLAGS_ROOT:=$(filter-out -std=c++% -fsized-deallocation, $(FLAGS_ROOT))
 	FLAGSLD_ROOT:=$(shell root-config --libs) -lGui -lstdc++
 endif
 ROOTTUPLECONFIG:=$(strip $(shell which RootTuple-config 2>/dev/null))
@@ -109,7 +109,7 @@ ifneq ($(withHEPMC3),$(EMPTY))
 HEPMC3CONFIG:=$(strip $(shell which HepMC3-config 2>/dev/null))
 ifneq ($(HEPMC3CONFIG),$(EMPTY))
 	FLAGS_HEPMC3:=$(shell HepMC3-config --cflags)
-	FLAGS_HEPMC3:=$(subst -std=c++11, , $(FLAGS_HEPMC3))
+	FLAGS_HEPMC3:=$(filter-out -std=c++% -fsized-deallocation, $(FLAGS_HEPMC3))
 	FLAGSLD_HEPMC3:=$(shell HepMC3-config --libs) -lstdc++
 endif
 HEPMC3EVENTCONFIG:=$(strip $(shell which HepMC3event-config 2>/dev/null))
