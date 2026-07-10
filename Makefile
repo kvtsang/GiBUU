@@ -1009,13 +1009,22 @@ objects/version.f90 : $(allSrcFiles)
 	@echo ' contains  '                                              >> ./code/inputOutput/version.f90
 	@echo ' subroutine PrintVersion '                                >> ./code/inputOutput/version.f90
 	@echo ' implicit none '                                          >> ./code/inputOutput/version.f90
-	@echo ' write(*,2) "Version    : '$(VERSION)'" '                >> ./code/inputOutput/version.f90
-	@echo ' write(*,2) "Build Date : '`date` '" '                   >> ./code/inputOutput/version.f90
-	@echo ' write(*,2) "OS         : '$(OS_LONG)'" '                >> ./code/inputOutput/version.f90
-	@echo ' write(*,2) "Compiler   : '$(FORTVERS)'" '               >> ./code/inputOutput/version.f90
-	@echo ' write(*,2) "Flags      : $(FLAGSF90) $(FLAGSFORALL)" '  >> ./code/inputOutput/version.f90
-	@echo ' write(*,2) "PATH       : '`pwd -P` '" '                 >> ./code/inputOutput/version.f90
-	@svn status -q |awk -F @ '{printf " write(*,2) \" %s\"\n", $$1}' >> ./code/inputOutput/version.f90
+	@echo ' integer :: nLines, iLine, vUnit '                        >> ./code/inputOutput/version.f90
+	@echo ' character(400) :: vLines(256) '                          >> ./code/inputOutput/version.f90
+	@echo ' nLines = 0 '                                              >> ./code/inputOutput/version.f90
+	@echo ' nLines=nLines+1 ; vLines(nLines) = "Version    : '$(VERSION)'" '   >> ./code/inputOutput/version.f90
+	@echo ' nLines=nLines+1 ; vLines(nLines) = "Build Date : '`date`'" '       >> ./code/inputOutput/version.f90
+	@echo ' nLines=nLines+1 ; vLines(nLines) = "OS         : '$(OS_LONG)'" '   >> ./code/inputOutput/version.f90
+	@echo ' nLines=nLines+1 ; vLines(nLines) = "Compiler   : '$(FORTVERS)'" '  >> ./code/inputOutput/version.f90
+	@echo ' nLines=nLines+1 ; vLines(nLines) = "Flags      : $(FLAGSF90) $(FLAGSFORALL)" ' >> ./code/inputOutput/version.f90
+	@echo ' nLines=nLines+1 ; vLines(nLines) = "PATH       : '`pwd -P`'" '     >> ./code/inputOutput/version.f90
+	@svn status -q |awk -F @ '{printf " nLines=nLines+1 ; vLines(nLines) = \" %s\"\n", $$1}' >> ./code/inputOutput/version.f90
+	@echo ' open(newunit=vUnit, file="gibuu_version.txt", status="replace") '  >> ./code/inputOutput/version.f90
+	@echo ' do iLine=1,nLines '                                       >> ./code/inputOutput/version.f90
+	@echo '    write(*,2) trim(vLines(iLine)) '                      >> ./code/inputOutput/version.f90
+	@echo '    write(vUnit,2) trim(vLines(iLine)) '                  >> ./code/inputOutput/version.f90
+	@echo ' end do '                                                  >> ./code/inputOutput/version.f90
+	@echo ' close(vUnit) '                                            >> ./code/inputOutput/version.f90
 	@echo ' 2 FORMAT(" ",A)'                                         >> ./code/inputOutput/version.f90
 	@echo ' end subroutine PrintVersion '                            >> ./code/inputOutput/version.f90
 	@echo 'end module version '                                      >> ./code/inputOutput/version.f90
