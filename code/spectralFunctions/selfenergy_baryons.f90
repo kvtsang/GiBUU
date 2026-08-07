@@ -115,6 +115,8 @@ module selfenergy_baryons
   integer, save   :: particleID_g
   integer,save    :: switch_g
   type(medium),save :: med_g
+  real, dimension(1:3), save :: pos_g
+  logical, save :: posSet_g = .false.
 
 
   logical, save :: tellErrors=.false.
@@ -627,7 +629,11 @@ contains
        ! Dispersion must we switched off for the Oset width since the width is not meaningful for high energy!!!!
        realSelf=realSelf_atPole
     else
-       realSelf=realSelf_atPole+(E-E_pole)/pi*principalValue(particleID,absP,E,E_pole,med)
+       if (present(pos)) then
+          realSelf=realSelf_atPole+(E-E_pole)/pi*principalValue(particleID,absP,E,E_pole,med,pos=pos)
+       else
+          realSelf=realSelf_atPole+(E-E_pole)/pi*principalValue(particleID,absP,E,E_pole,med)
+       end if
     end if
   end function calc_RealPart
 
@@ -707,7 +713,7 @@ contains
   !****************************************************************************
   !****f* selfenergy_baryons/principalValue
   ! NAME
-  ! function principalValue(particleID,absP,E,E_pole,med) result(princi)
+  ! function principalValue(particleID,absP,E,E_pole,med,pos) result(princi)
   !
   ! PURPOSE
   ! * Returns the principal value of the dispersion relation integral
@@ -718,11 +724,12 @@ contains
   ! * real         :: E             -- energy
   ! * real         :: E_pole        -- Energy at pole = subtraction point
   ! * type(medium) :: med -- medium information
+  ! * real, dimension(3), OPTIONAL :: pos -- position of particle
   !
   ! OUTPUT
   ! * real :: princi
   !****************************************************************************
-  real function principalValue(particleID,absP,E,E_pole,med) result(princi)
+  real function principalValue(particleID,absP,E,E_pole,med,pos) result(princi)
     use quadPack
     use particleProperties, only: hadron
     use cernlib, only: dcauch
@@ -733,7 +740,7 @@ contains
     real ,intent(in)                 :: E_pole, E
 !    real, intent (in)                :: rhoN,rhoP ! In fm^-3
     type(medium), intent(in)       :: med
-
+    real, dimension(1:3), intent(in), optional :: pos
     !real :: dummy
     real :: result_low,result_up, abserr
     integer :: neval,ier
@@ -763,7 +770,7 @@ contains
              a=b-0.01
              !stop
           end if
-          call init_integrand(absP,med,E,E_pole,particleID,2)
+          call init_integrand(absP,med,E,E_pole,particleID,2,pos)
           call qawc ( integrand, a, b, E, abs_acc, rel_acc, result_low, abserr, neval, ier )
           if (debugFlag.or.ier.ne.0)  call errorMessage_qawc(neval,ier,absErr,result_low,'low')
           ! Treat the pole at "E_pole"
@@ -773,12 +780,12 @@ contains
              write(*,*) 'cutoff too small: a>b',a,b
              stop
           end if
-          call init_integrand(absP,med,E,E_pole,particleID,3)
+          call init_integrand(absP,med,E,E_pole,particleID,3,pos)
           call qawc ( integrand, a, b, E_pole,abs_acc, rel_acc, result_up, abserr, neval, ier )
           if (debugFlag.or.ier.ne.0)  call errorMessage_qawc(neval,ier,absErr,result_up,'up')
        case (iCernlib)
           !          write(*,*) 'cernlib'
-          call init_integrand(absP,med,E,E_pole,particleID,1)
+          call init_integrand(absP,med,E,E_pole,particleID,1,pos)
           a=lowerCutOff
           b=E+(E_pole-E)/2.
           if (a.gt.b) then
@@ -813,7 +820,7 @@ contains
              write(*,*) 'E>E_pole', E,E_pole
              write(*,*) 'a,b', a,b
           end if
-          call init_integrand(absP,med,E,E_pole,particleID,3)
+          call init_integrand(absP,med,E,E_pole,particleID,3,pos)
           call qawc ( integrand, a, b, E_pole,abs_acc, rel_acc, result_low, abserr, neval, ier )
           if (debugFlag.or.ier.ne.0)  call errorMessage_qawc(neval,ier,absErr,result_low,'low 2')
           ! Treat the pole at "E"
@@ -824,12 +831,12 @@ contains
              stop
           end if
           if (debugFlag)  write(*,*) 'a,b', a,b
-          call init_integrand(absP,med,E,E_pole,particleID,2)
+          call init_integrand(absP,med,E,E_pole,particleID,2,pos)
           call qawc ( integrand, a, b, E, abs_acc, rel_acc, result_up, abserr, neval, ier )
           if (debugFlag.or.ier.ne.0)  call errorMessage_qawc(neval,ier,absErr,result_up,'up 2')
 
        case (iCernlib)
-          call init_integrand(absP,med,E,E_pole,particleID,1)
+          call init_integrand(absP,med,E,E_pole,particleID,1,pos)
           a=lowerCutOff
           b=E_pole+(E-E_pole)/2.
           if (a.gt.b) then
@@ -884,12 +891,13 @@ contains
   ! PURPOSE
   ! * Sets global variables which are used by the integrand of the dispersion integral
   !****************************************************************************
-  subroutine init_integrand(absP_in,med_in,E_in,E_pole_in,particleID_in,switch_in)
+  subroutine init_integrand(absP_in,med_in,E_in,E_pole_in,particleID_in,switch_in,pos_in)
     use mediumDefinition
 
     real, intent(in)    :: absP_in,E_pole_in,E_in
     integer, intent(in) :: particleID_in, switch_in
     type(medium), intent(in) :: med_in
+    real, dimension(1:3), intent(in), optional :: pos_in
 
     ! Reset the constants:
     absP_g=absP_in
@@ -898,6 +906,8 @@ contains
     E_g=E_in
     particleID_g=particleID_IN
     switch_g=switch_in
+    posSet_g=present(pos_in)
+    if (posSet_g) pos_g=pos_in
     return
   end subroutine init_integrand
 
@@ -912,6 +922,7 @@ contains
   real function integrand(Eprime)
 
     real :: Eprime
+    real :: imagPart
 
     select case (switch_g)
     case (1)
@@ -925,12 +936,21 @@ contains
           integrand=0.
           return
        end if
-       integrand=1./(Eprime-E_g)/(Eprime-E_pole_g)  *selfEnergy_Imag(particleID_g,absP_g,EPrime,med_g)
-    case (2)
-       integrand=1.             /(Eprime-E_pole_g)  *selfEnergy_Imag(particleID_g,absP_g,EPrime,med_g)
+    end select
 
+    if (posSet_g) then
+       imagPart=selfEnergy_Imag(particleID_g,absP_g,EPrime,med_g,pos=pos_g)
+    else
+       imagPart=selfEnergy_Imag(particleID_g,absP_g,EPrime,med_g)
+    end if
+
+    select case (switch_g)
+    case (1)
+       integrand=1./(Eprime-E_g)/(Eprime-E_pole_g)  *imagPart
+    case (2)
+       integrand=1.             /(Eprime-E_pole_g)  *imagPart
     case (3)
-       integrand=1./(Eprime-E_g)                    *selfEnergy_Imag(particleID_g,absP_g,EPrime,med_g)
+       integrand=1./(Eprime-E_g)                    *imagPart
     end select
 
   end function integrand

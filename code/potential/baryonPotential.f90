@@ -541,16 +541,21 @@ contains
        end select
 
     case (98) ! use the tabulated values
-       if (positionNotSet) &
-            call TRACEBACK('the position of the particle must be known')
-
-       place=teilchen%pos(1:3)
-       sqrtR = sqrt(Dot_Product(place,place))
-       ! the following is necessary, due to possible overflow from nint:
-       if (sqrtR.ge.float(ubound(StorePotP,1))*StorePotDX) then
-          i = ubound(StorePotP,1)
+       if (positionNotSet) then
+          ! No particle position here -- e.g. self-energy/spectral-function
+          ! evaluations in init_neutrino's cross-section quadrature know
+          ! only a local density, not a location in the nucleus (issue-068).
+          ! Fall back to the nearest tabulated density instead of aborting.
+          i = density2index(med%density)
        else
-          i = min(nint(sqrtR/StorePotDX),ubound(StorePotP,1))
+          place=teilchen%pos(1:3)
+          sqrtR = sqrt(Dot_Product(place,place))
+          ! the following is necessary, due to possible overflow from nint:
+          if (sqrtR.ge.float(ubound(StorePotP,1))*StorePotDX) then
+             i = ubound(StorePotP,1)
+          else
+             i = min(nint(sqrtR/StorePotDX),ubound(StorePotP,1))
+          end if
        end if
        if (teilchen%charge>0) then
           out = StorePotP(i)
@@ -616,6 +621,44 @@ contains
     end if
 
   end function BaryonPotential
+
+
+  !****************************************************************************
+  !****f* baryonPotentialMain/density2index
+  ! NAME
+  ! integer function density2index(dens)
+  ! PURPOSE
+  ! Maps a local baryon density to the radial tabulation index used by
+  ! BaryonPotential's case (98) branch, for callers that only know a
+  ! density and not a particle position (e.g. self-energy/spectral-function
+  ! evaluations, see issue-068). StoreRhoB(i) is the density tabulated at
+  ! radial index i by the ReAdjust loop, and is monotonically decreasing in
+  ! i for a physical (Woods-Saxon-like) density profile, so nearest-density
+  ! stands in for the radius lookup the position-based path performs.
+  !****************************************************************************
+  integer function density2index(dens)
+    real, intent(in) :: dens
+    integer :: j, n
+
+    n = ubound(StoreRhoB,1)
+    if (dens >= StoreRhoB(0)) then
+       density2index = 0
+    else if (dens <= StoreRhoB(n)) then
+       density2index = n
+    else
+       density2index = n
+       do j=1,n
+          if (StoreRhoB(j) <= dens) then
+             if (abs(StoreRhoB(j-1)-dens) <= abs(StoreRhoB(j)-dens)) then
+                density2index = j-1
+             else
+                density2index = j
+             end if
+             exit
+          end if
+       end do
+    end if
+  end function density2index
 
 
   !****************************************************************************
