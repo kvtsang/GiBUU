@@ -379,6 +379,19 @@ module master_2Body
   ! via the residuum.
   !****************************************************************************
 
+  !****************************************************************************
+  !****g* master_2Body/sigmaScaleHH
+  ! SOURCE
+  !
+  real, save :: sigmaScaleHH = 1.0
+  ! PURPOSE
+  ! Global multiplicative scale factor applied to every two-body
+  ! (hadron-hadron) cross section computed by XsectionMaster before the
+  ! collision-decision cutoff and in-medium screening (feature-021: a
+  ! continuous FSI/cascade theta axis, distinct from the discrete
+  ! mediumSwitch family). Sensible range: 0.5-2.0 around the nominal 1.0.
+  ! At the default 1.0 the cascade reproduces current output bit-for-bit.
+  !****************************************************************************
 
   logical, save :: initFlag=.true.
 
@@ -487,7 +500,7 @@ contains
          OverideSigma_PiN, OverideSigma_RhoN, OverideSigma_PiPi,&
          Overide_PiPi_ResIsElast, &
          omega_K_factor, &
-         mesMes_do2to2, mesMes_useWidth, doScaleResidue
+         mesMes_do2to2, mesMes_useWidth, doScaleResidue, sigmaScaleHH
 
     character(60), dimension(1:3), parameter :: NNe = (/ &
          'isotropic                            ', &
@@ -1098,6 +1111,11 @@ contains
 
     call XsectionMaster(srtS_XS, partIn, mediumAtColl, momentum_LRF, &
          chosenEvent, sigs, HiEnergyFlag, PauliIncluded_out=pauliIncluded)
+
+    ! feature-021: global continuous scale on all two-body cross sections
+    ! (default 1.0 => bit-for-bit unchanged). Scaling every component of
+    ! sigs uniformly preserves channel branching ratios.
+    if (sigmaScaleHH/=1.0) sigs = sigs * sigmaScaleHH
 
     if (present(pauliIncluded_out)) pauliIncluded_out = pauliIncluded
     if (present(sigTot_out)) then

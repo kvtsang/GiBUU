@@ -562,6 +562,7 @@ contains
     use IDTable, only: nucleon
     use baryonWidthMedium_tables, only: &
          get_min_charge_loop,get_max_charge_loop
+    use baryonWidthMedium, only: get_WidthBroadenScale
     use twoBodyTools, only: pCM
 
     integer, intent(in)              :: particleID
@@ -792,8 +793,10 @@ contains
     ! Transform the width into the particles rest-frame
     gammaLorentz = 1./sqrt( 1. - dot_product(part%vel(1:3),part%vel(1:3)) )
     if (vac_check) gammaLorentz=1.
-    gColl=gColl*gammaLorentz
-    if (present(gcoll_elastic_out)) gcoll_elastic_out=gcoll_elastic*gammaLorentz
+    ! feature-021: continuous scale on collisional in-medium width
+    ! broadening (default 1.0 => bit-for-bit unchanged).
+    gColl=gColl*gammaLorentz*get_WidthBroadenScale()
+    if (present(gcoll_elastic_out)) gcoll_elastic_out=gcoll_elastic*gammaLorentz*get_WidthBroadenScale()
 
   end function calcCollBroadening_Bar
 

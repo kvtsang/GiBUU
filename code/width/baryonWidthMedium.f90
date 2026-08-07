@@ -66,6 +66,20 @@ module baryonWidthMedium
   !****************************************************************************
 
   !****************************************************************************
+  !****g* baryonWidthMedium/widthBroadenScale
+  ! SOURCE
+  !
+  real, save :: widthBroadenScale=1.0
+  ! PURPOSE
+  ! Only meaningful if mediumSwitch=.true. and mediumSwitch_coll=.true.:
+  ! Continuous multiplicative scale factor on the collisional in-medium
+  ! width broadening term (feature-021: a continuous FSI/cascade theta
+  ! axis, distinct from the mediumSwitch_coll boolean gate it extends).
+  ! Sensible range: 0.5-2.0 around the nominal 1.0. At the default 1.0
+  ! the in-medium width reproduces current output bit-for-bit.
+  !****************************************************************************
+
+  !****************************************************************************
   !****g* baryonWidthMedium/verboseInit
   ! SOURCE
   !
@@ -95,6 +109,7 @@ module baryonWidthMedium
   public :: get_MediumSwitch_Delta
   public :: get_MediumSwitch_proton_neutron
   public :: GetMassAssInfo_Baryon
+  public :: get_WidthBroadenScale
 
 contains
 
@@ -151,6 +166,19 @@ contains
 
 
   !****************************************************************************
+  !****f* baryonWidthMedium/get_WidthBroadenScale
+  ! NAME
+  ! real function get_WidthBroadenScale()
+  ! PURPOSE
+  ! Returns the value of widthBroadenScale (feature-021)
+  !****************************************************************************
+  real function get_WidthBroadenScale()
+    if (initFlag) call readInput
+    get_WidthBroadenScale=widthBroadenScale
+  end function get_WidthBroadenScale
+
+
+  !****************************************************************************
   !****s* baryonWidthMedium/readInput
   ! NAME
   ! subroutine readInput
@@ -175,12 +203,13 @@ contains
     ! * mediumSwitch_Delta
     ! * mediumSwitch_proton_neutron
     ! * mediumSwitch_coll
+    ! * widthBroadenScale
     ! * verboseInit
     ! * verboseInitStop
     !**************************************************************************
     NAMELIST /width_Baryon/ mediumSwitch, mediumSwitch_Delta, &
                             mediumSwitch_proton_neutron, mediumSwitch_coll, &
-                            verboseInit, verboseInitStop
+                            widthBroadenScale, verboseInit, verboseInitStop
 
     call Write_ReadingInput('width_Baryon',0)
     rewind(5)

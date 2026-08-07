@@ -131,6 +131,20 @@ module hadronFormation
   !****************************************************************************
 
   !****************************************************************************
+  !****g* hadronFormation/formTimeScale
+  ! SOURCE
+  !
+  real,save :: formTimeScale = 1.0
+  ! PURPOSE
+  ! Continuous multiplicative scale factor on tauForma in the fallback
+  ! (non-JetSetVec) formation-time formula (feature-021: a continuous
+  ! FSI/cascade theta axis). Values >1 extend formation (fewer early
+  ! re-interactions), values <1 shorten it. Sensible range: 0.5-2.0
+  ! around the nominal 1.0. At the default 1.0 the cascade reproduces
+  ! current output bit-for-bit.
+  !****************************************************************************
+
+  !****************************************************************************
   !****g* hadronFormation/powerCS
   ! SOURCE
   !
@@ -249,7 +263,7 @@ contains
     NAMELIST /hadronFormation/ tauProda,tauForma,tauFormaFak, &
          useJetSetVec, powerCS, useTimeFrom, useTimeTo, &
          GuessDiffrTimes, useJetSetVec_Q, useJetSetVec_R,&
-         pedestalCS, useQDM, dM2, use_pCut, pCut
+         pedestalCS, useQDM, dM2, use_pCut, pCut, formTimeScale
 
     common /DataGJV/ Arr(3,4,200),EArr(6,200),verb,AtOrigin
     ! Arr(3,4,nArrMax),    ! 3* 4D-Vertizes
@@ -477,7 +491,7 @@ contains
        ! This is called for particles with:
        ! useJetSetVec = .FALSE. or formationTime < 0,
        ! but only if in_Formation=.TRUE. !!!
-       tForma=Part%prodTime+freeEnergy(Part)/Part%mass*tauForma
+       tForma=Part%prodTime+freeEnergy(Part)/Part%mass*tauForma*formTimeScale
     end if
 
     if (time.lt.tForma) then
