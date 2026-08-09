@@ -530,6 +530,7 @@ CONTAINS
       use constants, only: rhoNull
       use distributions, only: BlattWeisskopf
       use baryonWidthVacuum, only: interactionRadius
+      use decisionScore, only: writeDecisionLogp
 
       real, intent(out),dimension(1:2) :: mass
       real, dimension(1:3,1:2),intent(out) :: momentum
@@ -743,6 +744,9 @@ CONTAINS
             if (probability>rn()) then
                ! Success
                success=.true.
+               ! feature-022 (item 4a): 2-body phase-space acceptance-ratio log-probability
+               call writeDecisionLogp('psWeight', max(pairIn(1)%firstEvent,pairIn(2)%firstEvent), &
+                    log(max(min(probability,1.),tiny(1.))))
                exit momLoop
             end if
          end do momLoop

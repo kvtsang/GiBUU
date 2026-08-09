@@ -189,6 +189,7 @@ contains
     use energyCalc, only: energyDetermination
     use history, only: setHistory
     use output, only: DoPR
+    use decisionScore, only: writeDecisionLogp
 
     type(particle), intent(in)   :: resonanceIN
     type(particle), dimension(:) :: finalState
@@ -317,6 +318,17 @@ contains
        end if
     end if
 
+    ! feature-022 (item 1): record decay-hazard Bernoulli log-probability
+    if (.not. finalFlag) then
+       if (zufall>=wahrscheinlichkeit) then
+          call writeDecisionLogp('decayHaz', resonance%firstEvent, &
+               log(max(1.-wahrscheinlichkeit,tiny(1.))), outcome=0)
+       else
+          call writeDecisionLogp('decayHaz', resonance%firstEvent, &
+               log(max(wahrscheinlichkeit,tiny(1.))), outcome=1)
+       end if
+    end if
+
     if (zufall>=wahrscheinlichkeit) then     !   monte-carlo decision
        ! Decay does not take place
        collisionFlag=.false.
@@ -345,6 +357,10 @@ contains
           exit
        end if
     end do
+
+    ! feature-022 (item 2): record branching-ratio categorical log-probability
+    if (dId /= 0) call writeDecisionLogp('brRatio', resonance%firstEvent, &
+         log(max(width(i),tiny(1.))), catVec=width(1:nDecays))
 
     L = 0
 

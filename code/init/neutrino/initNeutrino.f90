@@ -859,6 +859,7 @@ contains
     use nucleusDefinition
     use NuclearPDF, only: SetNuclearPDFA
     use monteCarlo, only: MonteCarloChoose
+    use decisionScore, only: writeDecisionLogp
     use constants, only: mN
     use residue, only: InitResidue, ResidueAddPH, ResidueSetWeight
 
@@ -1269,6 +1270,15 @@ contains
           end if
 
           firstEvent=getFirstEvent()
+
+          ! feature-022 (item 4c)/issue-074: neutrino-vertex Jacobian
+          ! log-probability, deferred here (from SetXsecMC, which runs before
+          ! firstEvent is assigned) so the record carries the real cascade id.
+          if (MCmode .and. xyJacob>0.) call writeDecisionLogp('nuJacob', firstEvent, log(xyJacob))
+
+          ! feature-022 (item 4d/5): channel-selection categorical log-probability
+          if (k/=0 .and. sigtot>0.) call writeDecisionLogp('chanSel', firstEvent, &
+               log(max(sigma(k)/sigtot,tiny(1.))), catVec=sigma(1:)/sigtot)
 
 
           select case (k)

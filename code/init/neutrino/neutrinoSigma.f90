@@ -148,7 +148,7 @@ module neutrinoSigma
   real,save :: MC_x,MC_y
   real,save :: xyJacob  ! Jacobian from dx dy -> dcos(theta) dE'
 
-  public :: MC_x,MC_y
+  public :: MC_x,MC_y,xyJacob
 
   logical, save :: initflag=.true.
 
@@ -553,6 +553,10 @@ contains
        Eprime=eNev%lepton_out%mom(0)
        ! Jacobian xyJacob from dsigma/dE1dcostheta to dsigma/dxdy:
        xyJacob = (MC_y*PK**2)/(Ein *sqrt(Eprime**2-eNev%lepton_out%mass**2)*eNev%nucleon%mom(0))
+       ! feature-022 (item 4c)/issue-074: xyJacob is exposed via the public
+       ! module variable declared above; initNeutrino.f90 emits the nuJacob
+       ! decision record once the real cascade firstEvent is known (this
+       ! call site predates that assignment).
     end if
 
   end subroutine SetXsecMC

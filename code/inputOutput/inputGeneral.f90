@@ -320,6 +320,19 @@ module inputGeneral
   !****************************************************************************
 
   !****************************************************************************
+  !****g* inputGeneral/emitDecisionLogp
+  ! PURPOSE
+  ! feature-022: switch to turn on emission of the log-probability of
+  ! individual instrumented random Monte-Carlo decisions (decay hazard/
+  ! branching, cascade collision acceptance, 2-body phase-space weight,
+  ! neutrino-vertex channel choice) to decisionLogProb.dat. Default
+  ! .false. => no output file, no change to run behavior or performance.
+  ! SOURCE
+  !
+  logical, save :: emitDecisionLogp = .false.
+  !****************************************************************************
+
+  !****************************************************************************
   !****g* inputGeneral/master_piDelta_inmed
   ! PURPOSE
   ! Master switch to turn on or off all the pion-Delta in-med properties,
@@ -405,6 +418,7 @@ contains
     ! * DoFragmentNucleons
     ! * PrintCollisionList
     ! * onlyFirstEvent
+    ! * emitDecisionLogp
     ! * version
     !**************************************************************************
     NAMELIST /input/ path_To_Input, numEnsembles, eventtype, &
@@ -417,7 +431,7 @@ contains
          timeForOutput, timeSequence, &
          printParticleVectorsFormat, &
          DoPrLevel, povray_switch, LRF_equals_CALC_frame, DoFragmentNucleons, &
-         PrintCollisionList, onlyFirstEvent, &
+         PrintCollisionList, onlyFirstEvent, emitDecisionLogp, &
          version
 
     !**************************************************************************
@@ -542,6 +556,7 @@ contains
 
     write(*,*) 'print CollisionList: ',printCollisionList
     write(*,*) 'onlyFirstEvent     : ',onlyFirstEvent
+    write(*,*) 'emitDecisionLogp   : ',emitDecisionLogp
 
     write(*,*) 'Use continous boundary conditions: ',continousBoundaries
     write(*,*) 'Final Coulomb correction at end of run=',FinalCoulombCorrection

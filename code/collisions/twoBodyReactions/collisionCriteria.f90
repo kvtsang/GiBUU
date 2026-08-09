@@ -111,6 +111,7 @@ contains
     use random, only: rn
     use output, only: DoPr
     use lorentzTrafo, only: eval_sigmaBoost
+    use decisionScore, only: writeDecisionLogp
 
     type(particle),intent(in),dimension(1:2) :: pair         ! in calculation frame
     real         , intent(in)                :: sigmaTot     ! in mb
@@ -118,7 +119,7 @@ contains
     integer      , intent(in)                :: numEnsembles ! number of Ensembles
     real         , intent(in)                :: deltaT       ! time step size [fm]
 
-    real :: probability, dThreex, vrel, sigmaBoost
+    real :: probability, dThreex, vrel, sigmaBoost, sigmaEff, kinPref
     real, dimension(1:3) :: vrel_vector ! relative velocity
 
     if (initFlag) call readInput_coll
@@ -141,6 +142,13 @@ contains
        stop
     end if
 
+    ! feature-022/issue-073: sufficient statistic for post-hoc recomputation
+    ! of the accept probability at a different theta. Computed separately
+    ! from `probability` above so this instrumentation can never perturb the
+    ! physics decision: p(theta') = min(350., sigmaEff * s'/s) * kinPref.
+    sigmaEff = sigmaTot*sigmaBOOST
+    kinPref = vRel*deltaT*float(weightLocal)/10./float(numEnsembles)/dThreeX
+
     ! 4.) Check collision probability and make Monte-Carlo-Decision
     if (probability>1) then
        if (DoPr(2)) then
@@ -152,10 +160,22 @@ contains
           write(*,*) '****'
        end if
        localCollisionCriteria=.true.
+       ! feature-022 (item 3)/issue-074: forced accept (probability>1), not a
+       ! genuine draw -- logp=0 exactly (score contribution is zero), but the
+       ! row is recorded (issue-073) so p(theta') can be recomputed where the
+       ! clamp releases below theta.
+       call writeDecisionLogp('collAcc', max(pair(1)%firstEvent,pair(2)%firstEvent), &
+            0., outcome=2, sigmaPreClamp=sigmaEff, kinPrefactor=kinPref)
     else if (probability>rn()) then
        localCollisionCriteria=.true.
+       call writeDecisionLogp('collAcc', max(pair(1)%firstEvent,pair(2)%firstEvent), &
+            log(max(min(probability,1.),tiny(1.))), outcome=1, &
+            sigmaPreClamp=sigmaEff, kinPrefactor=kinPref)
     else
        localCollisionCriteria=.false.
+       call writeDecisionLogp('collAcc', max(pair(1)%firstEvent,pair(2)%firstEvent), &
+            log(max(1.-probability,tiny(1.))), outcome=0, &
+            sigmaPreClamp=sigmaEff, kinPrefactor=kinPref)
     end if
 
     ! 5.) Protocol the probability for debuging purposes
